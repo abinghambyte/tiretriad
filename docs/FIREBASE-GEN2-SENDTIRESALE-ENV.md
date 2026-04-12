@@ -1,6 +1,21 @@
-# Firebase Gen2: `sendTireSaleSms` → Slack (`NOTIFY_WEBHOOK_URL`)
+# Firebase Gen2: `sendTireSaleSms` → Slack
 
-The portal calls **`sendTireSaleSms`** as a **Firebase Callable** (HTTPS) in project **`skedaddle-inventory`**, region **`us-central1`**. The implementation is **2nd gen** (`firebase-functions/v2/https`).
+The portal calls **`sendTireSaleSms`** as a **Firebase Callable** in project **`skedaddle-inventory`**, region **`us-central1`** (Gen2 `firebase-functions/v2/https`).
+
+## Notify modes (Phase 2)
+
+| Mode | When | Behavior |
+| :--- | :--- | :--- |
+| **Slack bot + Block Kit** | **`SLACK_BOT_TOKEN`** is set | `chat.postMessage` to **`SLACK_CHANNEL_ID`** (or **`SLACK_NOTIFY_CHANNEL`** / `#fleet-ops`), Block Kit + **Mark ready** button; creates **`orders/{id}`** (`pending`). |
+| **Incoming webhook (fallback)** | **`SLACK_BOT_TOKEN`** is unset | Same as before: **`NOTIFY_WEBHOOK_URL`** (+ optional `NOTIFY_WEBHOOK_URL_2`, **`NOTIFY_WEBHOOK_STYLE`**). No Firestore order doc. |
+
+**Interactivity:** **`slackActions`** (HTTP `onRequest`) verifies **`SLACK_SIGNING_SECRET`** and sets **`orders/{id}.status`** to **`ready`** when the button is clicked. Slack app → **Interactivity & Shortcuts** → Request URL:
+
+`https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions`
+
+Invite the Slack app/bot into **`#fleet-ops`** (or whichever channel you post to). If Slack returns **`not_in_channel`**, the bot is not a member.
+
+If Slack gets **403** from the function URL, open **Google Cloud Console** → **Cloud Run** → service **`slackactions`** (lowercase) → **Permissions** → allow unauthenticated invoke for the Slack servers (or add **allUsers** as **Cloud Run Invoker**), matching how your other public HTTP functions are exposed.
 
 ## What the code reads
 
@@ -8,11 +23,15 @@ The portal calls **`sendTireSaleSms`** as a **Firebase Callable** (HTTPS) in pro
 
 | Variable | Required | Purpose |
 | :--- | :--- | :--- |
-| **`NOTIFY_WEBHOOK_URL`** | Yes (for Slack) | Slack Incoming Webhook URL (`https://hooks.slack.com/services/...`). |
+| **`SLACK_BOT_TOKEN`** | For Block Kit path | Bot token (`xoxb-...`) for `chat.postMessage`. |
+| **`SLACK_SIGNING_SECRET`** | For `slackActions` | Verifies `X-Slack-Signature` on interactive payloads. |
+| **`SLACK_CHANNEL_ID`** | Recommended | Channel ID `C…` for `#fleet-ops`. |
+| **`SLACK_NOTIFY_CHANNEL`** | No | Fallback channel string if `SLACK_CHANNEL_ID` unset (default `#fleet-ops`). |
+| **`NOTIFY_WEBHOOK_URL`** | Webhook-only path | Used only when **`SLACK_BOT_TOKEN`** is unset. |
 | **`NOTIFY_WEBHOOK_URL_2`** | No | Optional second webhook. |
-| **`NOTIFY_WEBHOOK_STYLE`** | No | Defaults to **`slack`**. Must be the style keyword only: `slack`, `discord`, or `generic` — **never** paste the webhook URL here. |
+| **`NOTIFY_WEBHOOK_STYLE`** | No | Defaults to **`slack`**. Style keyword only — **never** put the webhook URL here. |
 
-If **`NOTIFY_WEBHOOK_URL`** is unset, the callable throws **`failed-precondition`** with a clear message (not a silent failure).
+If neither **`SLACK_BOT_TOKEN`** nor **`NOTIFY_WEBHOOK_URL`** is configured, the callable throws **`failed-precondition`**.
 
 ## What *not* to use for Gen2
 
@@ -64,5 +83,6 @@ Incoming webhooks are **per channel**. In Slack, open **Settings** for the works
 
 ## Related docs
 
-- [TIRE-TOOL-PHASE2-ROADMAP.md](./TIRE-TOOL-PHASE2-ROADMAP.md) — end-to-end verify steps.
-- [CLOUD-RUN-NOTIFY-ENV-FIX.md](./CLOUD-RUN-NOTIFY-ENV-FIX.md) — URL vs `NOTIFY_WEBHOOK_STYLE` (also applies to the same env **names** on this function).
+- [SKEDADDLE-MASTER.md](./SKEDADDLE-MASTER.md) — full Phase 2 spec.
+- [TIRE-TOOL-PHASE2-ROADMAP.md](./TIRE-TOOL-PHASE2-ROADMAP.md) — tire tool / Slack notes.
+- [CLOUD-RUN-NOTIFY-ENV-FIX.md](./CLOUD-RUN-NOTIFY-ENV-FIX.md) — URL vs `NOTIFY_WEBHOOK_STYLE` (webhook path).

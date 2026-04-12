@@ -1,17 +1,32 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { LoginForm } from '../components/auth/LoginForm'
 import { useAuth } from '../hooks/useAuth'
+
+function postLoginPath(state) {
+  const from = state?.from
+  if (
+    typeof from === 'string' &&
+    from.startsWith('/') &&
+    !from.startsWith('//') &&
+    !from.includes('..')
+  ) {
+    return from
+  }
+  return '/dashboard'
+}
 
 export function LandingPage() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const savedFrom = location.state?.from
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/dashboard', { replace: true })
+      navigate(postLoginPath({ from: savedFrom }), { replace: true })
     }
-  }, [user, loading, navigate])
+  }, [user, loading, navigate, savedFrom])
 
   if (loading) {
     return (
@@ -43,7 +58,11 @@ export function LandingPage() {
             SKEDADDLE
           </h1>
         </div>
-        <LoginForm onSuccess={() => navigate('/dashboard', { replace: true })} />
+        <LoginForm
+          onSuccess={() =>
+            navigate(postLoginPath({ from: savedFrom }), { replace: true })
+          }
+        />
       </div>
     </div>
   )

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "seed:tires": "node scripts/seed-tires.mjs",
     "import:tires-csv": "node scripts/import-tires-csv.mjs",
-    "deploy:functions": "firebase deploy --only functions"
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:firebase": "firebase deploy --only functions,firestore"
   },
   "dependencies": {
     "firebase": "^12.12.0",

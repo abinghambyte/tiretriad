@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { LandingPage } from './pages/LandingPage'
+import { OrdersPage } from './pages/OrdersPage'
 import { TiresPage } from './pages/TiresPage'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 
@@ -21,6 +22,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <TiresPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/orders"
+        element={
+          <ProtectedRoute>
+            <OrdersPage />
           </ProtectedRoute>
         }
       />

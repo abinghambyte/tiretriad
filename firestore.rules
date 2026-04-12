@@ -10,5 +10,14 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+
+    // Creates via Cloud Functions (Admin). Portal: read all; update only customerNotifiedAt.
+    match /orders/{orderId} {
+      allow read: if request.auth != null;
+      allow create, delete: if false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['customerNotifiedAt']);
+    }
   }
 }

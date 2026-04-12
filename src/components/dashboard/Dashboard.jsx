@@ -8,6 +8,21 @@ import { useTires } from '../../hooks/useTires'
 import { marginPercent } from '../../utils/marginCalc'
 import { ProjectCard } from './ProjectCard'
 
+function IconOrders() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path strokeLinecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  )
+}
+
 function IconTires() {
   return (
     <svg
@@ -192,6 +207,16 @@ export function Dashboard() {
       accent: 'amber',
       icon: <IconTires />,
       to: '/tires',
+    },
+    {
+      title: 'Tire Orders',
+      description:
+        'Slack-driven Kyle → DJ workflow. Notify customers via SMS link and mark orders complete when paid.',
+      stat: 'Fleet-ops queue · customer SMS + completion',
+      status: 'Live',
+      accent: 'amber',
+      icon: <IconOrders />,
+      to: '/orders',
     },
     {
       title: 'Ops Command',

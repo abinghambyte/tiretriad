@@ -23,38 +23,26 @@
 ---
 
 ## Phase 2 — Slack interactivity
-**Depends on:** Phase 1 complete
+**Depends on:** Phase 1 complete  
+**Status:** implemented in `functions/index.js` — deploy + Slack app wiring still required on your side.
 
 ### Context
-The current `sendTireSaleSms` callable sends a plain-text webhook POST to Slack. Incoming webhooks do not support interactive buttons. Phase 2 upgrades to Block Kit + `chat.postMessage` + a bot token, and adds a Firebase function to receive Slack action payloads.
+When **`SLACK_BOT_TOKEN`** is set, **`sendTireSaleSms`** uses **`chat.postMessage`** with Block Kit (section + **Mark ready**), creates **`orders/{id}`** (`pending`), and stores **`slackMessageTs`**. If the bot token is unset, the callable falls back to **`NOTIFY_WEBHOOK_URL`** (plain text, no button).
 
-### 2.1 Create Slack app with bot token
-- Go to api.slack.com/apps → Create app → From scratch
-- Add `chat:write` and `chat:write.public` OAuth scopes
-- Install to workspace → copy `xoxb-...` bot token
-- Add to `functions/.env`: `SLACK_BOT_TOKEN=xoxb-...`
-- Add to `functions/.env`: `SLACK_SIGNING_SECRET=...` (from app Basic Information page)
+### 2.1 Create Slack app with bot token *(you)*
+- api.slack.com/apps → app with **`chat:write`**, **`chat:write.public`**
+- Install to workspace → **`SLACK_BOT_TOKEN`**, **`SLACK_SIGNING_SECRET`** in **`functions/.env`**
+- Optional: **`SLACK_CHANNEL_ID`** (`C…`) for `#fleet-ops` — invite the bot to that channel
 
-### 2.2 Upgrade `sendTireSaleSms` to Block Kit
-- Switch from incoming webhook POST to `chat.postMessage` API call
-- Target channel: `#fleet-ops`
-- Message format: Block Kit with a section block (sale details) + actions block with a single "Mark ready" button
-- Button `action_id`: `mark_ready`
-- Button `value`: the Firestore order ID (created in Phase 3 — stub with sale MSPN for now)
-- Remove `NOTIFY_WEBHOOK_URL` dependency once bot token path is confirmed working
+### 2.2 Upgrade `sendTireSaleSms` *(done in repo)*
+- Block Kit + **`action_id`:** `mark_ready`, **`value`:** Firestore order document id (created before post)
 
-### 2.3 New Firebase Gen2 function: `slackActions`
-- Type: `onRequest` (HTTP, not callable)
-- Endpoint: registered as Slack app Request URL in api.slack.com/apps → Interactivity
-- On receive:
-  1. Verify Slack signing secret (reject anything that fails)
-  2. Parse `payload` from request body
-  3. Check `action_id` — handle `mark_ready` only for now
-  4. Write `status: "ready"`, `updatedAt: now()` to `orders/{orderId}` in Firestore
-  5. Respond `200` with empty body within 3 seconds (do Firestore write async if needed)
-- New env vars needed: `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`
+### 2.3 **`slackActions`** Gen2 HTTP *(done in repo)*
+- **`onRequest`** — verify Slack signature, **`mark_ready`** → **`orders/{id}`** `status: ready`, **`updatedAt`**
+- Interactivity Request URL: see [FIREBASE-GEN2-SENDTIRESALE-ENV.md](./FIREBASE-GEN2-SENDTIRESALE-ENV.md) (`…/slackActions`)
+- Deploy **`firestore.rules`** so authenticated clients can **read** `orders` (writes remain Functions-only)
 
-**Done when:** Clicking "Mark ready" in `#fleet-ops` updates the Firestore order doc.
+**Done when:** After deploy, clicking **Mark ready** in Slack updates the matching **`orders`** doc in Firestore (verify in console).
 
 ---
 

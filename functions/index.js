@@ -1,13 +1,20 @@
 /**
- * Gen2 callable — Slack / Discord notify via process.env only (not functions.config()).
- * Set NOTIFY_WEBHOOK_URL (+ optional NOTIFY_WEBHOOK_URL_2, NOTIFY_WEBHOOK_STYLE) using
- * functions/.env at deploy time or Cloud Run env for this function. See
- * docs/FIREBASE-GEN2-SENDTIRESALE-ENV.md — legacy `firebase functions:config:set` does not
- * populate process.env here.
+ * Gen2 functions — env via process.env (see functions/.env.example).
+ * @see docs/SKEDADDLE-MASTER.md · docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
-const { onCall, HttpsError } = require('firebase-functions/v2/https')
+const crypto = require('crypto')
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
+const { FieldValue } = require('firebase-admin/firestore')
+const {
+  buildStage1Blocks,
+  fallbackTextForOrder,
+  handleSlackPayload,
+  postOrderCompletionSummary,
+  orderFromSnap,
+  formatFulfillmentMinutes,
+} = require('./orderWorkflow')
 
 admin.initializeApp()
 
@@ -34,12 +41,22 @@ function formatSaleMessage(d) {
   ].join('\n')
 }
 
-/**
- * Posts to Slack, Discord, or a generic JSON webhook.
- * Default is Slack ({ text }) — aligns with Block Kit / threading roadmap; use discord for { content }.
- * One-way: incoming webhooks only POST out. Two-way buttons (Kyle confirms → Firestore → DJ) need a
- * Slack app + Interactivity Request URL (HTTPS) + signing secret — separate from this webhook.
- */
+async function slackApiPost(token, method, body) {
+  const res = await fetch(`https://slack.com/api/${method}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!json.ok) {
+    throw new Error(json.error || `Slack API ${method} failed`)
+  }
+  return json
+}
+
 async function postWebhook(url, message, style) {
   const s = (style || 'slack').toLowerCase()
   let body
@@ -63,7 +80,7 @@ async function postWebhook(url, message, style) {
   }
 }
 
-async function notifyTeam(message) {
+async function notifyTeamWebhook(message) {
   const style = process.env.NOTIFY_WEBHOOK_STYLE || 'slack'
   const urls = [
     process.env.NOTIFY_WEBHOOK_URL,
@@ -73,14 +90,96 @@ async function notifyTeam(message) {
   if (urls.length === 0) {
     throw new HttpsError(
       'failed-precondition',
-      'No NOTIFY_WEBHOOK_URL configured. Add a Slack (or Discord) incoming webhook URL to the function environment.',
+      'No NOTIFY_WEBHOOK_URL configured, and SLACK_BOT_TOKEN is not set. Configure one of them in functions/.env.',
     )
   }
 
   await Promise.all(urls.map((u) => postWebhook(u, message, style)))
 }
 
-/** Kept name for existing clients; sends via webhook, not SMS. */
+function slackChannelEnv() {
+  return (
+    process.env.SLACK_CHANNEL_ID ||
+    process.env.SLACK_NOTIFY_CHANNEL ||
+    '#fleet-ops'
+  )
+}
+
+/**
+ * Creates `orders/{id}`, posts Stage 1 Block Kit, stores slack ts + channel on the doc.
+ */
+async function notifyTeamSlackBot(db, d) {
+  const token = process.env.SLACK_BOT_TOKEN
+  const channel = slackChannelEnv()
+
+  if (!token) {
+    throw new HttpsError(
+      'failed-precondition',
+      'SLACK_BOT_TOKEN is not set. Add it to functions/.env for Block Kit + workflow.',
+    )
+  }
+
+  const fulfillmentLc =
+    String(d.fulfillment).toLowerCase() === 'pickup' ? 'pickup' : 'delivery'
+
+  const orderRef = db.collection('orders').doc()
+  const orderId = orderRef.id
+
+  await orderRef.set({
+    status: 'pending',
+    mspn: d.mspn,
+    quantity: d.quantity,
+    pricePerTire: d.pricePerTire,
+    totalPrice: d.totalPrice,
+    customerName: d.customerName,
+    customerContact: d.customerContact,
+    fulfillment: fulfillmentLc,
+    fulfillmentNotes: d.fulfillmentNotes || '',
+    additionalNotes: d.additionalNotes || '',
+    assignedTo: '',
+    assignedRole: 'mechanic',
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    slackMessageTs: '',
+    slackChannelId: '',
+  })
+
+  const fallback = formatSaleMessage(d)
+  const blocks = buildStage1Blocks(orderId, d)
+
+  const post = await slackApiPost(token, 'chat.postMessage', {
+    channel,
+    text: fallback,
+    blocks,
+  })
+
+  await orderRef.update({
+    slackMessageTs: post.ts || '',
+    slackChannelId: post.channel || channel,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  return { orderId, channel: post.channel, ts: post.ts }
+}
+
+function verifySlackSignature(signingSecret, rawBody, slackSignature, slackRequestTimestamp) {
+  if (!signingSecret || !slackSignature || !slackRequestTimestamp) return false
+  const ts = Number(slackRequestTimestamp)
+  if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 60 * 5) {
+    return false
+  }
+  const sigBasestring = `v0:${slackRequestTimestamp}:${rawBody}`
+  const hmac = crypto.createHmac('sha256', signingSecret)
+  hmac.update(sigBasestring, 'utf8')
+  const mySig = `v0=${hmac.digest('hex')}`
+  try {
+    return crypto.timingSafeEqual(Buffer.from(mySig, 'utf8'), Buffer.from(slackSignature, 'utf8'))
+  } catch {
+    return false
+  }
+}
+
+/** Kept name for existing clients; Slack notify (Block Kit + bot, or webhook fallback). */
 exports.sendTireSaleSms = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
@@ -109,7 +208,7 @@ exports.sendTireSaleSms = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'fulfillment must be Pickup or Delivery.')
   }
 
-  const body = formatSaleMessage({
+  const sale = {
     mspn,
     quantity,
     pricePerTire,
@@ -119,15 +218,185 @@ exports.sendTireSaleSms = onCall(async (request) => {
     fulfillment,
     fulfillmentNotes: String(data.fulfillmentNotes || '').trim(),
     additionalNotes: String(data.additionalNotes || '').trim(),
-  })
+  }
+
+  const db = admin.firestore()
 
   try {
-    await notifyTeam(body)
+    if (process.env.SLACK_BOT_TOKEN) {
+      const { orderId } = await notifyTeamSlackBot(db, sale)
+      return { ok: true, mode: 'slack_bot', orderId }
+    }
+    await notifyTeamWebhook(formatSaleMessage(sale))
+    return { ok: true, mode: 'webhook' }
   } catch (e) {
     if (e instanceof HttpsError) throw e
     const msg = e instanceof Error ? e.message : String(e)
     throw new HttpsError('internal', `Notify failed: ${msg}`)
   }
+})
 
-  return { ok: true }
+/**
+ * Mark order completed + post summary to Slack (#fleet-ops).
+ */
+exports.completeOrder = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+
+  const data = request.data || {}
+  const orderId = String(data.orderId || '').trim()
+  const paymentReceived = Boolean(data.paymentReceived)
+  const paymentAmount = Number(data.paymentAmount)
+
+  if (!orderId) {
+    throw new HttpsError('invalid-argument', 'orderId is required.')
+  }
+  if (!Number.isFinite(paymentAmount) || paymentAmount < 0) {
+    throw new HttpsError('invalid-argument', 'paymentAmount is invalid.')
+  }
+
+  const token = process.env.SLACK_BOT_TOKEN
+  if (!token) {
+    throw new HttpsError('failed-precondition', 'SLACK_BOT_TOKEN is not configured.')
+  }
+
+  const db = admin.firestore()
+  const ref = db.collection('orders').doc(orderId)
+  const snap = await ref.get()
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'Order not found.')
+  }
+
+  const before = orderFromSnap(snap)
+  if (before.status !== 'in_transit') {
+    throw new HttpsError('failed-precondition', 'Order must be in_transit to complete.')
+  }
+  if (!before.customerNotifiedAt) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Notify the customer from the portal before marking complete.',
+    )
+  }
+
+  const createdAt = before.createdAt
+  let fulfillmentTimeMinutes = 0
+  if (createdAt && typeof createdAt.toMillis === 'function') {
+    fulfillmentTimeMinutes = Math.round(
+      (Date.now() - createdAt.toMillis()) / 60000,
+    )
+  }
+
+  const completedAt = FieldValue.serverTimestamp()
+  await ref.update({
+    status: 'completed',
+    completedAt,
+    paymentReceived,
+    paymentAmount,
+    fulfillmentTimeMinutes,
+    handledBy: { supplier: 'Kyle', mechanic: 'DJ' },
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  const afterSnap = await ref.get()
+  const order = orderFromSnap(afterSnap)
+  const portalBase =
+    process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com'
+
+  try {
+    await postOrderCompletionSummary(
+      token,
+      slackChannelEnv(),
+      order,
+      portalBase,
+    )
+  } catch (e) {
+    console.error('completeOrder: Slack summary failed', e)
+  }
+
+  return {
+    ok: true,
+    orderId,
+    fulfillmentTimeMinutes,
+    fulfillmentTimeLabel: formatFulfillmentMinutes(fulfillmentTimeMinutes),
+  }
+})
+
+/**
+ * Slack Interactivity — block_actions + view_submission.
+ * https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+ */
+exports.slackActions = onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).send('Method Not Allowed')
+    return
+  }
+
+  const signingSecret = process.env.SLACK_SIGNING_SECRET
+  if (!signingSecret) {
+    console.error('slackActions: SLACK_SIGNING_SECRET not configured')
+    res.status(500).send('Server misconfiguration')
+    return
+  }
+
+  const rawBody =
+    req.rawBody != null
+      ? req.rawBody.toString('utf8')
+      : typeof req.body === 'string'
+        ? req.body
+        : ''
+
+  if (!rawBody) {
+    res.status(400).send('Empty body')
+    return
+  }
+
+  const slackSig = req.get('X-Slack-Signature')
+  const slackTs = req.get('X-Slack-Request-Timestamp')
+  if (!verifySlackSignature(signingSecret, rawBody, slackSig, slackTs)) {
+    res.status(401).send('Invalid signature')
+    return
+  }
+
+  let payload
+  try {
+    const params = new URLSearchParams(rawBody)
+    const payloadStr = params.get('payload')
+    if (!payloadStr) {
+      res.status(400).send('Missing payload')
+      return
+    }
+    payload = JSON.parse(payloadStr)
+  } catch (e) {
+    console.error('slackActions: bad payload', e)
+    res.status(400).send('Bad payload')
+    return
+  }
+
+  const token = process.env.SLACK_BOT_TOKEN
+  if (!token) {
+    res.status(500).send('SLACK_BOT_TOKEN not configured')
+    return
+  }
+
+  const db = admin.firestore()
+  const envChannel = slackChannelEnv()
+
+  try {
+    const result = await handleSlackPayload(db, token, envChannel, payload)
+    if (result.kind === 'json') {
+      res.setHeader('Content-Type', 'application/json')
+      res.status(200).send(JSON.stringify(result.body))
+      return
+    }
+    res.status(200).send('')
+  } catch (e) {
+    console.error('slackActions:', e)
+    if (payload?.type === 'view_submission') {
+      res.setHeader('Content-Type', 'application/json')
+      res.status(200).send(JSON.stringify({ response_action: 'clear' }))
+      return
+    }
+    res.status(200).send('')
+  }
 })

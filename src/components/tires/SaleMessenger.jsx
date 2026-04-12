@@ -104,7 +104,7 @@ export function SaleMessenger({ onClose, tires }) {
         type: 'error',
         text:
           err?.message ||
-          'Could not notify team. Deploy the Cloud Function and set NOTIFY_WEBHOOK_URL.',
+          'Could not notify team. Deploy functions and set SLACK_BOT_TOKEN (Block Kit) or NOTIFY_WEBHOOK_URL (webhook).',
       })
     } finally {
       setSending(false)

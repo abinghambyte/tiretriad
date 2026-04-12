@@ -269,17 +269,15 @@ Current plain-text webhook does not support interactive buttons. This phase upgr
   SLACK_SIGNING_SECRET=...   # from app Basic Information page
   ```
 
-**2.2 Upgrade `sendTireSaleSms` to Block Kit**
-- Switch from incoming webhook POST to `chat.postMessage` API call
-- Target channel: `#fleet-ops`
-- Block Kit: section block (sale details) + actions block with "Mark ready" button
-- Button `action_id`: `mark_ready`
-- Button `value`: Firestore order ID (from Phase 3 — stub with MSPN for now)
-- Remove `NOTIFY_WEBHOOK_URL` dependency after bot token path confirmed
+**2.2 Upgrade `sendTireSaleSms` to Block Kit** *(implemented)*
+- When **`SLACK_BOT_TOKEN`** is set: `chat.postMessage` (not incoming webhook), channel from **`SLACK_CHANNEL_ID`** / **`SLACK_NOTIFY_CHANNEL`** / default `#fleet-ops`
+- Block Kit: section (sale details) + actions with **Mark ready**; `action_id`: **`mark_ready`**; **`value`**: Firestore **`orders/{id}`** document id (doc created as **`pending`** on each notify — ahead of full Phase 3 UI)
+- If **`SLACK_BOT_TOKEN`** is unset: legacy **`NOTIFY_WEBHOOK_URL`** plain-text path (no button)
+- Remove webhook-only path once bot flow is verified in production
 
-**2.3 New Gen2 function: `slackActions`**
+**2.3 New Gen2 function: `slackActions`** *(implemented)*
 - Type: `onRequest` (HTTP, not callable)
-- Register as Slack app Request URL under Interactivity settings
+- Register as Slack app Request URL under Interactivity settings (URL in `docs/FIREBASE-GEN2-SENDTIRESALE-ENV.md`)
 - On receive:
   1. Verify Slack signing secret — reject anything that fails
   2. Parse `payload` from request body
