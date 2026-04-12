@@ -14,6 +14,8 @@ dist-ssr
 *.local
 .env
 .env.*.local
+# Never commit Cloud Functions secrets (explicit; `.env` also matches nested paths)
+functions/.env
 
 # Editor directories and files
 .vscode/*

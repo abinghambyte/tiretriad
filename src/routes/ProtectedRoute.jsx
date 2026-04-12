@@ -11,7 +11,7 @@ import { permissionMeets } from '../constants/peoplePermissions'
  */
 export function ProtectedRoute({ children, module, level }) {
   const { user, loading: authLoading } = useAuth()
-  const { profile, loading: profileLoading, error } = useUserProfile()
+  const { profile, loading: profileLoading, error, permissionFor } = useUserProfile()
   const location = useLocation()
 
   const loading = authLoading || (Boolean(user) && profileLoading)
@@ -40,7 +40,7 @@ export function ProtectedRoute({ children, module, level }) {
   }
 
   if (module && level) {
-    const current = profile?.permissions?.[module] || 'none'
+    const current = permissionFor(module)
     if (!permissionMeets(current, level)) {
       return (
         <Navigate
