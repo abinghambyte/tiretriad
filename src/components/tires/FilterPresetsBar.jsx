@@ -95,7 +95,7 @@ export function FilterPresetsBar({
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           Presets
         </span>

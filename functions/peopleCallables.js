@@ -175,8 +175,8 @@ exports.createPortalUser = onCall(async (request) => {
     throw new HttpsError('internal', `Failed to save invite: ${msg}`)
   }
 
-  const portalBase = process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com'
-  const inviteUrl = `${portalBase.replace(/\/$/, '')}/i/${token}`
+  // Production invite links always use the public site host (Phase 9).
+  const inviteUrl = `https://www.skedaddleinc.com/i/${token}`
 
   try {
     await deliverInvite({

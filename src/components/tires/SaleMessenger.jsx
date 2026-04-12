@@ -1,6 +1,8 @@
 import { httpsCallable } from 'firebase/functions'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
-import { functions } from '../../firebase/config'
+import { db, functions } from '../../firebase/config'
+import { phoneDocIdFromContact } from '../../utils/phoneDocId'
 import { formatSaleMessage } from '../../utils/saleMessenger'
 
 /** One callable instance — same reference as form submit and DEV test button. */
@@ -24,6 +26,8 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
   const [additionalNotes, setAdditionalNotes] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState(null)
+  const [contactRow, setContactRow] = useState(null)
+  const [ghostRow, setGhostRow] = useState(null)
 
   useEffect(() => {
     function onKey(e) {
@@ -50,6 +54,33 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
       setQuantity(Number(initialQuantity))
     }
   }, [initialQuantity])
+
+  useEffect(() => {
+    const id = phoneDocIdFromContact(customerContact.trim())
+    if (!id) {
+      setContactRow(null)
+      setGhostRow(null)
+      return undefined
+    }
+    const u1 = onSnapshot(
+      doc(db, 'contacts', id),
+      (s) => {
+        setContactRow(s.exists() ? { id, ...s.data() } : null)
+      },
+      () => setContactRow(null),
+    )
+    const u2 = onSnapshot(
+      doc(db, 'ghostContacts', id),
+      (s) => {
+        setGhostRow(s.exists() ? s.data() : null)
+      },
+      () => setGhostRow(null),
+    )
+    return () => {
+      u1()
+      u2()
+    }
+  }, [customerContact])
 
   const mspnOptions = useMemo(() => {
     const set = new Map()
@@ -272,6 +303,33 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
               onChange={(e) => setCustomerContact(e.target.value)}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
             />
+            {contactRow ? (
+              <div className="mt-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
+                <span className="font-medium text-zinc-300">👤 {contactRow.name || '—'}</span>
+                {' — '}
+                {contactRow.orderCount ?? 0} orders ·{' '}
+                {new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD',
+                }).format(Number(contactRow.totalSpend) || 0)}{' '}
+                lifetime
+                <br />
+                <span className="text-zinc-500">
+                  Last: {contactRow.lastMspn || '—'}{' '}
+                  {contactRow.lastOrderAt?.toDate
+                    ? contactRow.lastOrderAt.toDate().toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : ''}
+                </span>
+                {ghostRow?.repeatGhost ? (
+                  <p className="mt-1 text-amber-400/90">
+                    👻 Repeat ghost — flagged {Number(ghostRow.ghostCount) || 0} times
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <fieldset className="space-y-2">

@@ -23,12 +23,17 @@ const {
   round2,
   frictionScoreComplete,
   DEFAULT_TZ,
+  e164DocIdFromContact,
 } = require('./orderMetrics')
 const { incrementDjStreak, applyHatTrick } = require('./orderLifecycle')
 const {
   checkAccessExpiryRun,
   processElevationRevertsRun,
 } = require('./peopleScheduled')
+const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
+const { crmStaleCheckRun } = require('./crmStaleCheck')
+const { crmAccountTrigger } = require('./crmAccountTrigger')
+const { crmJobTrigger } = require('./crmJobTrigger')
 
 admin.initializeApp()
 
@@ -173,6 +178,32 @@ async function notifyTeamSlackBot(db, d) {
     updatedAt: FieldValue.serverTimestamp(),
   })
 
+  try {
+    const tireSnap = await db.collection('tires').doc(d.mspn).get()
+    if (tireSnap.exists) {
+      const td = tireSnap.data() || {}
+      const retail = Number(td.price ?? td.retailPrice)
+      const ppt = Number(d.pricePerTire)
+      if (Number.isFinite(retail) && retail > 0 && Number.isFinite(ppt)) {
+        const discount = (retail - ppt) / retail
+        if (discount > 0.4) {
+          const pct = Math.round(discount * 100)
+          await orderRef.update({
+            pricingAnomaly: true,
+            pricingAnomalyPct: pct,
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+          await slackApiPost(token, 'chat.postMessage', {
+            channel,
+            text: `⚠️ Pricing check — Order ${orderId}: $${ppt.toFixed(2)}/tire is ${pct}% below retail ($${retail.toFixed(2)}). Intentional?`,
+          })
+        }
+      }
+    }
+  } catch (e) {
+    console.error('notifyTeamSlackBot pricing anomaly', e)
+  }
+
   return { orderId, channel: post.channel, ts: post.ts }
 }
 
@@ -248,6 +279,59 @@ exports.sendTireSaleSms = onCall(async (request) => {
     const msg = e instanceof Error ? e.message : String(e)
     throw new HttpsError('internal', `Notify failed: ${msg}`)
   }
+})
+
+/** Tire availability ping — Block Kit, no order doc (Phase 9). */
+exports.notifyTeamQuick = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = admin.firestore()
+  const uSnap = await db.collection('users').doc(request.auth.uid).get()
+  const tiresPerm = uSnap.exists ? String(uSnap.data()?.permissions?.tires || 'none') : 'none'
+  if (!['view', 'edit'].includes(tiresPerm)) {
+    throw new HttpsError('permission-denied', 'Tires catalog access required.')
+  }
+  const data = request.data || {}
+  const mspn = String(data.mspn || '').trim()
+  const quantity = Number(data.quantity) || 1
+  const description = String(data.description || '').trim()
+  if (!mspn) {
+    throw new HttpsError('invalid-argument', 'mspn is required.')
+  }
+  const token = process.env.SLACK_BOT_TOKEN
+  if (!token) {
+    throw new HttpsError('failed-precondition', 'SLACK_BOT_TOKEN is not configured.')
+  }
+  const channel = slackChannelEnv()
+  const portalBase = (process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com').replace(
+    /\/$/,
+    '',
+  )
+  const tiresUrl = `${portalBase}/tires`
+  const text = `Tire availability: ${mspn} × ${quantity}${description ? ` — ${description}` : ''}`
+  const blocks = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*🔔 Tire availability*\n*MSPN:* \`${mspn}\`\n*Qty:* ${quantity}\n*Description:* ${description || '—'}`,
+      },
+    },
+    {
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Interested?' },
+          url: tiresUrl,
+          action_id: 'open_portal_tires',
+        },
+      ],
+    },
+  ]
+  await slackApiPost(token, 'chat.postMessage', { channel, text, blocks })
+  return { ok: true }
 })
 
 /**
@@ -334,7 +418,8 @@ exports.completeOrder = onCall(async (request) => {
   }
 
   const completedAt = FieldValue.serverTimestamp()
-  await ref.update({
+  const phoneKey = e164DocIdFromContact(before.customerContact)
+  const completionPatch = {
     status: 'completed',
     completedAt,
     paymentReceived,
@@ -350,7 +435,32 @@ exports.completeOrder = onCall(async (request) => {
     frictionScore,
     handledBy: { supplier: 'Kyle', mechanic: 'DJ' },
     updatedAt: FieldValue.serverTimestamp(),
-  })
+  }
+  if (phoneKey) {
+    completionPatch.contactPhoneKey = phoneKey
+  }
+  await ref.update(completionPatch)
+
+  if (phoneKey) {
+    try {
+      await db
+        .collection('contacts')
+        .doc(phoneKey)
+        .set(
+          {
+            phoneNumber: phoneKey,
+            name: String(before.customerName || '').trim() || '—',
+            lastOrderAt: FieldValue.serverTimestamp(),
+            lastMspn: String(before.mspn || ''),
+            orderCount: FieldValue.increment(1),
+            totalSpend: FieldValue.increment(paymentAmount),
+          },
+          { merge: true },
+        )
+    } catch (e) {
+      console.error('completeOrder contacts upsert', e)
+    }
+  }
 
   await incrementDjStreak(db)
 
@@ -505,6 +615,45 @@ exports.processElevationReverts = onSchedule(
     await processElevationRevertsRun()
   },
 )
+
+/** Monday 13:00 UTC ≈ 6:00 AM MT — dead stock flags on tires (90-day order activity). */
+exports.deadStockRadar = onSchedule(
+  {
+    schedule: '0 13 * * 1',
+    timeZone: 'Etc/UTC',
+    region: 'us-central1',
+  },
+  async () => {
+    await deadStockRadarRun()
+  },
+)
+
+/** Weekdays 14:00 UTC ≈ 7:00 AM MT — morning digest to #fleet-ops. */
+exports.morningBrief = onSchedule(
+  {
+    schedule: '0 14 * * 1-5',
+    timeZone: 'Etc/UTC',
+    region: 'us-central1',
+  },
+  async () => {
+    await morningBriefRun()
+  },
+)
+
+/** Daily 14:00 UTC ≈ 8:00 AM MT — stale CRM accounts. */
+exports.crmStaleCheck = onSchedule(
+  {
+    schedule: '0 14 * * *',
+    timeZone: 'Etc/UTC',
+    region: 'us-central1',
+  },
+  async () => {
+    await crmStaleCheckRun()
+  },
+)
+
+exports.crmAccountTrigger = crmAccountTrigger
+exports.crmJobTrigger = crmJobTrigger
 
 /**
  * Slack Interactivity — block_actions + view_submission.

@@ -6,6 +6,7 @@ import { auth, functions } from '../../firebase/config'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserProfile } from '../../hooks/useUserProfile'
+import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
 import { marginPercent } from '../../utils/marginCalc'
@@ -18,6 +19,7 @@ import { MarginTable } from './MarginTable'
 import { SaleMessenger } from './SaleMessenger'
 
 const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
+const notifyTeamQuick = httpsCallable(functions, 'notifyTeamQuick')
 
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) =>
@@ -26,6 +28,7 @@ function uniqueSorted(values) {
 }
 
 export function TiresDashboard() {
+  const { toast } = useToast()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -48,6 +51,7 @@ export function TiresDashboard() {
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
+  const [deadStockOnly, setDeadStockOnly] = useState(false)
 
   const applyFilterPreset = useCallback((p) => {
     setBrand(p.brand ?? '')
@@ -55,10 +59,11 @@ export function TiresDashboard() {
     setUseTag(p.useTag ?? '')
     setLr(p.lr ?? '')
     setMinMargin(Number(p.minMargin) || 0)
+    setDeadStockOnly(false)
   }, [])
 
   const hasActiveFilters =
-    minMargin > 0 || Boolean(brand || category || useTag || lr)
+    minMargin > 0 || Boolean(brand || category || useTag || lr) || deadStockOnly
 
   function clearFilters() {
     setMinMargin(0)
@@ -66,6 +71,7 @@ export function TiresDashboard() {
     setCategory('')
     setUseTag('')
     setLr('')
+    setDeadStockOnly(false)
   }
 
   function clearSelection() {
@@ -115,9 +121,10 @@ export function TiresDashboard() {
         if (row.margin == null || Number.isNaN(row.margin)) return false
         if (row.margin < minMargin) return false
       }
+      if (deadStockOnly && !row.deadStockFlag) return false
       return true
     })
-  }, [enriched, brand, category, lr, useTag, minMargin])
+  }, [enriched, brand, category, lr, useTag, minMargin, deadStockOnly])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]
@@ -239,6 +246,23 @@ export function TiresDashboard() {
     setSaleOpen(true)
   }
 
+  async function notifySelectedQuick() {
+    const ctx = selectionPrimaryMspnRows()
+    if (!ctx) return
+    const first = ctx.rows[0]
+    try {
+      await notifyTeamQuick({
+        mspn: ctx.mspn,
+        quantity: ctx.rows.length,
+        description: String(first.description || '').trim(),
+      })
+      toast('Team notified in Slack', 'success')
+    } catch (e) {
+      console.error(e)
+      toast(e?.message || 'Could not notify team.', 'error')
+    }
+  }
+
   async function logSelectedProspective() {
     const ctx = selectionPrimaryMspnRows()
     if (!ctx) return
@@ -279,13 +303,14 @@ export function TiresDashboard() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Link
               to="/dashboard"
               className="text-sm text-zinc-500 transition hover:text-zinc-200"
             >
               ← Dashboard
             </Link>
+            <span className="hidden h-6 w-px bg-zinc-800 sm:block" aria-hidden />
             <div>
               <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
                 Tool
@@ -299,18 +324,6 @@ export function TiresDashboard() {
             <span className="hidden text-sm text-zinc-500 lg:inline max-w-[200px] truncate">
               {user?.email}
             </span>
-            {tab === 'catalog' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSaleInitial(null)
-                  setSaleOpen(true)
-                }}
-                className="rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-1.5 text-sm text-amber-100 hover:bg-amber-950/50"
-              >
-                Log sale / notify team
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={handleSignOut}
@@ -322,7 +335,7 @@ export function TiresDashboard() {
         </div>
         <div className="border-t border-zinc-800/80 bg-zinc-950/80">
           <nav
-            className="mx-auto flex max-w-7xl gap-1 px-6"
+            className="mx-auto flex max-w-7xl gap-1 px-6 sm:pl-8"
             aria-label="Skedaddle Tires sections"
           >
             <Link
@@ -399,6 +412,8 @@ export function TiresDashboard() {
           onLr={setLr}
           minMargin={minMargin}
           onMinMargin={setMinMargin}
+          deadStockOnly={deadStockOnly}
+          onDeadStockOnly={setDeadStockOnly}
           hasActiveFilters={hasActiveFilters}
           onClearAll={clearFilters}
         />
@@ -412,61 +427,101 @@ export function TiresDashboard() {
           onApplyPreset={applyFilterPreset}
         />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-zinc-400">
-            {loading ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                Loading inventory…
-              </span>
-            ) : (
-              <>
-                <span className="font-medium text-zinc-300">
-                  {sortedRows.length} tire{sortedRows.length === 1 ? '' : 's'}{' '}
-                  shown
+        <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className="text-sm text-zinc-400">
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                  Loading inventory…
                 </span>
-                <span className="text-zinc-600"> · </span>
-                <span>{selectedIds.size} selected</span>
-              </>
-            )}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedIds.size > 0 ? (
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-              >
-                Clear selection
-              </button>
-            ) : null}
+              ) : (
+                <>
+                  <span className="font-medium text-zinc-300">
+                    {sortedRows.length} tire{sortedRows.length === 1 ? '' : 's'} shown
+                  </span>
+                  <span className="text-zinc-600"> · </span>
+                  {selectedIds.size > 0 ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-950/70 px-2.5 py-0.5 text-xs font-semibold text-amber-100 ring-1 ring-amber-800/50">
+                      {selectedIds.size} selected
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500">None selected</span>
+                  )}
+                </>
+              )}
+            </p>
             <button
               type="button"
               disabled={loading || sortedRows.length === 0}
               onClick={() => exportMarginCsv(sortedRows)}
-              className="rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+              className="self-start rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
             >
               Export CSV
             </button>
-            {selectedIds.size > 0 ? (
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => setBulkCtsOpen(true)}
-                className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
-              >
-                Bulk edit CTS
-              </button>
-            ) : null}
-            <button
-              type="button"
-              disabled={selectedTires.length === 0 || loading}
-              onClick={() => setListingOpen(true)}
-              className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Generate listings
-            </button>
           </div>
+          {selectedIds.size > 0 ? (
+            <div className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  disabled={selectedTires.length === 0 || loading}
+                  onClick={() => setListingOpen(true)}
+                  className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Generate listings
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    if (selectedIds.size > 0) logSelectedSale()
+                    else {
+                      setSaleInitial(null)
+                      setSaleOpen(true)
+                    }
+                  }}
+                  className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
+                >
+                  Log sale
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void notifySelectedQuick()}
+                  className="rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50"
+                >
+                  Notify team
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => void logSelectedProspective()}
+                  className="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50"
+                >
+                  Log prospective order
+                </button>
+              </div>
+              <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                >
+                  Clear selection
+                </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setBulkCtsOpen(true)}
+                  className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
+                >
+                  Bulk edit CTS
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <MarginTable
@@ -479,8 +534,6 @@ export function TiresDashboard() {
           onSort={handleSort}
           loading={loading}
           emptyState={emptyState}
-          onLogSelectedSale={logSelectedSale}
-          onLogSelectedProspective={logSelectedProspective}
         />
           </>
         ) : null}

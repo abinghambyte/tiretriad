@@ -1,5 +1,12 @@
 import { httpsCallable } from 'firebase/functions'
-import { collection, getDocs, limit, onSnapshot, query, where } from 'firebase/firestore'
+import {
+  collection,
+  getDocs,
+  limit,
+  onSnapshot,
+  query,
+  where,
+} from 'firebase/firestore'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { auth, db, functions } from '../../firebase/config'
@@ -39,8 +46,16 @@ function timeAgo(ts) {
 
 function streakLabel(n) {
   const v = Number(n) || 0
-  if (v >= 3) return `🔥 ${v}`
-  return String(v)
+  if (v <= 0) return '—'
+  return `${v}-day streak`
+}
+
+const INVITE_SITE = 'https://www.skedaddleinc.com'
+
+function inviteUrlFromToken(token) {
+  const t = String(token || '').trim()
+  if (!t) return ''
+  return `${INVITE_SITE}/i/${t}`
 }
 
 /** Short label for soonest active timed elevation, or null. `tick` bumps re-render each minute. */
@@ -91,6 +106,8 @@ export function PeopleDashboard() {
   const [eleLevel, setEleLevel] = useState('edit')
   const [eleDuration, setEleDuration] = useState('24h')
   const [eleSaving, setEleSaving] = useState(false)
+  const [lockAwaitUid, setLockAwaitUid] = useState(null)
+  const [panelInviteUrl, setPanelInviteUrl] = useState('')
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60000)
@@ -121,6 +138,7 @@ export function PeopleDashboard() {
 
   const openEditor = useCallback((u) => {
     setSelected(u)
+    setLockAwaitUid(null)
     const r = u.role || 'viewer'
     setRoleDraft(r)
     const base = { ...ROLE_DEFAULTS[r], ...(u.permissions || {}) }
@@ -133,7 +151,30 @@ export function PeopleDashboard() {
   const closeEditor = useCallback(() => {
     setSelected(null)
     setPermDraft({})
+    setPanelInviteUrl('')
+    setLockAwaitUid(null)
   }, [])
+
+  useEffect(() => {
+    if (!selected?.id) {
+      setPanelInviteUrl('')
+      return undefined
+    }
+    const q = query(
+      collection(db, 'inviteTokens'),
+      where('uid', '==', selected.id),
+      where('status', '==', 'active'),
+      limit(5),
+    )
+    return onSnapshot(
+      q,
+      (snap) => {
+        const tok = snap.docs[0]?.id || selected.inviteToken
+        setPanelInviteUrl(inviteUrlFromToken(tok))
+      },
+      () => setPanelInviteUrl(inviteUrlFromToken(selected.inviteToken)),
+    )
+  }, [selected])
 
   async function savePermissions() {
     if (!selected) return
@@ -187,7 +228,11 @@ export function PeopleDashboard() {
   }
 
   async function lockUser(u) {
-    if (!window.confirm(`Lock access for ${u.firstName} ${u.lastName}?`)) return
+    if (lockAwaitUid !== u.id) {
+      setLockAwaitUid(u.id)
+      return
+    }
+    setLockAwaitUid(null)
     try {
       await updatePortalUser({ targetUid: u.id, inviteStatus: 'locked' })
     } catch (e) {
@@ -249,7 +294,7 @@ export function PeopleDashboard() {
         accessExpiryMs,
       })
       const data = res.data
-      setLastInviteUrl(data.inviteUrl || '')
+      setLastInviteUrl(inviteUrlFromToken(data.token || data.inviteUrl?.split('/i/').pop()))
       setFn('')
       setLn('')
       setEmail('')
@@ -459,29 +504,33 @@ export function PeopleDashboard() {
                       <div className="flex flex-wrap justify-end gap-1">
                         <button
                           type="button"
-                          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                          className="rounded-lg border border-violet-600/70 bg-violet-900/40 px-2.5 py-1 text-xs font-semibold text-violet-50 hover:bg-violet-900/60"
                           onClick={() => openEditor(u)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                          className="rounded-lg border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800/80"
                           onClick={() => renewInvite(u)}
                         >
                           Renew
                         </button>
                         <button
                           type="button"
-                          className="rounded border border-red-900/50 px-2 py-1 text-xs text-red-300 hover:bg-red-950/30"
-                          onClick={() => lockUser(u)}
+                          className={
+                            lockAwaitUid === u.id
+                              ? 'rounded-lg border border-red-600 bg-red-950/50 px-2 py-1 text-xs font-semibold text-red-100'
+                              : 'rounded-lg border border-red-900/55 px-2 py-1 text-xs text-red-200 hover:bg-red-950/25'
+                          }
+                          onClick={() => void lockUser(u)}
                         >
-                          Lock
+                          {lockAwaitUid === u.id ? 'Confirm lock' : 'Lock'}
                         </button>
                         {profile?.role === 'admin' ? (
                           <button
                             type="button"
-                            className="rounded border border-amber-800/50 px-2 py-1 text-xs text-amber-200 hover:bg-amber-950/30"
+                            className="rounded-lg border border-zinc-700/90 bg-zinc-900/40 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
                             onClick={() => toggleGhost(u)}
                           >
                             Ghost {u.ghostMode ? 'off' : 'on'}
@@ -489,10 +538,22 @@ export function PeopleDashboard() {
                         ) : null}
                         <button
                           type="button"
-                          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                          className="rounded-lg border border-zinc-700 p-1.5 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
+                          title="Access history"
+                          aria-label="Access history"
                           onClick={() => openHistory(u)}
                         >
-                          History
+                          <svg
+                            className="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            aria-hidden
+                          >
+                            <circle cx="12" cy="12" r="9" />
+                            <path strokeLinecap="round" d="M12 7v5l3 2" />
+                          </svg>
                         </button>
                       </div>
                     </td>
@@ -520,6 +581,23 @@ export function PeopleDashboard() {
               {selected.firstName} {selected.lastName}
             </h2>
             <p className="text-xs text-zinc-500">{selected.email}</p>
+            {panelInviteUrl ? (
+              <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
+                  Active invite link
+                </p>
+                <p className="mt-1 break-all font-mono text-[11px] text-emerald-100/90">{panelInviteUrl}</p>
+                <button
+                  type="button"
+                  className="mt-2 rounded border border-emerald-800/60 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-950/40"
+                  onClick={() => void navigator.clipboard.writeText(panelInviteUrl)}
+                >
+                  Copy link
+                </button>
+              </div>
+            ) : (
+              <p className="mt-3 text-[11px] text-zinc-600">No active invite token for this user.</p>
+            )}
 
             <div className="mt-6 space-y-3">
               <label className="block text-xs text-zinc-500">Role</label>

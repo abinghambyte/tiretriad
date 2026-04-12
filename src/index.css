@@ -46,3 +46,26 @@ body {
   text-align: initial;
   border: none;
 }
+
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
+html[data-theme='light'] body {
+  background-color: #fafafa;
+  color: #18181b;
+}
+
+html[data-theme='light'] .bg-zinc-950 {
+  background-color: #fafafa !important;
+}
+
+html[data-theme='light'] .text-zinc-100,
+html[data-theme='light'] .text-zinc-200 {
+  color: #18181b !important;
+}
+
+html[data-theme='light'] .border-zinc-800,
+html[data-theme='light'] .border-zinc-800\/80 {
+  border-color: #e4e4e7 !important;
+}

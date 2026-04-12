@@ -28,26 +28,6 @@ function IconTires() {
   )
 }
 
-function IconOps() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 2l8 4v8l-8 4-8-4V6l8-4z"
-      />
-      <circle cx="12" cy="12" r="2" fill="currentColor" />
-    </svg>
-  )
-}
-
 function IconAnalytics() {
   return (
     <svg
@@ -116,6 +96,56 @@ function IconGrowth() {
         strokeLinejoin="round"
         d="M12 4.5l1.8 4.95 5.25.35-4 3.35 1.3 5.05L12 15.9l-4.35 2.4 1.3-5.05-4-3.35 5.25-.35L12 4.5z"
       />
+    </svg>
+  )
+}
+
+function IconWall() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path strokeLinecap="round" d="M4 5h16M4 10h10M4 15h16M4 20h8" />
+    </svg>
+  )
+}
+
+function IconContacts() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 20v-1a4 4 0 014-4h4a4 4 0 014 4v1M8 8a3 3 0 116 0 3 3 0 01-6 0z"
+      />
+    </svg>
+  )
+}
+
+function IconCrm() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h16" />
+      <circle cx="16" cy="8" r="2" fill="currentColor" />
     </svg>
   )
 }
@@ -226,14 +256,39 @@ export function Dashboard() {
       minLevel: 'manage',
     },
     {
-      title: 'Ops Command',
+      title: 'The Wall',
       description:
-        'The leadership layer: posture across the operating fabric — what moves, what waits, and what is held in reserve. Compartmented detail; visibility by clearance.',
-      stat: 'Executive grid · standing signals classified',
-      status: 'Buildout',
+        'Live read-only feed of completed tire orders — MSPN, revenue, fulfillment minutes, crew chain, and light signals (hat trick, nudge, friction).',
+      stat: 'Live completions stream',
+      status: 'Live',
       accent: 'cyan',
-      icon: <IconOps />,
+      icon: <IconWall />,
+      to: '/wall',
       moduleKey: 'wall',
+      minLevel: 'view',
+    },
+    {
+      title: 'Contacts',
+      description:
+        'Customer memory built from completions — lifetime spend, last SKU, notes, and order history per phone.',
+      stat: 'Synced when orders complete',
+      status: 'Live',
+      accent: 'emerald',
+      icon: <IconContacts />,
+      to: '/contacts',
+      moduleKey: 'orders',
+      minLevel: 'view',
+    },
+    {
+      title: 'Fleet CRM',
+      description:
+        'Lead pipeline, fleet accounts, and DJ dispatch for northern Colorado tire operations.',
+      stat: 'Pipeline · leads · dispatch',
+      status: 'Live',
+      accent: 'violet',
+      icon: <IconCrm />,
+      to: '/crm',
+      moduleKey: 'crm',
       minLevel: 'view',
     },
     {

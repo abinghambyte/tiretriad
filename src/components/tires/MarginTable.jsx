@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
+import { useToast } from '../../context/ToastContext.jsx'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, gradeLetter, gradePillClass, tireCostParts } from '../../utils/ctsCalc'
@@ -36,9 +37,8 @@ export function MarginTable({
   onSort,
   loading,
   emptyState,
-  onLogSelectedSale,
-  onLogSelectedProspective,
 }) {
+  const { toast } = useToast()
   const [editingCostsId, setEditingCostsId] = useState(null)
   const [costDraft, setCostDraft] = useState(() => ({
     cost: 0,
@@ -91,6 +91,7 @@ export function MarginTable({
         otherCost,
         cts,
       })
+      toast('CTS updated', 'success')
       closeCostEdit()
     } catch (e) {
       console.error(e)
@@ -108,6 +109,7 @@ export function MarginTable({
     setGradeSaving(true)
     try {
       await updateDoc(doc(db, 'tires', rowId), { grade: g })
+      toast('Grade saved', 'success')
       closeGradeEdit()
     } catch (e) {
       console.error(e)
@@ -119,35 +121,8 @@ export function MarginTable({
     }
   }
 
-  const showSelectionActions =
-    selectedIds.size > 0 && (onLogSelectedSale || onLogSelectedProspective)
-
   return (
     <div>
-      {showSelectionActions ? (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {onLogSelectedSale ? (
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => onLogSelectedSale()}
-              className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
-            >
-              Log sale / notify team
-            </button>
-          ) : null}
-          {onLogSelectedProspective ? (
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => onLogSelectedProspective()}
-              className="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50"
-            >
-              Log prospective order
-            </button>
-          ) : null}
-        </div>
-      ) : null}
       <div className="overflow-x-auto rounded-2xl border border-zinc-800">
         <table className="min-w-[980px] w-full border-collapse text-left text-sm">
           <thead>
@@ -174,7 +149,7 @@ export function MarginTable({
               <th className="px-3 py-3">Description</th>
               <th className="px-3 py-3">MSPN</th>
               <th className="px-3 py-3">LR</th>
-              <th className="px-3 py-3">Grade</th>
+              <th className="hidden px-3 py-3 md:table-cell">Grade</th>
               <th className="px-3 py-3">CTS</th>
               <th className="px-3 py-3">
                 <SortButton
@@ -194,7 +169,7 @@ export function MarginTable({
                   disabled={loading}
                 />
               </th>
-              <th className="px-3 py-3">Category</th>
+              <th className="hidden px-3 py-3 md:table-cell">Category</th>
             </tr>
           </thead>
           <tbody>
@@ -235,13 +210,22 @@ export function MarginTable({
                         {row.brand || '—'}
                       </td>
                       <td className="max-w-[200px] px-3 py-2 text-zinc-400">
-                        {row.description || '—'}
+                        <span className="inline-flex items-start gap-1.5">
+                          {row.deadStockFlag ? (
+                            <span
+                              className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]"
+                              title="No orders in 90+ days."
+                              aria-label="Dead stock"
+                            />
+                          ) : null}
+                          <span>{row.description || '—'}</span>
+                        </span>
                       </td>
                       <td className="px-3 py-2 font-mono text-xs text-zinc-400">
                         {row.mspn || '—'}
                       </td>
                       <td className="px-3 py-2 text-zinc-400">{row.lr || '—'}</td>
-                      <td className="px-3 py-2 align-middle">
+                      <td className="hidden px-3 py-2 align-middle md:table-cell">
                         {showGradeEditor ? (
                           <div className="flex flex-wrap items-center gap-1.5">
                             <select
@@ -272,13 +256,22 @@ export function MarginTable({
                               Cancel
                             </button>
                           </div>
-                        ) : (
+                        ) : letter ? (
                           <button
                             type="button"
                             onClick={() => openGradeEdit(row)}
                             className={`inline-flex min-w-[2rem] justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${gradePillClass(letter)}`}
                           >
-                            {letter || '—'}
+                            {letter}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openGradeEdit(row)}
+                            className="inline-flex min-h-[1.5rem] min-w-[2rem] items-center justify-center rounded-full border border-dashed border-zinc-700 px-2 text-[10px] text-zinc-600 hover:border-zinc-500 hover:text-zinc-400"
+                            aria-label="Set grade"
+                          >
+                            {'\u00a0'}
                           </button>
                         )}
                       </td>
@@ -299,16 +292,24 @@ export function MarginTable({
                         {formatMoney(row.retailPrice)}
                       </td>
                       <td className="px-3 py-2">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${marginBadgeClass(previewMargin)}`}
-                        >
-                          {previewMargin != null ? `${previewMargin.toFixed(1)}%` : '—'}{' '}
-                          <span className="ml-1 opacity-80">
-                            {marginBadgeLabel(previewMargin)}
+                        {previewMargin != null && !Number.isNaN(previewMargin) && previewMargin > 35 ? (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${marginBadgeClass(previewMargin)}`}
+                          >
+                            {`${previewMargin.toFixed(1)}% `}
+                            <span className="ml-1 opacity-80">
+                              {marginBadgeLabel(previewMargin)}
+                            </span>
                           </span>
-                        </span>
+                        ) : (
+                          <span className="text-xs font-medium text-zinc-400">
+                            {previewMargin != null && !Number.isNaN(previewMargin)
+                              ? `${previewMargin.toFixed(1)}%`
+                              : '—'}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-3 py-2 text-zinc-500">
+                      <td className="hidden px-3 py-2 text-zinc-500 md:table-cell">
                         {row.category || '—'}
                       </td>
                     </tr>

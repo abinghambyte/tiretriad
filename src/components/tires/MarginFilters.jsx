@@ -13,6 +13,8 @@ export function MarginFilters({
   onLr,
   minMargin,
   onMinMargin,
+  deadStockOnly,
+  onDeadStockOnly,
   hasActiveFilters,
   onClearAll,
 }) {
@@ -31,11 +33,9 @@ export function MarginFilters({
         </div>
       ) : null}
       <div>
-        <label
-          htmlFor="min-margin"
-          className="mb-2 block text-xs font-medium uppercase tracking-wide text-zinc-500"
-        >
-          Minimum margin ({minMargin}%)
+        <label htmlFor="min-margin" className="mb-2 flex flex-wrap items-baseline gap-2 text-sm font-normal text-zinc-300">
+          <span>Min margin:</span>
+          <span className="text-2xl font-semibold tabular-nums text-zinc-50">{minMargin}%</span>
         </label>
         <input
           id="min-margin"
@@ -48,27 +48,42 @@ export function MarginFilters({
           className="w-full accent-zinc-200"
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <FilterSelect
-          label="Brand"
-          value={brand}
-          onChange={onBrand}
-          options={brands}
-        />
-        <FilterSelect
-          label="Category"
-          value={category}
-          onChange={onCategory}
-          options={categories}
-        />
-        <FilterSelect
-          label="Use tag"
-          value={useTag}
-          onChange={onUseTag}
-          options={useTags}
-        />
-        <FilterSelect label="LR" value={lr} onChange={onLr} options={lrs} />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+        <div className="flex flex-1 flex-wrap gap-4 border-zinc-800 lg:border-r lg:pr-6">
+          <FilterSelect
+            label="Brand"
+            value={brand}
+            onChange={onBrand}
+            options={brands}
+          />
+          <FilterSelect
+            label="Category"
+            value={category}
+            onChange={onCategory}
+            options={categories}
+          />
+        </div>
+        <div className="flex flex-1 flex-wrap gap-4">
+          <FilterSelect label="LR" value={lr} onChange={onLr} options={lrs} />
+          <FilterSelect
+            label="Use tag"
+            value={useTag}
+            onChange={onUseTag}
+            options={useTags}
+          />
+        </div>
       </div>
+      {onDeadStockOnly != null ? (
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400">
+          <input
+            type="checkbox"
+            checked={Boolean(deadStockOnly)}
+            onChange={(e) => onDeadStockOnly(e.target.checked)}
+            className="rounded border-zinc-600"
+          />
+          Dead stock only
+        </label>
+      ) : null}
     </div>
   )
 }

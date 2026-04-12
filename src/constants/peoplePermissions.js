@@ -25,7 +25,7 @@ export const ROLE_DEFAULTS = {
     tires: 'none',
     orders: 'act',
     people: 'none',
-    crm: 'none',
+    crm: 'view',
     analytics: 'none',
     revenue: 'none',
     wall: 'view',

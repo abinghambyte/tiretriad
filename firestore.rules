@@ -17,6 +17,42 @@ service cloud.firestore {
         && get(userDocPath()).data.permissions.people == 'manage';
     }
 
+    function userData() {
+      return get(userDocPath()).data;
+    }
+
+    function crmPerm() {
+      return signedIn() && exists(userDocPath())
+        && userData().keys().hasAll(['permissions'])
+        && userData().permissions.keys().hasAll(['crm'])
+        ? userData().permissions.crm
+        : 'none';
+    }
+
+    function crmView() {
+      return crmPerm() in ['view', 'edit', 'manage'];
+    }
+
+    function crmEdit() {
+      return crmPerm() in ['edit', 'manage'];
+    }
+
+    function userRole() {
+      return signedIn() && exists(userDocPath()) && userData().keys().hasAll(['role'])
+        ? userData().role
+        : '';
+    }
+
+    function mechanicDjJobUpdateOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['completionStatus', 'actualTime', 'notes', 'updatedAt', 'completedAt']);
+    }
+
+    function crmAccountPipelineDragOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['pipelineStage', 'lastContactedAt', 'updatedAt']);
+    }
+
     match /users/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || canManagePeople());
       allow create, delete: if false;
@@ -77,6 +113,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Customer memory — Functions create/merge; portal reads + notes/tags only.
+    match /contacts/{phone} {
+      allow read: if signedIn();
+      allow create, delete: if false;
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'tags', 'repeatCustomerVote']);
+    }
+
     // Creates via Cloud Functions (Admin). Portal: limited field updates.
     match /orders/{orderId} {
       allow read: if request.auth != null;
@@ -95,7 +139,38 @@ service cloud.firestore {
           'totalTouchpoints',
           'fulfillmentScheduledTime',
           'scheduledAt',
+          'debrief',
         ]);
+    }
+
+    match /crmAccounts/{accountId} {
+      allow read: if crmView();
+      allow create, delete: if crmEdit();
+      allow update: if crmEdit() || (crmView() && crmAccountPipelineDragOnly());
+    }
+
+    match /crmLeads/{leadId} {
+      allow read: if crmView();
+      allow create, delete: if crmEdit();
+      allow update: if crmEdit();
+    }
+
+    match /crmJobs/{jobId} {
+      allow read: if crmView();
+      allow create, delete: if crmEdit();
+      allow update: if crmEdit() || (userRole() == 'mechanic' && mechanicDjJobUpdateOnly());
+    }
+
+    match /crmVehicles/{vehicleId} {
+      allow read: if crmView();
+      allow create, delete: if crmEdit();
+      allow update: if crmEdit();
+    }
+
+    match /crmInventory/{rowId} {
+      allow read: if crmView();
+      allow create, delete: if crmEdit();
+      allow update: if crmEdit();
     }
   }
 }

@@ -11,7 +11,14 @@ import {
 } from 'firebase/firestore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { db, functions } from '../../firebase/config'
+import { useToast } from '../../context/ToastContext.jsx'
+import { auth, db, functions } from '../../firebase/config'
+import { phoneDocIdFromContact } from '../../utils/phoneDocId'
+import {
+  playOrderCompleteSound,
+  readSoundEnabled,
+  writeSoundEnabled,
+} from '../../utils/playOrderCompleteSound'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -92,11 +99,123 @@ function orderCanCancel(status) {
   return !['completed', 'cancelled', 'rejected'].includes(String(status || ''))
 }
 
+function OrderDebriefPrompt({ order }) {
+  const { toast } = useToast()
+  const [notes, setNotes] = useState('')
+  const [vote, setVote] = useState('maybe')
+  const [busy, setBusy] = useState(false)
+
+  const show = order.status === 'completed' && order.debrief == null
+  if (!show) return null
+
+  async function skip() {
+    setBusy(true)
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        debrief: {
+          skipped: true,
+          writtenAt: serverTimestamp(),
+          writtenBy: auth.currentUser?.uid || '',
+        },
+      })
+      toast('Debrief skipped', 'success')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function save() {
+    if (!['yes', 'no', 'maybe'].includes(vote)) {
+      window.alert('Choose Yes / No / Maybe.')
+      return
+    }
+    setBusy(true)
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        debrief: {
+          notes: notes.trim(),
+          repeatCustomer: vote,
+          writtenAt: serverTimestamp(),
+          writtenBy: auth.currentUser?.uid || '',
+        },
+      })
+      const pk = phoneDocIdFromContact(order.customerContact)
+      if (pk) {
+        try {
+          await updateDoc(doc(db, 'contacts', pk), { repeatCustomerVote: vote })
+        } catch {
+          /* contact row may not exist yet */
+        }
+      }
+      toast('Debrief saved', 'success')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-zinc-800/80 pt-4">
+      <p className="text-xs font-medium text-zinc-400">📝 Quick debrief (optional)</p>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={2}
+        placeholder="Anything about this job?"
+        className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200"
+      />
+      <p className="mt-3 text-[11px] text-zinc-500">Would you work with this customer again?</p>
+      <div className="mt-1 flex flex-wrap gap-2">
+        {[
+          { id: 'yes', label: 'Yes' },
+          { id: 'no', label: 'No' },
+          { id: 'maybe', label: 'Maybe' },
+        ].map((v) => (
+          <label
+            key={v.id}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900/50 px-2 py-1 text-[11px] text-zinc-300"
+          >
+            <input
+              type="radio"
+              name={`debrief-${order.id}`}
+              checked={vote === v.id}
+              onChange={() => setVote(v.id)}
+            />
+            {v.label}
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+          className="rounded-lg bg-violet-900/50 px-3 py-1.5 text-[11px] font-semibold text-violet-100 ring-1 ring-violet-800/50 hover:bg-violet-900/70 disabled:opacity-50"
+        >
+          Save debrief
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void skip()}
+          className="rounded-lg border border-zinc-600 px-3 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800/50 disabled:opacity-50"
+        >
+          Skip
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /**
  * @param {object} props
  * @param {string | null} [props.highlightId]
  */
 export function OrdersList({ highlightId }) {
+  const { toast } = useToast()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -112,11 +231,27 @@ export function OrdersList({ highlightId }) {
   const [cancelNote, setCancelNote] = useState('')
   const [cancelSubmitting, setCancelSubmitting] = useState(false)
 
+  const prevStatusRef = useRef(new Map())
+  const [soundOn, setSoundOn] = useState(() => readSoundEnabled())
+
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
     const unsub = onSnapshot(
       q,
       (snap) => {
+        for (const change of snap.docChanges()) {
+          if (change.type === 'modified') {
+            const prev = prevStatusRef.current.get(change.doc.id)
+            const next = change.doc.data().status
+            if (prev && prev !== 'completed' && next === 'completed') {
+              playOrderCompleteSound()
+              break
+            }
+          }
+        }
+        prevStatusRef.current = new Map(
+          snap.docs.map((d) => [d.id, d.data().status]),
+        )
         setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setLoading(false)
         setError(null)
@@ -262,6 +397,7 @@ export function OrdersList({ highlightId }) {
         cancellationNote: cancelNote.trim(),
       })
       setCancelFor(null)
+      toast('Order cancelled', 'success')
     } catch (e) {
       console.error(e)
       window.alert(e?.message || String(e))
@@ -271,7 +407,19 @@ export function OrdersList({ highlightId }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-zinc-500">Loading orders…</p>
+    return (
+      <ul className="space-y-3" aria-busy>
+        {[0, 1, 2].map((i) => (
+          <li
+            key={i}
+            className="animate-pulse rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-6"
+          >
+            <div className="h-4 w-1/3 rounded bg-zinc-800/80" />
+            <div className="mt-3 h-3 w-2/3 rounded bg-zinc-800/60" />
+          </li>
+        ))}
+      </ul>
+    )
   }
   if (error) {
     return <p className="text-sm text-red-400">{error}</p>
@@ -290,8 +438,24 @@ export function OrdersList({ highlightId }) {
 
   const notifyPayload = notifyModalOrder ? buildNotifyPayload(notifyModalOrder) : null
 
+  function toggleSound() {
+    const next = !readSoundEnabled()
+    writeSoundEnabled(next)
+    setSoundOn(next)
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={toggleSound}
+          className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-2 py-1 text-[11px] font-medium text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          title="Completion sound when an order finishes in this session"
+        >
+          Sound: {soundOn ? 'on' : 'off'}
+        </button>
+      </div>
       <ul className="space-y-3">
         {orders.map((o) => {
           const isHi = highlightId && o.id === highlightId
@@ -307,7 +471,21 @@ export function OrdersList({ highlightId }) {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <span className={statusBadge(o.status)}>{o.status}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={statusBadge(o.status)}>{o.status}</span>
+                    {o.pricingAnomaly ? (
+                      <span
+                        className="inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-800/40"
+                        title={
+                          o.pricingAnomalyPct != null
+                            ? `Price ~${o.pricingAnomalyPct}% below catalog retail`
+                            : 'Pricing anomaly vs catalog'
+                        }
+                      >
+                        ⚠ pricing
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-2 font-mono text-sm text-zinc-200">
                     {o.mspn} × {o.quantity}
                   </p>
@@ -363,6 +541,7 @@ export function OrdersList({ highlightId }) {
                   </>
                 ) : null}
               </div>
+              <OrderDebriefPrompt key={`debrief-${o.id}`} order={o} />
             </li>
           )
         })}

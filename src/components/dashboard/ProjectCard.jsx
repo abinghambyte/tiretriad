@@ -68,7 +68,7 @@ export function ProjectCard({
         'group relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-6 transition duration-300',
         clickable
           ? `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 ${glowClass}`
-          : 'cursor-not-allowed border-zinc-800/80 bg-zinc-950/50 opacity-[0.68] hover:border-zinc-800 hover:bg-zinc-950/55',
+          : 'cursor-not-allowed border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50 hover:border-zinc-800 hover:bg-zinc-950/55',
       ].join(' ')}
       aria-disabled={!clickable}
     >

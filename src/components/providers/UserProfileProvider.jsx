@@ -3,6 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
 import { UserProfileContext } from '../../context/UserProfileContext.jsx'
 import { db, functions } from '../../firebase/config'
+import { ROLE_DEFAULTS } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
 
 const ensureUserDocument = httpsCallable(functions, 'ensureUserDocument')
@@ -62,7 +63,11 @@ export function UserProfileProvider({ children }) {
       error,
       permissionFor(module) {
         const p = profile?.permissions?.[module]
-        return typeof p === 'string' ? p : 'none'
+        if (typeof p === 'string') return p
+        const role = String(profile?.role || 'viewer').toLowerCase()
+        const d = (ROLE_DEFAULTS[role] || ROLE_DEFAULTS.viewer)?.[module]
+        if (typeof d === 'string') return d
+        return 'none'
       },
     }),
     [profile, loading, authLoading, user, error],
