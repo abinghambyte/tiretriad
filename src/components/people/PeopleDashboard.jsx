@@ -4,11 +4,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { auth, db, functions } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
-import { crewTagFromRole, ROLE_DEFAULTS } from '../../constants/peoplePermissions'
+import {
+  crewTagFromRole,
+  MODULE_MATRIX,
+  ROLE_DEFAULTS,
+} from '../../constants/peoplePermissions'
 import { PermissionMatrix } from './PermissionMatrix'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
+const scheduleElevationRevert = httpsCallable(functions, 'scheduleElevationRevert')
+const previewInviteGreeting = httpsCallable(functions, 'previewInviteGreeting')
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -37,6 +43,24 @@ function streakLabel(n) {
   return String(v)
 }
 
+/** Short label for soonest active timed elevation, or null. `tick` bumps re-render each minute. */
+function elevationCountdownLabel(u, tick) {
+  const now = Date.now() + tick * 0
+  const arr = Array.isArray(u.timedElevations) ? u.timedElevations : []
+  let minMs = Infinity
+  for (const e of arr) {
+    const ms = e?.expiresAt?.toMillis?.()
+    if (typeof ms !== 'number' || ms <= now) continue
+    if (ms < minMs) minMs = ms
+  }
+  if (!Number.isFinite(minMs)) return null
+  const sec = Math.floor((minMs - now) / 1000)
+  if (sec <= 0) return null
+  if (sec < 3600) return `${Math.max(1, Math.ceil(sec / 60))}m`
+  if (sec < 86400) return `${Math.ceil(sec / 3600)}h`
+  return `${Math.ceil(sec / 86400)}d`
+}
+
 export function PeopleDashboard() {
   const { profile } = useUserProfile()
   const [users, setUsers] = useState([])
@@ -58,6 +82,20 @@ export function PeopleDashboard() {
   const [accessDate, setAccessDate] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [lastInviteUrl, setLastInviteUrl] = useState('')
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewGreeting, setPreviewGreeting] = useState('')
+  const [previewError, setPreviewError] = useState('')
+  const [tick, setTick] = useState(0)
+  const [eleModule, setEleModule] = useState('tires')
+  const [eleLevel, setEleLevel] = useState('edit')
+  const [eleDuration, setEleDuration] = useState('24h')
+  const [eleSaving, setEleSaving] = useState(false)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     const q = query(collection(db, 'users'))
@@ -87,6 +125,9 @@ export function PeopleDashboard() {
     setRoleDraft(r)
     const base = { ...ROLE_DEFAULTS[r], ...(u.permissions || {}) }
     setPermDraft(base)
+    setEleModule('tires')
+    setEleLevel('edit')
+    setEleDuration('24h')
   }, [])
 
   const closeEditor = useCallback(() => {
@@ -189,8 +230,7 @@ export function PeopleDashboard() {
     }
   }
 
-  async function handleCreateUser(e) {
-    e.preventDefault()
+  async function submitCreateUser() {
     setCreateBusy(true)
     setLastInviteUrl('')
     try {
@@ -215,6 +255,7 @@ export function PeopleDashboard() {
       setEmail('')
       setPhone('')
       setAccessDate('')
+      setPreviewOpen(false)
     } catch (err) {
       console.error(err)
       window.alert(err?.message || String(err))
@@ -222,6 +263,52 @@ export function PeopleDashboard() {
       setCreateBusy(false)
     }
   }
+
+  async function openInvitePreview() {
+    if (!fn.trim() || !ln.trim() || !email.trim()) {
+      window.alert('Enter first name, last name, and email before preview.')
+      return
+    }
+    setPreviewOpen(true)
+    setPreviewLoading(true)
+    setPreviewGreeting('')
+    setPreviewError('')
+    try {
+      const { data } = await previewInviteGreeting({
+        firstName: fn.trim(),
+        role,
+      })
+      setPreviewGreeting(String(data?.greeting || ''))
+    } catch (err) {
+      setPreviewError(err?.message || String(err))
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  async function saveTimedElevation() {
+    if (!selected) return
+    if (!eleModule || !eleLevel || !eleDuration) {
+      window.alert('Choose module, elevated level, and duration.')
+      return
+    }
+    setEleSaving(true)
+    try {
+      await scheduleElevationRevert({
+        targetUid: selected.id,
+        module: eleModule,
+        elevatedLevel: eleLevel,
+        duration: eleDuration,
+      })
+      window.alert('Temporary elevation saved. It will revert automatically when it expires.')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setEleSaving(false)
+    }
+  }
+
+  const eleModuleRow = MODULE_MATRIX.find((m) => m.key === eleModule) || MODULE_MATRIX[0]
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -248,10 +335,10 @@ export function PeopleDashboard() {
           <h2 className="text-lg font-semibold text-zinc-100">Create user + invite</h2>
           <p className="mt-1 text-sm text-zinc-500">
             Creates an Auth account (disabled until invite registration), Firestore profile,
-            and invite token. SMS / email delivery follows in the next implementation slice.
+            and invite token. Use Preview invite before sending.
           </p>
           <form
-            onSubmit={handleCreateUser}
+            onSubmit={(e) => e.preventDefault()}
             className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             <Field label="First name" value={fn} onChange={setFn} required />
@@ -294,13 +381,14 @@ export function PeopleDashboard() {
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               />
             </div>
-            <div className="flex items-end sm:col-span-2 lg:col-span-3">
+            <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-3">
               <button
-                type="submit"
+                type="button"
                 disabled={createBusy}
-                className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
+                onClick={() => void openInvitePreview()}
+                className="rounded-xl border border-violet-500/60 bg-violet-950/40 px-5 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-900/50 disabled:opacity-50"
               >
-                {createBusy ? 'Creating…' : 'Create & generate invite'}
+                Preview invite
               </button>
             </div>
           </form>
@@ -339,10 +427,19 @@ export function PeopleDashboard() {
                   </td>
                 </tr>
               ) : (
-                users.map((u) => (
+                users.map((u) => {
+                  const evLabel = elevationCountdownLabel(u, tick)
+                  return (
                   <tr key={u.id} className="border-b border-zinc-800/80 hover:bg-zinc-900/40">
                     <td className="px-3 py-2 font-medium text-zinc-100">
-                      {u.firstName} {u.lastName}
+                      <span>
+                        {u.firstName} {u.lastName}
+                      </span>
+                      {evLabel ? (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-700/40">
+                          ⏱ {evLabel}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-violet-300">{u.crewTag || crewTagFromRole(u.role)}</td>
                     <td className="px-3 py-2 text-zinc-400">{u.inviteStatus || '—'}</td>
@@ -400,7 +497,8 @@ export function PeopleDashboard() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -449,6 +547,76 @@ export function PeopleDashboard() {
               <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
             </div>
 
+            <div className="mt-8 border-t border-zinc-800 pt-6">
+              <h3 className="text-sm font-semibold text-zinc-200">Temporary elevation</h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                Raise one module for 24h, 48h, or 7 days. Reverts automatically (hourly job).
+              </p>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-500">Module</label>
+                  <select
+                    value={eleModule}
+                    onChange={(e) => {
+                      const key = e.target.value
+                      setEleModule(key)
+                      const row = MODULE_MATRIX.find((m) => m.key === key) || MODULE_MATRIX[0]
+                      setEleLevel((cur) =>
+                        row.levels.includes(cur) ? cur : row.levels[row.levels.length - 1],
+                      )
+                    }}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                  >
+                    {MODULE_MATRIX.map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-500">Elevated level</label>
+                  <select
+                    value={eleLevel}
+                    onChange={(e) => setEleLevel(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                  >
+                    {eleModuleRow.levels.map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        {lvl}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <fieldset className="space-y-2">
+                  <legend className="mb-1 text-xs text-zinc-500">Duration</legend>
+                  {[
+                    { id: '24h', label: '24 hours' },
+                    { id: '48h', label: '48 hours' },
+                    { id: '7d', label: '7 days' },
+                  ].map((d) => (
+                    <label key={d.id} className="flex items-center gap-2 text-sm text-zinc-300">
+                      <input
+                        type="radio"
+                        name="ele-dur"
+                        checked={eleDuration === d.id}
+                        onChange={() => setEleDuration(d.id)}
+                      />
+                      {d.label}
+                    </label>
+                  ))}
+                </fieldset>
+                <button
+                  type="button"
+                  disabled={eleSaving}
+                  onClick={() => void saveTimedElevation()}
+                  className="w-full rounded-lg bg-amber-900/40 px-3 py-2 text-sm font-semibold text-amber-100 ring-1 ring-amber-800/50 hover:bg-amber-900/60 disabled:opacity-50"
+                >
+                  {eleSaving ? 'Saving…' : 'Apply temporary elevation'}
+                </button>
+              </div>
+            </div>
+
             <div className="mt-8 flex gap-2">
               <button
                 type="button"
@@ -464,6 +632,67 @@ export function PeopleDashboard() {
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save permissions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {previewOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          role="dialog"
+          aria-modal
+          aria-labelledby="preview-invite-title"
+        >
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6 shadow-2xl">
+            <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
+              Invite preview
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+              <span className="font-medium text-zinc-300">Entrance:</span> Dark screen → bolt
+              animation → Skedaddle reveal. Then a short generative greeting, then registration.
+            </p>
+            <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Sample greeting
+              </p>
+              {previewLoading ? (
+                <p className="mt-2 text-sm text-zinc-500">Loading greeting…</p>
+              ) : previewError ? (
+                <p className="mt-2 text-sm text-red-300">{previewError}</p>
+              ) : (
+                <p className="mt-2 text-sm italic text-zinc-200">&ldquo;{previewGreeting}&rdquo;</p>
+              )}
+            </div>
+            <div className="mt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Registration steps
+              </p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
+                <li>Email (must match invite)</li>
+                <li>6-digit code (sent to email)</li>
+                <li>First and last name</li>
+                <li>Phone</li>
+                <li>Password — then sign in and first-login handshake</li>
+              </ol>
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300"
+                onClick={() => setPreviewOpen(false)}
+                disabled={createBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={createBusy || previewLoading}
+                onClick={() => void submitCreateUser()}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
+              >
+                {createBusy ? 'Sending…' : 'Send invite'}
               </button>
             </div>
           </div>

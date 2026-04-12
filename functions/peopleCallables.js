@@ -11,8 +11,15 @@ const {
   crewTagFromRole,
   permissionsForRole,
   normalizeRole,
+  MODULE_MATRIX,
 } = require('./peopleSystem')
 const { deliverInvite } = require('./inviteFlow')
+
+const LEVEL_RANK = { none: 0, view: 1, edit: 2, act: 2, manage: 3 }
+
+function levelRank(lev) {
+  return LEVEL_RANK[String(lev || '').toLowerCase()] ?? 0
+}
 
 exports.ensureUserDocument = onCall(async (request) => {
   if (!request.auth) {
@@ -259,4 +266,106 @@ exports.updatePortalUser = onCall(async (request) => {
   })
 
   return { ok: true }
+})
+
+/**
+ * Temporary elevation: raises one module permission until expiresAt; revert is processed hourly.
+ */
+exports.scheduleElevationRevert = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = admin.firestore()
+  await assertCanManagePeople(db, request.auth.uid)
+
+  const targetUid = String(request.data?.targetUid || '').trim()
+  const module = String(request.data?.module || '').trim()
+  const elevatedLevel = String(request.data?.elevatedLevel || '').trim().toLowerCase()
+  const duration = String(request.data?.duration || '')
+  const durationMs =
+    duration === '24h'
+      ? 24 * 3600000
+      : duration === '48h'
+        ? 48 * 3600000
+        : duration === '7d'
+          ? 7 * 24 * 3600000
+          : 0
+
+  if (!targetUid) {
+    throw new HttpsError('invalid-argument', 'targetUid is required.')
+  }
+  if (!durationMs) {
+    throw new HttpsError('invalid-argument', 'duration must be 24h, 48h, or 7d.')
+  }
+
+  const row = MODULE_MATRIX.find((r) => r.key === module)
+  if (!row) {
+    throw new HttpsError('invalid-argument', 'Invalid module.')
+  }
+  if (!row.levels.includes(elevatedLevel)) {
+    throw new HttpsError('invalid-argument', 'Invalid level for this module.')
+  }
+
+  const userRef = db.collection('users').doc(targetUid)
+  const revertRef = db.collection('scheduledReverts').doc()
+  const elevationId = revertRef.id
+  const expiresAt = Timestamp.fromMillis(Date.now() + durationMs)
+
+  let loggedPrev = 'none'
+
+  await db.runTransaction(async (tx) => {
+    const fresh = await tx.get(userRef)
+    if (!fresh.exists) {
+      throw new HttpsError('not-found', 'User not found.')
+    }
+    const d = fresh.data() || {}
+    const prev = String(d.permissions?.[module] || 'none').toLowerCase()
+    const prevNorm = row.levels.includes(prev) ? prev : 'none'
+    loggedPrev = prevNorm
+    if (levelRank(elevatedLevel) <= levelRank(prevNorm)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Elevated level must be strictly higher than the user’s current level for this module.',
+      )
+    }
+    const nextPerms = { ...(d.permissions || {}) }
+    nextPerms[module] = elevatedLevel
+    const arr = Array.isArray(d.timedElevations) ? d.timedElevations : []
+    const entry = {
+      id: elevationId,
+      module,
+      previousLevel: prevNorm,
+      elevatedLevel,
+      expiresAt,
+      grantedBy: request.auth.uid,
+    }
+    tx.update(userRef, {
+      permissions: nextPerms,
+      timedElevations: [...arr, entry],
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    tx.set(revertRef, {
+      elevationId,
+      targetUid,
+      module,
+      previousLevel: prevNorm,
+      elevatedLevel,
+      expiresAt,
+      grantedBy: request.auth.uid,
+      processed: false,
+      createdAt: FieldValue.serverTimestamp(),
+    })
+  })
+
+  await db.collection('accessLog').doc().set({
+    uid: targetUid,
+    changedBy: request.auth.uid,
+    changedAt: FieldValue.serverTimestamp(),
+    field: `permissions.${module}`,
+    before: { [module]: loggedPrev },
+    after: { [module]: elevatedLevel, elevationId, expiresAtMillis: expiresAt.toMillis() },
+    reason: 'Timed elevation granted',
+  })
+
+  return { ok: true, elevationId, expiresAtMillis: expiresAt.toMillis() }
 })

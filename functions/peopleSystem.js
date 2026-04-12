@@ -43,6 +43,17 @@ const ROLE_DEFAULTS = {
   },
 }
 
+/** Valid permission levels per module (must match portal `MODULE_MATRIX`). */
+const MODULE_MATRIX = [
+  { key: 'tires', levels: ['none', 'view', 'edit'] },
+  { key: 'orders', levels: ['none', 'view', 'act'] },
+  { key: 'people', levels: ['none', 'view', 'manage'] },
+  { key: 'crm', levels: ['none', 'view', 'edit', 'manage'] },
+  { key: 'analytics', levels: ['none', 'view'] },
+  { key: 'revenue', levels: ['none', 'view'] },
+  { key: 'wall', levels: ['none', 'view'] },
+]
+
 const CREW_TAGS = {
   admin: 'Overwatch',
   supplier: 'Source',
@@ -104,6 +115,7 @@ function buildUserDocument(o) {
     lastLoginLocation: '',
     handshakeSeen: Boolean(o.handshakeSeen),
     recentLogins: [],
+    timedElevations: [],
     createdAt: now,
   }
 }
@@ -130,6 +142,7 @@ async function assertCanManagePeople(db, callerUid) {
 
 module.exports = {
   ROLE_DEFAULTS,
+  MODULE_MATRIX,
   crewTagFromRole,
   normalizeRole,
   permissionsForRole,

@@ -4,6 +4,7 @@
  */
 const crypto = require('crypto')
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
+const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
@@ -24,6 +25,10 @@ const {
   DEFAULT_TZ,
 } = require('./orderMetrics')
 const { incrementDjStreak, applyHatTrick } = require('./orderLifecycle')
+const {
+  checkAccessExpiryRun,
+  processElevationRevertsRun,
+} = require('./peopleScheduled')
 
 admin.initializeApp()
 
@@ -461,18 +466,45 @@ const {
   ensureUserDocument,
   createPortalUser,
   updatePortalUser,
+  scheduleElevationRevert,
 } = require('./peopleCallables')
 
 exports.ensureUserDocument = ensureUserDocument
 exports.createPortalUser = createPortalUser
 exports.updatePortalUser = updatePortalUser
+exports.scheduleElevationRevert = scheduleElevationRevert
 
 const inviteFlow = require('./inviteFlow')
 exports.resolveInvite = inviteFlow.resolveInvite
 exports.getInviteGreeting = inviteFlow.getInviteGreeting
+exports.previewInviteGreeting = inviteFlow.previewInviteGreeting
 exports.sendInviteRegistrationCode = inviteFlow.sendInviteRegistrationCode
 exports.completeInviteRegistration = inviteFlow.completeInviteRegistration
 exports.recordLogin = inviteFlow.recordLogin
+
+/** Midnight Mountain Standard Time ≈ 07:00 UTC — lock users past accessExpiry. */
+exports.checkAccessExpiry = onSchedule(
+  {
+    schedule: '0 7 * * *',
+    timeZone: 'Etc/UTC',
+    region: 'us-central1',
+  },
+  async () => {
+    await checkAccessExpiryRun()
+  },
+)
+
+/** Revert timed permission elevations after expiresAt. */
+exports.processElevationReverts = onSchedule(
+  {
+    schedule: '0 * * * *',
+    timeZone: 'Etc/UTC',
+    region: 'us-central1',
+  },
+  async () => {
+    await processElevationRevertsRun()
+  },
+)
 
 /**
  * Slack Interactivity — block_actions + view_submission.

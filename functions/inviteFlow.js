@@ -6,7 +6,7 @@ const crypto = require('crypto')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
-const { crewTagFromRole } = require('./peopleSystem')
+const { crewTagFromRole, assertCanManagePeople, normalizeRole } = require('./peopleSystem')
 
 function firestore() {
   return admin.firestore()
@@ -119,21 +119,12 @@ exports.resolveInvite = onCall(async (request) => {
   }
 })
 
-exports.getInviteGreeting = onCall(async (request) => {
-  const token = String(request.data?.token || '').trim()
-  const firstName = String(request.data?.firstName || '').trim() || 'there'
-  const crewTag = String(request.data?.crewTag || '').trim() || 'Spotter'
-  if (!token) {
-    throw new HttpsError('invalid-argument', 'token is required.')
-  }
-  const ctx = await loadActiveInvite(token)
-  if (!ctx) {
-    throw new HttpsError('failed-precondition', 'Invite is not active.')
-  }
-
+async function fetchInviteGreetingLine(firstName, crewTag) {
+  const fn = String(firstName || '').trim() || 'there'
+  const tag = String(crewTag || '').trim() || 'Spotter'
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) {
-    return { greeting: `${firstName}. We've been expecting this.` }
+    return `${fn}. We've been expecting this.`
   }
 
   const model =
@@ -162,7 +153,7 @@ Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door 
         messages: [
           {
             role: 'user',
-            content: `First name: ${firstName}. Role label: ${crewTag}.`,
+            content: `First name: ${fn}. Role label: ${tag}.`,
           },
         ],
       }),
@@ -170,18 +161,48 @@ Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door 
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
       console.error('anthropic', json)
-      return { greeting: `${firstName}. We've been expecting this.` }
+      return `${fn}. We've been expecting this.`
     }
     const text =
       json?.content?.[0]?.text ||
       json?.content?.find?.((c) => c.type === 'text')?.text ||
       ''
     const line = String(text).split('\n')[0].trim().slice(0, 200)
-    return { greeting: line || `${firstName}. We've been expecting this.` }
+    return line || `${fn}. We've been expecting this.`
   } catch (e) {
     console.error(e)
-    return { greeting: `${firstName}. We've been expecting this.` }
+    return `${fn}. We've been expecting this.`
   }
+}
+
+exports.getInviteGreeting = onCall(async (request) => {
+  const token = String(request.data?.token || '').trim()
+  const firstName = String(request.data?.firstName || '').trim() || 'there'
+  const crewTag = String(request.data?.crewTag || '').trim() || 'Spotter'
+  if (!token) {
+    throw new HttpsError('invalid-argument', 'token is required.')
+  }
+  const ctx = await loadActiveInvite(token)
+  if (!ctx) {
+    throw new HttpsError('failed-precondition', 'Invite is not active.')
+  }
+
+  const greeting = await fetchInviteGreetingLine(firstName, crewTag)
+  return { greeting }
+})
+
+/** People admins — preview greeting before sending an invite (no token). */
+exports.previewInviteGreeting = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = firestore()
+  await assertCanManagePeople(db, request.auth.uid)
+  const firstName = String(request.data?.firstName || '').trim() || 'there'
+  const role = normalizeRole(request.data?.role)
+  const crewTag = crewTagFromRole(role)
+  const greeting = await fetchInviteGreetingLine(firstName, crewTag)
+  return { greeting }
 })
 
 exports.sendInviteRegistrationCode = onCall(async (request) => {
@@ -460,6 +481,7 @@ module.exports = {
   deliverInvite,
   resolveInvite: exports.resolveInvite,
   getInviteGreeting: exports.getInviteGreeting,
+  previewInviteGreeting: exports.previewInviteGreeting,
   sendInviteRegistrationCode: exports.sendInviteRegistrationCode,
   completeInviteRegistration: exports.completeInviteRegistration,
   recordLogin: exports.recordLogin,
