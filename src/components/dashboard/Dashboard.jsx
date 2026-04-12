@@ -379,8 +379,8 @@ export function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden max-w-[220px] truncate text-sm text-zinc-400 sm:inline">
-              {user?.email}
+            <span className="max-w-[200px] truncate text-xs text-zinc-500 sm:max-w-[220px] sm:text-sm sm:text-zinc-400">
+              {user?.email || auth.currentUser?.email}
             </span>
             <button
               type="button"

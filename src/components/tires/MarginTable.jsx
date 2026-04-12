@@ -149,7 +149,7 @@ export function MarginTable({
               <th className="px-3 py-3">Description</th>
               <th className="px-3 py-3">MSPN</th>
               <th className="px-3 py-3">LR</th>
-              <th className="hidden px-3 py-3 md:table-cell">Grade</th>
+              <th className="px-3 py-3">Grade</th>
               <th className="px-3 py-3">CTS</th>
               <th className="px-3 py-3">
                 <SortButton
@@ -225,7 +225,7 @@ export function MarginTable({
                         {row.mspn || '—'}
                       </td>
                       <td className="px-3 py-2 text-zinc-400">{row.lr || '—'}</td>
-                      <td className="hidden px-3 py-2 align-middle md:table-cell">
+                      <td className="px-3 py-2 align-middle">
                         {showGradeEditor ? (
                           <div className="flex flex-wrap items-center gap-1.5">
                             <select
