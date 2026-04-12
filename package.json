@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "seed:tires": "node scripts/seed-tires.mjs",
-    "import:tires-csv": "node scripts/import-tires-csv.mjs"
+    "import:tires-csv": "node scripts/import-tires-csv.mjs",
+    "deploy:functions": "firebase deploy --only functions"
   },
   "dependencies": {
     "firebase": "^12.12.0",
@@ -28,6 +29,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "firebase-admin": "^13.0.0",
+    "firebase-tools": "^15.14.0",
     "globals": "^17.4.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.4"

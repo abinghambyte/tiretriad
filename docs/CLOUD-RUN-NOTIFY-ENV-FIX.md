@@ -49,7 +49,7 @@ Optional second channel / backup:
 So:
 
 - If **prod notify = Cloud Run only:** set env on Run **and** point the UI (or a BFF) at that URL; Firebase callable can be retired or unused.
-- If **prod notify = Firebase callable:** set **`NOTIFY_WEBHOOK_URL`** on the **Firebase Function** configuration in GCP, not only on Cloud Run.
+- If **prod notify = Firebase callable:** set **`NOTIFY_WEBHOOK_URL`** on the **Firebase Gen2** function (via **`functions/.env`** at deploy or **GCP** env on the Cloud Run service backing the function). **`firebase functions:config:set`** does not populate `process.env` for Gen2 — see [FIREBASE-GEN2-SENDTIRESALE-ENV.md](./FIREBASE-GEN2-SENDTIRESALE-ENV.md).
 
 ---
 

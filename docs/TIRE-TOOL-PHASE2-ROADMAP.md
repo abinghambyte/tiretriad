@@ -2,7 +2,7 @@
 
 **Context for Cursor:** Firebase + Vite/React portal (this repo). Production may also use **Cloud Run** (`skedaddle-os-api`) for some APIs — keep this doc and `TACTICAL-OS-FLEET-ALERTS.md` in sync with what is actually deployed.
 
-**Goal right now:** Verify **Slack notification works end-to-end in production** before building interactivity or new UI.
+**Goal right now:** Phase 1 cleanup is done (no dev-only Slack test UI). Next: **Slack interactivity** — see [ROADMAP.md](./ROADMAP.md) Phase 2; this doc still has callable / env reference for ops.
 
 ---
 
@@ -18,19 +18,16 @@ These are answered by inspecting `skedaddle-portal` as of this doc:
 
 ---
 
-## Step 1 — Verify end-to-end Slack notification (do this first)
+## Step 1 — Verify end-to-end Slack notification *(complete)*
 
-**What exists:** Callable **`sendTireSaleSms`** in `functions/index.js`, invoked from **`SaleMessenger`** after sign-in.
+**What exists:** Callable **`sendTireSaleSms`** in `functions/index.js`, invoked from **`SaleMessenger`** after sign-in (`httpsCallable`).
 
-**What to do:**
+**Checklist (for new environments):**
 
-1. Confirm call site: open `src/components/tires/SaleMessenger.jsx` — `httpsCallable(functions, 'sendTireSaleSms')`.
-2. (Optional) Add a temporary **“Test Slack”** control (e.g. on Tires header or hidden dev-only) that calls the same callable with a **minimal valid payload** (valid `mspn`, `quantity`, etc.) or add a **separate callable** `testSlackWebhook` that only posts a fixed string — then remove after green.
-3. Ensure **`NOTIFY_WEBHOOK_URL`** (and `NOTIFY_WEBHOOK_STYLE=slack` if needed) is set on the **deployed** function (Firebase Console → Functions → configuration, or GCP for 2nd gen). If production uses **Cloud Run** instead, set the equivalent there and confirm the **UI actually hits that path** (see Step 2).
-4. Submit from production UI → message appears in **`#fleet-ops`** (or your webhook channel).
-5. Remove any temporary test UI.
+1. Set **`NOTIFY_WEBHOOK_URL`** (+ optional **`NOTIFY_WEBHOOK_STYLE=slack`**) on the deployed Gen2 function — [FIREBASE-GEN2-SENDTIRESALE-ENV.md](./FIREBASE-GEN2-SENDTIRESALE-ENV.md). Do not rely on **`firebase functions:config:set`** alone for Gen2.
+2. Submit **Log sale / Notify team** from production → message in **`#fleet-ops`**.
 
-**Done when:** A real call from **production** lands in Slack with correct formatting.
+The temporary dev-only “Test Slack post” UI has been removed from `SaleMessenger.jsx`.
 
 ---
 

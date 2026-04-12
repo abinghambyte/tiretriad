@@ -1,3 +1,10 @@
+/**
+ * Gen2 callable — Slack / Discord notify via process.env only (not functions.config()).
+ * Set NOTIFY_WEBHOOK_URL (+ optional NOTIFY_WEBHOOK_URL_2, NOTIFY_WEBHOOK_STYLE) using
+ * functions/.env at deploy time or Cloud Run env for this function. See
+ * docs/FIREBASE-GEN2-SENDTIRESALE-ENV.md — legacy `firebase functions:config:set` does not
+ * populate process.env here.
+ */
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')

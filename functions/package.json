@@ -2,7 +2,7 @@
   "name": "skedaddle-portal-functions",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": "20"
   },
   "main": "index.js",
   "scripts": {

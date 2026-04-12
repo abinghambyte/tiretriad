@@ -311,46 +311,6 @@ export function SaleMessenger({ onClose, tires }) {
             {sending ? 'Sending…' : 'Notify team (webhook)'}
           </button>
         </form>
-
-        {import.meta.env.DEV ? (
-          <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
-            <button
-              type="button"
-              className="w-full rounded-lg bg-amber-500 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400"
-              onClick={async () => {
-                const testPayload = {
-                  mspn: 'TEST-DEV-STEP1',
-                  quantity: 1,
-                  pricePerTire: 99.99,
-                  totalPrice: 99.99,
-                  customerName: 'Dev test',
-                  customerContact: 'n/a',
-                  fulfillment: 'Pickup',
-                  fulfillmentNotes: 'Step 1 Slack verification — delete this DEV block after green',
-                  additionalNotes: '',
-                }
-                try {
-                  const result = await sendTireSaleSms(testPayload)
-                  console.log('Slack test result:', result.data)
-                  window.alert('Posted — check #fleet-ops (and function NOTIFY_WEBHOOK_URL).')
-                } catch (err) {
-                  console.error('Slack test failed:', err)
-                  window.alert(
-                    `Failed: ${err?.message || String(err)}`,
-                  )
-                }
-              }}
-            >
-              [DEV] Test Slack post
-            </button>
-            <p className="mt-2 text-[11px] text-zinc-600">
-              Payload matches{' '}
-              <code className="text-zinc-500">functions/index.js</code> (
-              mspn, quantity, pricePerTire, totalPrice, fulfillment, …). Strip
-              this block after Step 1 passes; hidden in production builds.
-            </p>
-          </div>
-        ) : null}
       </div>
     </div>
   )
