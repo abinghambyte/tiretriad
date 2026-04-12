@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth } from '../../firebase/config'
 import { useAuth } from '../../hooks/useAuth'
 import { useTires } from '../../hooks/useTires'
 import { marginPercent } from '../../utils/marginCalc'
+import { exportMarginCsv } from '../../utils/exportMarginCsv'
+import { BulkCtsModal } from './BulkCtsModal'
+import { FilterPresetsBar } from './FilterPresetsBar'
 import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
@@ -31,6 +34,15 @@ export function TiresDashboard() {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [listingOpen, setListingOpen] = useState(false)
   const [saleOpen, setSaleOpen] = useState(false)
+  const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
+
+  const applyFilterPreset = useCallback((p) => {
+    setBrand(p.brand ?? '')
+    setCategory(p.category ?? '')
+    setUseTag(p.useTag ?? '')
+    setLr(p.lr ?? '')
+    setMinMargin(Number(p.minMargin) || 0)
+  }, [])
 
   const hasActiveFilters =
     minMargin > 0 || Boolean(brand || category || useTag || lr)
@@ -45,6 +57,7 @@ export function TiresDashboard() {
 
   function clearSelection() {
     setSelectedIds(new Set())
+    setBulkCtsOpen(false)
   }
 
   const brands = useMemo(
@@ -65,10 +78,15 @@ export function TiresDashboard() {
   }, [tires])
 
   const enriched = useMemo(() => {
-    return tires.map((t) => ({
-      ...t,
-      margin: marginPercent(t.retailPrice, t.cts),
-    }))
+    return tires.map((t) => {
+      const rp = t.retailPrice ?? t.price
+      const retailNum = rp != null && rp !== '' ? Number(rp) : NaN
+      return {
+        ...t,
+        retailPrice: Number.isFinite(retailNum) ? retailNum : t.retailPrice,
+        margin: marginPercent(Number.isFinite(retailNum) ? retailNum : NaN, t.cts),
+      }
+    })
   }, [tires])
 
   const filtered = useMemo(() => {
@@ -159,6 +177,7 @@ export function TiresDashboard() {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      if (next.size === 0) setBulkCtsOpen(false)
       return next
     })
   }
@@ -172,6 +191,7 @@ export function TiresDashboard() {
       } else {
         for (const r of rows) next.add(r.id)
       }
+      if (next.size === 0) setBulkCtsOpen(false)
       return next
     })
   }
@@ -254,6 +274,15 @@ export function TiresDashboard() {
           onClearAll={clearFilters}
         />
 
+        <FilterPresetsBar
+          brand={brand}
+          category={category}
+          useTag={useTag}
+          lr={lr}
+          minMargin={minMargin}
+          onApplyPreset={applyFilterPreset}
+        />
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-zinc-400">
             {loading ? (
@@ -280,6 +309,24 @@ export function TiresDashboard() {
                 className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
               >
                 Clear selection
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={loading || sortedRows.length === 0}
+              onClick={() => exportMarginCsv(sortedRows)}
+              className="rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export CSV
+            </button>
+            {selectedIds.size > 0 ? (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setBulkCtsOpen(true)}
+                className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
+              >
+                Bulk edit CTS
               </button>
             ) : null}
             <button
@@ -316,6 +363,11 @@ export function TiresDashboard() {
       {saleOpen ? (
         <SaleMessenger tires={tires} onClose={() => setSaleOpen(false)} />
       ) : null}
+      <BulkCtsModal
+        open={bulkCtsOpen && selectedIds.size > 0}
+        onClose={() => setBulkCtsOpen(false)}
+        tireIds={Array.from(selectedIds)}
+      />
     </div>
   )
 }

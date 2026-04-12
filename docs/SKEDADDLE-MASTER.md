@@ -107,8 +107,13 @@ mspn: string            // "03363"
 description: string     // "11R22.5 X LEZ LRG"
 lr: string              // "G" — store "" not null if empty
 fet: number             // strip $ and parse float, store 0 if blank
-price: number           // retail price — strip $ and parse float
-cts: number             // cost to sell — manual or calculated
+retailPrice: number     // retail (CSV column `Price`); legacy `price` may exist
+cost: number            // base tire cost (portal CTS editor)
+mountCost: number       // mount / install allocation
+deliveryCost: number     // delivery allocation
+otherCost: number       // misc landed cost
+cts: number             // cost to sell = cost + mountCost + deliveryCost + otherCost (written on save)
+grade: string           // "A" | "B" | "C" for margin table; "scrap" hidden from portal
 category: string        // "All Terrain" | "Highway" | "Commercial" etc.
 useTags: array          // ["highway", "commercial", "long-haul"]
 notes: string           // internal notes
@@ -129,9 +134,9 @@ Import instructions for `scripts/seed-tires.mjs`:
 
 ### 5.3 Margin Calculator
 
-Table columns: Brand, Description, MSPN, LR, CTS, Retail, Margin %, Category
+Table columns: Brand, Description, MSPN, LR, Grade, CTS, Retail, Margin %, Category
 
-Margin % = `((price - cts) / price) × 100`
+Margin % = `((retailPrice - cts) / retailPrice) × 100`
 
 Color badges:
 - Red: < 15%
@@ -140,7 +145,7 @@ Color badges:
 - Blue/Gold: 35%+
 
 Filters: Brand, Category, Use Tag, LR, sliding margin % range  
-Sort: margin %, brand, price  
+Sort: margin %, brand, retail  
 Each row has a checkbox for listing generator selection
 
 ### 5.4 Listing Generator

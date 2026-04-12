@@ -1,0 +1,165 @@
+import { useEffect, useState } from 'react'
+import { doc, writeBatch } from 'firebase/firestore'
+import { db } from '../../firebase/config'
+import { computeCts } from '../../utils/ctsCalc'
+
+function num(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+export function BulkCtsModal({ open, onClose, tireIds }) {
+  const [cost, setCost] = useState(0)
+  const [mountCost, setMountCost] = useState(0)
+  const [deliveryCost, setDeliveryCost] = useState(0)
+  const [otherCost, setOtherCost] = useState(0)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setCost(0)
+      setMountCost(0)
+      setDeliveryCost(0)
+      setOtherCost(0)
+    }
+  }, [open])
+
+  if (!open) return null
+
+  const previewCts = computeCts({ cost, mountCost, deliveryCost, otherCost })
+
+  async function handleSave() {
+    if (tireIds.length === 0) return
+    const payload = {
+      cost: num(cost),
+      mountCost: num(mountCost),
+      deliveryCost: num(deliveryCost),
+      otherCost: num(otherCost),
+      cts: computeCts({
+        cost: num(cost),
+        mountCost: num(mountCost),
+        deliveryCost: num(deliveryCost),
+        otherCost: num(otherCost),
+      }),
+    }
+
+    setSaving(true)
+    try {
+      const chunkSize = 400
+      for (let i = 0; i < tireIds.length; i += chunkSize) {
+        const chunk = tireIds.slice(i, i + chunkSize)
+        const batch = writeBatch(db)
+        for (const id of chunk) {
+          batch.update(doc(db, 'tires', id), payload)
+        }
+        await batch.commit()
+      }
+      onClose()
+    } catch (e) {
+      console.error(e)
+      window.alert(
+        e instanceof Error
+          ? e.message
+          : 'Bulk save failed. Check Firestore rules and your connection.',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bulk-cts-title"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2
+          id="bulk-cts-title"
+          className="text-lg font-semibold text-zinc-100"
+        >
+          Bulk edit CTS
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Apply the same cost stack to{' '}
+          <span className="font-medium text-zinc-300">{tireIds.length}</span>{' '}
+          selected tire{tireIds.length === 1 ? '' : 's'}. CTS preview:{' '}
+          <span className="font-mono text-amber-200/90">
+            ${previewCts.toFixed(2)}
+          </span>
+        </p>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <NumberField
+            label="Cost"
+            value={cost}
+            onChange={setCost}
+            id="bulk-cost"
+          />
+          <NumberField
+            label="Mount"
+            value={mountCost}
+            onChange={setMountCost}
+            id="bulk-mount"
+          />
+          <NumberField
+            label="Delivery"
+            value={deliveryCost}
+            onChange={setDeliveryCost}
+            id="bulk-delivery"
+          />
+          <NumberField
+            label="Other"
+            value={otherCost}
+            onChange={setOtherCost}
+            id="bulk-other"
+          />
+        </div>
+
+        <div className="mt-8 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500 hover:text-white disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || tireIds.length === 0}
+            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save to all selected'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NumberField({ id, label, value, onChange }) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-zinc-500">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="decimal"
+        min={0}
+        step={0.01}
+        value={Number.isFinite(Number(value)) ? value : 0}
+        onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-sm text-zinc-100 outline-none focus:border-amber-600/70"
+      />
+    </div>
+  )
+}

@@ -159,7 +159,7 @@ export function Dashboard() {
     }
     const n = tires.length
     const margins = tires
-      .map((t) => marginPercent(t.retailPrice, t.cts))
+      .map((t) => marginPercent(t.retailPrice ?? t.price, t.cts))
       .filter((m) => m != null && !Number.isNaN(m))
     const avg =
       margins.length > 0

@@ -37,8 +37,9 @@ export function SaleMessenger({ onClose, tires }) {
   function handleMspnChange(value) {
     setMspn(value)
     const t = tires.find((x) => x.mspn === value)
-    if (t && t.retailPrice != null) {
-      setPricePerTire(String(t.retailPrice))
+    const retail = t?.retailPrice ?? t?.price
+    if (t && retail != null && retail !== '') {
+      setPricePerTire(String(retail))
     }
   }
 
