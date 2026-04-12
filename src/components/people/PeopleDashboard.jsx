@@ -475,7 +475,9 @@ export function PeopleDashboard() {
                 <th className="px-3 py-3">Access expiry</th>
                 <th className="px-3 py-3">Streak</th>
                 <th className="px-3 py-3">Last seen</th>
-                <th className="px-3 py-3 text-right">Actions</th>
+                <th className="sticky right-0 z-[3] border-l border-zinc-800/90 bg-zinc-900/95 px-3 py-3 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -495,7 +497,7 @@ export function PeopleDashboard() {
                 users.map((u) => {
                   const evLabel = elevationCountdownLabel(u, tick)
                   return (
-                  <tr key={u.id} className="border-b border-zinc-800/80 hover:bg-zinc-900/40">
+                  <tr key={u.id} className="group border-b border-zinc-800/80 hover:bg-zinc-900/40">
                     <td className="px-3 py-2 font-medium text-zinc-100">
                       <span>
                         {u.firstName} {u.lastName}
@@ -520,17 +522,20 @@ export function PeopleDashboard() {
                         </>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right">
-                      <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
+                    <td className="sticky right-0 z-[2] whitespace-nowrap border-l border-zinc-800/90 bg-zinc-950 px-3 py-2 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] group-hover:bg-zinc-900/40">
+                      <div className="inline-flex shrink-0 flex-nowrap items-center justify-end gap-1">
                         <button
                           type="button"
-                          className="rounded-md border border-zinc-700/80 p-1.5 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
+                          className="inline-flex h-9 min-h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-md border border-zinc-600/90 bg-zinc-900/50 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-100"
                           title="Access history"
                           aria-label="Access history"
-                          onClick={() => void openHistory(u)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void openHistory(u)
+                          }}
                         >
                           <svg
-                            className="h-4 w-4"
+                            className="h-4 w-4 shrink-0"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"

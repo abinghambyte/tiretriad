@@ -113,7 +113,7 @@ function orderRefFromId(id) {
 function statusBadge(status) {
   const k = String(status || '').trim().toLowerCase().replace(/\s+/g, '_')
   const base =
-    'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider'
+    'inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal'
   const map = {
     pending: 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-500/25',
     prospective: 'bg-fuchsia-500/15 text-fuchsia-100 ring-1 ring-fuchsia-500/30',
