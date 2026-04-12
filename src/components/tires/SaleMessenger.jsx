@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { db, functions } from '../../firebase/config'
 import { phoneDocIdFromContact } from '../../utils/phoneDocId'
 import { formatSaleMessage } from '../../utils/saleMessenger'
+import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
+import { cmdEnterSubmitKeyDown } from '../../utils/cmdEnterSubmit.js'
 
 /** One callable instance — same reference as form submit and DEV test button. */
 const sendTireSaleSms = httpsCallable(functions, 'sendTireSaleSms')
@@ -170,7 +172,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+      className={MODAL_CENTER_BACKDROP}
       role="dialog"
       aria-modal="true"
       aria-labelledby="sale-ms-title"
@@ -179,7 +181,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
       }}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"
+        className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-0`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">
@@ -205,7 +207,11 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={cmdEnterSubmitKeyDown}
+          className="space-y-4 px-5 py-5"
+        >
           {status ? (
             <p
               className={`rounded-lg px-3 py-2 text-sm ${

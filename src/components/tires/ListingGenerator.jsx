@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { buildListingScript } from '../../utils/listingGenerator'
+import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 
 const PLATFORMS = [
   'Facebook Marketplace',
@@ -69,7 +70,7 @@ export function ListingGenerator({ tires, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+      className={MODAL_CENTER_BACKDROP}
       role="dialog"
       aria-modal="true"
       aria-labelledby="listing-gen-title"
@@ -78,7 +79,7 @@ export function ListingGenerator({ tires, onClose }) {
       }}
     >
       <div
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"
+        className={`${MODAL_CENTER_PANEL_WIDE} border-zinc-800 bg-zinc-950 p-0`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-zinc-800 px-5 py-4">

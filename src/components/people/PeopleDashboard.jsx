@@ -18,6 +18,12 @@ import {
   ROLE_DEFAULTS,
 } from '../../constants/peoplePermissions'
 import { PermissionMatrix } from './PermissionMatrix'
+import { cmdEnterInvokeKeyDown } from '../../utils/cmdEnterSubmit.js'
+import {
+  MODAL_CENTER_BACKDROP,
+  MODAL_CENTER_BACKDROP_TOP,
+  MODAL_CENTER_PANEL,
+} from '../ui/modalChrome.js'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -404,6 +410,7 @@ export function PeopleDashboard() {
           </p>
           <form
             onSubmit={(e) => e.preventDefault()}
+            onKeyDown={cmdEnterInvokeKeyDown(() => void submitCreateUser())}
             className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             <Field label="First name" value={fn} onChange={setFn} required />
@@ -743,12 +750,12 @@ export function PeopleDashboard() {
 
       {previewOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal
           aria-labelledby="preview-invite-title"
         >
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6 shadow-2xl">
+          <div className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6`}>
             <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
               Invite preview
             </h2>
@@ -804,14 +811,14 @@ export function PeopleDashboard() {
 
       {logOpen ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+          className={MODAL_CENTER_BACKDROP_TOP}
           onClick={() => {
             setLogOpen(false)
             setHistoryForUser(null)
           }}
         >
           <div
-            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6"
+            className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 sm:max-h-[80vh]`}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-white">Access history</h3>

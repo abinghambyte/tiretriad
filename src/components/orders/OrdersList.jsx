@@ -19,6 +19,10 @@ import {
   readSoundEnabled,
   writeSoundEnabled,
 } from '../../utils/playOrderCompleteSound'
+import {
+  MODAL_CENTER_BACKDROP,
+  MODAL_CENTER_PANEL_BASE,
+} from '../ui/modalChrome.js'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -587,12 +591,12 @@ export function OrdersList({ highlightId }) {
 
       {notifyModalOrder && notifyPayload ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
           aria-labelledby="notify-customer-title"
         >
-          <div className="w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-xl">
+          <div className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}>
             <h2 id="notify-customer-title" className="text-sm font-semibold text-white">
               Notify customer
             </h2>
@@ -640,11 +644,11 @@ export function OrdersList({ highlightId }) {
 
       {cancelFor ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
         >
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-xl">
+          <div className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}>
             <h2 className="text-sm font-semibold text-white">Cancel order</h2>
             <p className="mt-1 font-mono text-xs text-zinc-500">
               {cancelFor.mspn} × {cancelFor.quantity}
@@ -700,11 +704,11 @@ export function OrdersList({ highlightId }) {
 
       {completeFor ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-xl">
+          <div className={`${MODAL_CENTER_PANEL_BASE} max-w-sm p-5`}>
             <h2 className="text-sm font-semibold text-white">Mark order complete</h2>
             <p className="mt-1 text-xs text-zinc-500">Payment received and amount for the record.</p>
             <label className="mt-4 flex items-center gap-2 text-sm text-zinc-300">

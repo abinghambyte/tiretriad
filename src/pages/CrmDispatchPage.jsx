@@ -169,12 +169,12 @@ export function CrmDispatchPage() {
             <p className="mt-2 text-[11px] font-medium text-cyan-400/90">
               {jobCompletionLabel(j.completionStatus)}
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-2">
               <button
                 type="button"
                 disabled={j.completionStatus === 'In Progress' || j.completionStatus === 'Done'}
                 onClick={() => void setStatus(j, 'In Progress')}
-                className="min-h-[48px] min-w-[120px] rounded-xl bg-cyan-900/50 px-4 py-3 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-800/50 disabled:opacity-40"
+                className="min-h-[48px] w-full rounded-xl bg-cyan-900/50 px-4 py-3 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-800/50 disabled:opacity-40 sm:w-auto sm:min-w-[120px]"
               >
                 Start job
               </button>
@@ -182,7 +182,7 @@ export function CrmDispatchPage() {
                 type="button"
                 disabled={j.completionStatus === 'Done'}
                 onClick={() => void setStatus(j, 'Done')}
-                className="min-h-[48px] min-w-[120px] rounded-xl bg-emerald-900/50 px-4 py-3 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-800/50 disabled:opacity-40"
+                className="min-h-[48px] w-full rounded-xl bg-emerald-900/50 px-4 py-3 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-800/50 disabled:opacity-40 sm:w-auto sm:min-w-[120px]"
               >
                 Complete job
               </button>

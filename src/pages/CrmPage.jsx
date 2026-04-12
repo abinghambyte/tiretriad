@@ -19,6 +19,7 @@ import { auth, db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
+import { cmdEnterSubmitKeyDown } from '../utils/cmdEnterSubmit.js'
 import { permissionMeets } from '../constants/peoplePermissions'
 import { computeCrmScore, scoreBadgeClass } from '../utils/crmScore'
 
@@ -65,6 +66,8 @@ export function CrmPage() {
     fleetSize: '',
     urgency: 'warm',
   })
+  /** Mobile (under md): which pipeline stage accordion is open; desktop uses grid. */
+  const [crmMobileStage, setCrmMobileStage] = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'crmAccounts'), orderBy('lastContactedAt', 'desc'), limit(500))
@@ -326,49 +329,144 @@ export function CrmPage() {
             </div>
 
             {loading ? (
-              <p className="text-sm text-zinc-500">Loading pipeline…</p>
-            ) : (
-              <div className="flex gap-2 overflow-x-auto pb-2 md:grid md:grid-cols-6 md:overflow-visible">
-                {STAGES.map((stage) => (
-                  <div
-                    key={stage}
-                    className="min-w-[200px] shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2 md:min-w-0"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => void onDropStage(stage, e)}
-                  >
-                    <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
-                      {STAGE_TITLES[stage] || `Stage ${stage}`}
-                    </p>
-                    <div className="space-y-2">
-                      {byStage(stage).map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          draggable={canEdit}
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/accountId', a.id)
-                          }}
-                          onClick={() => setDetail(a)}
-                          className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
-                        >
-                          <span className="font-medium text-zinc-100">{a.companyName}</span>
-                          <div className="mt-1 flex flex-wrap items-center gap-1">
-                            <span
-                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
-                            >
-                              {a.score ?? computeCrmScore(a)}
-                            </span>
-                            <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
-                          </div>
-                          <p className="mt-1 text-[10px] text-zinc-500">
-                            {a.decisionMaker || '—'} · {formatTs(a.lastContactedAt)}
-                          </p>
-                        </button>
-                      ))}
+              <>
+                <div className="hidden gap-2 md:grid md:grid-cols-6">
+                  {STAGES.map((stage) => (
+                    <div
+                      key={stage}
+                      className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
+                    >
+                      <div className="mb-2 h-3 w-24 animate-pulse rounded bg-zinc-700/40" />
+                      <div className="space-y-2">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="h-[4.5rem] animate-pulse rounded-lg border border-zinc-800/60 bg-zinc-800/30"
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                <div className="space-y-2 md:hidden">
+                  {STAGES.map((stage) => (
+                    <div
+                      key={stage}
+                      className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3"
+                    >
+                      <div className="mb-2 h-3 w-40 animate-pulse rounded bg-zinc-700/40" />
+                      <div className="space-y-2">
+                        {[0, 1].map((i) => (
+                          <div
+                            key={i}
+                            className="h-16 animate-pulse rounded-lg border border-zinc-800/60 bg-zinc-800/30"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hidden gap-2 md:grid md:grid-cols-6 md:overflow-visible">
+                  {STAGES.map((stage) => (
+                    <div
+                      key={stage}
+                      className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => void onDropStage(stage, e)}
+                    >
+                      <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
+                        {STAGE_TITLES[stage] || `Stage ${stage}`}
+                      </p>
+                      <div className="space-y-2">
+                        {byStage(stage).map((a) => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            draggable={canEdit}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/accountId', a.id)
+                            }}
+                            onClick={() => setDetail(a)}
+                            className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
+                          >
+                            <span className="font-medium text-zinc-100">{a.companyName}</span>
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              <span
+                                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                              >
+                                {a.score ?? computeCrmScore(a)}
+                              </span>
+                              <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
+                            </div>
+                            <p className="mt-1 text-[10px] text-zinc-500">
+                              {a.decisionMaker || '—'} · {formatTs(a.lastContactedAt)}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2 md:hidden">
+                  {STAGES.map((stage) => {
+                    const open = crmMobileStage === stage
+                    return (
+                      <div
+                        key={stage}
+                        className="rounded-xl border border-zinc-800 bg-zinc-900/30"
+                      >
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                          aria-expanded={open}
+                          onClick={() => setCrmMobileStage(open ? null : stage)}
+                        >
+                          <span className="text-xs font-semibold leading-snug text-zinc-300">
+                            {STAGE_TITLES[stage] || `Stage ${stage}`}
+                          </span>
+                          <span className="text-zinc-500">{open ? '▾' : '▸'}</span>
+                        </button>
+                        {open ? (
+                          <div
+                            className="space-y-2 border-t border-zinc-800/80 p-2"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => void onDropStage(stage, e)}
+                          >
+                            {byStage(stage).map((a) => (
+                              <button
+                                key={a.id}
+                                type="button"
+                                draggable={canEdit}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/accountId', a.id)
+                                }}
+                                onClick={() => setDetail(a)}
+                                className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
+                              >
+                                <span className="font-medium text-zinc-100">{a.companyName}</span>
+                                <div className="mt-1 flex flex-wrap items-center gap-1">
+                                  <span
+                                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                                  >
+                                    {a.score ?? computeCrmScore(a)}
+                                  </span>
+                                  <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
+                                </div>
+                                <p className="mt-1 text-[10px] text-zinc-500">
+                                  {a.decisionMaker || '—'} · {formatTs(a.lastContactedAt)}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
           </>
         ) : (
@@ -377,6 +475,7 @@ export function CrmPage() {
             {canEdit ? (
               <form
                 onSubmit={(e) => void addLead(e)}
+                onKeyDown={cmdEnterSubmitKeyDown}
                 className="grid gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:grid-cols-2 lg:grid-cols-3"
               >
                 <input
@@ -540,13 +639,13 @@ function CrmAccountPanel({ account, vehicles, canEdit, onClose, onRefresh }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-40 flex justify-end bg-black/60 p-0 backdrop-blur-sm sm:p-0"
       role="dialog"
       aria-modal
       onClick={onClose}
     >
       <div
-        className="h-full w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
+        className="h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl max-sm:max-w-none max-sm:border-l-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2">

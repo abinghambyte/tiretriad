@@ -14,6 +14,20 @@ A private, gated web portal at **skedaddleinc.com**. Dark minimal landing page w
 
 ---
 
+## Developer tooling
+
+### GitHub MCP in Cursor
+
+To let Cursor read and reason about the remote repo (`abinghambyte/skedaddleinc`) without pasting files:
+
+1. Open **Cursor Settings** → **Tools & Integrations** → **New MCP Server**.
+2. Set the command to: `npx -y @modelcontextprotocol/server-github`
+3. Add environment variable **`GITHUB_PERSONAL_ACCESS_TOKEN`** with a GitHub [personal access token](https://github.com/settings/tokens) that has **`repo`** scope for `abinghambyte/skedaddleinc`.
+
+After it connects, the GitHub MCP server can fetch repository contents and metadata from GitHub directly inside the editor.
+
+---
+
 ## 2. Firebase Config
 
 ```js

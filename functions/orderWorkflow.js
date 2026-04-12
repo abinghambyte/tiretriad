@@ -426,7 +426,50 @@ function scheduleModalView(orderId, logisticsMethod) {
   }
 }
 
-function cancelModalView(orderId) {
+/**
+ * @param {string} orderId
+ * @param {{ preselected?: string | null, showNoteField?: boolean }} [opts]
+ */
+function cancelModalView(orderId, opts = {}) {
+  const preselected = opts.preselected || null
+  const showNoteField = Boolean(opts.showNoteField)
+  const dispositionOptions = CANCEL_DISPOSITIONS.map((d) => ({
+    text: { type: 'plain_text', text: `${d.icon} ${d.label}`.slice(0, 75) },
+    value: d.value,
+  }))
+  const initialDisposition =
+    preselected && CANCEL_DISPOSITIONS.some((d) => d.value === preselected)
+      ? dispositionOptions.find((o) => o.value === preselected)
+      : undefined
+
+  const blocks = [
+    {
+      type: 'input',
+      dispatch_action: true,
+      block_id: 'cancel_disp_block',
+      label: { type: 'plain_text', text: 'Why cancel?' },
+      element: {
+        type: 'static_select',
+        action_id: 'cancel_disp_select',
+        placeholder: { type: 'plain_text', text: 'Choose…' },
+        ...(initialDisposition ? { initial_option: initialDisposition } : {}),
+        options: dispositionOptions,
+      },
+    },
+  ]
+  if (showNoteField) {
+    blocks.push({
+      type: 'input',
+      block_id: 'cancel_note_block',
+      optional: false,
+      label: { type: 'plain_text', text: 'Details (required for Other)' },
+      element: {
+        type: 'plain_text_input',
+        action_id: 'cancel_note_field',
+        multiline: false,
+      },
+    })
+  }
   return {
     type: 'modal',
     callback_id: MODAL_CANCEL,
@@ -434,33 +477,7 @@ function cancelModalView(orderId) {
     title: { type: 'plain_text', text: 'Cancel order' },
     submit: { type: 'plain_text', text: 'Submit' },
     close: { type: 'plain_text', text: 'Close' },
-    blocks: [
-      {
-        type: 'input',
-        block_id: 'cancel_disp_block',
-        label: { type: 'plain_text', text: 'Why cancel?' },
-        element: {
-          type: 'static_select',
-          action_id: 'cancel_disp_select',
-          placeholder: { type: 'plain_text', text: 'Choose…' },
-          options: CANCEL_DISPOSITIONS.map((d) => ({
-            text: { type: 'plain_text', text: `${d.icon} ${d.label}`.slice(0, 75) },
-            value: d.value,
-          })),
-        },
-      },
-      {
-        type: 'input',
-        block_id: 'cancel_note_block',
-        optional: true,
-        label: { type: 'plain_text', text: 'Details (required if Other)' },
-        element: {
-          type: 'plain_text_input',
-          action_id: 'cancel_note_field',
-          multiline: false,
-        },
-      },
-    ],
+    blocks,
   }
 }
 
@@ -651,6 +668,28 @@ async function handleBlockActions(db, token, envChannel, payload) {
   if (!action) return { kind: 'empty' }
 
   const actionId = action.action_id
+
+  /** Cancel modal: show/hide “Other” note field via `dispatch_action` + synchronous view update. */
+  if (payload.view?.callback_id === MODAL_CANCEL && actionId === 'cancel_disp_select') {
+    let orderId = ''
+    try {
+      orderId = String(JSON.parse(payload.view.private_metadata || '{}').orderId || '').trim()
+    } catch {
+      return { kind: 'empty' }
+    }
+    if (!orderId) return { kind: 'empty' }
+    const selected = String(action.selected_option?.value || '').trim()
+    const showNoteField = selected === 'other'
+    const view = cancelModalView(orderId, {
+      preselected: selected || null,
+      showNoteField,
+    })
+    if (payload.view.hash) {
+      view.hash = payload.view.hash
+    }
+    return { kind: 'json', body: { response_action: 'update', view } }
+  }
+
   const orderId = String(action.value || '').trim()
   if (!orderId) return { kind: 'empty' }
 

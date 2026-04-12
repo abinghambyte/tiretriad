@@ -317,7 +317,6 @@ exports.completeInviteRegistration = onCall(async (request) => {
     throw new HttpsError('internal', msg)
   }
 
-  const db = firestore()
   await ctx.userRef.update({
     firstName,
     lastName,

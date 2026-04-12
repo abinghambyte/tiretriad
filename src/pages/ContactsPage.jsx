@@ -224,83 +224,102 @@ export function ContactsPage() {
           />
         </div>
 
-        {loading ? (
-          <p className="text-sm text-zinc-500">Loading contacts…</p>
-        ) : (
-          <div className="overflow-x-auto rounded-2xl border border-zinc-800">
-            <table className="min-w-[720px] w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
-                  <th className="px-3 py-3">
-                    <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('name')}>
-                      Name {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3">
-                    <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('phone')}>
-                      Phone {sortKey === 'phone' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3">
-                    <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('orders')}>
-                      Orders {sortKey === 'orders' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3">
-                    <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('spend')}>
-                      Spend {sortKey === 'spend' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3">
-                    <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('last')}>
-                      Last order {sortKey === 'last' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
-                      {rows.length === 0
-                        ? 'No contacts yet.'
-                        : 'No contacts match your search. Try a different name or phone.'}
-                    </td>
-                  </tr>
-                ) : (
-                  sorted.map((c) => (
-                    <tr
-                      key={c.id}
-                      className="cursor-pointer border-b border-zinc-800/80 hover:bg-zinc-900/50"
-                      onClick={() => void openPanel(c)}
-                    >
-                      <td className="px-3 py-2 font-medium text-zinc-200">{c.name || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">{displayPhone(c.id)}</td>
-                      <td className="px-3 py-2 text-zinc-300">{c.orderCount ?? 0}</td>
-                      <td className="px-3 py-2 text-zinc-300">{formatMoney(c.totalSpend)}</td>
-                      <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(c.lastOrderAt)}</td>
-                      <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-500">
-                        {c.notes || '—'}
+        <div className="overflow-x-auto rounded-2xl border border-zinc-800">
+          <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
+                <th className="px-3 py-3">
+                  <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('name')}>
+                    Name {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                </th>
+                <th className="px-3 py-3">
+                  <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('phone')}>
+                    Phone {sortKey === 'phone' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                </th>
+                <th className="px-3 py-3">
+                  <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('orders')}>
+                    Orders {sortKey === 'orders' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                </th>
+                <th className="px-3 py-3">
+                  <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('spend')}>
+                    Spend {sortKey === 'spend' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                </th>
+                <th className="px-3 py-3">
+                  <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('last')}>
+                    Last order {sortKey === 'last' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </button>
+                </th>
+                <th className="px-3 py-3">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? [...Array(5)].map((_, i) => (
+                    <tr key={i} className="border-b border-zinc-800/40">
+                      <td className="px-3 py-3">
+                        <div className="h-4 w-32 animate-pulse rounded bg-zinc-700/40" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="h-4 w-28 animate-pulse rounded bg-zinc-700/40" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="h-4 w-8 animate-pulse rounded bg-zinc-700/40" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="h-4 w-16 animate-pulse rounded bg-zinc-700/40" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="h-4 w-24 animate-pulse rounded bg-zinc-700/40" />
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="h-4 w-36 animate-pulse rounded bg-zinc-700/40" />
                       </td>
                     </tr>
                   ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                : sorted.length === 0
+                  ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                          {rows.length === 0
+                            ? 'No contacts yet.'
+                            : 'No contacts match your search. Try a different name or phone.'}
+                        </td>
+                      </tr>
+                    )
+                  : sorted.map((c) => (
+                      <tr
+                        key={c.id}
+                        className="cursor-pointer border-b border-zinc-800/80 hover:bg-zinc-900/50"
+                        onClick={() => void openPanel(c)}
+                      >
+                        <td className="px-3 py-2 font-medium text-zinc-200">{c.name || '—'}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-zinc-400">{displayPhone(c.id)}</td>
+                        <td className="px-3 py-2 text-zinc-300">{c.orderCount ?? 0}</td>
+                        <td className="px-3 py-2 text-zinc-300">{formatMoney(c.totalSpend)}</td>
+                        <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(c.lastOrderAt)}</td>
+                        <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-500">
+                          {c.notes || '—'}
+                        </td>
+                      </tr>
+                    ))}
+            </tbody>
+          </table>
+        </div>
       </main>
 
       {selected ? (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex justify-end bg-black/60 p-0 backdrop-blur-sm"
           role="dialog"
           aria-modal
           onClick={() => setSelected(null)}
         >
           <div
-            className="h-full w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
+            className="h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl max-sm:max-w-none max-sm:border-l-0"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">

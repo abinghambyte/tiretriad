@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { doc, writeBatch } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts } from '../../utils/ctsCalc'
+import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
 
 function num(v) {
   const n = Number(v)
@@ -69,14 +70,14 @@ export function BulkCtsModal({ open, onClose, tireIds }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className={`${MODAL_CENTER_BACKDROP} backdrop-blur-sm`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="bulk-cts-title"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6 shadow-2xl"
+        className={`${MODAL_CENTER_PANEL} border-zinc-700 bg-zinc-950 p-6`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2

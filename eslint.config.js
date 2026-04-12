@@ -5,9 +5,29 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'functions']),
+  globalIgnores(['dist']),
+  {
+    files: ['functions/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.node,
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-redeclare': ['error', { builtinGlobals: false }],
+    },
+  },
   {
     files: ['**/*.{js,jsx}'],
+    ignores: ['functions/**'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
