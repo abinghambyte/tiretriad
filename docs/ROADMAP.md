@@ -1,6 +1,6 @@
 # Skedaddle Portal — Full Product Roadmap
 
-**Master spec (handoff / full context):** [SKEDADDLE-MASTER.md](./SKEDADDLE-MASTER.md)
+**Master spec (handoff / full context):** [SKEDADDLE-MASTER.md](./SKEDADDLE-MASTER.md) — phase numbers **6–8** below match that file.
 
 **Project:** `skedaddle-portal` → deployed at `www.skedaddleinc.com` via Vercel  
 **Repo:** `abinghambyte/skedaddleinc` (main branch auto-deploys to Vercel)  
@@ -223,7 +223,19 @@ This is the first impression for in-person and mailed card invites.
 
 ---
 
-## Phase 6 — Portal polish
+## Phase 6 — eBay listing integration
+**Depends on:** Phase 3 complete
+
+- eBay Developer Program — sandbox + production, REST API + OAuth 2.0
+- From the listing generator, a **Post to eBay** flow creates a listing via API (title, description, price, qty, MSPN, category)
+- Photo upload when tire photos exist in Storage
+- Facebook / OfferUp / Craigslist: no automation — listing copy + manual paste only (see master spec §8)
+
+**Done when:** A real listing can be created from the portal via eBay API (sandbox or prod as configured).
+
+---
+
+## Phase 7 — Portal polish
 **Depends on:** Phase 3 complete, can be done alongside Phase 5
 
 1. Orders table in portal — live Firestore status, filterable by status/assignee/date
@@ -233,8 +245,8 @@ This is the first impression for in-person and mailed card invites.
 
 ---
 
-## Phase 7 — Hygiene
-**Can be done anytime, should be done before April 30**
+## Phase 8 — Hygiene
+**Do before April 30, 2026** (Node 20 deprecation)
 
 1. **Node runtime upgrade** — change `functions/package.json` engines from `20` to `22` and redeploy before April 30 deprecation deadline
 2. **`firebase-functions` package upgrade** — flagged as outdated during Phase 1 deploy; read breaking changes before upgrading
@@ -252,6 +264,7 @@ This is the first impression for in-person and mailed card invites.
 | Audio tone asset | 4.5 | Custom sound vs Web Audio API generated tone |
 | Framer Motion vs CSS animation for bolt reveal | 4.5 | Framer Motion preferred for control |
 | Email provider for 6-digit code | 4.6 | Resend vs SendGrid (both have free tiers) |
+| eBay sandbox / developer account | 6 | Create before building Phase 6 |
 
 ---
 
@@ -266,3 +279,4 @@ This is the first impression for in-person and mailed card invites.
 | `functions/.env` (Phase 4) | `TWILIO_ACCOUNT_SID` | SMS invite delivery |
 | `functions/.env` (Phase 4) | `TWILIO_AUTH_TOKEN` | SMS invite delivery |
 | `functions/.env` (Phase 4) | `RESEND_API_KEY` | Email 6-digit confirmation code |
+| `functions/.env` (Phase 4.5) | `ANTHROPIC_API_KEY` | Generative greeting on invite page |

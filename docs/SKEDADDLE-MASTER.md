@@ -79,6 +79,8 @@ skedaddle-portal/
 └── vercel.json
 ```
 
+For **current phase status** and a shorter living checklist, use **`docs/ROADMAP.md`**; **`SKEDADDLE-MASTER.md`** (this file) remains the **canonical** spec and full roadmap.
+
 ---
 
 ## 4. Auth & Routing
