@@ -4,6 +4,10 @@ import { AnimatePresence, motion as Motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { auth, functions } from '../firebase/config'
+import {
+  MODAL_CENTER_BACKDROP_TOP,
+  MODAL_CENTER_PANEL_BASE,
+} from '../components/ui/modalChrome.js'
 import { callRecordLogin } from '../utils/callRecordLogin'
 
 const resolveInviteFn = httpsCallable(functions, 'resolveInvite')
@@ -214,126 +218,135 @@ export function InvitePage() {
 
   if (phase === 'register') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-6 py-16 text-zinc-100">
-        <p className="mb-2 text-xs tracking-[0.3em] text-zinc-500">SKEDADDLE</p>
-        <p className="mb-8 text-sm text-zinc-500">
-          Step {regStep + 1} of {regTitles.length} — {regTitles[regStep]}
-        </p>
-        <form
-          className="w-full max-w-sm space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            setRegError('')
-            if (regStep === 0) void sendCode()
-            else if (regStep === 1) {
-              if (regCode.trim().length !== 6) {
-                setRegError('Enter the 6-digit code.')
-                return
-              }
-              setRegStep(2)
-            } else if (regStep === 2) {
-              if (!regFirst.trim() || !regLast.trim()) {
-                setRegError('First and last name are required.')
-                return
-              }
-              setRegStep(3)
-            } else if (regStep === 3) {
-              if (regPhone.trim().length < 7) {
-                setRegError('Enter a valid phone number.')
-                return
-              }
-              setRegStep(4)
-            } else {
-              if (regPassword.length < 8) {
-                setRegError('Password must be at least 8 characters.')
-                return
-              }
-              void completeRegistration()
-            }
-          }}
+      <div
+        className={`${MODAL_CENTER_BACKDROP_TOP} !bg-black`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-reg-title"
+      >
+        <div
+          className={`${MODAL_CENTER_PANEL_BASE} max-w-sm border-zinc-800 bg-black p-6 text-zinc-100 sm:p-8`}
         >
-          {regError ? (
-            <p className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-center text-sm text-red-200">
-              {regError}
-            </p>
-          ) : null}
-          {codeSentNote && regStep === 1 ? (
-            <p className="rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-center text-xs text-amber-100/90">
-              {codeSentNote}
-            </p>
-          ) : null}
-
-          {regStep === 0 ? (
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={regEmail}
-              onChange={(e) => setRegEmail(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-            />
-          ) : null}
-          {regStep === 1 ? (
-            <input
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              placeholder="000000"
-              required
-              value={regCode}
-              onChange={(e) => setRegCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-center font-mono text-lg tracking-[0.4em] outline-none ring-zinc-700 focus:ring-2"
-            />
-          ) : null}
-          {regStep === 2 ? (
-            <div className="space-y-3">
-              <input
-                type="text"
-                required
-                placeholder="First name"
-                value={regFirst}
-                onChange={(e) => setRegFirst(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-              />
-              <input
-                type="text"
-                required
-                placeholder="Last name"
-                value={regLast}
-                onChange={(e) => setRegLast(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-              />
-            </div>
-          ) : null}
-          {regStep === 3 ? (
-            <input
-              type="tel"
-              required
-              autoComplete="tel"
-              value={regPhone}
-              onChange={(e) => setRegPhone(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-            />
-          ) : null}
-          {regStep === 4 ? (
-            <input
-              type="password"
-              required
-              autoComplete="new-password"
-              value={regPassword}
-              onChange={(e) => setRegPassword(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-            />
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={regBusy}
-            className="w-full rounded-xl bg-zinc-100 py-3 text-sm font-medium text-black transition hover:bg-white disabled:opacity-50"
+          <p className="mb-2 text-xs tracking-[0.3em] text-zinc-500">SKEDADDLE</p>
+          <p id="invite-reg-title" className="mb-8 text-sm text-zinc-500">
+            Step {regStep + 1} of {regTitles.length} — {regTitles[regStep]}
+          </p>
+          <form
+            className="w-full space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              setRegError('')
+              if (regStep === 0) void sendCode()
+              else if (regStep === 1) {
+                if (regCode.trim().length !== 6) {
+                  setRegError('Enter the 6-digit code.')
+                  return
+                }
+                setRegStep(2)
+              } else if (regStep === 2) {
+                if (!regFirst.trim() || !regLast.trim()) {
+                  setRegError('First and last name are required.')
+                  return
+                }
+                setRegStep(3)
+              } else if (regStep === 3) {
+                if (regPhone.trim().length < 7) {
+                  setRegError('Enter a valid phone number.')
+                  return
+                }
+                setRegStep(4)
+              } else {
+                if (regPassword.length < 8) {
+                  setRegError('Password must be at least 8 characters.')
+                  return
+                }
+                void completeRegistration()
+              }
+            }}
           >
-            {regBusy ? 'Working…' : regStep === 4 ? 'Finish' : 'Continue'}
-          </button>
-        </form>
+            {regError ? (
+              <p className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-center text-sm text-red-200">
+                {regError}
+              </p>
+            ) : null}
+            {codeSentNote && regStep === 1 ? (
+              <p className="rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-center text-xs text-amber-100/90">
+                {codeSentNote}
+              </p>
+            ) : null}
+
+            {regStep === 0 ? (
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+              />
+            ) : null}
+            {regStep === 1 ? (
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                placeholder="000000"
+                required
+                value={regCode}
+                onChange={(e) => setRegCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-center font-mono text-lg tracking-[0.4em] outline-none ring-zinc-700 focus:ring-2"
+              />
+            ) : null}
+            {regStep === 2 ? (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="First name"
+                  value={regFirst}
+                  onChange={(e) => setRegFirst(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Last name"
+                  value={regLast}
+                  onChange={(e) => setRegLast(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+                />
+              </div>
+            ) : null}
+            {regStep === 3 ? (
+              <input
+                type="tel"
+                required
+                autoComplete="tel"
+                value={regPhone}
+                onChange={(e) => setRegPhone(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+              />
+            ) : null}
+            {regStep === 4 ? (
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+              />
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={regBusy}
+              className="w-full rounded-xl bg-zinc-100 py-3 text-sm font-medium text-black transition hover:bg-white disabled:opacity-50"
+            >
+              {regBusy ? 'Working…' : regStep === 4 ? 'Finish' : 'Continue'}
+            </button>
+          </form>
+        </div>
       </div>
     )
   }
