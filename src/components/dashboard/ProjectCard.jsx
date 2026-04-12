@@ -44,6 +44,7 @@ const ACCENT_HALO = {
  * @param {'amber'|'cyan'|'blue'|'violet'|'emerald'|'fuchsia'} props.accent
  * @param {import('react').ReactNode} props.icon
  * @param {string} [props.to]
+ * @param {boolean} [props.locked] View-only or limited access (shows lock on card)
  */
 export function ProjectCard({
   title,
@@ -53,6 +54,7 @@ export function ProjectCard({
   accent,
   icon,
   to,
+  locked,
 }) {
   const clickable = Boolean(to)
   const statusClass = STATUS_STYLES[status] ?? STATUS_STYLES.Internal
@@ -93,11 +95,21 @@ export function ProjectCard({
         >
           {icon}
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusClass}`}
-        >
-          {status}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {locked && clickable ? (
+            <span
+              className="rounded-full border border-zinc-600/80 bg-zinc-900/90 px-2 py-0.5 text-[10px] text-zinc-400"
+              title="View only"
+            >
+              View only
+            </span>
+          ) : null}
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusClass}`}
+          >
+            {status}
+          </span>
+        </div>
       </div>
 
       <div className="relative z-[2] flex flex-1 flex-col pl-2">

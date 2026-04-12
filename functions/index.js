@@ -378,6 +378,23 @@ exports.completeOrder = onCall(async (request) => {
   }
 })
 
+const {
+  ensureUserDocument,
+  createPortalUser,
+  updatePortalUser,
+} = require('./peopleCallables')
+
+exports.ensureUserDocument = ensureUserDocument
+exports.createPortalUser = createPortalUser
+exports.updatePortalUser = updatePortalUser
+
+const inviteFlow = require('./inviteFlow')
+exports.resolveInvite = inviteFlow.resolveInvite
+exports.getInviteGreeting = inviteFlow.getInviteGreeting
+exports.sendInviteRegistrationCode = inviteFlow.sendInviteRegistrationCode
+exports.completeInviteRegistration = inviteFlow.completeInviteRegistration
+exports.recordLogin = inviteFlow.recordLogin
+
 /**
  * Slack Interactivity — block_actions + view_submission.
  * https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions

@@ -1,8 +1,10 @@
 import { signOut } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, db } from '../../firebase/config'
+import { useUserProfile } from '../../hooks/useUserProfile'
+import { permissionMeets } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
 import { usePortalRegisteredUserCount } from '../../hooks/usePortalRegisteredUserCount'
 import { useTires } from '../../hooks/useTires'
@@ -135,6 +137,8 @@ function IconGrowth() {
 
 export function Dashboard() {
   const { user } = useAuth()
+  const { permissionFor, profile, loading: profileGate } = useUserProfile()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { tires, loading: tiresLoading } = useTires()
   const { count: registeredUsers, loading: registryLoading } =
@@ -221,6 +225,8 @@ export function Dashboard() {
       accent: 'amber',
       icon: <IconTires />,
       to: '/tires',
+      moduleKey: 'tires',
+      minLevel: 'view',
     },
     {
       title: 'Tire Orders',
@@ -231,6 +237,8 @@ export function Dashboard() {
       accent: 'amber',
       icon: <IconOrders />,
       to: '/orders',
+      moduleKey: 'orders',
+      minLevel: 'view',
     },
     {
       title: 'Ops Command',
@@ -240,6 +248,8 @@ export function Dashboard() {
       status: 'Buildout',
       accent: 'cyan',
       icon: <IconOps />,
+      moduleKey: 'wall',
+      minLevel: 'view',
     },
     {
       title: 'Analytics',
@@ -249,15 +259,20 @@ export function Dashboard() {
       status: 'Buildout',
       accent: 'blue',
       icon: <IconAnalytics />,
+      moduleKey: 'analytics',
+      minLevel: 'view',
     },
     {
       title: 'People Systems',
       description:
         'User management, team assignment, cadence, access control, pipeline delegation — the people layer at the edge of definition. Scope deliberately unfinished.',
       stat: peopleSignal,
-      status: 'Internal',
+      status: 'Live',
       accent: 'violet',
       icon: <IconPeople />,
+      to: '/people',
+      moduleKey: 'people',
+      minLevel: 'manage',
     },
     {
       title: 'Revenue & Margin',
@@ -267,6 +282,8 @@ export function Dashboard() {
       status: 'Buildout',
       accent: 'emerald',
       icon: <IconRevenue />,
+      moduleKey: 'revenue',
+      minLevel: 'view',
     },
     {
       title: 'Growth Lab',
@@ -278,6 +295,22 @@ export function Dashboard() {
       icon: <IconGrowth />,
     },
   ]
+
+  const visibleModules = modules.filter((m) => {
+    if (!m.moduleKey) return true
+    return permissionMeets(permissionFor(m.moduleKey), m.minLevel)
+  })
+
+  if (!profileGate && profile && profile.handshakeSeen === false) {
+    return <Navigate to="/handshake" replace />
+  }
+
+  const notice = searchParams.get('notice')
+  function dismissNotice() {
+    const next = new URLSearchParams(searchParams)
+    next.delete('notice')
+    setSearchParams(next, { replace: true })
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -333,19 +366,45 @@ export function Dashboard() {
       </header>
 
       <main className="relative mx-auto max-w-6xl px-6 py-10 sm:py-12">
+        {notice === 'access' ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900/50 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
+            <span>That module is not available for your current clearance.</span>
+            <button
+              type="button"
+              onClick={dismissNotice}
+              className="rounded-lg border border-amber-800/60 px-3 py-1 text-xs font-medium text-amber-200 hover:bg-amber-900/40"
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {modules.map((m) => (
-            <ProjectCard
-              key={m.title}
-              title={m.title}
-              description={m.description}
-              stat={m.stat}
-              status={m.status}
-              accent={m.accent}
-              icon={m.icon}
-              to={m.to}
-            />
-          ))}
+          {visibleModules.map((m) => {
+            const perm = m.moduleKey ? permissionFor(m.moduleKey) : 'none'
+            const lockedTires =
+              m.moduleKey === 'tires' &&
+              m.to &&
+              permissionMeets(perm, 'view') &&
+              !permissionMeets(perm, 'edit')
+            const lockedOrders =
+              m.moduleKey === 'orders' &&
+              m.to &&
+              permissionMeets(perm, 'view') &&
+              !permissionMeets(perm, 'act')
+            return (
+              <ProjectCard
+                key={m.title}
+                title={m.title}
+                description={m.description}
+                stat={m.stat}
+                status={m.status}
+                accent={m.accent}
+                icon={m.icon}
+                to={m.to}
+                locked={Boolean(lockedTires || lockedOrders)}
+              />
+            )
+          })}
         </div>
       </main>
     </div>

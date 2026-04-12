@@ -14,7 +14,7 @@ export function LoginForm({ onSuccess }) {
     setSubmitting(true)
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password)
-      onSuccess?.()
+      if (onSuccess) await Promise.resolve(onSuccess())
     } catch (err) {
       setError(err?.message || 'Sign-in failed. Check your email and password.')
     } finally {

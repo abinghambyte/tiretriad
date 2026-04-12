@@ -1,0 +1,530 @@
+import { httpsCallable } from 'firebase/functions'
+import { collection, getDocs, limit, onSnapshot, query, where } from 'firebase/firestore'
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { auth, db, functions } from '../../firebase/config'
+import { useUserProfile } from '../../hooks/useUserProfile'
+import { crewTagFromRole, ROLE_DEFAULTS } from '../../constants/peoplePermissions'
+import { PermissionMatrix } from './PermissionMatrix'
+
+const createPortalUser = httpsCallable(functions, 'createPortalUser')
+const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
+
+function formatTs(ts) {
+  if (!ts || typeof ts.toDate !== 'function') return '—'
+  try {
+    return ts.toDate().toLocaleString('en-US', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    })
+  } catch {
+    return '—'
+  }
+}
+
+function timeAgo(ts) {
+  if (!ts || typeof ts.toMillis !== 'function') return ''
+  const s = Math.max(0, Math.floor((Date.now() - ts.toMillis()) / 1000))
+  if (s < 60) return `${s}s ago`
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+  return `${Math.floor(s / 86400)}d ago`
+}
+
+function streakLabel(n) {
+  const v = Number(n) || 0
+  if (v >= 3) return `🔥 ${v}`
+  return String(v)
+}
+
+export function PeopleDashboard() {
+  const { profile } = useUserProfile()
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState(null)
+  const [permDraft, setPermDraft] = useState({})
+  const [roleDraft, setRoleDraft] = useState('viewer')
+  const [saving, setSaving] = useState(false)
+  const [accessLog, setAccessLog] = useState([])
+  const [logOpen, setLogOpen] = useState(false)
+  const [logLoading, setLogLoading] = useState(false)
+
+  const [fn, setFn] = useState('')
+  const [ln, setLn] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [role, setRole] = useState('viewer')
+  const [delivery, setDelivery] = useState('email')
+  const [accessDate, setAccessDate] = useState('')
+  const [createBusy, setCreateBusy] = useState(false)
+  const [lastInviteUrl, setLastInviteUrl] = useState('')
+
+  useEffect(() => {
+    const q = query(collection(db, 'users'))
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        rows.sort((a, b) => {
+          const am = a.createdAt?.toMillis?.() ?? 0
+          const bm = b.createdAt?.toMillis?.() ?? 0
+          return bm - am
+        })
+        setUsers(rows)
+        setLoading(false)
+      },
+      (e) => {
+        console.error(e)
+        setLoading(false)
+      },
+    )
+    return () => unsub()
+  }, [])
+
+  const openEditor = useCallback((u) => {
+    setSelected(u)
+    const r = u.role || 'viewer'
+    setRoleDraft(r)
+    const base = { ...ROLE_DEFAULTS[r], ...(u.permissions || {}) }
+    setPermDraft(base)
+  }, [])
+
+  const closeEditor = useCallback(() => {
+    setSelected(null)
+    setPermDraft({})
+  }, [])
+
+  async function savePermissions() {
+    if (!selected) return
+    setSaving(true)
+    try {
+      await updatePortalUser({
+        targetUid: selected.id,
+        permissions: permDraft,
+        role: roleDraft,
+      })
+      closeEditor()
+    } catch (e) {
+      console.error(e)
+      window.alert(e?.message || String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function applyRoleDefaults() {
+    if (!selected) return
+    if (
+      !window.confirm(
+        'Changing role resets permissions to defaults for that role. Continue?',
+      )
+    ) {
+      return
+    }
+    setSaving(true)
+    try {
+      await updatePortalUser({
+        targetUid: selected.id,
+        role: roleDraft,
+        applyRoleDefaults: true,
+      })
+      setPermDraft({ ...ROLE_DEFAULTS[roleDraft] })
+    } catch (e) {
+      console.error(e)
+      window.alert(e?.message || String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function renewInvite(u) {
+    try {
+      await updatePortalUser({ targetUid: u.id, renewInvite: true })
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    }
+  }
+
+  async function lockUser(u) {
+    if (!window.confirm(`Lock access for ${u.firstName} ${u.lastName}?`)) return
+    try {
+      await updatePortalUser({ targetUid: u.id, inviteStatus: 'locked' })
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    }
+  }
+
+  async function toggleGhost(u) {
+    const next = !u.ghostMode
+    try {
+      await updatePortalUser({ targetUid: u.id, ghostMode: next })
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    }
+  }
+
+  async function openHistory(u) {
+    setLogOpen(true)
+    setLogLoading(true)
+    setAccessLog([])
+    try {
+      const q = query(
+        collection(db, 'accessLog'),
+        where('uid', '==', u.id),
+        limit(50),
+      )
+      const snap = await getDocs(q)
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      rows.sort((a, b) => {
+        const am = a.changedAt?.toMillis?.() ?? 0
+        const bm = b.changedAt?.toMillis?.() ?? 0
+        return bm - am
+      })
+      setAccessLog(rows)
+    } catch (e) {
+      console.error(e)
+      window.alert(e?.message || String(e))
+    } finally {
+      setLogLoading(false)
+    }
+  }
+
+  async function handleCreateUser(e) {
+    e.preventDefault()
+    setCreateBusy(true)
+    setLastInviteUrl('')
+    try {
+      let accessExpiryMs = null
+      if (accessDate) {
+        const t = new Date(`${accessDate}T23:59:59`).getTime()
+        if (Number.isFinite(t)) accessExpiryMs = t
+      }
+      const res = await createPortalUser({
+        firstName: fn,
+        lastName: ln,
+        email,
+        phone,
+        role,
+        inviteDelivery: delivery,
+        accessExpiryMs,
+      })
+      const data = res.data
+      setLastInviteUrl(data.inviteUrl || '')
+      setFn('')
+      setLn('')
+      setEmail('')
+      setPhone('')
+      setAccessDate('')
+    } catch (err) {
+      console.error(err)
+      window.alert(err?.message || String(err))
+    } finally {
+      setCreateBusy(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
+          <div>
+            <Link
+              to="/dashboard"
+              className="text-sm text-zinc-500 transition hover:text-zinc-200"
+            >
+              ← Dashboard
+            </Link>
+            <h1 className="mt-2 text-xl font-semibold text-white">People</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Crew access, invites, and permission matrix
+            </p>
+          </div>
+          <p className="text-xs text-zinc-500">{auth.currentUser?.email}</p>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl space-y-10 px-6 py-8">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+          <h2 className="text-lg font-semibold text-zinc-100">Create user + invite</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Creates an Auth account (disabled until invite registration), Firestore profile,
+            and invite token. SMS / email delivery follows in the next implementation slice.
+          </p>
+          <form
+            onSubmit={handleCreateUser}
+            className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <Field label="First name" value={fn} onChange={setFn} required />
+            <Field label="Last name" value={ln} onChange={setLn} required />
+            <Field label="Email" type="email" value={email} onChange={setEmail} required />
+            <Field label="Phone" value={phone} onChange={setPhone} />
+            <div>
+              <label className="mb-1 block text-xs text-zinc-500">Role</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              >
+                <option value="admin">admin → {crewTagFromRole('admin')}</option>
+                <option value="supplier">supplier → {crewTagFromRole('supplier')}</option>
+                <option value="mechanic">mechanic → {crewTagFromRole('mechanic')}</option>
+                <option value="viewer">viewer → {crewTagFromRole('viewer')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-zinc-500">Delivery</label>
+              <select
+                value={delivery}
+                onChange={(e) => setDelivery(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              >
+                <option value="sms">SMS</option>
+                <option value="nfc">NFC</option>
+                <option value="email">Email</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-zinc-500">
+                Access expiry (optional)
+              </label>
+              <input
+                type="date"
+                value={accessDate}
+                onChange={(e) => setAccessDate(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex items-end sm:col-span-2 lg:col-span-3">
+              <button
+                type="submit"
+                disabled={createBusy}
+                className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
+              >
+                {createBusy ? 'Creating…' : 'Create & generate invite'}
+              </button>
+            </div>
+          </form>
+          {lastInviteUrl ? (
+            <div className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-4 text-sm">
+              <p className="font-medium text-emerald-200">Invite URL (copy for SMS / NFC / email)</p>
+              <p className="mt-2 break-all font-mono text-xs text-emerald-100/90">{lastInviteUrl}</p>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="overflow-x-auto rounded-2xl border border-zinc-800">
+          <table className="min-w-[960px] w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
+                <th className="px-3 py-3">Name</th>
+                <th className="px-3 py-3">Crew tag</th>
+                <th className="px-3 py-3">Invite</th>
+                <th className="px-3 py-3">Access expiry</th>
+                <th className="px-3 py-3">Streak</th>
+                <th className="px-3 py-3">Last seen</th>
+                <th className="px-3 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                    Loading crew…
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                    No user profiles yet.
+                  </td>
+                </tr>
+              ) : (
+                users.map((u) => (
+                  <tr key={u.id} className="border-b border-zinc-800/80 hover:bg-zinc-900/40">
+                    <td className="px-3 py-2 font-medium text-zinc-100">
+                      {u.firstName} {u.lastName}
+                    </td>
+                    <td className="px-3 py-2 text-violet-300">{u.crewTag || crewTagFromRole(u.role)}</td>
+                    <td className="px-3 py-2 text-zinc-400">{u.inviteStatus || '—'}</td>
+                    <td className="px-3 py-2 text-zinc-400">{formatTs(u.accessExpiry)}</td>
+                    <td className="px-3 py-2 text-zinc-300">{streakLabel(u.loginStreak)}</td>
+                    <td className="max-w-[240px] px-3 py-2 text-xs text-zinc-500">
+                      {u.ghostMode ? (
+                        <span className="text-zinc-600">Ghost mode</span>
+                      ) : (
+                        <>
+                          {u.lastLoginDevice || '—'} · {u.lastLoginLocation || '—'} ·{' '}
+                          {timeAgo(u.lastLoginAt) || 'never'}
+                        </>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <button
+                          type="button"
+                          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                          onClick={() => openEditor(u)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                          onClick={() => renewInvite(u)}
+                        >
+                          Renew
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded border border-red-900/50 px-2 py-1 text-xs text-red-300 hover:bg-red-950/30"
+                          onClick={() => lockUser(u)}
+                        >
+                          Lock
+                        </button>
+                        {profile?.role === 'admin' ? (
+                          <button
+                            type="button"
+                            className="rounded border border-amber-800/50 px-2 py-1 text-xs text-amber-200 hover:bg-amber-950/30"
+                            onClick={() => toggleGhost(u)}
+                          >
+                            Ghost {u.ghostMode ? 'off' : 'on'}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-800"
+                          onClick={() => openHistory(u)}
+                        >
+                          History
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+      </main>
+
+      {selected ? (
+        <div
+          className="fixed inset-0 z-40 flex justify-end bg-black/60 backdrop-blur-sm"
+          role="dialog"
+          aria-modal
+          onClick={closeEditor}
+        >
+          <div
+            className="h-full w-full max-w-md overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-white">
+              {selected.firstName} {selected.lastName}
+            </h2>
+            <p className="text-xs text-zinc-500">{selected.email}</p>
+
+            <div className="mt-6 space-y-3">
+              <label className="block text-xs text-zinc-500">Role</label>
+              <select
+                value={roleDraft}
+                onChange={(e) => setRoleDraft(e.target.value)}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+              >
+                <option value="admin">admin</option>
+                <option value="supplier">supplier</option>
+                <option value="mechanic">mechanic</option>
+                <option value="viewer">viewer</option>
+              </select>
+              <button
+                type="button"
+                onClick={applyRoleDefaults}
+                disabled={saving}
+                className="text-xs text-amber-300/90 underline-offset-2 hover:underline"
+              >
+                Apply role defaults…
+              </button>
+            </div>
+
+            <div className="mt-8">
+              <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
+            </div>
+
+            <div className="mt-8 flex gap-2">
+              <button
+                type="button"
+                onClick={closeEditor}
+                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={savePermissions}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save permissions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {logOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setLogOpen(false)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-white">Access history</h3>
+            {logLoading ? (
+              <p className="mt-4 text-sm text-zinc-500">Loading…</p>
+            ) : accessLog.length === 0 ? (
+              <p className="mt-4 text-sm text-zinc-500">No log entries yet.</p>
+            ) : (
+              <ul className="mt-4 space-y-3 text-xs text-zinc-400">
+                {accessLog.map((row) => (
+                  <li key={row.id} className="rounded-lg border border-zinc-800/80 p-3">
+                    <p className="font-mono text-zinc-300">{formatTs(row.changedAt)}</p>
+                    <p className="mt-1 text-zinc-500">{row.field}</p>
+                    <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-[10px] text-zinc-600">
+                      {JSON.stringify({ before: row.before, after: row.after }, null, 2)}
+                    </pre>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              className="mt-6 rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300"
+              onClick={() => setLogOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({ label, value, onChange, type = 'text', required }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-zinc-500">
+        {label}
+        {required ? ' *' : ''}
+      </label>
+      <input
+        type={type}
+        required={required}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+      />
+    </div>
+  )
+}

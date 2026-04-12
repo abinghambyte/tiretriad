@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { LoginForm } from '../components/auth/LoginForm'
 import { useAuth } from '../hooks/useAuth'
+import { callRecordLogin } from '../utils/callRecordLogin'
 
 function postLoginPath(state) {
   const from = state?.from
@@ -23,8 +24,14 @@ export function LandingPage() {
   const savedFrom = location.state?.from
 
   useEffect(() => {
-    if (!loading && user) {
-      navigate(postLoginPath({ from: savedFrom }), { replace: true })
+    if (loading || !user) return undefined
+    let cancelled = false
+    void (async () => {
+      await callRecordLogin()
+      if (!cancelled) navigate(postLoginPath({ from: savedFrom }), { replace: true })
+    })()
+    return () => {
+      cancelled = true
     }
   }, [user, loading, navigate, savedFrom])
 
@@ -58,11 +65,7 @@ export function LandingPage() {
             SKEDADDLE
           </h1>
         </div>
-        <LoginForm
-          onSuccess={() =>
-            navigate(postLoginPath({ from: savedFrom }), { replace: true })
-          }
-        />
+        <LoginForm />
       </div>
     </div>
   )

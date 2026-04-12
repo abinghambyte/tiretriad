@@ -1,9 +1,20 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useUserProfile } from '../hooks/useUserProfile'
+import { permissionMeets } from '../constants/peoplePermissions'
 
-export function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
+/**
+ * @param {object} props
+ * @param {import('react').ReactNode} props.children
+ * @param {string} [props.module] Firestore permissions key: tires | orders | people | …
+ * @param {'none'|'view'|'edit'|'act'|'manage'} [props.level] Required permission rank
+ */
+export function ProtectedRoute({ children, module, level }) {
+  const { user, loading: authLoading } = useAuth()
+  const { profile, loading: profileLoading, error } = useUserProfile()
   const location = useLocation()
+
+  const loading = authLoading || (Boolean(user) && profileLoading)
 
   if (loading) {
     return (
@@ -15,6 +26,30 @@ export function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/" replace state={{ from: location.pathname }} />
+  }
+
+  if (error && !profile) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-950 px-6 text-center text-red-300">
+        <p className="max-w-md text-sm">
+          Could not load your profile. Try signing out and back in, or contact an admin.
+        </p>
+        <p className="font-mono text-xs text-red-400/80">{String(error.message || error)}</p>
+      </div>
+    )
+  }
+
+  if (module && level) {
+    const current = profile?.permissions?.[module] || 'none'
+    if (!permissionMeets(current, level)) {
+      return (
+        <Navigate
+          to="/dashboard?notice=access"
+          replace
+          state={{ from: location.pathname, module, level }}
+        />
+      )
+    }
   }
 
   return children
