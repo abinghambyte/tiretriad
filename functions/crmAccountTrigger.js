@@ -76,6 +76,8 @@ exports.crmAccountTrigger = onDocumentUpdated(
       const jobRef = db.collection('crmJobs').doc()
       await jobRef.set({
         accountId,
+        /** Pool jobs (null) show to all DJs; set to a uid to restrict dispatch queue. */
+        assignedToUid: null,
         jobType: 'Trial',
         location: String(after.location || 'TBD'),
         vehicleCount: num(after.fleetSize) || 1,

@@ -209,13 +209,20 @@ export function ContactsPage() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-6 py-8">
-        <input
-          type="search"
-          placeholder="Search name or phone…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
-        />
+        <div className="relative z-10 w-full max-w-2xl space-y-2 rounded-xl border border-zinc-700/90 bg-zinc-900/70 p-4 ring-1 ring-zinc-800/80">
+          <label htmlFor="contacts-search" className="text-sm font-medium text-zinc-300">
+            Search contacts
+          </label>
+          <input
+            id="contacts-search"
+            type="search"
+            placeholder="Search by name or phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoComplete="off"
+            className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500"
+          />
+        </div>
 
         {loading ? (
           <p className="text-sm text-zinc-500">Loading contacts…</p>
@@ -256,7 +263,9 @@ export function ContactsPage() {
                 {sorted.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
-                      No contacts yet.
+                      {rows.length === 0
+                        ? 'No contacts yet.'
+                        : 'No contacts match your search. Try a different name or phone.'}
                     </td>
                   </tr>
                 ) : (

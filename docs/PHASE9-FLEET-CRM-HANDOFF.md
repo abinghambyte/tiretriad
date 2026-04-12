@@ -41,7 +41,7 @@ score      = round(min(100, fleetPts + painPts + stagePts + recencyPts))
 
 ## `crmJobs/{id}`
 
-`accountId`, `jobType`, `location`, `vehicleCount`, `tireSizes` (string), `scheduledAt`, `completionStatus` (`Pending`|`In Progress`|`Done`), `actualTime`, `notes`, `priceQuote`, `finalPrice`, `createdAt`, `updatedAt`, `completedAt`.
+`accountId`, `assignedToUid` (optional; `null` = visible to all DJs on dispatch), `jobType`, `location`, `vehicleCount`, `tireSizes` (string), `scheduledAt`, `completionStatus` (`Pending`|`In Progress`|`Done`), `actualTime`, `notes`, `priceQuote`, `finalPrice`, `createdAt`, `updatedAt`, `completedAt`.
 
 DJ/mechanic may only update `completionStatus`, `actualTime`, `notes` (plus `updatedAt`).
 

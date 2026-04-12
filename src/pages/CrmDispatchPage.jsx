@@ -9,12 +9,25 @@ import {
   updateDoc,
   doc,
 } from 'firebase/firestore'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
+
+const JOB_COMPLETION_LABELS = {
+  Pending: 'Pending',
+  'In Progress': 'In progress',
+  Done: 'Done',
+}
+
+function jobCompletionLabel(v) {
+  const s = String(v || '').trim()
+  if (JOB_COMPLETION_LABELS[s]) return JOB_COMPLETION_LABELS[s]
+  if (!s) return 'Pending'
+  return 'Unknown'
+}
 
 function fmtJobTime(v) {
   if (v == null || v === '') return 'TBD'
@@ -31,10 +44,11 @@ function fmtJobTime(v) {
 export function CrmDispatchPage() {
   const { toast } = useToast()
   const { user } = useAuth()
-  const { profile } = useUserProfile()
+  const { profile, loading: profileLoading } = useUserProfile()
   const navigate = useNavigate()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   const allowed = profile?.role === 'mechanic' || profile?.role === 'admin'
 
@@ -46,10 +60,30 @@ export function CrmDispatchPage() {
       (snap) => {
         setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setLoading(false)
+        setLoadError(null)
       },
-      () => setLoading(false),
+      (err) => {
+        console.error('crmJobs snapshot', err)
+        setLoadError(err?.message || 'Could not load jobs.')
+        setJobs([])
+        setLoading(false)
+      },
     )
   }, [allowed])
+
+  const visibleJobs = useMemo(() => {
+    const uid = user?.uid
+    if (profile?.role === 'admin') return jobs
+    return jobs.filter((j) => !j.assignedToUid || j.assignedToUid === uid)
+  }, [jobs, profile?.role, user?.uid])
+
+  if (profileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400">
+        <p className="text-sm">Loading…</p>
+      </div>
+    )
+  }
 
   if (!allowed) {
     return (
@@ -107,7 +141,21 @@ export function CrmDispatchPage() {
       </header>
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
         {loading ? <p className="text-sm text-zinc-500">Loading jobs…</p> : null}
-        {jobs.map((j) => (
+        {!loading && loadError ? (
+          <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+            {loadError}
+          </p>
+        ) : null}
+        {!loading && !loadError && visibleJobs.length === 0 ? (
+          <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm leading-relaxed text-zinc-400">
+            No jobs assigned yet.
+            <br />
+            <span className="text-zinc-500">
+              Jobs appear here when a trial is scheduled.
+            </span>
+          </p>
+        ) : null}
+        {!loading && visibleJobs.map((j) => (
           <div
             key={j.id}
             className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 shadow-sm"
@@ -118,8 +166,8 @@ export function CrmDispatchPage() {
               Vehicles: {j.vehicleCount ?? '—'} · Tires: {j.tireSizes || '—'}
             </p>
             <p className="mt-1 text-xs text-zinc-600">When: {fmtJobTime(j.scheduledAt)}</p>
-            <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-cyan-400/90">
-              {j.completionStatus || 'Pending'}
+            <p className="mt-2 text-[11px] font-medium text-cyan-400/90">
+              {jobCompletionLabel(j.completionStatus)}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button

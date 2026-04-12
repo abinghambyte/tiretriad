@@ -7,8 +7,9 @@ import {
   query,
   where,
 } from 'firebase/firestore'
+import { signOut } from 'firebase/auth'
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { auth, db, functions } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import {
@@ -78,6 +79,7 @@ function elevationCountdownLabel(u, tick) {
 
 export function PeopleDashboard() {
   const { profile } = useUserProfile()
+  const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
@@ -87,6 +89,7 @@ export function PeopleDashboard() {
   const [accessLog, setAccessLog] = useState([])
   const [logOpen, setLogOpen] = useState(false)
   const [logLoading, setLogLoading] = useState(false)
+  const [historyForUser, setHistoryForUser] = useState(null)
 
   const [fn, setFn] = useState('')
   const [ln, setLn] = useState('')
@@ -250,6 +253,7 @@ export function PeopleDashboard() {
   }
 
   async function openHistory(u) {
+    setHistoryForUser(u)
     setLogOpen(true)
     setLogLoading(true)
     setAccessLog([])
@@ -355,6 +359,11 @@ export function PeopleDashboard() {
 
   const eleModuleRow = MODULE_MATRIX.find((m) => m.key === eleModule) || MODULE_MATRIX[0]
 
+  async function handleSignOut() {
+    await signOut(auth)
+    navigate('/', { replace: true })
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
@@ -371,7 +380,18 @@ export function PeopleDashboard() {
               Crew access, invites, and permission matrix
             </p>
           </div>
-          <p className="text-xs text-zinc-500">{auth.currentUser?.email}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="hidden max-w-[200px] truncate text-xs text-zinc-500 sm:inline">
+              {auth.currentUser?.email}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-500"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -500,8 +520,27 @@ export function PeopleDashboard() {
                         </>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="flex flex-wrap justify-end gap-1">
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
+                        <button
+                          type="button"
+                          className="rounded-md border border-zinc-700/80 p-1.5 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
+                          title="Access history"
+                          aria-label="Access history"
+                          onClick={() => void openHistory(u)}
+                        >
+                          <svg
+                            className="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            aria-hidden
+                          >
+                            <circle cx="12" cy="12" r="9" />
+                            <path strokeLinecap="round" d="M12 7v5l3 2" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           className="rounded-lg border border-violet-600/70 bg-violet-900/40 px-2.5 py-1 text-xs font-semibold text-violet-50 hover:bg-violet-900/60"
@@ -536,25 +575,6 @@ export function PeopleDashboard() {
                             Ghost {u.ghostMode ? 'off' : 'on'}
                           </button>
                         ) : null}
-                        <button
-                          type="button"
-                          className="rounded-lg border border-zinc-700 p-1.5 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300"
-                          title="Access history"
-                          aria-label="Access history"
-                          onClick={() => openHistory(u)}
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            aria-hidden
-                          >
-                            <circle cx="12" cy="12" r="9" />
-                            <path strokeLinecap="round" d="M12 7v5l3 2" />
-                          </svg>
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -779,14 +799,26 @@ export function PeopleDashboard() {
 
       {logOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setLogOpen(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => {
+            setLogOpen(false)
+            setHistoryForUser(null)
+          }}
         >
           <div
             className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-950 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-white">Access history</h3>
+            {historyForUser ? (
+              <p className="mt-1 text-sm text-zinc-500">
+                {historyForUser.firstName} {historyForUser.lastName}{' '}
+                <span className="font-mono text-xs text-zinc-600">({historyForUser.email})</span>
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-zinc-500">
+              Who changed what — timestamps, field name, and before/after snapshots.
+            </p>
             {logLoading ? (
               <p className="mt-4 text-sm text-zinc-500">Loading…</p>
             ) : accessLog.length === 0 ? (
@@ -796,7 +828,13 @@ export function PeopleDashboard() {
                 {accessLog.map((row) => (
                   <li key={row.id} className="rounded-lg border border-zinc-800/80 p-3">
                     <p className="font-mono text-zinc-300">{formatTs(row.changedAt)}</p>
-                    <p className="mt-1 text-zinc-500">{row.field}</p>
+                    <p className="mt-1 text-zinc-400">
+                      <span className="text-zinc-500">By </span>
+                      <span className="font-mono text-[11px] text-zinc-300">
+                        {row.changedBy || '—'}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-zinc-500">Field: {row.field}</p>
                     <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-[10px] text-zinc-600">
                       {JSON.stringify({ before: row.before, after: row.after }, null, 2)}
                     </pre>
@@ -807,7 +845,10 @@ export function PeopleDashboard() {
             <button
               type="button"
               className="mt-6 rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300"
-              onClick={() => setLogOpen(false)}
+              onClick={() => {
+                setLogOpen(false)
+                setHistoryForUser(null)
+              }}
             >
               Close
             </button>

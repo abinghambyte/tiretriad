@@ -24,6 +24,15 @@ import { computeCrmScore, scoreBadgeClass } from '../utils/crmScore'
 
 const STAGES = [1, 2, 3, 4, 5, 6]
 
+const STAGE_TITLES = {
+  1: 'Identified Fleet',
+  2: 'Contact Made',
+  3: 'Pain Confirmed',
+  4: 'Pilot Offered',
+  5: 'Trial Scheduled',
+  6: 'Active Fleet Client',
+}
+
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
   try {
@@ -309,7 +318,11 @@ export function CrmPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="min-w-[140px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
               />
-              <span className="text-xs text-zinc-500">Lost: {lostCount}</span>
+              <span className="text-xs text-zinc-500">
+                <span className="font-semibold text-zinc-400">Lost</span>
+                <span className="text-zinc-600"> · </span>
+                {lostCount}
+              </span>
             </div>
 
             {loading ? (
@@ -323,8 +336,8 @@ export function CrmPage() {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => void onDropStage(stage, e)}
                   >
-                    <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Stage {stage}
+                    <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
+                      {STAGE_TITLES[stage] || `Stage ${stage}`}
                     </p>
                     <div className="space-y-2">
                       {byStage(stage).map((a) => (

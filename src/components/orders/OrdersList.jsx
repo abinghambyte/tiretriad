@@ -79,7 +79,39 @@ function buildNotifyPayload(order) {
   return { digits, body, displayPhone: formatPhoneDisplay(digits) }
 }
 
+const ORDER_STATUS_LABELS = {
+  pending: 'Pending',
+  available: 'Available',
+  scheduled: 'Scheduled',
+  in_transit: 'In Transit',
+  completed: 'Completed',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+  prospective: 'Prospective',
+  ready: 'Ready',
+}
+
+function orderStatusLabel(status) {
+  const raw = String(status || '').trim()
+  if (!raw) return '—'
+  const k = raw.toLowerCase().replace(/\s+/g, '_')
+  if (ORDER_STATUS_LABELS[k]) return ORDER_STATUS_LABELS[k]
+  const compact = raw.replace(/_/g, '').toLowerCase()
+  const alias = Object.keys(ORDER_STATUS_LABELS).find(
+    (key) => key.replace(/_/g, '') === compact,
+  )
+  if (alias) return ORDER_STATUS_LABELS[alias]
+  return 'Unknown'
+}
+
+function orderRefFromId(id) {
+  const s = String(id || '').replace(/\s/g, '')
+  if (!s) return ''
+  return `#${s.slice(0, 8)}`
+}
+
 function statusBadge(status) {
+  const k = String(status || '').trim().toLowerCase().replace(/\s+/g, '_')
   const base =
     'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider'
   const map = {
@@ -91,8 +123,9 @@ function statusBadge(status) {
     completed: 'bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/25',
     rejected: 'bg-red-500/15 text-red-200 ring-1 ring-red-500/25',
     cancelled: 'bg-zinc-600/40 text-zinc-300 ring-1 ring-zinc-500/30',
+    ready: 'bg-teal-500/15 text-teal-100 ring-1 ring-teal-500/30',
   }
-  return `${base} ${map[status] || map.cancelled}`
+  return `${base} ${map[k] || map.cancelled}`
 }
 
 function orderCanCancel(status) {
@@ -460,6 +493,7 @@ export function OrdersList({ highlightId }) {
         {orders.map((o) => {
           const isHi = highlightId && o.id === highlightId
           const cancellable = orderCanCancel(o.status)
+          const refShort = orderRefFromId(o.id)
           return (
             <li
               key={o.id}
@@ -472,7 +506,9 @@ export function OrdersList({ highlightId }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={statusBadge(o.status)}>{o.status}</span>
+                    <span className={statusBadge(o.status)} title={orderStatusLabel(o.status)}>
+                      {orderStatusLabel(o.status)}
+                    </span>
                     {o.pricingAnomaly ? (
                       <span
                         className="inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-800/40"
@@ -498,7 +534,9 @@ export function OrdersList({ highlightId }) {
                     </p>
                   ) : null}
                 </div>
-                <p className="text-xs text-zinc-600">{o.id}</p>
+                {refShort ? (
+                  <p className="font-mono text-[10px] tracking-wide text-zinc-600">{refShort}</p>
+                ) : null}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-800/80 pt-4">
