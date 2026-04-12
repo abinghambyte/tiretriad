@@ -14,12 +14,22 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { parse } from 'csv-parse/sync'
 import { cert, getApps, initializeApp, applicationDefault } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 
-const PROJECT_ID = 'skedaddle-inventory'
+export const PROJECT_ID = 'skedaddle-inventory'
+
+function isMainModule() {
+  try {
+    const selfPath = fileURLToPath(import.meta.url)
+    return resolve(selfPath) === resolve(process.argv[1] || '')
+  } catch {
+    return false
+  }
+}
 
 function parseArgs(argv) {
   const args = [...argv]
@@ -90,17 +100,14 @@ function initFirebase(serviceAccountPath) {
   })
 }
 
-async function main() {
-  const { csvPath, serviceAccountPath } = parseArgs(process.argv.slice(2))
-
-  if (!csvPath) {
-    console.error(
-      'Usage: node scripts/import-tires-csv.mjs <path-to.csv> [--service-account path/to/key.json]',
-    )
-    process.exit(1)
-  }
-
-  initFirebase(serviceAccountPath)
+/**
+ * @param {string} csvPath Absolute or resolved path to CSV
+ * @param {{ serviceAccountPath?: string | null }} [options]
+ * @returns {Promise<number>} number of tires written
+ */
+export async function importTiresFromCsv(csvPath, options = {}) {
+  const { serviceAccountPath = null } = options
+  initFirebase(serviceAccountPath ?? undefined)
 
   const raw = readFileSync(csvPath, 'utf8')
   const records = parse(raw, {
@@ -117,8 +124,7 @@ async function main() {
   }
 
   if (tires.length === 0) {
-    console.error('No valid rows (each row needs a non-empty MSPN).')
-    process.exit(1)
+    throw new Error('No valid rows (each row needs a non-empty MSPN).')
   }
 
   const db = getFirestore()
@@ -138,9 +144,30 @@ async function main() {
   }
 
   console.log(`Imported ${tires.length} tires into project "${PROJECT_ID}" (doc id = MSPN, merge).`)
+  return tires.length
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+async function main() {
+  const { csvPath, serviceAccountPath } = parseArgs(process.argv.slice(2))
+
+  if (!csvPath) {
+    console.error(
+      'Usage: node scripts/import-tires-csv.mjs <path-to.csv> [--service-account path/to/key.json]',
+    )
+    process.exit(1)
+  }
+
+  try {
+    await importTiresFromCsv(csvPath, { serviceAccountPath })
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e)
+    process.exit(1)
+  }
+}
+
+if (isMainModule()) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

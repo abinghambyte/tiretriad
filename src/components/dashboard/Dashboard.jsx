@@ -1,7 +1,8 @@
 import { signOut } from 'firebase/auth'
-import { useMemo } from 'react'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { auth } from '../../firebase/config'
+import { auth, db } from '../../firebase/config'
 import { useAuth } from '../../hooks/useAuth'
 import { usePortalRegisteredUserCount } from '../../hooks/usePortalRegisteredUserCount'
 import { useTires } from '../../hooks/useTires'
@@ -138,6 +139,19 @@ export function Dashboard() {
   const { tires, loading: tiresLoading } = useTires()
   const { count: registeredUsers, loading: registryLoading } =
     usePortalRegisteredUserCount()
+  const [djStreak, setDjStreak] = useState(undefined)
+
+  useEffect(() => {
+    const ref = doc(db, 'meta', 'djStats')
+    return onSnapshot(
+      ref,
+      (snap) => {
+        const n = snap.exists() ? Number(snap.data().currentStreak) || 0 : 0
+        setDjStreak(n)
+      },
+      () => setDjStreak(0),
+    )
+  }, [])
 
   const tireSummary = useMemo(() => {
     if (tiresLoading) {
@@ -294,6 +308,13 @@ export function Dashboard() {
               <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                 Operations overview
               </h1>
+              {djStreak !== undefined ? (
+                <p className="mt-2 text-sm font-medium text-amber-200/95">
+                  DJ streak: {djStreak} clean orders 🔥
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-zinc-500">Loading DJ streak…</p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">

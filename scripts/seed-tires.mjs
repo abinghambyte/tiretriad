@@ -1,21 +1,27 @@
 /**
  * Seeds the `tires` collection (document id = MSPN).
  *
+ * If `scripts/tires.csv` exists (headers: Brand, Tread, MSPN, Description, LR, FET, Price),
+ * imports the full catalog using the same logic as `import-tires-csv.mjs`.
+ * Otherwise writes a small demo set.
+ *
  * Prerequisites:
  * - Application Default Credentials or GOOGLE_APPLICATION_CREDENTIALS
  *   pointing at a service account with Firestore write access.
- * - Firebase project selected (gcloud config or GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT).
  *
  * Run: npm run seed:tires
+ * Full catalog: place `tires.csv` in this folder, then run the same command.
  */
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import { importTiresFromCsv } from './import-tires-csv.mjs'
 
-if (!getApps().length) {
-  initializeApp({ credential: applicationDefault() })
-}
-
-const db = getFirestore()
+const PROJECT_ID = 'skedaddle-inventory'
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const DEFAULT_CSV = join(__dirname, 'tires.csv')
 
 const SEED = [
   {
@@ -76,7 +82,11 @@ const SEED = [
   },
 ]
 
-async function main() {
+async function seedDemo() {
+  if (!getApps().length) {
+    initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID })
+  }
+  const db = getFirestore()
   let batch = db.batch()
   let n = 0
   for (const row of SEED) {
@@ -89,7 +99,18 @@ async function main() {
     }
   }
   await batch.commit()
-  console.log(`Seeded ${SEED.length} tires (merge by MSPN).`)
+  console.log(`Seeded ${SEED.length} demo tires (merge by MSPN).`)
+}
+
+async function main() {
+  if (existsSync(DEFAULT_CSV)) {
+    await importTiresFromCsv(DEFAULT_CSV, {})
+    return
+  }
+  console.warn(
+    'No scripts/tires.csv — seeding demo SKUs only. Add tires.csv here for a full catalog import.',
+  )
+  await seedDemo()
 }
 
 main().catch((err) => {

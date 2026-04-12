@@ -496,6 +496,7 @@ On complete:
 - CSV export from tire margin table
 - Bulk CTS edit
 - Saved filter presets for daily workflows
+- Slack cancel modal: optional “Other” note + validation is sufficient for now; later, hide/show note input with `dispatch_action` on disposition (Phase 7 polish)
 
 ---
 

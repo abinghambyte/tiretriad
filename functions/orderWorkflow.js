@@ -3,10 +3,35 @@
  * @see docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
 const { FieldValue } = require('firebase-admin/firestore')
+const {
+  minutesBetweenTsAndMs,
+  frictionScoreCancelled,
+} = require('./orderMetrics')
+const { resetDjStreak, upsertGhostForOrder } = require('./orderLifecycle')
 
 const MODAL_REJECT = 'order_modal_reject'
 const MODAL_SCHEDULE = 'order_modal_schedule'
 const MODAL_CANCEL = 'order_modal_cancel'
+
+const CANCEL_DISPOSITIONS = [
+  { value: 'ghost', label: 'Customer ghosted', icon: '👻' },
+  { value: 'pricing', label: 'Pricing issue', icon: '💸' },
+  { value: 'found_elsewhere', label: 'Found tires elsewhere', icon: '🔍' },
+  { value: 'wrong_size', label: 'Wrong size / fitment', icon: '📐' },
+  { value: 'timing', label: "Timing didn't work out", icon: '⏰' },
+  { value: 'changed_mind', label: 'Changed their mind', icon: '🔄' },
+  { value: 'no_payment', label: 'Payment fell through', icon: '🚫' },
+  { value: 'weather', label: 'Weather / road conditions', icon: '🌧️' },
+  { value: 'other', label: 'Other', icon: '✏️' },
+]
+
+function dispositionLine(o) {
+  const v = o.cancellationDisposition
+  const row = CANCEL_DISPOSITIONS.find((d) => d.value === v)
+  const label = row ? `${row.icon} ${row.label}` : escapeSlackMrkdwn(v || '—')
+  const note = o.cancellationNote ? `\n*Note:* ${escapeSlackMrkdwn(o.cancellationNote)}` : ''
+  return `${label}${note}`
+}
 
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -32,9 +57,6 @@ function logisticsLabel(method) {
   return method === 'dropoff' ? 'Drop-off (Kyle → DJ)' : 'Pickup (DJ → Kyle)'
 }
 
-/**
- * @param {FirebaseFirestore.DocumentSnapshot} snap
- */
 function orderFromSnap(snap) {
   const d = snap.data() || {}
   return { id: snap.id, ...d }
@@ -141,6 +163,9 @@ function buildStage2RejectedBlocks(o) {
 }
 
 function buildStage3ScheduledBlocks(o) {
+  const timeStr = escapeSlackMrkdwn(
+    o.fulfillmentScheduledTime || o.scheduledTime || '—',
+  )
   const logLabel = logisticsLabel(o.logisticsMethod)
   const text = [
     '*🛞 Tire sale — scheduled* 📅',
@@ -152,7 +177,7 @@ function buildStage3ScheduledBlocks(o) {
     `*Fulfillment:* ${fulfillmentCustomerLabel(o.fulfillment)}`,
     '',
     `✅ Confirmed by Kyle — ${fmtTs(o.kyleConfirmedAt)}`,
-    `🚗 ${logLabel} scheduled — DJ, ${escapeSlackMrkdwn(o.scheduledTime || '—')}`,
+    `🚗 ${logLabel} scheduled — DJ, ${timeStr}`,
   ].join('\n')
 
   return [
@@ -186,12 +211,16 @@ function buildStage3CancelledBlocks(o) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
     `*Qty:* ${o.quantity}`,
-    `*Reason:* ${escapeSlackMrkdwn(o.cancellationReason || '—')}`,
+    `*Disposition:* ${dispositionLine(o)}`,
+    `*When:* ${fmtTs(o.cancelledAt)}`,
   ].join('\n')
   return [{ type: 'section', text: { type: 'mrkdwn', text } }]
 }
 
 function buildStage4InTransitBlocks(o) {
+  const timeStr = escapeSlackMrkdwn(
+    o.fulfillmentScheduledTime || o.scheduledTime || '—',
+  )
   const logLabel = logisticsLabel(o.logisticsMethod)
   const text = [
     '*🛞 Tire sale — in transit* 🚚',
@@ -201,7 +230,7 @@ function buildStage4InTransitBlocks(o) {
     `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     '',
-    `✅ Kyle confirmed → DJ scheduled (${escapeSlackMrkdwn(o.scheduledTime || '—')}) → DJ has tires ${fmtTs(o.djPossessionAt)}`,
+    `✅ Kyle confirmed → DJ scheduled (${timeStr}) → DJ has tires ${fmtTs(o.djPossessionAt)}`,
     `_${logLabel}_`,
     '',
     '_Awaiting customer fulfillment — use the portal to notify the customer._',
@@ -358,11 +387,26 @@ function cancelModalView(orderId) {
     blocks: [
       {
         type: 'input',
-        block_id: 'cancel_reason',
-        label: { type: 'plain_text', text: 'Reason for cancellation' },
+        block_id: 'cancel_disp_block',
+        label: { type: 'plain_text', text: 'Why cancel?' },
+        element: {
+          type: 'static_select',
+          action_id: 'cancel_disp_select',
+          placeholder: { type: 'plain_text', text: 'Choose…' },
+          options: CANCEL_DISPOSITIONS.map((d) => ({
+            text: { type: 'plain_text', text: `${d.icon} ${d.label}`.slice(0, 75) },
+            value: d.value,
+          })),
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'cancel_note_block',
+        optional: true,
+        label: { type: 'plain_text', text: 'Details (required if Other)' },
         element: {
           type: 'plain_text_input',
-          action_id: 'cancel_reason_field',
+          action_id: 'cancel_note_field',
           multiline: true,
         },
       },
@@ -375,10 +419,11 @@ function inputValue(view, blockId, elementActionId) {
   return String(el?.value || '').trim()
 }
 
-/**
- * Handle Slack interactive payload (block_actions or view_submission).
- * @returns {{ kind: 'empty' } | { kind: 'json', body: object }}
- */
+function staticSelectValue(view, blockId, elementActionId) {
+  const el = view?.state?.values?.[blockId]?.[elementActionId]
+  return String(el?.selected_option?.value || '').trim()
+}
+
 async function handleSlackPayload(db, token, envChannel, payload) {
   if (payload.type === 'view_submission') {
     return handleViewSubmission(db, token, envChannel, payload)
@@ -415,6 +460,7 @@ async function handleViewSubmission(db, token, envChannel, payload) {
       return { kind: 'json', body: { response_action: 'clear' } }
     }
     const reason = inputValue(view, 'reject_reason', 'reject_reason_field')
+    await resetDjStreak(db)
     await ref.update({
       status: 'rejected',
       rejectionReason: reason || '—',
@@ -431,11 +477,19 @@ async function handleViewSubmission(db, token, envChannel, payload) {
     }
     const scheduledTime = inputValue(view, 'schedule_time', 'schedule_time_field')
     const logisticsMethod = meta.logisticsMethod === 'dropoff' ? 'dropoff' : 'pickup'
+    const now = Date.now()
+    const kyleAt = snap.get('kyleConfirmedAt')
+    const availToSched = minutesBetweenTsAndMs(kyleAt, now)
+    const ft = scheduledTime || '—'
     await ref.update({
       status: 'scheduled',
       logisticsMethod,
-      scheduledTime: scheduledTime || '—',
+      scheduledTime: ft,
+      fulfillmentScheduledTime: ft,
+      scheduledAt: FieldValue.serverTimestamp(),
       djAcknowledgedAt: FieldValue.serverTimestamp(),
+      availableToScheduledMinutes: availToSched,
+      djResponseMinutes: availToSched,
       updatedAt: FieldValue.serverTimestamp(),
     })
     await refreshSlackMessage(db, token, envChannel, orderId)
@@ -447,12 +501,62 @@ async function handleViewSubmission(db, token, envChannel, payload) {
     if (st !== 'available' && st !== 'scheduled') {
       return { kind: 'json', body: { response_action: 'clear' } }
     }
-    const reason = inputValue(view, 'cancel_reason', 'cancel_reason_field')
-    await ref.update({
+    const disp = staticSelectValue(view, 'cancel_disp_block', 'cancel_disp_select')
+    if (!disp) {
+      return {
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { cancel_disp_block: 'Pick a disposition.' },
+        },
+      }
+    }
+    const note = inputValue(view, 'cancel_note_block', 'cancel_note_field')
+    if (disp === 'other' && !note) {
+      return {
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { cancel_note_block: 'Add a short note when Other is selected.' },
+        },
+      }
+    }
+
+    const pokeCount = Number(snap.get('pokeCount')) || 0
+    const notifyFrom =
+      snap.get('firstNotifiedAt') || snap.get('customerNotifiedAt')
+    const notifyToCancelMinutes =
+      minutesBetweenTsAndMs(notifyFrom, Date.now()) ?? 0
+    const frictionScore = frictionScoreCancelled(
+      pokeCount,
+      notifyToCancelMinutes,
+      disp,
+    )
+
+    let repeatGhost = false
+    if (disp === 'ghost') {
+      const { repeatGhost: rg } = await upsertGhostForOrder(
+        db,
+        orderId,
+        snap.get('customerContact'),
+      )
+      repeatGhost = rg
+    }
+
+    await resetDjStreak(db)
+
+    const patch = {
       status: 'cancelled',
-      cancellationReason: reason || '—',
+      cancellationDisposition: disp,
+      cancellationNote: disp === 'other' ? note : '',
+      cancelledAt: FieldValue.serverTimestamp(),
+      stageAtCancellation: st,
+      frictionScore,
       updatedAt: FieldValue.serverTimestamp(),
-    })
+    }
+    if (repeatGhost) patch.repeatGhost = true
+
+    await ref.update(patch)
     await refreshSlackMessage(db, token, envChannel, orderId)
     return { kind: 'json', body: { response_action: 'clear' } }
   }
@@ -501,9 +605,14 @@ async function handleBlockActions(db, token, envChannel, payload) {
     }
     case 'confirm_availability': {
       if (o.status !== 'pending') return { kind: 'empty' }
+      const now = Date.now()
+      const createdAt = snap.get('createdAt')
+      const saleToAvailableMinutes = minutesBetweenTsAndMs(createdAt, now)
       await ref.update({
         status: 'available',
         kyleConfirmedAt: FieldValue.serverTimestamp(),
+        saleToAvailableMinutes,
+        kyleConfirmMinutes: saleToAvailableMinutes,
         updatedAt: FieldValue.serverTimestamp(),
       })
       await refreshSlackMessage(db, token, envChannel, orderId)
@@ -511,9 +620,13 @@ async function handleBlockActions(db, token, envChannel, payload) {
     }
     case 'confirm_possession': {
       if (o.status !== 'scheduled') return { kind: 'empty' }
+      const now = Date.now()
+      const djAck = snap.get('djAcknowledgedAt')
+      const schedToTransit = minutesBetweenTsAndMs(djAck, now)
       await ref.update({
         status: 'in_transit',
         djPossessionAt: FieldValue.serverTimestamp(),
+        scheduledToInTransitMinutes: schedToTransit,
         updatedAt: FieldValue.serverTimestamp(),
       })
       await refreshSlackMessage(db, token, envChannel, orderId)
@@ -524,19 +637,17 @@ async function handleBlockActions(db, token, envChannel, payload) {
   }
 }
 
-/**
- * Post completion summary (new message) to #fleet-ops.
- */
 async function postOrderCompletionSummary(token, envChannel, order, portalBaseUrl) {
   const ch = channelForOrder(order, envChannel)
   if (!ch) return
 
   const pay = Number(order.paymentAmount)
-  const mins = Number(order.fulfillmentTimeMinutes)
+  const mins = Number(order.totalFulfillmentMinutes ?? order.fulfillmentTimeMinutes)
   const timeStr = Number.isFinite(mins) ? formatFulfillmentMinutes(mins) : '—'
   const logistics = logisticsLabel(order.logisticsMethod)
   const custFul = fulfillmentCustomerLabel(order.fulfillment)
   const link = `${portalBaseUrl.replace(/\/$/, '')}/orders?highlight=${encodeURIComponent(order.id)}`
+  const hat = order.hatTrickDay ? '\n🎩 *Hat trick day*' : ''
 
   const text = [
     '✅ *Order complete*',
@@ -547,6 +658,7 @@ async function postOrderCompletionSummary(token, envChannel, order, portalBaseUr
     `💰 $${Number.isFinite(pay) ? pay.toFixed(2) : '—'} received`,
     `⏱ Fulfilled in ${timeStr}`,
     '🤝 Kyle → DJ → Customer',
+    hat,
     '────────────────────',
     `<${link}|View in portal>`,
   ].join('\n')

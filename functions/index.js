@@ -6,15 +6,23 @@ const crypto = require('crypto')
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
-const { FieldValue } = require('firebase-admin/firestore')
+const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const {
   buildStage1Blocks,
-  fallbackTextForOrder,
   handleSlackPayload,
   postOrderCompletionSummary,
   orderFromSnap,
   formatFulfillmentMinutes,
 } = require('./orderWorkflow')
+const {
+  minutesBetweenTsAndMs,
+  utcDayRangeMs,
+  hourInTimeZone,
+  round2,
+  frictionScoreComplete,
+  DEFAULT_TZ,
+} = require('./orderMetrics')
+const { incrementDjStreak, applyHatTrick } = require('./orderLifecycle')
 
 admin.initializeApp()
 
@@ -279,12 +287,44 @@ exports.completeOrder = onCall(async (request) => {
     )
   }
 
+  const completedMs = Date.now()
   const createdAt = before.createdAt
-  let fulfillmentTimeMinutes = 0
-  if (createdAt && typeof createdAt.toMillis === 'function') {
-    fulfillmentTimeMinutes = Math.round(
-      (Date.now() - createdAt.toMillis()) / 60000,
-    )
+  const djPossessionAt = before.djPossessionAt
+  const firstNotifiedAt = before.firstNotifiedAt
+
+  const totalFulfillmentMinutes = minutesBetweenTsAndMs(createdAt, completedMs) ?? 0
+  const inTransitToCompleteMinutes =
+    minutesBetweenTsAndMs(djPossessionAt, completedMs) ?? 0
+  const notifyToCompleteMinutes =
+    minutesBetweenTsAndMs(firstNotifiedAt, completedMs) ?? 0
+
+  const pokeCount = Number(before.pokeCount) || 0
+  const convertedAfterPoke = pokeCount >= 1
+
+  const revenuePerMinute =
+    totalFulfillmentMinutes > 0
+      ? round2(paymentAmount / totalFulfillmentMinutes)
+      : 0
+
+  const createdMs = createdAt?.toMillis?.() ?? completedMs
+  const h = hourInTimeZone(createdMs, DEFAULT_TZ)
+  const createdAfterHours = h < 7 || h > 20
+
+  const frictionScore = frictionScoreComplete(pokeCount, notifyToCompleteMinutes)
+
+  let firstSaleOfDay = false
+  if (createdAt) {
+    const { start, end } = utcDayRangeMs(createdMs)
+    const firstQ = await db
+      .collection('orders')
+      .where('createdAt', '>=', Timestamp.fromMillis(start))
+      .where('createdAt', '<', Timestamp.fromMillis(end))
+      .orderBy('createdAt', 'asc')
+      .limit(1)
+      .get()
+    if (!firstQ.empty && firstQ.docs[0].id === orderId) {
+      firstSaleOfDay = true
+    }
   }
 
   const completedAt = FieldValue.serverTimestamp()
@@ -293,10 +333,26 @@ exports.completeOrder = onCall(async (request) => {
     completedAt,
     paymentReceived,
     paymentAmount,
-    fulfillmentTimeMinutes,
+    fulfillmentTimeMinutes: totalFulfillmentMinutes,
+    totalFulfillmentMinutes,
+    inTransitToCompleteMinutes,
+    notifyToCompleteMinutes,
+    convertedAfterPoke,
+    revenuePerMinute,
+    firstSaleOfDay,
+    createdAfterHours,
+    frictionScore,
     handledBy: { supplier: 'Kyle', mechanic: 'DJ' },
     updatedAt: FieldValue.serverTimestamp(),
   })
+
+  await incrementDjStreak(db)
+
+  try {
+    await applyHatTrick(db, token, slackChannelEnv(), completedMs)
+  } catch (e) {
+    console.error('completeOrder: hat trick', e)
+  }
 
   const afterSnap = await ref.get()
   const order = orderFromSnap(afterSnap)
@@ -317,8 +373,8 @@ exports.completeOrder = onCall(async (request) => {
   return {
     ok: true,
     orderId,
-    fulfillmentTimeMinutes,
-    fulfillmentTimeLabel: formatFulfillmentMinutes(fulfillmentTimeMinutes),
+    fulfillmentTimeMinutes: totalFulfillmentMinutes,
+    fulfillmentTimeLabel: formatFulfillmentMinutes(totalFulfillmentMinutes),
   }
 })
 

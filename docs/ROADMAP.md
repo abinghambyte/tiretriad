@@ -230,6 +230,7 @@ This is the first impression for in-person and mailed card invites.
 2. CSV export from tire margin table
 3. Bulk CTS edit
 4. Saved filter presets for daily workflows
+5. Slack cancel modal — hide/show “Other” note field via `dispatch_action` on disposition select (polish; current optional field + validation is fine for ops)
 
 ---
 
