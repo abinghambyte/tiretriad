@@ -11,21 +11,6 @@ import { useTires } from '../../hooks/useTires'
 import { marginPercent } from '../../utils/marginCalc'
 import { ProjectCard } from './ProjectCard'
 
-function IconOrders() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path strokeLinecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-    </svg>
-  )
-}
-
 function IconTires() {
   return (
     <svg
@@ -219,7 +204,7 @@ export function Dashboard() {
     {
       title: 'Skedaddle Tires',
       description:
-        'Margin intelligence, marketplace listing scripts, and instant sale notifications to the fulfillment team.',
+        'Margin catalog, listings, sales notify, and tire orders (fleet queue) — open the tool and use Catalog vs Orders.',
       stat: tireSignal,
       status: 'Live',
       accent: 'amber',
@@ -229,16 +214,16 @@ export function Dashboard() {
       minLevel: 'view',
     },
     {
-      title: 'Tire Orders',
+      title: 'People Systems',
       description:
-        'Slack-driven Kyle → DJ workflow. Notify customers via SMS link and mark orders complete when paid.',
-      stat: 'Fleet-ops queue · customer SMS + completion',
+        'User management, team assignment, cadence, access control, pipeline delegation — the people layer at the edge of definition. Scope deliberately unfinished.',
+      stat: peopleSignal,
       status: 'Live',
-      accent: 'amber',
-      icon: <IconOrders />,
-      to: '/orders',
-      moduleKey: 'orders',
-      minLevel: 'view',
+      accent: 'violet',
+      icon: <IconPeople />,
+      to: '/people',
+      moduleKey: 'people',
+      minLevel: 'manage',
     },
     {
       title: 'Ops Command',
@@ -261,18 +246,6 @@ export function Dashboard() {
       icon: <IconAnalytics />,
       moduleKey: 'analytics',
       minLevel: 'view',
-    },
-    {
-      title: 'People Systems',
-      description:
-        'User management, team assignment, cadence, access control, pipeline delegation — the people layer at the edge of definition. Scope deliberately unfinished.',
-      stat: peopleSignal,
-      status: 'Live',
-      accent: 'violet',
-      icon: <IconPeople />,
-      to: '/people',
-      moduleKey: 'people',
-      minLevel: 'manage',
     },
     {
       title: 'Revenue & Margin',

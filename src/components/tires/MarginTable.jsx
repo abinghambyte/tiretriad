@@ -36,6 +36,8 @@ export function MarginTable({
   onSort,
   loading,
   emptyState,
+  onLogSelectedSale,
+  onLogSelectedProspective,
 }) {
   const [editingCostsId, setEditingCostsId] = useState(null)
   const [costDraft, setCostDraft] = useState(() => ({
@@ -117,8 +119,35 @@ export function MarginTable({
     }
   }
 
+  const showSelectionActions =
+    selectedIds.size > 0 && (onLogSelectedSale || onLogSelectedProspective)
+
   return (
     <div>
+      {showSelectionActions ? (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {onLogSelectedSale ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onLogSelectedSale()}
+              className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
+            >
+              Log sale / notify team
+            </button>
+          ) : null}
+          {onLogSelectedProspective ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onLogSelectedProspective()}
+              className="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50"
+            >
+              Log prospective order
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="overflow-x-auto rounded-2xl border border-zinc-800">
         <table className="min-w-[980px] w-full border-collapse text-left text-sm">
           <thead>

@@ -6,7 +6,14 @@ import { formatSaleMessage } from '../../utils/saleMessenger'
 /** One callable instance — same reference as form submit and DEV test button. */
 const sendTireSaleSms = httpsCallable(functions, 'sendTireSaleSms')
 
-export function SaleMessenger({ onClose, tires }) {
+/**
+ * @param {object} props
+ * @param {() => void} props.onClose
+ * @param {object[]} props.tires
+ * @param {string} [props.initialMspn]
+ * @param {number} [props.initialQuantity]
+ */
+export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) {
   const [mspn, setMspn] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [pricePerTire, setPricePerTire] = useState('')
@@ -25,6 +32,24 @@ export function SaleMessenger({ onClose, tires }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  useEffect(() => {
+    if (initialMspn != null && String(initialMspn).trim() !== '') {
+      const v = String(initialMspn).trim()
+      setMspn(v)
+      const t = tires.find((x) => x.mspn === v)
+      const retail = t?.retailPrice ?? t?.price
+      if (t && retail != null && retail !== '') {
+        setPricePerTire(String(retail))
+      }
+    }
+  }, [initialMspn, tires])
+
+  useEffect(() => {
+    if (initialQuantity != null && Number(initialQuantity) >= 1) {
+      setQuantity(Number(initialQuantity))
+    }
+  }, [initialQuantity])
 
   const mspnOptions = useMemo(() => {
     const set = new Map()

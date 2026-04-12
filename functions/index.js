@@ -13,6 +13,7 @@ const {
   postOrderCompletionSummary,
   orderFromSnap,
   formatFulfillmentMinutes,
+  cancelOrderFromPortal: runPortalOrderCancellation,
 } = require('./orderWorkflow')
 const {
   minutesBetweenTsAndMs,
@@ -376,6 +377,84 @@ exports.completeOrder = onCall(async (request) => {
     fulfillmentTimeMinutes: totalFulfillmentMinutes,
     fulfillmentTimeLabel: formatFulfillmentMinutes(totalFulfillmentMinutes),
   }
+})
+
+exports.cancelOrderFromPortal = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const data = request.data || {}
+  const orderId = String(data.orderId || '').trim()
+  const disposition = String(data.disposition || '').trim()
+  const cancellationNote = String(data.cancellationNote || '').trim()
+  if (!orderId) {
+    throw new HttpsError('invalid-argument', 'orderId is required.')
+  }
+  const db = admin.firestore()
+  const token = process.env.SLACK_BOT_TOKEN || ''
+  const channel = slackChannelEnv()
+  try {
+    await runPortalOrderCancellation(
+      db,
+      token,
+      channel,
+      orderId,
+      disposition,
+      cancellationNote,
+    )
+    return { ok: true }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg === 'Order not found.') {
+      throw new HttpsError('not-found', msg)
+    }
+    throw new HttpsError('failed-precondition', msg)
+  }
+})
+
+exports.createProspectiveOrder = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const data = request.data || {}
+  const mspn = String(data.mspn || '').trim()
+  const quantity = Number(data.quantity)
+  const pricePerTire = Number(data.pricePerTire)
+  const totalPrice = Number(data.totalPrice)
+  if (!mspn) {
+    throw new HttpsError('invalid-argument', 'mspn is required.')
+  }
+  if (!Number.isFinite(quantity) || quantity < 1) {
+    throw new HttpsError('invalid-argument', 'quantity must be at least 1.')
+  }
+  if (!Number.isFinite(pricePerTire) || pricePerTire < 0) {
+    throw new HttpsError('invalid-argument', 'pricePerTire is invalid.')
+  }
+  if (!Number.isFinite(totalPrice) || totalPrice < 0) {
+    throw new HttpsError('invalid-argument', 'totalPrice is invalid.')
+  }
+  const db = admin.firestore()
+  const orderRef = db.collection('orders').doc()
+  await orderRef.set({
+    status: 'prospective',
+    mspn,
+    quantity,
+    pricePerTire,
+    totalPrice,
+    customerName: '',
+    customerContact: '',
+    fulfillment: 'pickup',
+    fulfillmentNotes: 'Prospective · catalog pipeline',
+    additionalNotes: '',
+    assignedTo: '',
+    assignedRole: 'mechanic',
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    slackMessageTs: '',
+    slackChannelId: '',
+    createdByUid: request.auth.uid,
+  })
+  return { ok: true, orderId: orderRef.id }
 })
 
 const {

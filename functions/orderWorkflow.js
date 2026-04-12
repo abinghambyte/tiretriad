@@ -25,6 +25,15 @@ const CANCEL_DISPOSITIONS = [
   { value: 'other', label: 'Other', icon: '✏️' },
 ]
 
+/** Orders that can still be cancelled from Slack or the portal (not completed / rejected / cancelled). */
+const CANCELLABLE_STATUSES = new Set([
+  'pending',
+  'available',
+  'scheduled',
+  'in_transit',
+  'prospective',
+])
+
 function dispositionLine(o) {
   const v = o.cancellationDisposition
   const row = CANCEL_DISPOSITIONS.find((d) => d.value === v)
@@ -94,6 +103,13 @@ function buildStage1Blocks(orderId, d) {
           text: { type: 'plain_text', text: 'Reject', emoji: true },
           style: 'danger',
           action_id: 'reject_order',
+          value: orderId,
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Cancel', emoji: true },
+          style: 'danger',
+          action_id: 'cancel_order',
           value: orderId,
         },
       ],
@@ -235,6 +251,36 @@ function buildStage4InTransitBlocks(o) {
     '',
     '_Awaiting customer fulfillment — use the portal to notify the customer._',
   ].join('\n')
+  return [
+    { type: 'section', text: { type: 'mrkdwn', text } },
+    {
+      type: 'actions',
+      block_id: 'stage4_actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Cancel', emoji: true },
+          style: 'danger',
+          action_id: 'cancel_order',
+          value: o.id,
+        },
+      ],
+    },
+  ]
+}
+
+function buildProspectivePipelineBlocks(o) {
+  const notes = [o.fulfillmentNotes, o.additionalNotes].filter(Boolean).join(' | ') || '—'
+  const text = [
+    '*🛞 Prospective order* · pipeline',
+    '',
+    `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
+    `*Qty:* ${o.quantity}`,
+    `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
+    `*Notes:* ${escapeSlackMrkdwn(notes)}`,
+    '',
+    '_Created from the portal tire catalog._',
+  ].join('\n')
   return [{ type: 'section', text: { type: 'mrkdwn', text } }]
 }
 
@@ -244,6 +290,8 @@ function fallbackTextForOrder(o) {
 
 function blocksForOrderState(o) {
   switch (o.status) {
+    case 'prospective':
+      return buildProspectivePipelineBlocks(o)
     case 'pending':
       return buildStage1Blocks(o.id, {
         mspn: o.mspn,
@@ -313,6 +361,7 @@ function channelForOrder(o, envChannel) {
 }
 
 async function refreshSlackMessage(db, token, envChannel, orderId) {
+  if (!token) return
   const ref = db.collection('orders').doc(orderId)
   const snap = await ref.get()
   if (!snap.exists) return
@@ -341,7 +390,7 @@ function rejectModalView(orderId) {
         element: {
           type: 'plain_text_input',
           action_id: 'reject_reason_field',
-          multiline: true,
+          multiline: false,
         },
       },
     ],
@@ -370,6 +419,7 @@ function scheduleModalView(orderId, logisticsMethod) {
         element: {
           type: 'plain_text_input',
           action_id: 'schedule_time_field',
+          multiline: false,
         },
       },
     ],
@@ -407,11 +457,77 @@ function cancelModalView(orderId) {
         element: {
           type: 'plain_text_input',
           action_id: 'cancel_note_field',
-          multiline: true,
+          multiline: false,
         },
       },
     ],
   }
+}
+
+async function executeOrderCancellation(db, token, envChannel, snap, disposition, noteForOther) {
+  const orderId = snap.id
+  const ref = snap.ref
+  const st = snap.get('status')
+  const note = disposition === 'other' ? String(noteForOther || '').trim() : ''
+
+  const pokeCount = Number(snap.get('pokeCount')) || 0
+  const notifyFrom = snap.get('firstNotifiedAt') || snap.get('customerNotifiedAt')
+  const notifyToCancelMinutes = minutesBetweenTsAndMs(notifyFrom, Date.now()) ?? 0
+  const frictionScore = frictionScoreCancelled(
+    pokeCount,
+    notifyToCancelMinutes,
+    disposition,
+  )
+
+  let repeatGhost = false
+  if (disposition === 'ghost') {
+    const { repeatGhost: rg } = await upsertGhostForOrder(
+      db,
+      orderId,
+      snap.get('customerContact'),
+    )
+    repeatGhost = rg
+  }
+
+  await resetDjStreak(db)
+
+  const patch = {
+    status: 'cancelled',
+    cancellationDisposition: disposition,
+    cancellationNote: note,
+    cancelledAt: FieldValue.serverTimestamp(),
+    stageAtCancellation: st,
+    frictionScore,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  if (repeatGhost) patch.repeatGhost = true
+
+  await ref.update(patch)
+  await refreshSlackMessage(db, token, envChannel, orderId)
+}
+
+/**
+ * Portal-initiated cancellation (callable). Same outcome as Slack cancel modal.
+ */
+async function cancelOrderFromPortal(db, token, envChannel, orderId, disposition, noteRaw) {
+  const ref = db.collection('orders').doc(orderId)
+  const snap = await ref.get()
+  if (!snap.exists) {
+    throw new Error('Order not found.')
+  }
+  const st = snap.get('status')
+  if (!CANCELLABLE_STATUSES.has(st)) {
+    throw new Error('This order cannot be cancelled.')
+  }
+  const allowed = new Set(CANCEL_DISPOSITIONS.map((d) => d.value))
+  if (!disposition || !allowed.has(disposition)) {
+    throw new Error('Pick a valid cancellation reason.')
+  }
+  const note = String(noteRaw || '').trim()
+  if (disposition === 'other' && !note) {
+    throw new Error('Add a short note when Other is selected.')
+  }
+  await executeOrderCancellation(db, token, envChannel, snap, disposition, note)
 }
 
 function inputValue(view, blockId, elementActionId) {
@@ -498,7 +614,7 @@ async function handleViewSubmission(db, token, envChannel, payload) {
 
   if (cb === MODAL_CANCEL) {
     const st = snap.get('status')
-    if (st !== 'available' && st !== 'scheduled') {
+    if (!CANCELLABLE_STATUSES.has(st)) {
       return { kind: 'json', body: { response_action: 'clear' } }
     }
     const disp = staticSelectValue(view, 'cancel_disp_block', 'cancel_disp_select')
@@ -522,42 +638,7 @@ async function handleViewSubmission(db, token, envChannel, payload) {
       }
     }
 
-    const pokeCount = Number(snap.get('pokeCount')) || 0
-    const notifyFrom =
-      snap.get('firstNotifiedAt') || snap.get('customerNotifiedAt')
-    const notifyToCancelMinutes =
-      minutesBetweenTsAndMs(notifyFrom, Date.now()) ?? 0
-    const frictionScore = frictionScoreCancelled(
-      pokeCount,
-      notifyToCancelMinutes,
-      disp,
-    )
-
-    let repeatGhost = false
-    if (disp === 'ghost') {
-      const { repeatGhost: rg } = await upsertGhostForOrder(
-        db,
-        orderId,
-        snap.get('customerContact'),
-      )
-      repeatGhost = rg
-    }
-
-    await resetDjStreak(db)
-
-    const patch = {
-      status: 'cancelled',
-      cancellationDisposition: disp,
-      cancellationNote: disp === 'other' ? note : '',
-      cancelledAt: FieldValue.serverTimestamp(),
-      stageAtCancellation: st,
-      frictionScore,
-      updatedAt: FieldValue.serverTimestamp(),
-    }
-    if (repeatGhost) patch.repeatGhost = true
-
-    await ref.update(patch)
-    await refreshSlackMessage(db, token, envChannel, orderId)
+    await executeOrderCancellation(db, token, envChannel, snap, disp, note)
     return { kind: 'json', body: { response_action: 'clear' } }
   }
 
@@ -597,7 +678,7 @@ async function handleBlockActions(db, token, envChannel, payload) {
       return { kind: 'empty' }
     }
     case 'cancel_order': {
-      if (o.status !== 'available' && o.status !== 'scheduled') {
+      if (!CANCELLABLE_STATUSES.has(o.status)) {
         return { kind: 'empty' }
       }
       await slackViewsOpen(token, triggerId, cancelModalView(orderId))
@@ -646,7 +727,7 @@ async function postOrderCompletionSummary(token, envChannel, order, portalBaseUr
   const timeStr = Number.isFinite(mins) ? formatFulfillmentMinutes(mins) : '—'
   const logistics = logisticsLabel(order.logisticsMethod)
   const custFul = fulfillmentCustomerLabel(order.fulfillment)
-  const link = `${portalBaseUrl.replace(/\/$/, '')}/orders?highlight=${encodeURIComponent(order.id)}`
+  const link = `${portalBaseUrl.replace(/\/$/, '')}/tires?tab=orders&highlight=${encodeURIComponent(order.id)}`
   const hat = order.hatTrickDay ? '\n🎩 *Hat trick day*' : ''
 
   const text = [
@@ -687,4 +768,5 @@ module.exports = {
   refreshSlackMessage,
   orderFromSnap,
   formatFulfillmentMinutes,
+  cancelOrderFromPortal,
 }

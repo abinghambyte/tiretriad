@@ -1,8 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { Link, useNavigate } from 'react-router-dom'
-import { auth } from '../../firebase/config'
+import { httpsCallable } from 'firebase/functions'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { auth, functions } from '../../firebase/config'
+import { permissionMeets } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
+import { useUserProfile } from '../../hooks/useUserProfile'
+import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
 import { marginPercent } from '../../utils/marginCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
@@ -13,6 +17,8 @@ import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { SaleMessenger } from './SaleMessenger'
 
+const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
+
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) =>
     String(a).localeCompare(String(b)),
@@ -22,7 +28,13 @@ function uniqueSorted(values) {
 export function TiresDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
+
+  const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
+  const ordersHighlight = searchParams.get('highlight') || undefined
+  const canViewOrders = permissionMeets(permissionFor('orders'), 'view')
 
   const [minMargin, setMinMargin] = useState(0)
   const [brand, setBrand] = useState('')
@@ -34,6 +46,7 @@ export function TiresDashboard() {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [listingOpen, setListingOpen] = useState(false)
   const [saleOpen, setSaleOpen] = useState(false)
+  const [saleInitial, setSaleInitial] = useState(null)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
 
   const applyFilterPreset = useCallback((p) => {
@@ -201,6 +214,62 @@ export function TiresDashboard() {
     [tires, selectedIds],
   )
 
+  function selectionPrimaryMspnRows() {
+    const picks = sortedRows.filter((r) => selectedIds.has(r.id))
+    if (picks.length === 0) return null
+    const m0 = String(picks[0].mspn || '').trim()
+    if (!m0) {
+      window.alert('Selected tires are missing an MSPN.')
+      return null
+    }
+    const same = picks.filter((p) => String(p.mspn || '').trim() === m0)
+    const mixed = picks.some((p) => String(p.mspn || '').trim() !== m0)
+    if (mixed) {
+      window.alert(
+        'Selection includes multiple MSPNs. Using the first SKU and the count of rows that match it.',
+      )
+    }
+    return { mspn: m0, rows: same }
+  }
+
+  function logSelectedSale() {
+    const ctx = selectionPrimaryMspnRows()
+    if (!ctx) return
+    setSaleInitial({ mspn: ctx.mspn, quantity: ctx.rows.length })
+    setSaleOpen(true)
+  }
+
+  async function logSelectedProspective() {
+    const ctx = selectionPrimaryMspnRows()
+    if (!ctx) return
+    const first = ctx.rows[0]
+    const retail = Number(first.retailPrice ?? first.price)
+    if (!Number.isFinite(retail) || retail < 0) {
+      window.alert('Selected tire needs a valid retail price for a prospective order.')
+      return
+    }
+    const quantity = ctx.rows.length
+    const totalPrice = retail * quantity
+    try {
+      const { data } = await createProspectiveOrder({
+        mspn: ctx.mspn,
+        quantity,
+        pricePerTire: retail,
+        totalPrice,
+      })
+      const id = data?.orderId
+      clearSelection()
+      if (id) {
+        navigate(`/tires?tab=orders&highlight=${encodeURIComponent(id)}`)
+      } else {
+        navigate('/tires?tab=orders')
+      }
+    } catch (e) {
+      console.error(e)
+      window.alert(e?.message || 'Could not create prospective order. Deploy functions?')
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/', { replace: true })
@@ -230,13 +299,18 @@ export function TiresDashboard() {
             <span className="hidden text-sm text-zinc-500 lg:inline max-w-[200px] truncate">
               {user?.email}
             </span>
-            <button
-              type="button"
-              onClick={() => setSaleOpen(true)}
-              className="rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-1.5 text-sm text-amber-100 hover:bg-amber-950/50"
-            >
-              Log sale / notify team
-            </button>
+            {tab === 'catalog' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSaleInitial(null)
+                  setSaleOpen(true)
+                }}
+                className="rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-1.5 text-sm text-amber-100 hover:bg-amber-950/50"
+              >
+                Log sale / notify team
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleSignOut}
@@ -245,6 +319,35 @@ export function TiresDashboard() {
               Sign out
             </button>
           </div>
+        </div>
+        <div className="border-t border-zinc-800/80 bg-zinc-950/80">
+          <nav
+            className="mx-auto flex max-w-7xl gap-1 px-6"
+            aria-label="Skedaddle Tires sections"
+          >
+            <Link
+              to="/tires"
+              className={[
+                '-mb-px border-b-2 px-4 py-3 text-sm font-medium transition',
+                tab === 'catalog'
+                  ? 'border-amber-500 text-amber-100'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300',
+              ].join(' ')}
+            >
+              Catalog
+            </Link>
+            <Link
+              to="/tires?tab=orders"
+              className={[
+                '-mb-px border-b-2 px-4 py-3 text-sm font-medium transition',
+                tab === 'orders'
+                  ? 'border-amber-500 text-amber-100'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300',
+              ].join(' ')}
+            >
+              Orders
+            </Link>
+          </nav>
         </div>
       </header>
 
@@ -255,6 +358,32 @@ export function TiresDashboard() {
           </p>
         ) : null}
 
+        {tab === 'orders' ? (
+          <div className="mx-auto max-w-4xl space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-100">Tire orders</h2>
+              <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+                Slack-driven Kyle → DJ workflow. Notify customers from here and mark complete when
+                paid. Bookmark{' '}
+                <Link to="/orders" className="text-amber-300/90 underline-offset-2 hover:underline">
+                  /orders
+                </Link>{' '}
+                for a direct link.
+              </p>
+            </div>
+            {canViewOrders ? (
+              <OrdersList highlightId={ordersHighlight} />
+            ) : (
+              <p className="text-sm text-zinc-500">
+                You do not have permission to view orders. Ask an admin for the{' '}
+                <span className="font-mono text-zinc-400">orders</span> module.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {tab === 'catalog' ? (
+          <>
         <MarginFilters
           brands={brands}
           categories={categories}
@@ -350,7 +479,11 @@ export function TiresDashboard() {
           onSort={handleSort}
           loading={loading}
           emptyState={emptyState}
+          onLogSelectedSale={logSelectedSale}
+          onLogSelectedProspective={logSelectedProspective}
         />
+          </>
+        ) : null}
       </main>
 
       {listingOpen ? (
@@ -361,7 +494,16 @@ export function TiresDashboard() {
         />
       ) : null}
       {saleOpen ? (
-        <SaleMessenger tires={tires} onClose={() => setSaleOpen(false)} />
+        <SaleMessenger
+          key={saleInitial ? `${saleInitial.mspn}-${saleInitial.quantity}` : 'sale-open'}
+          tires={tires}
+          initialMspn={saleInitial?.mspn}
+          initialQuantity={saleInitial?.quantity}
+          onClose={() => {
+            setSaleOpen(false)
+            setSaleInitial(null)
+          }}
+        />
       ) : null}
       <BulkCtsModal
         open={bulkCtsOpen && selectedIds.size > 0}
