@@ -10,7 +10,7 @@ A private, gated web portal at **skedaddleinc.com**. Dark minimal landing page w
 **Repo:** `abinghambyte/skedaddleinc` → main branch auto-deploys to Vercel  
 **Live URL:** `www.skedaddleinc.com`  
 **Firebase project:** `skedaddle-inventory` (us-central1, Gen2 functions)  
-**Stack:** React + Vite + Tailwind CSS, Firebase Auth + Firestore + Cloud Functions Gen2, Vercel
+**Stack:** React 19 + Vite + Tailwind CSS, Firebase Auth + Firestore + Cloud Functions Gen2, Vercel
 
 ---
 
