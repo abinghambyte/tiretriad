@@ -273,7 +273,6 @@ module.exports = {
   CREW_KEYS,
   CREW_SPLIT,
   denverYmd,
-  denverYm,
   isoWeekKey,
   denverYear,
   denverYtdStartMs,
