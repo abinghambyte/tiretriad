@@ -1,271 +1,172 @@
-# Skedaddle Portal — Full Product Roadmap
-
-**Master spec (handoff / full context):** [SKEDADDLE-MASTER.md](./SKEDADDLE-MASTER.md) — phase numbers **6–8** below match that file.
-
-**Project:** `skedaddle-portal` → deployed at `www.skedaddleinc.com` via Vercel  
-**Repo:** `abinghambyte/skedaddleinc` (main branch auto-deploys to Vercel)  
-**Firebase project:** `skedaddle-inventory` (us-central1, Gen2 functions)  
-**Stack:** React + Vite + Tailwind, Firebase Auth + Firestore + Cloud Functions Gen2, Vercel
+# Skedaddle Portal — Master Roadmap
+**Last updated: April 13, 2026**
+**Live at: skedaddleinc.com | Repo: abinghambyte/skedaddleinc**
 
 ---
 
-## Phase 1 — Close out
-**Status: complete**
+## Stack
 
-### 1.1 Remove dev test button *(done)*
-- Removed the `{import.meta.env.DEV ? (...)}` block from `src/components/tires/SaleMessenger.jsx` (Step 1 verification UI).
-
-### 1.2 Document env var pattern *(done)*
-- `functions/.env` is gitignored — create from `functions/.env.example` on each machine; required: `NOTIFY_WEBHOOK_URL`, `NOTIFY_WEBHOOK_STYLE=slack`. See `docs/FIREBASE-GEN2-SENDTIRESALE-ENV.md`.
-
-**Done when:** Clean production build with no dev artifacts, Slack posting confirmed working.
+- **Frontend:** React 18 + Vite + Tailwind CSS → Vercel (auto-deploy from GitHub main)
+- **Backend:** Firebase Cloud Functions Gen2 (Node 22, us-central1) → `npm run deploy:firebase`
+- **Database:** Firestore (project: skedaddle-inventory)
+- **Auth:** Firebase Auth (email/password)
+- **External:** Slack (Rubber Signal app), Sinch (SMS), Resend (email), Anthropic API, Gemini API (planned)
 
 ---
 
-## Phase 2 — Slack interactivity
-**Depends on:** Phase 1 complete  
-**Status:** implemented in `functions/index.js` — deploy + Slack app wiring still required on your side.
+## Completed Phases
 
-### Context
-When **`SLACK_BOT_TOKEN`** is set, **`sendTireSaleSms`** uses **`chat.postMessage`** with Block Kit (section + **Mark ready**), creates **`orders/{id}`** (`pending`), and stores **`slackMessageTs`**. If the bot token is unset, the callable falls back to **`NOTIFY_WEBHOOK_URL`** (plain text, no button).
+### Phase 1 — Close out ✅
+- Removed dev test button from SaleMessenger.jsx
+- Documented env var pattern
 
-### 2.1 Create Slack app with bot token *(you)*
-- api.slack.com/apps → app with **`chat:write`**, **`chat:write.public`**
-- Install to workspace → **`SLACK_BOT_TOKEN`**, **`SLACK_SIGNING_SECRET`** in **`functions/.env`**
-- Optional: **`SLACK_CHANNEL_ID`** (`C…`) for `#fleet-ops` — invite the bot to that channel
+### Phase 2 — Slack interactivity ✅
+- sendTireSaleSms uses chat.postMessage with Block Kit + Mark Ready button
+- slackActions onRequest handles all button payloads
+- Slack bot token, signing secret, channel ID now in Firebase Secret Manager (not .env)
+- Mark Ready verified working end to end
 
-### 2.2 Upgrade `sendTireSaleSms` *(done in repo)*
-- Block Kit + **`action_id`:** `mark_ready`, **`value`:** Firestore order document id (created before post)
+### Phase 3 — Firestore orders model ✅
+- orders/{id} collection with 6-stage lifecycle: pending → available → scheduled → in_transit → completed
+- Note: original spec had 3 stages (pending/ready/sold) — evolved intentionally to 6 stages
+- Real-time onSnapshot listener in portal, filterable orders table
+- assignedTo, scheduledDate, scheduledWindow, deliveryType, paymentAmount, kylePriceOverride, priceDiscrepancy fields all live
 
-### 2.3 **`slackActions`** Gen2 HTTP *(done in repo)*
-- **`onRequest`** — verify Slack signature, **`mark_ready`** → **`orders/{id}`** `status: ready`, **`updatedAt`**
-- Interactivity Request URL: see [FIREBASE-GEN2-SENDTIRESALE-ENV.md](./FIREBASE-GEN2-SENDTIRESALE-ENV.md) (`…/slackActions`)
-- Deploy **`firestore.rules`** so authenticated clients can **read** `orders` (writes remain Functions-only)
+### Phase 4 — People System ✅
+- Crew tags: admin→Overwatch, supplier→Source, mechanic→Field, viewer→Spotter
+- Permission matrix per module per user
+- Invite flow: SMS (Sinch), NFC card, Email (Resend)
+- Token system at skedaddleinc.com/i/[token]
+- NFC entrance: vibration + Web Audio + Framer Motion + Anthropic generative greeting
+- Handshake Protocol first-login screen
+- Login tracking, suspicious login Slack alert, ghost mode, accessLog
+- Timed elevation with auto-revert, access expiry scheduler
 
-**Done when:** After deploy, clicking **Mark ready** in Slack updates the matching **`orders`** doc in Firestore (verify in console).
+### Phase 5 — Role-based portal experience ✅
+- Admin (Overwatch): full access
+- Supplier (Source/Kyle): sale alerts, order status
+- Mechanic (Field/DJ, Tanner): assigned orders, mark fulfillment
 
----
-
-## Phase 3 — Firestore orders model
-**Depends on:** Phase 2 in progress (can be built in parallel)
-
-### 3.1 Schema: `orders/{id}`
-```
-id: auto-generated
-status: "pending" | "ready" | "sold"
-mspn: string
-quantity: number
-pricePerTire: number
-totalPrice: number
-customerName: string
-customerContact: string
-fulfillment: "pickup" | "delivery"
-fulfillmentNotes: string
-additionalNotes: string
-assignedTo: string (uid from users collection)
-assignedRole: "mechanic" | "supplier"
-createdAt: Firestore timestamp
-updatedAt: Firestore timestamp
-slackMessageTs: string (Slack message timestamp for future message updates)
-```
-
-### 3.2 Write order on sale
-- When `sendTireSaleSms` fires successfully, also write an `orders/{id}` doc with `status: "pending"`
-- Pass the generated order ID into the Slack Block Kit button `value` field
-
-### 3.3 Real-time portal sync
-- Add `onSnapshot` listener in the portal UI on the `orders` collection
-- Orders table updates without page refresh
-- Filter by status, assignedTo, date
-
-**Done when:** Submitting a tire sale creates a Firestore doc, portal table updates live, "Mark ready" in Slack flips status to "ready" and portal reflects it.
-
----
-
-## Phase 4 — People System
-**Depends on:** Phase 3 complete  
-**This is the largest phase — build in sub-phases**
-
-### 4.1 Roles and permissions model
-
-Three roles at launch:
-- `admin` — full portal access, People portal, invite others, promotable
-- `supplier` — sees sale alerts for their brand, views order status (e.g. Kyle, Michelin rep)
-- `mechanic` — sees orders assigned to them, marks fulfillment (e.g. DJ, road service)
-
-Schema: `users/{uid}`
-```
-uid: Firebase Auth uid
-firstName: string
-lastName: string
-email: string
-phone: string
-role: "admin" | "supplier" | "mechanic"
-permissions: {
-  tires: boolean
-  orders: boolean
-  fleet: boolean
-  people: boolean
-}
-inviteToken: string
-inviteStatus: "active" | "expired" | "locked" | "renewed"
-inviteExpiry: Firestore timestamp
-inviteDelivery: "sms" | "nfc" | "email"
-inviteAccepted: boolean
-createdAt: Firestore timestamp
-lastLogin: Firestore timestamp
-```
-
-### 4.2 Admin — People portal UI
-- Accessible only to users with `permissions.people: true`
-- User list: name, role, invite status, last login, actions (renew, lock, promote)
-- Create user form: first name, last name, email, phone, role, delivery method (SMS / NFC / email)
-- On create: generate unique token, write `users/{uid}` doc with `inviteStatus: "active"`, set 48hr expiry
-- Token controls per user row: Renew (extend 48hrs, no retyping), Lock (kill access immediately), Promote (change role)
-- Renew does not require re-entering user details — one click from the user row
-
-### 4.3 Invite token system
-- Token URL format: `skedaddleinc.com/i/[token]` — short, reveals nothing
-- Token stored in Firestore `invitedTokens/{token}` with reference to `users/{uid}`
-- Server checks token state on every request — active/expired/locked all return different but equally minimal responses
-- Expired or locked tap: blank page or single line, no explanation
-- NFC cards hold the permanent token URL — card never needs reprogramming for expiry/renewal, only if reassigned to a different person
-- Admin can reprogram card URL from the portal (generates new token, old one is locked)
-
-### 4.4 Invite delivery
-
-**SMS (primary)**
-- Send via Twilio or Firebase Extensions phone auth
-- Message: short, reads like a person sent it, includes token URL
-- No platform name, no explanation, just the link
-
-**NFC card (secondary — in person or mailed)**
-- Portal generates the token URL for the card
-- Admin programs card using any NFC writing app (portal shows the URL to copy)
-- Card is handed over or mailed with no note, or a single word/phrase
-- Card tap triggers the full entrance experience (see 4.5)
-
-**Email (tertiary)**
-- Plain text only, no template, no logo
-- Subject line: a phrase, not a description
-- Body: one or two lines max, token URL, nothing else
-
-### 4.5 NFC tap entrance experience
-This is the first impression for in-person and mailed card invites.
-
-**Sequence:**
-1. NFC tap → phone opens `skedaddleinc.com/i/[token]`
-2. Web Vibration API: single sharp pulse (~200ms) on page load
-3. Short audio tone plays on load (autoplay permitted because NFC tap counts as user gesture on Android; iOS PWA support later)
-4. Black screen, ~500ms pause
-5. A single white bolt renders center screen and tears diagonally across the viewport — fast, sharp, like a crack in glass (Framer Motion)
-6. Black overlay peels away from the crack line revealing the page behind
-7. Reveal: dark background, "Skedaddle" in clean type
-8. Below: generative greeting — Anthropic API call with user's first name and role, returns a single line, always different, always includes their name
-
-**Generative greeting tone parameters (pass to API):**
-- Understated, slightly cryptic, never corporate, never exclamatory
-- Always includes the user's first name
-- Implies they were expected, not recruited
-- Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door was already open, DJ." / "You took your time, Kyle. That's fine."
-
-**After reveal:**
-- Single subtle CTA below the greeting — a word or an arrow, nothing more
-- Leads into registration form
-
-### 4.6 Registration form
-- One field at a time if possible (step through: email → verify → name → phone → password)
-- Email confirmation: 6-digit code sent to their email, entered on the same page — no separate inbox trip
-- On complete:
-  1. Firebase Auth account created with email + password
-  2. `users/{uid}` doc updated with profile data, `inviteAccepted: true`
-  3. `inviteTokens/{token}` marked used
-  4. User redirected to their role-appropriate dashboard
-
-**Done when:** Kyle and DJ can each tap a card or receive an SMS, register, and land on a dashboard appropriate to their role.
-
----
-
-## Phase 5 — Role-based portal experience
-**Depends on:** Phase 4 complete
-
-### 5.1 Mechanic dashboard (DJ)
-- Assigned orders list, sorted by recency
-- Each order shows: tire details, customer, fulfillment type, status
-- Can mark order ready or complete from the portal (mirrors Slack button)
-- No access to tire margin tool, People portal, or fleet data
-
-### 5.2 Supplier dashboard (Kyle)
-- Incoming sale alerts for orders involving their brand
-- Order status view — can see pending/ready/sold
-- No access to admin features
-
-### 5.3 Admin dashboard (you)
-- Full access to all sections
-- People portal
-- Tire margin tool
-- Orders table with all statuses
-- Fleet data (future)
-
-**Done when:** Each role logs in and sees only what they should see.
-
----
-
-## Phase 6 — eBay listing integration
-**Depends on:** Phase 3 complete
-
+### Phase 6 — eBay listing integration
+- Status: PLANNED
 - eBay Developer Program — sandbox + production, REST API + OAuth 2.0
-- From the listing generator, a **Post to eBay** flow creates a listing via API (title, description, price, qty, MSPN, category)
-- Photo upload when tire photos exist in Storage
-- Facebook / OfferUp / Craigslist: no automation — listing copy + manual paste only (see master spec §8)
+- Post to eBay flow from listing generator
+- SellerChamp integration for passive listing automation
 
-**Done when:** A real listing can be created from the portal via eBay API (sandbox or prod as configured).
+### Phase 7 — Portal polish ✅
+- Inline CTS edit per tire row
+- Bulk overhead edit (batches of 400)
+- Export CSV of filtered view
+- Saved filter presets (localStorage)
+- Grade A/B/C badges per tire row
+- react-window virtual scroll on tire table (1,160 rows)
 
----
+### Phase 8 — Hygiene ✅
+- Node 20 → 22 upgrade ✅
+- firebase-functions v4 → v7.2.5 ✅
+- GitHub Actions CI (lint + build on PRs) — DECISION PENDING
 
-## Phase 7 — Portal polish
-**Depends on:** Phase 3 complete, can be done alongside Phase 5
-
-1. Orders table in portal — live Firestore status, filterable by status/assignee/date
-2. CSV export from tire margin table
-3. Bulk CTS edit
-4. Saved filter presets for daily workflows
-5. Slack cancel modal — hide/show “Other” note field via `dispatch_action` on disposition select (polish; current optional field + validation is fine for ops)
-
----
-
-## Phase 8 — Hygiene
-**Do before April 30, 2026** (Node 20 deprecation)
-
-1. **Node runtime upgrade** — change `functions/package.json` engines from `20` to `22` and redeploy before April 30 deprecation deadline
-2. **`firebase-functions` package upgrade** — flagged as outdated during Phase 1 deploy; read breaking changes before upgrading
-3. **GitHub Actions CI** — lint + build check on every PR to main
+### Phase 9 — Rubber CRM ✅
+- Renamed from "Fleet CRM" to "Rubber CRM" everywhere — never revert
+- Kanban: Identified Fleet → Contact Made → Pain Confirmed → Proposal → Closed
+- Leads tab, DJ Dispatch tab
 
 ---
 
-## Open decisions (resolve before building the relevant phase)
+## Phases built April 13 2026 (beyond original roadmap)
 
-| Decision | Phase | Options |
-|---|---|---|
-| Unify notify path (Firebase callable vs Cloud Run) | 2 | Firebase is working — stay unless there's a reason to move |
-| SMS provider | 4 | Twilio vs Firebase phone auth extension |
-| NFC card programming UX | 4 | Portal shows URL to copy vs direct NFC write API (browser NFC API is Chrome Android only) |
-| Audio tone asset | 4.5 | Custom sound vs Web Audio API generated tone |
-| Framer Motion vs CSS animation for bolt reveal | 4.5 | Framer Motion preferred for control |
-| Email provider for 6-digit code | 4.6 | Resend vs SendGrid (both have free tiers) |
-| eBay sandbox / developer account | 6 | Create before building Phase 6 |
+### Credit Limit Tracker ✅
+- meta/creditTracker Firestore doc
+- /charge, /payment, /balance slash commands
+- CreditTrackerCard embedded in Dashboard header (admin only)
+- Kyle price confirmation step — kylePriceOverride written on order, amber badge in OrdersList
+
+### Formatting Utilities ✅
+- functions/format.js and src/utils/format.js
+- formatCurrency, formatNumber, formatPercent, formatQty, formatCurrencyOrDash
+- Applied globally across portal and Slack outputs
+
+### Finance Foundation + Slash Commands ✅
+- meta/revenueStats — running totals updated on every completion via runCompletionTransaction
+- meta/crewEarnings — totalEarned/totalPaid/balance per crew member
+- Pool = (paymentAmount - buyPrice - mountCost - deliveryCost - otherCost) × qty
+- Split: Alex 50%, DJ 20%, Tanner 20%, Kyle 10%
+- /spoils, /owed, /payout, /revenue
+
+### Lookup + Utility Slash Commands ✅
+- /stock, /margins, /pricecheck, /customer, /note, /weather, /quota, /hype, /setlimit, /setquota, /dispatch
+
+### Schedule Slash Commands + Availability Blocker ✅
+- availability subcollection under users/{uid}
+- /delivery, /pickup, /reschedule, /schedule, /tomorrow, /week, /unscheduled, /openslots, /block, /unblock, /myavailability
+- AvailabilityBlocker.jsx in People dashboard — green/blue/red grid
+
+### Field Slash Commands ✅
+- /onmyway, /done, /myorders, /sms, /confirm
+
+### Inventory Slash Commands ✅
+- /intake, /reorder, /lowstock, /dead, /slowmovers, /velocity, /bestsellers, /forecast
+- meta/reorderQueue
+- SLACK_KYLE_ID secret for tagging Kyle on reorder
+
+### Portal Features ✅
+- Revenue tab in Analytics — live from meta/revenueStats + completed orders
+- Leaderboard tab in Analytics
+- DJ streak tracker in Metrics tab
+- Poke conversion rate in Metrics tab
+- Customer memory enrichment in People → Customers tab
+- Milestone toasts with Web Audio
+- Beast Mode 🔥 badge (sold within 24h of intake)
+- Morning Brief upgraded — scheduled deliveries, DJ blocks, credit balance, dead stock, VIP note
+- kyleScorecard — runs 1st of each month at 8am MT
+
+### Ops Command ✅
+- /ops route live, admin only
+- Expense tracker (expenses collection)
+- Tax prep CSV export (exportTaxPrepCsv callable)
+- Reorder queue UI (reads meta/reorderQueue)
+- Inbound SMS parsing (inboundSms HTTP function)
+- Repeat customer VIP flag (isVip: true at 3+ orders, ⭐ in Customers tab)
 
 ---
 
-## Current env vars reference
+## Secret Management
 
-| Location | Var | Purpose |
-|---|---|---|
-| `functions/.env` | `NOTIFY_WEBHOOK_URL` | Slack #fleet-ops incoming webhook (current) |
-| `functions/.env` | `NOTIFY_WEBHOOK_STYLE` | `slack` |
-| `functions/.env` (Phase 2) | `SLACK_BOT_TOKEN` | Bot token for chat.postMessage |
-| `functions/.env` (Phase 2) | `SLACK_SIGNING_SECRET` | Verify Slack action payloads |
-| `functions/.env` (Phase 4) | `TWILIO_ACCOUNT_SID` | SMS invite delivery |
-| `functions/.env` (Phase 4) | `TWILIO_AUTH_TOKEN` | SMS invite delivery |
-| `functions/.env` (Phase 4) | `RESEND_API_KEY` | Email 6-digit confirmation code |
-| `functions/.env` (Phase 4.5) | `ANTHROPIC_API_KEY` | Generative greeting on invite page |
+All Slack secrets live in Firebase Secret Manager:
+- SLACK_BOT_TOKEN
+- SLACK_SIGNING_SECRET
+- SLACK_CHANNEL_ID
+- SLACK_KYLE_ID
+
+Set or update with: `firebase functions:secrets:set SECRET_NAME`
+All functions import from functions/slackSecrets.js and use .value() — never process.env for Slack.
+For local emulator: use .secret.local
+
+---
+
+## Next Priorities
+
+1. AI listing advisor — Gemini, eBay sold listing scan, per-SKU sell probability, listing copy generation
+2. eBay via SellerChamp — passive income engine
+3. GitHub Actions CI — lint + build on PRs (decision pending)
+4. Custom Skedaddle MCP server — exposes Firestore to Claude/Cursor directly
+
+---
+
+## Revenue Strategy
+
+**Fastest path to cash:**
+- Use Listing Generator → post to Facebook Marketplace, OfferUp, Craigslist, Nextdoor
+- Priority SKUs: BFG KO3 265/70R17, 265/70R18, KM3 33s/35s, Michelin Agilis van sizes
+
+**Medium term:**
+- Google Business Profile (when ready to be searchable)
+- eBay account + first 20 listings for highest-demand LT sizes
+
+**Passive income engine:**
+- eBay via SellerChamp — listings run autonomously
+- AI listing advisor reduces posting effort per SKU
+
+**Highest value, slowest close:**
+- Fleet contracts via Rubber CRM
+- Target: I-25 HVAC fleets, Amazon DSPs, FedEx contractors, owner-operators
