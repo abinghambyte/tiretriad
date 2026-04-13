@@ -347,6 +347,7 @@ exports.completeOrder = onCall(async (request) => {
   const data = request.data || {}
   const orderId = String(data.orderId || '').trim()
   const paymentReceived = Boolean(data.paymentReceived)
+  // paymentAmount = total dollars the customer paid for the order (defaults to order.totalPrice = quantity × sale pricePerTire from Sale Messenger). The portal never adds tire FET on top of that total in code—so this is the whole recorded sale; infer whether FET is included only from how ops uses “Price / tire” (all-in vs pre-FET). Margin vs Kyle: subtract (buy + tire FET) × qty and CTS from this total only if your sale figure is defined the same way.
   const paymentAmount = Number(data.paymentAmount)
 
   if (!orderId) {
