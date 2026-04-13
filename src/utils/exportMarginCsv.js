@@ -1,12 +1,18 @@
 import { computeCts } from './ctsCalc'
 import { computeMargin } from './marginCalc'
-import { formatCurrency, formatPercent } from './format'
 import { tireCatalogBuyNumber } from './tireCatalogBuy'
 
 function csvEscape(value) {
   const s = String(value ?? '')
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
+}
+
+/** Plain decimal for CSV numeric columns (no currency symbol — import-friendly). */
+function csvMoney(n) {
+  const x = Number(n)
+  if (!Number.isFinite(x)) return ''
+  return x.toFixed(2)
 }
 
 /**
@@ -31,7 +37,7 @@ export function exportMarginCsv(rows) {
 
   for (const row of rows) {
     const m = computeMargin(row)
-    const marginStr = m != null && !Number.isNaN(m) ? formatPercent(m, 2) : ''
+    const marginStr = m != null && !Number.isNaN(m) ? m.toFixed(2) : ''
     const buyPrice = tireCatalogBuyNumber(row)
     const mountCost = Number(row.mountCost) || 0
     const deliveryCost = Number(row.deliveryCost) || 0
@@ -45,12 +51,12 @@ export function exportMarginCsv(rows) {
         csvEscape(row.description),
         csvEscape(row.mspn),
         csvEscape(row.lr),
-        csvEscape(formatCurrency(buyPrice)),
-        csvEscape(formatCurrency(fet)),
-        csvEscape(formatCurrency(mountCost)),
-        csvEscape(formatCurrency(deliveryCost)),
-        csvEscape(formatCurrency(otherCost)),
-        csvEscape(formatCurrency(overheadTotal)),
+        csvEscape(csvMoney(buyPrice)),
+        csvEscape(csvMoney(fet)),
+        csvEscape(csvMoney(mountCost)),
+        csvEscape(csvMoney(deliveryCost)),
+        csvEscape(csvMoney(otherCost)),
+        csvEscape(csvMoney(overheadTotal)),
         csvEscape(marginStr),
         csvEscape(row.category),
       ].join(','),
