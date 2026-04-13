@@ -24,6 +24,18 @@ function denverYmd(ms = Date.now()) {
   return `${y}-${m}-${d}`
 }
 
+/** Denver calendar month key `YYYY-MM` (for quota / monthly revenue rollups). */
+function denverYm(ms = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date(ms))
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value
+  return `${y}-${m}`
+}
+
 /** ISO week key like 2026-W15 (week starts Monday). */
 function isoWeekKey(ms = Date.now()) {
   const d = new Date(ms)
@@ -86,17 +98,21 @@ function defaultRevenueDoc() {
   return {
     dailyWindow: '',
     weeklyWindow: '',
+    monthlyWindow: '',
     ytdYear: 0,
     dailyRevenue: 0,
     weeklyRevenue: 0,
+    monthlyRevenue: 0,
     ytdRevenue: 0,
     allTimeRevenue: 0,
     dailyCost: 0,
     weeklyCost: 0,
+    monthlyCost: 0,
     ytdCost: 0,
     allTimeCost: 0,
     dailyMargin: 0,
     weeklyMargin: 0,
+    monthlyMargin: 0,
     ytdMargin: 0,
     allTimeMargin: 0,
     updatedAt: FieldValue.serverTimestamp(),
@@ -120,6 +136,7 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
   const p = { ...defaultRevenueDoc(), ...prev }
   const dayKey = denverYmd(completedMs)
   const weekKey = isoWeekKey(completedMs)
+  const monthKey = denverYm(completedMs)
   const yYear = denverYear(completedMs)
 
   const next = { ...p }
@@ -135,6 +152,12 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
     next.weeklyCost = 0
     next.weeklyMargin = 0
   }
+  if (next.monthlyWindow !== monthKey) {
+    next.monthlyWindow = monthKey
+    next.monthlyRevenue = 0
+    next.monthlyCost = 0
+    next.monthlyMargin = 0
+  }
   if (Number(next.ytdYear) !== yYear) {
     next.ytdYear = yYear
     next.ytdRevenue = 0
@@ -148,16 +171,19 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
 
   next.dailyRevenue = round2((Number(next.dailyRevenue) || 0) + pay)
   next.weeklyRevenue = round2((Number(next.weeklyRevenue) || 0) + pay)
+  next.monthlyRevenue = round2((Number(next.monthlyRevenue) || 0) + pay)
   next.ytdRevenue = round2((Number(next.ytdRevenue) || 0) + pay)
   next.allTimeRevenue = round2((Number(next.allTimeRevenue) || 0) + pay)
 
   next.dailyCost = round2((Number(next.dailyCost) || 0) + cost)
   next.weeklyCost = round2((Number(next.weeklyCost) || 0) + cost)
+  next.monthlyCost = round2((Number(next.monthlyCost) || 0) + cost)
   next.ytdCost = round2((Number(next.ytdCost) || 0) + cost)
   next.allTimeCost = round2((Number(next.allTimeCost) || 0) + cost)
 
   next.dailyMargin = round2((Number(next.dailyMargin) || 0) + margin)
   next.weeklyMargin = round2((Number(next.weeklyMargin) || 0) + margin)
+  next.monthlyMargin = round2((Number(next.monthlyMargin) || 0) + margin)
   next.ytdMargin = round2((Number(next.ytdMargin) || 0) + margin)
   next.allTimeMargin = round2((Number(next.allTimeMargin) || 0) + margin)
 
@@ -247,6 +273,7 @@ module.exports = {
   CREW_KEYS,
   CREW_SPLIT,
   denverYmd,
+  denverYm,
   isoWeekKey,
   denverYear,
   denverYtdStartMs,
