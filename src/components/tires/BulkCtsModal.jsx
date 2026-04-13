@@ -10,10 +10,9 @@ function num(v) {
 }
 
 /**
- * @param {{ open: boolean, onClose: () => void, tires: { id: string, fet?: unknown }[] }} props
+ * @param {{ open: boolean, onClose: () => void, tires: { id: string }[] }} props
  */
 export function BulkCtsModal({ open, onClose, tires }) {
-  const [cost, setCost] = useState(0)
   const [mountCost, setMountCost] = useState(0)
   const [deliveryCost, setDeliveryCost] = useState(0)
   const [otherCost, setOtherCost] = useState(0)
@@ -21,7 +20,6 @@ export function BulkCtsModal({ open, onClose, tires }) {
 
   useEffect(() => {
     if (open) {
-      setCost(0)
       setMountCost(0)
       setDeliveryCost(0)
       setOtherCost(0)
@@ -30,10 +28,7 @@ export function BulkCtsModal({ open, onClose, tires }) {
 
   if (!open) return null
 
-  const sampleFet = num(tires[0]?.fet)
-  const previewCts = computeCts({
-    cost: num(cost),
-    fet: sampleFet,
+  const previewOverhead = computeCts({
     mountCost: num(mountCost),
     deliveryCost: num(deliveryCost),
     otherCost: num(otherCost),
@@ -47,15 +42,12 @@ export function BulkCtsModal({ open, onClose, tires }) {
       for (let i = 0; i < tires.length; i += chunkSize) {
         const chunk = tires.slice(i, i + chunkSize)
         const batch = writeBatch(db)
+        const m = num(mountCost)
+        const d = num(deliveryCost)
+        const o = num(otherCost)
+        const cts = computeCts({ mountCost: m, deliveryCost: d, otherCost: o })
         for (const t of chunk) {
-          const fet = num(t.fet)
-          const c = num(cost)
-          const m = num(mountCost)
-          const d = num(deliveryCost)
-          const o = num(otherCost)
-          const cts = computeCts({ cost: c, fet, mountCost: m, deliveryCost: d, otherCost: o })
           batch.update(doc(db, 'tires', t.id), {
-            cost: c,
             mountCost: m,
             deliveryCost: d,
             otherCost: o,
@@ -82,31 +74,25 @@ export function BulkCtsModal({ open, onClose, tires }) {
       className={`${MODAL_CENTER_BACKDROP} backdrop-blur-sm`}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="bulk-cts-title"
+      aria-labelledby="bulk-overhead-title"
       onClick={onClose}
     >
       <div
         className={`${MODAL_CENTER_PANEL} border-zinc-700 bg-zinc-950 p-6`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="bulk-cts-title" className="text-lg font-semibold text-zinc-100">
-          Bulk edit CTS
+        <h2 id="bulk-overhead-title" className="text-lg font-semibold text-zinc-100">
+          Bulk overhead edit
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Apply the same buy price and add-on costs to{' '}
+          Apply the same mount, delivery, and other overhead to{' '}
           <span className="font-medium text-zinc-300">{tires.length}</span> selected tire
-          {tires.length === 1 ? '' : 's'}. Each row&apos;s CTS includes its own catalog FET. Sample
-          preview (first SKU&apos;s FET):{' '}
-          <span className="font-mono text-amber-200/90">${previewCts.toFixed(2)}</span>
+          {tires.length === 1 ? '' : 's'}. FET stays in Kyle&apos;s buy price and is not changed.
+          Preview overhead total:{' '}
+          <span className="font-mono text-amber-200/90">${previewOverhead.toFixed(2)}</span>
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <NumberField
-            label="Buy price (per tire)"
-            value={cost}
-            onChange={setCost}
-            id="bulk-cost"
-          />
           <NumberField label="Mount" value={mountCost} onChange={setMountCost} id="bulk-mount" />
           <NumberField
             label="Delivery"

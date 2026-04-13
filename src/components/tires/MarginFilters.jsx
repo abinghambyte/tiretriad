@@ -13,7 +13,6 @@ export function MarginFilters({
   onLr,
   minMargin,
   onMinMargin,
-  minMarginSliderDisabled,
   deadStockOnly,
   onDeadStockOnly,
   hasActiveFilters,
@@ -46,12 +45,8 @@ export function MarginFilters({
           step={1}
           value={minMargin}
           onChange={(e) => onMinMargin(Number(e.target.value))}
-          disabled={Boolean(minMarginSliderDisabled)}
-          className="w-full accent-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full accent-zinc-200"
         />
-        {minMarginSliderDisabled ? (
-          <p className="mt-2 text-xs text-zinc-600">Enter buy prices to enable margin filtering.</p>
-        ) : null}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-col sm:gap-4 lg:flex-row lg:items-end">
         <div className="contents sm:flex sm:flex-1 sm:flex-wrap sm:gap-4 lg:border-r lg:border-zinc-800 lg:pr-6">

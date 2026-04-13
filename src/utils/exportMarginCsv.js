@@ -1,4 +1,4 @@
-import { effectiveCts } from './ctsCalc'
+import { computeCts } from './ctsCalc'
 import { computeMargin } from './marginCalc'
 
 function csvEscape(value) {
@@ -16,13 +16,12 @@ export function exportMarginCsv(rows) {
     'Description',
     'MSPN',
     'LR',
-    'Buy price',
+    'Buy Price (Kyle)',
     'FET',
     'Mount',
     'Delivery',
     'Other',
-    'CTS',
-    'Retail',
+    'Overhead Total',
     'Margin %',
     'Category',
   ]
@@ -32,13 +31,12 @@ export function exportMarginCsv(rows) {
     const m = computeMargin(row)
     const marginStr =
       m != null && !Number.isNaN(m) ? m.toFixed(2) : ''
-    const cost = Number(row.cost) || 0
+    const buyPrice = Number(row.price ?? row.cost) || 0
     const mountCost = Number(row.mountCost) || 0
     const deliveryCost = Number(row.deliveryCost) || 0
     const otherCost = Number(row.otherCost) || 0
     const fet = Number(row.fet) || 0
-    const cts = effectiveCts(row)
-    const retail = Number(row.retailPrice ?? row.price) || 0
+    const overheadTotal = computeCts(row)
 
     lines.push(
       [
@@ -46,13 +44,12 @@ export function exportMarginCsv(rows) {
         csvEscape(row.description),
         csvEscape(row.mspn),
         csvEscape(row.lr),
-        cost.toFixed(2),
+        buyPrice.toFixed(2),
         fet.toFixed(2),
         mountCost.toFixed(2),
         deliveryCost.toFixed(2),
         otherCost.toFixed(2),
-        cts.toFixed(2),
-        retail.toFixed(2),
+        overheadTotal.toFixed(2),
         marginStr,
         csvEscape(row.category),
       ].join(','),

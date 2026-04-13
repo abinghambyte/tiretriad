@@ -183,10 +183,10 @@ async function notifyTeamSlackBot(db, d) {
     const tireSnap = await db.collection('tires').doc(d.mspn).get()
     if (tireSnap.exists) {
       const td = tireSnap.data() || {}
-      const retail = Number(td.price ?? td.retailPrice)
+      const catalogBuy = Number(td.price ?? td.cost ?? td.retailPrice)
       const ppt = Number(d.pricePerTire)
-      if (Number.isFinite(retail) && retail > 0 && Number.isFinite(ppt)) {
-        const discount = (retail - ppt) / retail
+      if (Number.isFinite(catalogBuy) && catalogBuy > 0 && Number.isFinite(ppt)) {
+        const discount = (catalogBuy - ppt) / catalogBuy
         if (discount > 0.4) {
           const pct = Math.round(discount * 100)
           await orderRef.update({
@@ -196,7 +196,7 @@ async function notifyTeamSlackBot(db, d) {
           })
           await slackApiPost(token, 'chat.postMessage', {
             channel,
-            text: `⚠️ Pricing check — Order ${orderId}: $${ppt.toFixed(2)}/tire is ${pct}% below retail ($${retail.toFixed(2)}). Intentional?`,
+            text: `⚠️ Pricing check — Order ${orderId}: $${ppt.toFixed(2)}/tire is ${pct}% below catalog buy ($${catalogBuy.toFixed(2)}). Intentional?`,
           })
         }
       }

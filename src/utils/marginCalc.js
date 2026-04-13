@@ -1,31 +1,29 @@
 import { effectiveCts } from './ctsCalc'
 
 /**
- * Margin % on retail: ((retail − CTS) / retail) × 100.
- * Requires a positive buy price (`cost`); CTS uses FET + mount + delivery + other from the tire doc.
+ * Markup headroom vs Kyle buy: ((buyPrice − overhead) / buyPrice) × 100.
+ * `price` is Kyle's buy (CSV); overhead is mount + delivery + other (`cts` on save).
  * @param {Record<string, unknown>} tire
  * @returns {number | null}
  */
 export function computeMargin(tire) {
-  const retail = Number(tire?.price ?? tire?.retailPrice ?? 0)
-  const cost = Number(tire?.cost) || 0
-  if (!retail || retail === 0) return null
-  if (!cost || cost === 0) return null
-  const cts = effectiveCts(tire)
-  return ((retail - cts) / retail) * 100
+  const buyPrice = Number(tire?.price ?? tire?.cost) || 0
+  if (!buyPrice || buyPrice === 0) return null
+  const overhead = effectiveCts(tire)
+  return ((buyPrice - overhead) / buyPrice) * 100
 }
 
 /**
- * @param {number} retail
- * @param {number} cts
+ * @param {number} referencePrice  Kyle buy or other positive reference
+ * @param {number} overheadTotal  mount + delivery + other
  * @returns {number | null}
  */
-export function marginPercent(retail, cts) {
-  if (retail == null || cts == null || Number.isNaN(retail) || Number.isNaN(cts)) {
+export function marginPercent(referencePrice, overheadTotal) {
+  if (referencePrice == null || overheadTotal == null || Number.isNaN(referencePrice) || Number.isNaN(overheadTotal)) {
     return null
   }
-  if (retail <= 0) return null
-  return ((retail - cts) / retail) * 100
+  if (referencePrice <= 0) return null
+  return ((referencePrice - overheadTotal) / referencePrice) * 100
 }
 
 export function marginBadgeClass(percent) {

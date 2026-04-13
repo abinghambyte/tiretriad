@@ -138,16 +138,12 @@ export function Dashboard() {
 
   const tireSignal = useMemo(() => {
     if (tireSku.loading) return 'Syncing catalog…'
-    const { pricedCount, avgMarginPriced } = tireSku
-    const priced = pricedCount ?? 0
-    if (priced === 0) {
-      return `${catalogSkuDisplay} SKUs in catalog — add buy prices to unlock margin data`
-    }
+    const { avgMarginPriced } = tireSku
     const marginStr =
       avgMarginPriced != null && !Number.isNaN(avgMarginPriced)
-        ? `${avgMarginPriced.toFixed(1)}% avg margin on priced SKUs`
-        : 'margin pending'
-    return `${catalogSkuDisplay} SKUs · ${priced} priced · ${marginStr}`
+        ? `${avgMarginPriced.toFixed(1)}% avg margin (overhead basis)`
+        : 'margin pending — missing buy prices on some SKUs'
+    return `${catalogSkuDisplay} SKUs · ${marginStr}`
   }, [tireSku, catalogSkuDisplay])
 
   const crmSignal = useMemo(() => {

@@ -21,7 +21,7 @@ export function useDashboardSignals() {
 
   const tireSku = useMemo(() => {
     if (tiresLoading) return { pricedCount: null, avgMarginPriced: null, loading: true }
-    const priced = tires.filter((t) => Number(t.cost) > 0)
+    const priced = tires.filter((t) => Number(t.price ?? t.cost) > 0)
     const pricedCount = priced.length
     const margins = priced
       .map((t) => computeMargin(t))

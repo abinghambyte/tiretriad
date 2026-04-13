@@ -115,25 +115,11 @@ export function TiresDashboard() {
   }, [tires])
 
   const enriched = useMemo(() => {
-    return tires.map((t) => {
-      const rp = t.retailPrice ?? t.price
-      const retailNum = rp != null && rp !== '' ? Number(rp) : NaN
-      return {
-        ...t,
-        retailPrice: Number.isFinite(retailNum) ? retailNum : t.retailPrice,
-        margin: computeMargin({
-          ...t,
-          price: Number.isFinite(retailNum) ? retailNum : t.price,
-          retailPrice: Number.isFinite(retailNum) ? retailNum : t.retailPrice,
-        }),
-      }
-    })
+    return tires.map((t) => ({
+      ...t,
+      margin: computeMargin(t),
+    }))
   }, [tires])
-
-  const allMarginsNull = useMemo(
-    () => enriched.length > 0 && enriched.every((r) => r.margin == null || Number.isNaN(r.margin)),
-    [enriched],
-  )
 
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
@@ -160,9 +146,9 @@ export function TiresDashboard() {
       if (sortKey === 'brand') {
         return dir * String(a.brand || '').localeCompare(String(b.brand || ''))
       }
-      if (sortKey === 'retail') {
-        const av = Number(a.retailPrice) || 0
-        const bv = Number(b.retailPrice) || 0
+      if (sortKey === 'buy') {
+        const av = Number(a.price ?? a.cost) || 0
+        const bv = Number(b.price ?? b.cost) || 0
         if (av === bv) return 0
         return av < bv ? -dir : dir
       }
@@ -294,18 +280,18 @@ export function TiresDashboard() {
     const ctx = selectionPrimaryMspnRows()
     if (!ctx) return
     const first = ctx.rows[0]
-    const retail = Number(first.retailPrice ?? first.price)
-    if (!Number.isFinite(retail) || retail < 0) {
-      window.alert('Selected tire needs a valid retail price for a prospective order.')
+    const pricePerTire = Number(first.price ?? first.cost)
+    if (!Number.isFinite(pricePerTire) || pricePerTire <= 0) {
+      window.alert('Selected tire needs a valid buy price (Kyle catalog price) for a prospective order.')
       return
     }
     const quantity = ctx.rows.length
-    const totalPrice = retail * quantity
+    const totalPrice = pricePerTire * quantity
     try {
       const { data } = await createProspectiveOrder({
         mspn: ctx.mspn,
         quantity,
-        pricePerTire: retail,
+        pricePerTire,
         totalPrice,
       })
       const id = data?.orderId
@@ -453,7 +439,6 @@ export function TiresDashboard() {
               onLr={setLr}
               minMargin={minMargin}
               onMinMargin={setMinMargin}
-              minMarginSliderDisabled={allMarginsNull}
               deadStockOnly={deadStockOnly}
               onDeadStockOnly={setDeadStockOnly}
               hasActiveFilters={hasActiveFilters}
@@ -570,7 +555,7 @@ export function TiresDashboard() {
                   onClick={() => setBulkCtsOpen(true)}
                   className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
                 >
-                  Bulk edit CTS
+                  Bulk overhead edit
                 </button>
               </div>
             </div>

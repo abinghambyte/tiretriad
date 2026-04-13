@@ -22,7 +22,7 @@ function initLines(tires) {
   for (const t of tires) {
     init[t.id] = {
       qty: 4,
-      price: Number(t.retailPrice ?? t.price) || 0,
+      price: Number(t.retailPrice ?? t.price ?? t.cost) || 0,
     }
   }
   return init

@@ -518,7 +518,7 @@ export function OrdersList({ highlightId }) {
                         className="inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-800/40"
                         title={
                           o.pricingAnomalyPct != null
-                            ? `Price ~${o.pricingAnomalyPct}% below catalog retail`
+                            ? `Price ~${o.pricingAnomalyPct}% below catalog buy`
                             : 'Pricing anomaly vs catalog'
                         }
                       >

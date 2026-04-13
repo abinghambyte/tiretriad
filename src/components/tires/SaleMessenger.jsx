@@ -44,9 +44,11 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
       const v = String(initialMspn).trim()
       setMspn(v)
       const t = tires.find((x) => x.mspn === v)
-      const retail = t?.retailPrice ?? t?.price
-      if (t && retail != null && retail !== '') {
-        setPricePerTire(String(retail))
+      const ref = t?.retailPrice ?? t?.price ?? t?.cost
+      if (t && ref != null && ref !== '') {
+        setPricePerTire(String(ref))
+      } else {
+        setPricePerTire('')
       }
     }
   }, [initialMspn, tires])
@@ -95,9 +97,11 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
   function handleMspnChange(value) {
     setMspn(value)
     const t = tires.find((x) => x.mspn === value)
-    const retail = t?.retailPrice ?? t?.price
-    if (t && retail != null && retail !== '') {
-      setPricePerTire(String(retail))
+    const ref = t?.retailPrice ?? t?.price ?? t?.cost
+    if (t && ref != null && ref !== '') {
+      setPricePerTire(String(ref))
+    } else {
+      setPricePerTire('')
     }
   }
 
