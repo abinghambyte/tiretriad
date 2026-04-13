@@ -49,12 +49,24 @@ function sumRefundPipeline(refunds) {
   return refunds.reduce((s, r) => s + (Number(r.amount) || 0), 0)
 }
 
+/** Buying power per tracker rules: limit minus balance only (pendingCharges is informational). */
 function availableBuyingPower(data) {
   const limit = Number(data.cardLimit) || 0
   const bal = Number(data.currentBalance) || 0
-  const pending = sumPendingTotals(data.pendingCharges)
-  const refunds = sumRefundPipeline(data.refundPipeline)
-  return limit - bal - pending + refunds
+  return limit - bal
+}
+
+async function latestOrderForMspn(db, mspn) {
+  const id = String(mspn || '').trim()
+  if (!id) return null
+  const snap = await db
+    .collection('orders')
+    .where('mspn', '==', id)
+    .orderBy('createdAt', 'desc')
+    .limit(1)
+    .get()
+  if (snap.empty) return null
+  return snap.docs[0].data() || {}
 }
 
 async function loadCredit(db) {
@@ -71,26 +83,27 @@ function encodeChargeDraft(d) {
   return JSON.stringify({
     q: d.qty,
     m: d.mspn,
-    p: d.price,
+    cat: d.catalogBuy,
+    pt: d.pricePerTire,
     f: d.fet,
     t: d.total,
     d: String(d.description || '').slice(0, 120),
-    ...(d.overrideUnit != null && Number.isFinite(d.overrideUnit) ? { u: d.overrideUnit } : {}),
   })
 }
 
 function decodeChargeDraft(raw) {
   try {
     const o = JSON.parse(String(raw || '{}'))
-    const overrideUnit = o.u != null ? Number(o.u) : null
+    const catalogBuy = Number(o.cat != null ? o.cat : o.p) || 0
+    const pricePerTire = Number(o.pt != null ? o.pt : o.p) || 0
     return {
       qty: Number(o.q) || 0,
       mspn: String(o.m || '').trim(),
-      price: Number(o.p) || 0,
+      catalogBuy,
+      pricePerTire,
       fet: Number(o.f) || 0,
       total: Number(o.t) || 0,
       description: String(o.d || ''),
-      overrideUnit: Number.isFinite(overrideUnit) ? overrideUnit : null,
     }
   } catch {
     return null
@@ -98,17 +111,20 @@ function decodeChargeDraft(raw) {
 }
 
 function buildChargeConfirmationBlocks(draft, afterAvailable) {
-  const catalogPerTire = draft.price + draft.fet
-  const perTire =
-    draft.overrideUnit != null && Number.isFinite(draft.overrideUnit)
-      ? draft.overrideUnit
-      : catalogPerTire
-  const totalResolved = draft.qty * perTire
+  const fet = Number(draft.fet) || 0
+  const buy = Number(draft.pricePerTire) || 0
+  const catalogBuy = Number(draft.catalogBuy) || 0
+  const combinedCharge = buy + fet
+  const totalResolved = draft.qty * combinedCharge
   const mergeDraft = {
     ...draft,
     total: totalResolved,
-    overrideUnit: Math.abs(perTire - catalogPerTire) > 0.005 ? perTire : null,
+    pricePerTire: buy,
+    catalogBuy,
+    fet,
   }
+  const catalogCombined = catalogBuy + fet
+  const basisDiffers = Math.abs(buy - catalogBuy) > 0.005
   return [
     {
       type: 'header',
@@ -120,9 +136,11 @@ function buildChargeConfirmationBlocks(draft, afterAvailable) {
         type: 'mrkdwn',
         text: [
           `*${draft.qty}* × ${escapeSlackMrkdwn(draft.description)} (MSPN \`${escapeSlackMrkdwn(draft.mspn)}\`)`,
-          `Catalog: buy ${money(draft.price)} + FET ${money(draft.fet)} = *${money(catalogPerTire)}* / tire`,
-          ...(Math.abs(perTire - catalogPerTire) > 0.005
-            ? [`*Charge basis (entered):* ${money(perTire)} / tire`]
+          `*Buy basis (before FET):* ${money(buy)} + FET ${money(fet)} → *${money(combinedCharge)}* / tire`,
+          ...(basisDiffers
+            ? [
+                `_Catalog buy (before FET):_ ${money(catalogBuy)} → buy+FET _${money(catalogCombined)}_ / tire`,
+              ]
             : []),
           `*Total:* ${money(totalResolved)}`,
           `*Available after charge:* ${money(afterAvailable)}`,
@@ -159,11 +177,7 @@ function buildChargeConfirmationBlocks(draft, afterAvailable) {
 
 function chargeEditModalView(encodedDraft) {
   const d = decodeChargeDraft(encodedDraft)
-  const perTire = d
-    ? d.overrideUnit != null && Number.isFinite(d.overrideUnit)
-      ? d.overrideUnit
-      : d.price + d.fet
-    : 0
+  const ppt = d ? Number(d.pricePerTire) || 0 : 0
   return {
     type: 'modal',
     callback_id: MODAL_CREDIT_CHARGE_EDIT,
@@ -193,19 +207,19 @@ function chargeEditModalView(encodedDraft) {
       },
       {
         type: 'input',
-        block_id: 'credit_edit_unit',
-        label: { type: 'plain_text', text: 'Buy + FET per tire (USD)' },
+        block_id: 'credit_edit_price',
+        label: { type: 'plain_text', text: 'Price per tire (before FET, USD)' },
         element: {
           type: 'plain_text_input',
-          action_id: 'credit_edit_unit_field',
-          initial_value: d ? perTire.toFixed(2) : '0',
+          action_id: 'credit_edit_price_field',
+          initial_value: d ? ppt.toFixed(2) : '0',
         },
       },
     ],
   }
 }
 
-async function handleSlashCharge(db, text) {
+async function handleSlashCharge(db, token, text) {
   const parts = String(text || '')
     .trim()
     .split(/\s+/)
@@ -227,10 +241,20 @@ async function handleSlashCharge(db, text) {
     return { response_type: 'ephemeral', text: `No tire found for MSPN \`${mspn}\`.` }
   }
   const tire = tireSnap.data() || {}
-  const price = Number(tire.price ?? tire.cost) || 0
+  const catalogBuy = Number(tire.price ?? tire.cost) || 0
   const fet = Number(tire.fet) || 0
   const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'
-  const total = qty * (price + fet)
+
+  const lastOrder = await latestOrderForMspn(db, mspn)
+  let pricePerTire = catalogBuy
+  if (
+    lastOrder &&
+    lastOrder.kylePriceOverride != null &&
+    Number.isFinite(Number(lastOrder.kylePriceOverride))
+  ) {
+    pricePerTire = Number(lastOrder.kylePriceOverride)
+  }
+  const total = qty * (pricePerTire + fet)
 
   const credit = await loadCredit(db)
   if (!credit || credit.cardLimit == null) {
@@ -240,16 +264,41 @@ async function handleSlashCharge(db, text) {
     }
   }
 
-  const cardLimit = Number(credit.cardLimit) || 0
-  const currentBalance = Number(credit.currentBalance) || 0
+  const availBefore = availableBuyingPower(credit)
+  const afterAvail = availBefore - total
 
-  const draft = { qty, mspn, price, fet, total, description, overrideUnit: null }
-  const blocks = buildChargeConfirmationBlocks(draft, cardLimit - currentBalance - total)
-  return {
-    response_type: 'in_channel',
-    blocks,
-    text: `Charge preview · ${qty}×${mspn} · ${money(total)}`,
+  const fleetCh = slackChannelEnv()
+  if (!token || !fleetCh) {
+    return {
+      response_type: 'ephemeral',
+      text: 'Set `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` (#fleet-ops) so charge previews can be posted.',
+    }
   }
+
+  const draft = {
+    qty,
+    mspn,
+    catalogBuy,
+    pricePerTire,
+    fet,
+    total,
+    description,
+  }
+  const blocks = buildChargeConfirmationBlocks(draft, afterAvail)
+  try {
+    await slackApiPost(token, 'chat.postMessage', {
+      channel: fleetCh,
+      text: `Charge preview · ${qty}×${mspn} · ${money(total)}`,
+      blocks,
+    })
+  } catch (e) {
+    console.error('credit charge postMessage', e)
+    return {
+      response_type: 'ephemeral',
+      text: `Could not post to #fleet-ops: ${e?.message || 'Slack API error'}`,
+    }
+  }
+  return { response_type: 'ephemeral', text: 'Posted charge preview to #fleet-ops.' }
 }
 
 async function handleSlashPayment(db, token, channel, text, userName) {
@@ -259,32 +308,40 @@ async function handleSlashPayment(db, token, channel, text, userName) {
   }
 
   const ref = CREDIT_REF(db)
-  const snap = await ref.get()
-  if (!snap.exists) {
-    return { response_type: 'ephemeral', text: 'Credit tracker doc missing (`meta/creditTracker`).' }
-  }
-
-  const prev = Number(snap.get('currentBalance')) || 0
-  const newBal = Math.max(0, prev - amt)
-  const data = snap.data() || {}
   const payment = {
     id: newId('pay'),
     amount: amt,
     recordedAt: FieldValue.serverTimestamp(),
     recordedBy: String(userName || 'slack').slice(0, 64),
   }
-  const payments = [...(Array.isArray(data.payments) ? data.payments : []), payment]
-  await ref.update({
-    currentBalance: newBal,
-    payments,
-    updatedAt: FieldValue.serverTimestamp(),
-  })
 
-  const avail = availableBuyingPower({
-    ...data,
-    currentBalance: newBal,
-    payments,
-  })
+  const pre = await ref.get()
+  if (!pre.exists) {
+    return { response_type: 'ephemeral', text: 'Credit tracker doc missing (`meta/creditTracker`).' }
+  }
+
+  let newBal = 0
+  let avail = 0
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref)
+      if (!snap.exists) throw new Error('creditTracker missing')
+      const data = snap.data() || {}
+      const prev = Number(data.currentBalance) || 0
+      newBal = Math.max(0, prev - amt)
+      const payments = [...(Array.isArray(data.payments) ? data.payments : []), payment]
+      const limit = Number(data.cardLimit) || 0
+      avail = limit - newBal
+      tx.update(ref, {
+        currentBalance: newBal,
+        payments,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    })
+  } catch (e) {
+    console.error('credit payment tx', e)
+    return { response_type: 'ephemeral', text: 'Could not record payment — try again.' }
+  }
 
   await slackApiPost(token, 'chat.postMessage', {
     channel: channel || slackChannelEnv(),
@@ -303,7 +360,7 @@ async function handleSlashPayment(db, token, channel, text, userName) {
   return { response_type: 'ephemeral', text: 'Payment recorded in #fleet-ops.' }
 }
 
-async function handleSlashBalance(db) {
+async function handleSlashBalance(db, token, envChannel) {
   const data = await loadCredit(db)
   if (!data) {
     return { response_type: 'ephemeral', text: 'Credit tracker not configured.' }
@@ -313,23 +370,53 @@ async function handleSlashBalance(db) {
   const pendingArr = Array.isArray(data.pendingCharges) ? data.pendingCharges : []
   const pendingTotal = sumPendingTotals(pendingArr)
   const pendingCount = pendingArr.filter((c) => !c.status || c.status === 'pending').length
-  const refundTotal = sumRefundPipeline(data.refundPipeline)
+  const refunds = Array.isArray(data.refundPipeline) ? data.refundPipeline : []
+  const refundActive = refunds.filter((r) => r && (r.status == null || r.status === 'active'))
+  const refundLines = refundActive.length
+    ? refundActive
+        .slice(0, 8)
+        .map(
+          (r) =>
+            `• ${money(Number(r.amount) || 0)}${r.label ? ` — ${escapeSlackMrkdwn(r.label)}` : ''}`,
+        )
+        .join('\n')
+    : '_None_'
   const avail = availableBuyingPower(data)
 
   const text = [
     '*💳 Credit snapshot*',
     `*Limit:* ${money(limit)}`,
     `*Current balance:* ${money(bal)}`,
-    `*Pending charges:* ${money(pendingTotal)} (${pendingCount} orders)`,
-    `*Refund pipeline:* ${money(refundTotal)} coming back`,
-    `*Available buying power:* ${money(avail)}`,
+    `*Available buying power:* ${money(avail)} _(limit − balance)_`,
+    '',
+    `_Pending charges (log, not subtracted from available):_ ${money(pendingTotal)} · ${pendingCount} line(s)`,
+    '',
+    '*Refund pipeline (active):*',
+    refundLines,
   ].join('\n')
 
-  return {
-    response_type: 'in_channel',
-    blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }],
-    text: `Credit · available ${money(avail)}`,
+  const ch = envChannel || slackChannelEnv()
+  if (token && ch) {
+    try {
+      await slackApiPost(token, 'chat.postMessage', {
+        channel: ch,
+        text: `Credit · available ${money(avail)}`,
+        blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }],
+      })
+    } catch (e) {
+      console.error('credit balance postMessage', e)
+      return {
+        response_type: 'ephemeral',
+        text: `Could not post snapshot: ${e?.message || 'Slack API error'}`,
+      }
+    }
+  } else {
+    return {
+      response_type: 'ephemeral',
+      text: 'Set `SLACK_CHANNEL_ID` (and bot token) to post balance to #fleet-ops.',
+    }
   }
+  return { response_type: 'ephemeral', text: 'Posted credit snapshot to #fleet-ops.' }
 }
 
 /**
@@ -345,13 +432,13 @@ async function handleCreditSlashCommand(db, token, envChannel, form) {
   const userName = String(form.user_name || form.user_id || 'slack')
 
   if (command === '/charge') {
-    return handleSlashCharge(db, text)
+    return handleSlashCharge(db, token, text)
   }
   if (command === '/payment') {
     return handleSlashPayment(db, token, channel, text, userName)
   }
   if (command === '/balance') {
-    return handleSlashBalance(db)
+    return handleSlashBalance(db, token, envChannel)
   }
   return null
 }
@@ -373,7 +460,7 @@ async function applyConfirmedCharge(db, draft, chargedBy) {
       mspn: String(draft.mspn || '').trim(),
       description: String(draft.description || ''),
       qty: draft.qty,
-      pricePerTire: draft.price,
+      pricePerTire: Number(draft.pricePerTire) || 0,
       fet: draft.fet,
       total: inc,
       chargedAt: FieldValue.serverTimestamp(),
@@ -394,7 +481,7 @@ async function applyConfirmedCharge(db, draft, chargedBy) {
     mspn: draft.mspn,
     description: draft.description,
     qty: draft.qty,
-    pricePerTire: draft.price,
+    pricePerTire: Number(draft.pricePerTire) || 0,
     fet: draft.fet,
     total: inc,
     chargedBy: chargedBy || 'kyle',
@@ -499,8 +586,8 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
   }
 
   const qty = Math.floor(Number(inputValue(view, 'credit_edit_qty', 'credit_edit_qty_field')))
-  const unit = Number(inputValue(view, 'credit_edit_unit', 'credit_edit_unit_field'))
-  if (!Number.isFinite(qty) || qty < 1 || !Number.isFinite(unit) || unit < 0) {
+  const pricePerTire = Number(inputValue(view, 'credit_edit_price', 'credit_edit_price_field'))
+  if (!Number.isFinite(qty) || qty < 1 || !Number.isFinite(pricePerTire) || pricePerTire < 0) {
     return {
       handled: true,
       kind: 'json',
@@ -508,7 +595,7 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
         response_action: 'errors',
         errors: {
           credit_edit_qty: 'Enter a valid quantity.',
-          credit_edit_unit: 'Enter a valid per-tire amount (buy + FET).',
+          credit_edit_price: 'Enter a valid price per tire (before FET).',
         },
       },
     }
@@ -523,9 +610,9 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
     }
   }
   const tire = tireSnap.data() || {}
-  const price = Number(tire.price ?? tire.cost) || 0
+  const catalogBuy = Number(tire.price ?? tire.cost) || 0
   const fet = Number(tire.fet) || 0
-  const total = qty * unit
+  const total = qty * (pricePerTire + fet)
   const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'
 
   const credit = await loadCredit(db)
@@ -536,18 +623,17 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
       body: { response_action: 'errors', errors: { credit_edit_qty: 'Credit tracker not configured.' } },
     }
   }
-  const cardLimit = Number(credit.cardLimit) || 0
-  const currentBalance = Number(credit.currentBalance) || 0
-  const afterAvailable = cardLimit - currentBalance - total
+  const availBefore = availableBuyingPower(credit)
+  const afterAvailable = availBefore - total
 
   const draft = {
     qty,
     mspn: base.mspn,
-    price,
+    catalogBuy,
+    pricePerTire,
     fet,
     total,
     description,
-    overrideUnit: unit,
   }
 
   const blocks = buildChargeConfirmationBlocks(draft, afterAvailable)

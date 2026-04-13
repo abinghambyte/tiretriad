@@ -43,3 +43,6 @@ export function marginBadgeLabel(percent) {
   if (percent < 35) return '🟢 Good'
   return '💎 Strong'
 }
+
+/** Kyle buy used as cost basis when comparing margin to an order (override from price check when set). */
+export { kyleBuyBasisPerTire } from './orderCostBasis'

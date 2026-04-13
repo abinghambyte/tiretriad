@@ -324,6 +324,13 @@ export function Dashboard() {
             />
           </div>
         </div>
+        {!profileGate && profile?.role === 'admin' ? (
+          <div className="border-t border-zinc-800/70 bg-zinc-950/55">
+            <div className="mx-auto max-w-6xl px-6 py-3">
+              <CreditTrackerCard compact />
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <main className="relative mx-auto max-w-6xl px-6 py-10 sm:py-12">
@@ -365,11 +372,6 @@ export function Dashboard() {
             )
           })}
         </div>
-        {!profileGate && profile?.role === 'admin' ? (
-          <div className="mx-auto mt-10 max-w-xl">
-            <CreditTrackerCard />
-          </div>
-        ) : null}
       </main>
     </div>
   )

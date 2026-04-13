@@ -540,6 +540,7 @@ export function OrdersList({ highlightId }) {
                 </div>
                 {refShort ? (
                   <p className="flex items-center gap-1.5 font-mono text-[10px] tracking-wide text-zinc-600">
+                    <span>{refShort}</span>
                     {o.priceDiscrepancy != null ? (
                       <span
                         className="text-amber-400"
@@ -549,7 +550,6 @@ export function OrdersList({ highlightId }) {
                         ⚠️
                       </span>
                     ) : null}
-                    <span>{refShort}</span>
                   </p>
                 ) : null}
               </div>

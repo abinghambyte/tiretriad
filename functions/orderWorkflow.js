@@ -716,7 +716,16 @@ async function handleViewSubmission(db, token, envChannel, payload) {
     await ref.update(patch)
 
     if (Math.abs(delta) > 0.005 && token && envChannel) {
-      const sign = delta > 0 ? '+' : ''
+      const absD = Math.abs(delta)
+      const absTot = Math.abs(totalDelta)
+      const dirLine =
+        delta > 0
+          ? `Kyle paid *$${absD.toFixed(2)} more* per tire than system price ($${systemPrice.toFixed(2)} before FET).`
+          : `Kyle paid *$${absD.toFixed(2)} less* per tire than system price ($${systemPrice.toFixed(2)} before FET).`
+      const totLine =
+        delta > 0
+          ? `Across *${qty}* tire(s), that's *$${absTot.toFixed(2)} more* on the order than system cost.`
+          : `Across *${qty}* tire(s), that's *$${absTot.toFixed(2)} less* on the order than system cost.`
       const sysComb = Number(px.systemCombined) || systemPrice + (Number(px.fet) || 0)
       await slackApiPost(token, 'chat.postMessage', {
         channel: envChannel,
@@ -728,9 +737,10 @@ async function handleViewSubmission(db, token, envChannel, payload) {
               type: 'mrkdwn',
               text: [
                 `⚠️ *Price discrepancy* on order \`#${escapeSlackMrkdwn(orderId)}\``,
-                `*System buy (before FET):* $${systemPrice.toFixed(2)} | *Combined w/ FET:* $${sysComb.toFixed(2)}/tire`,
+                dirLine,
+                totLine,
+                `*System buy (before FET):* $${systemPrice.toFixed(2)} · *Buy + FET:* $${sysComb.toFixed(2)}/tire`,
                 `*Kyle's actual (before FET):* $${kylePrice.toFixed(2)}`,
-                `*Delta:* ${sign}$${Math.abs(delta).toFixed(2)} per tire × ${qty} = ${sign}$${Math.abs(totalDelta).toFixed(2)} total`,
                 '_Order advanced to Available — review before charging._',
               ].join('\n'),
             },
