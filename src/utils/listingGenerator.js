@@ -1,4 +1,4 @@
-import { formatCurrency } from './format'
+import { formatCurrency, formatQty } from './format'
 
 const REASONS = [
   'Upgrading to a different spec for our fleet.',
@@ -99,15 +99,15 @@ export function buildListingScript({ tire, qty, pricePer, platform }) {
   const mspn = tire.mspn || ''
   const tread = tire.tread || ''
 
-  const title = `${qty}x ${brand} ${desc}${tread ? ` (${tread})` : ''} - [${mspn}]`
+  const title = `${formatQty(qty)}x ${brand} ${desc}${tread ? ` (${tread})` : ''} - [${mspn}]`
     .replace(/\s+/g, ' ')
     .trim()
 
   const platformNote = PLATFORM_HINTS[platform] || ''
   const opener =
     platform === 'eBay'
-      ? `${qty}x ${brand} ${desc} tires, stored properly and ready to mount.`
-      : `${qty}x ${brand} ${desc} tires in great condition.`
+      ? `${formatQty(qty)}x ${brand} ${desc} tires, stored properly and ready to mount.`
+      : `${formatQty(qty)}x ${brand} ${desc} tires in great condition.`
 
   const description = [
     opener,

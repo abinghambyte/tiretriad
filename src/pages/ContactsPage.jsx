@@ -16,7 +16,7 @@ import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 
-import { formatCurrency } from '../utils/format'
+import { formatCurrency, formatQty } from '../utils/format'
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -358,7 +358,7 @@ export function ContactsPage({ embedded = false }) {
                     key={o.id}
                     className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-400"
                   >
-                    <span className="font-mono text-zinc-200">{o.mspn}</span> × {o.quantity} ·{' '}
+                    <span className="font-mono text-zinc-200">{o.mspn}</span> × {formatQty(o.quantity)} ·{' '}
                     {o.status} ·{' '}
                     {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '—'}
                     <div className="mt-1 text-[10px] text-zinc-600">{formatTs(o.createdAt)}</div>

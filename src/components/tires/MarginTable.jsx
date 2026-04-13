@@ -6,7 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeMargin, marginBadgeClass, marginBadgeLabel } from '../../utils/marginCalc'
-import { formatCurrency, formatPercent } from '../../utils/format'
+import { formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 
 /** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
@@ -27,11 +27,6 @@ const GRID_STYLE = {
     '40px minmax(72px,1fr) minmax(100px,1.35fr) 76px 28px 52px 76px 40px 68px 72px minmax(52px,1fr)',
   alignItems: 'center',
   columnGap: 0,
-}
-
-function fmtMoney(n) {
-  if (n == null || Number.isNaN(Number(n))) return '—'
-  return formatCurrency(n)
 }
 
 function buyPriceOf(row) {
@@ -192,10 +187,10 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           />
         </div>
         <p className="w-full font-mono text-[11px] leading-relaxed text-zinc-400">
-          Overhead = {fmtMoney(Number(overheadDraft.mountCost) || 0)} mount +{' '}
-          {fmtMoney(Number(overheadDraft.deliveryCost) || 0)} delivery +{' '}
-          {fmtMoney(Number(overheadDraft.otherCost) || 0)} other ={' '}
-          <span className="text-amber-200/90">{fmtMoney(draftOverheadTotal)}</span>
+          Overhead = {formatCurrencyOrDash(Number(overheadDraft.mountCost) || 0)} mount +{' '}
+          {formatCurrencyOrDash(Number(overheadDraft.deliveryCost) || 0)} delivery +{' '}
+          {formatCurrencyOrDash(Number(overheadDraft.otherCost) || 0)} other ={' '}
+          <span className="text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
           {' · '}
           Margin ={' '}
           <span className="text-amber-200/90">
@@ -208,7 +203,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <p className="text-xs text-zinc-500">
             Overhead after save:{' '}
-            <span className="font-mono text-amber-200/90">{fmtMoney(draftOverheadTotal)}</span>
+            <span className="font-mono text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
           </p>
           <div className="flex gap-2">
             <button
@@ -277,7 +272,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               {row.mspn || '—'}
             </div>
             <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1 text-xs text-zinc-300">
-              {buyPriceOf(row) > 0 ? fmtMoney(buyPriceOf(row)) : '—'}
+              {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
@@ -289,7 +284,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               {row.lr || '—'}
             </div>
             <div className="flex w-11 shrink-0 items-center justify-center px-0.5 font-mono text-[9px] text-zinc-500">
-              {fmtMoney(Number(row.fet) || 0)}
+              {formatCurrencyOrDash(Number(row.fet) || 0)}
             </div>
             <div className="flex w-[72px] shrink-0 items-center justify-center px-1">
               {showGradeEditor ? (
@@ -341,7 +336,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                   editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
                 }`}
               >
-                {fmtMoney(effectiveCts(row))}
+                {formatCurrencyOrDash(effectiveCts(row))}
               </button>
             </div>
             <div className="flex min-w-[100px] shrink-0 items-center truncate px-2 text-xs text-zinc-500">
@@ -438,13 +433,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           className="truncate px-2 text-right font-mono text-xs text-zinc-300 tabular-nums"
           title="Buy (Kyle) — catalog buy price (includes FET component)"
         >
-          {buyPriceOf(row) > 0 ? fmtMoney(buyPriceOf(row)) : '—'}
+          {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}
         </div>
         <div
           className="truncate px-1 text-center font-mono text-[11px] text-zinc-400 tabular-nums"
           title="FET — shown for reference; already included in Buy (Kyle)"
         >
-          {fmtMoney(Number(row.fet) || 0)}
+          {formatCurrencyOrDash(Number(row.fet) || 0)}
         </div>
         <div className="flex items-center justify-end px-2">
           <button
@@ -454,7 +449,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
             }`}
           >
-            {fmtMoney(effectiveCts(row))}
+            {formatCurrencyOrDash(effectiveCts(row))}
           </button>
         </div>
         <div className="flex items-center justify-end px-2">{marginCell}</div>

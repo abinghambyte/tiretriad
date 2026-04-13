@@ -2,7 +2,7 @@
  * Credit limit tracker — Slack slash commands + Block Kit (meta/creditTracker).
  */
 const { FieldValue } = require('firebase-admin/firestore')
-const { formatCurrency } = require('./format')
+const { formatCurrency, formatQty } = require('./format')
 const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 
 const MODAL_CREDIT_CHARGE_EDIT = 'credit_modal_charge_edit'
@@ -131,7 +131,7 @@ function buildChargeConfirmationBlocks(draft, afterAvailable) {
       text: {
         type: 'mrkdwn',
         text: [
-          `*${draft.qty}* × ${escapeSlackMrkdwn(draft.description)} (MSPN \`${escapeSlackMrkdwn(draft.mspn)}\`)`,
+          `*${formatQty(draft.qty)}* × ${escapeSlackMrkdwn(draft.description)} (MSPN \`${escapeSlackMrkdwn(draft.mspn)}\`)`,
           `*Buy basis (before FET):* ${formatCurrency(buy)} + FET ${formatCurrency(fet)} → *${formatCurrency(combinedCharge)}* / tire`,
           ...(basisDiffers
             ? [
@@ -284,7 +284,7 @@ async function handleSlashCharge(db, token, text) {
   try {
     await slackApiPost(token, 'chat.postMessage', {
       channel: fleetCh,
-      text: `Charge preview · ${qty}×${mspn} · ${formatCurrency(total)}`,
+      text: `Charge preview · ${formatQty(qty)}×${mspn} · ${formatCurrency(total)}`,
       blocks,
     })
   } catch (e) {
@@ -545,7 +545,7 @@ async function tryHandleCreditBlockActions(db, token, envChannel, payload) {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `✅ *Charge confirmed* — ${draft.qty}× \`${escapeSlackMrkdwn(draft.mspn)}\` · ${formatCurrency(draft.total)} (${escapeSlackMrkdwn(user)})`,
+              text: `✅ *Charge confirmed* — ${formatQty(draft.qty)}× \`${escapeSlackMrkdwn(draft.mspn)}\` · ${formatCurrency(draft.total)} (${escapeSlackMrkdwn(user)})`,
             },
           },
         ],
@@ -639,7 +639,7 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
     if (token && ch) {
       await slackApiPost(token, 'chat.postMessage', {
         channel: ch,
-        text: `Updated charge preview · ${qty}×${base.mspn}`,
+        text: `Updated charge preview · ${formatQty(qty)}×${base.mspn}`,
         blocks,
       })
     }

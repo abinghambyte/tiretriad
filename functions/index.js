@@ -4,7 +4,7 @@
  * @see docs/SKEDADDLE-MASTER.md · docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
 const crypto = require('crypto')
-const { formatCurrency, formatPercent } = require('./format')
+const { formatCurrency, formatPercent, formatQty } = require('./format')
 const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
@@ -73,7 +73,7 @@ function formatSaleMessage(d) {
     '🛞 TIRE SALE - Action Required',
     '',
     `SKU: ${d.mspn}`,
-    `Qty: ${d.quantity}`,
+    `Qty: ${formatQty(d.quantity)}`,
     `Price: ${formatCurrency(Number(d.pricePerTire))} each / ${formatCurrency(Number(d.totalPrice))} total`,
     '',
     `Customer: ${d.customerName}`,
@@ -331,13 +331,13 @@ exports.notifyTeamQuick = onCall({ secrets: SLACK_SECRETS }, async (request) => 
     '',
   )
   const tiresUrl = `${portalBase}/tires`
-  const text = `Tire availability: ${mspn} × ${quantity}${description ? ` — ${description}` : ''}`
+  const text = `Tire availability: ${mspn} × ${formatQty(quantity)}${description ? ` — ${description}` : ''}`
   const blocks = [
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*🔔 Tire availability*\n*MSPN:* \`${mspn}\`\n*Qty:* ${quantity}\n*Description:* ${description || '—'}`,
+        text: `*🔔 Tire availability*\n*MSPN:* \`${mspn}\`\n*Qty:* ${formatQty(quantity)}\n*Description:* ${description || '—'}`,
       },
     },
     {

@@ -3,7 +3,7 @@
  * @see docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
 const { FieldValue } = require('firebase-admin/firestore')
-const { formatCurrency } = require('./format')
+const { formatCurrency, formatQty } = require('./format')
 const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 const {
   minutesBetweenTsAndMs,
@@ -159,7 +159,7 @@ function buildStage1Blocks(orderId, d) {
     '*🛞 Tire sale — action required*',
     '',
     `*SKU:* ${escapeSlackMrkdwn(d.mspn)}`,
-    `*Qty:* ${d.quantity}`,
+    `*Qty:* ${formatQty(d.quantity)}`,
     `*Price:* ${formatCurrency(Number(d.pricePerTire))} each / ${formatCurrency(Number(d.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(d.customerName)}`,
     `*Contact:* ${escapeSlackMrkdwn(d.customerContact)}`,
@@ -205,7 +205,7 @@ function buildStage2AvailableBlocks(o) {
     '*🛞 Tire sale — available* ✅',
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
-    `*Qty:* ${o.quantity}`,
+    `*Qty:* ${formatQty(o.quantity)}`,
     `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     `*Contact:* ${escapeSlackMrkdwn(o.customerContact)}`,
@@ -251,7 +251,7 @@ function buildStage2RejectedBlocks(o) {
     '*🛞 Tire sale — rejected* ❌',
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
-    `*Qty:* ${o.quantity}`,
+    `*Qty:* ${formatQty(o.quantity)}`,
     `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     '',
     `❌ Rejected by Kyle — ${fmtTs(o.kyleRejectedAt)}`,
@@ -269,7 +269,7 @@ function buildStage3ScheduledBlocks(o) {
     '*🛞 Tire sale — scheduled* 📅',
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
-    `*Qty:* ${o.quantity}`,
+    `*Qty:* ${formatQty(o.quantity)}`,
     `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     `*Fulfillment:* ${fulfillmentCustomerLabel(o.fulfillment)}`,
@@ -308,7 +308,7 @@ function buildStage3CancelledBlocks(o) {
     '*🛞 Tire sale — cancelled*',
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
-    `*Qty:* ${o.quantity}`,
+    `*Qty:* ${formatQty(o.quantity)}`,
     `*Disposition:* ${dispositionLine(o)}`,
     `*When:* ${fmtTs(o.cancelledAt)}`,
   ].join('\n')
@@ -324,7 +324,7 @@ function buildStage4InTransitBlocks(o) {
     '*🛞 Tire sale — in transit* 🚚',
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
-    `*Qty:* ${o.quantity}`,
+    `*Qty:* ${formatQty(o.quantity)}`,
     `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     '',
@@ -357,7 +357,7 @@ function buildProspectivePipelineBlocks(o) {
     '*🛞 Prospective order* · pipeline',
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
-    `*Qty:* ${o.quantity}`,
+    `*Qty:* ${formatQty(o.quantity)}`,
     `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Notes:* ${escapeSlackMrkdwn(notes)}`,
     '',
@@ -989,7 +989,7 @@ async function postOrderCompletionSummary(token, envChannel, order, portalBaseUr
   const text = [
     '✅ *Order complete*',
     '────────────────────',
-    `🔧 *${escapeSlackMrkdwn(order.mspn)}* × ${order.quantity}`,
+    `🔧 *${escapeSlackMrkdwn(order.mspn)}* × ${formatQty(order.quantity)}`,
     `👤 ${escapeSlackMrkdwn(order.customerName)}`,
     `📦 ${logistics} → ${custFul}`,
     `💰 ${Number.isFinite(pay) ? formatCurrency(pay) : '—'} received`,

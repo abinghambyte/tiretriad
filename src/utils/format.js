@@ -20,6 +20,18 @@ export function formatCurrency(value) {
 }
 
 /**
+ * Currency for display tables — em dash when missing or non-finite.
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function formatCurrencyOrDash(value) {
+  if (value == null || value === '') return '—'
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '—'
+  return USD.format(n)
+}
+
+/**
  * @param {unknown} value
  * @returns {string}
  */
@@ -41,11 +53,12 @@ export function formatPercent(value, decimals = 1) {
 }
 
 /**
+ * Integer quantity (pre-sold / negative allowed). Uses truncation toward zero.
  * @param {unknown} value
  * @returns {string}
  */
 export function formatQty(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '0'
-  return INT.format(n)
+  return INT.format(Math.trunc(n))
 }

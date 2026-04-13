@@ -20,6 +20,13 @@ function formatCurrency(value) {
   return USD.format(n)
 }
 
+function formatCurrencyOrDash(value) {
+  if (value == null || value === '') return '—'
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '—'
+  return USD.format(n)
+}
+
 function formatNumber(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '0'
@@ -35,11 +42,12 @@ function formatPercent(value, decimals = 1) {
 function formatQty(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '0'
-  return INT.format(n)
+  return INT.format(Math.trunc(n))
 }
 
 module.exports = {
   formatCurrency,
+  formatCurrencyOrDash,
   formatNumber,
   formatPercent,
   formatQty,
