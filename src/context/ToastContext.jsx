@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 
-/** @type {import('react').Context<{ toast: (msg: string, variant?: 'info'|'success'|'error') => void } | null>} */
+/** @type {import('react').Context<{ toast: (msg: string, variant?: 'info'|'success'|'error', durationMs?: number) => void } | null>} */
 export const ToastContext = createContext(null)
 
 export function useToast() {

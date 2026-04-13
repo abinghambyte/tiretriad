@@ -207,7 +207,7 @@ export function ContactsPage({ embedded = false }) {
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-zinc-800">
-          <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[840px] w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
                 <th className="px-3 py-3">
@@ -235,6 +235,7 @@ export function ContactsPage({ embedded = false }) {
                     Last order {sortKey === 'last' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
                   </button>
                 </th>
+                <th className="px-3 py-3">Last tire</th>
                 <th className="px-3 py-3">Notes</th>
               </tr>
             </thead>
@@ -258,6 +259,9 @@ export function ContactsPage({ embedded = false }) {
                         <div className="h-4 w-24 animate-pulse rounded bg-zinc-700/40" />
                       </td>
                       <td className="px-3 py-3">
+                        <div className="h-4 w-40 animate-pulse rounded bg-zinc-700/40" />
+                      </td>
+                      <td className="px-3 py-3">
                         <div className="h-4 w-36 animate-pulse rounded bg-zinc-700/40" />
                       </td>
                     </tr>
@@ -265,7 +269,7 @@ export function ContactsPage({ embedded = false }) {
                 : sorted.length === 0
                   ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-10 text-center text-zinc-500">
+                        <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
                           {rows.length === 0
                             ? 'No contacts yet.'
                             : 'No contacts match your search. Try a different name or phone.'}
@@ -280,11 +284,14 @@ export function ContactsPage({ embedded = false }) {
                       >
                         <td className="px-3 py-2 font-medium text-zinc-200">{c.name || '—'}</td>
                         <td className="px-3 py-2 font-mono text-xs text-zinc-400">{displayPhone(c.id)}</td>
-                        <td className="px-3 py-2 text-zinc-300">{c.orderCount ?? 0}</td>
+                        <td className="px-3 py-2 text-zinc-300">{formatQty(c.orderCount ?? 0)}</td>
                         <td className="px-3 py-2 text-zinc-300">
                           {Number.isFinite(Number(c.totalSpend)) ? formatCurrency(c.totalSpend) : '—'}
                         </td>
                         <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(c.lastOrderAt)}</td>
+                        <td className="max-w-[220px] truncate px-3 py-2 text-xs text-zinc-400">
+                          {String(c.lastTireLabel || '').trim() || c.lastMspn || '—'}
+                        </td>
                         <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-500">
                           {c.notes || '—'}
                         </td>

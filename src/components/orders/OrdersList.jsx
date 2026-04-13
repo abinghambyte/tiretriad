@@ -1,13 +1,15 @@
 import { httpsCallable } from 'firebase/functions'
 import {
+  arrayUnion,
   collection,
+  doc,
   increment,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  Timestamp,
   updateDoc,
-  doc,
 } from 'firebase/firestore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -373,6 +375,7 @@ export function OrdersList({ highlightId }) {
       await updateDoc(doc(db, 'orders', order.id), {
         pokeCount: increment(1),
         lastPokedAt: serverTimestamp(),
+        pokedAt: arrayUnion(Timestamp.now()),
         notifyToPokeMinutes,
         totalTouchpoints: 1 + nextPoke,
       })

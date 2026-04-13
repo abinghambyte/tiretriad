@@ -1,6 +1,7 @@
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { OrderCompletionMilestones } from '../milestones/OrderCompletionMilestones.jsx'
 import { MobileBottomNav } from './MobileBottomNav.jsx'
 import { db } from '../../firebase/config'
 import { useAuth } from '../../hooks/useAuth'
@@ -409,6 +410,7 @@ export function PortalChrome() {
         <Outlet />
       </div>
       {hideMobileBottomNav ? null : <MobileBottomNav />}
+      <OrderCompletionMilestones />
     </>
   )
 }

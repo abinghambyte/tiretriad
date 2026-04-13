@@ -63,6 +63,14 @@
         { "fieldPath": "mspn", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "tires",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deadStockFlag", "order": "ASCENDING" },
+        { "fieldPath": "deadStockFlaggedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

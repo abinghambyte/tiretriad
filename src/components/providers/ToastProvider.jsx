@@ -8,12 +8,13 @@ import { ToastContext } from '../../context/ToastContext.jsx'
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState(/** @type {ToastItem[]} */ ([]))
 
-  const toast = useCallback((message, variant = 'info') => {
+  const toast = useCallback((message, variant = 'info', durationMs = 3200) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    const ms = Math.max(800, Math.min(20000, Number(durationMs) || 3200))
     setToasts((prev) => [...prev, { id, message: String(message), variant }])
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 3200)
+    }, ms)
   }, [])
 
   const value = useMemo(() => ({ toast }), [toast])

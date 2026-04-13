@@ -1,27 +1,22 @@
 /**
  * Phase 5 — Dead Stock Radar + Morning Brief (scheduled).
+ * Slack posts use caller-provided token/channel (Secret Manager) — never process.env for Slack credentials.
  * @see docs/PHASE5-FEATURES-HANDOFF.md
  */
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency } = require('./format')
-
-function slackChannelEnv() {
-  return (
-    process.env.SLACK_CHANNEL_ID ||
-    process.env.SLACK_NOTIFY_CHANNEL ||
-    '#fleet-ops'
-  )
-}
+const { resolveDjUid, fetchAvailabilityDay } = require('./scheduleAvailability')
+const { e164DocIdFromContact } = require('./orderMetrics')
 
 /**
  * @param {string} text
- * @param {{ token?: string, channel?: string }} [slackOpts] — from Secret Manager when morningBrief passes them
+ * @param {{ token: string, channel: string }} slackOpts
  */
 async function slackFleetOpsQuiet(text, slackOpts) {
-  const token = slackOpts?.token ?? process.env.SLACK_BOT_TOKEN
-  if (!token) return
-  const channel = slackOpts?.channel ?? slackChannelEnv()
+  const token = String(slackOpts?.token || '').trim()
+  const channel = String(slackOpts?.channel || '').trim()
+  if (!token || !channel) return
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
@@ -47,10 +42,25 @@ function denverYmd(d = new Date()) {
   return `${y}-${m}-${day}`
 }
 
+function denverWeekdayShort(d = new Date()) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver',
+    weekday: 'short',
+  }).format(d)
+}
+
+/** Credit tracker buying power: limit − balance (matches creditTrackerSlack). */
+function availableBuyingPower(data) {
+  const limit = Number(data?.cardLimit) || 0
+  const bal = Number(data?.currentBalance) || 0
+  return limit - bal
+}
+
 /**
  * Monday 13:00 UTC ≈ 6:00 AM MT — flag tires with no orders in 90 days (cost > 0).
+ * @param {{ token?: string, channel?: string }} [slackOpts]
  */
-async function deadStockRadarRun() {
+async function deadStockRadarRun(slackOpts) {
   const db = admin.firestore()
   const cutoff = Timestamp.fromMillis(Date.now() - 90 * 86400000)
   let recentSnap
@@ -109,16 +119,16 @@ async function deadStockRadarRun() {
     await batch.commit()
   }
 
-  if (newlyFlagged > 0) {
+  if (newlyFlagged > 0 && slackOpts?.token && slackOpts?.channel) {
     await slackFleetOpsQuiet(
       `📦 Dead stock radar: ${newlyFlagged} tire SKU${newlyFlagged === 1 ? '' : 's'} flagged (90+ days, no movement, cost data present). Check the margin table.`,
+      slackOpts,
     )
   }
 }
 
 async function fetchWttrLine() {
-  const url =
-    'https://wttr.in/FortCollins?format=%22%25C+%25t%22'
+  const url = 'https://wttr.in/FortCollins?format=%22%25C+%25t%22'
   try {
     const res = await fetch(url, { headers: { 'User-Agent': 'SkedaddlePortal/1.0' } })
     const t = (await res.text()).trim()
@@ -129,22 +139,42 @@ async function fetchWttrLine() {
   }
 }
 
+function formatHourAmpm(h) {
+  if (h === 0) return '12am'
+  if (h < 12) return `${h}am`
+  if (h === 12) return '12pm'
+  return `${h - 12}pm`
+}
+
 /**
  * Weekdays 14:00 UTC ≈ 7:00 AM MT — digest to #fleet-ops.
- * @param {{ token?: string, channel?: string }} [slackOpts] — set by index.js morningBrief when secrets are bound
+ * @param {{ token: string, channel: string }} slackOpts
  */
 async function morningBriefRun(slackOpts) {
-  const db = admin.firestore()
-  const token = slackOpts?.token ?? process.env.SLACK_BOT_TOKEN
-  if (!token) {
-    console.warn('morningBrief: SLACK_BOT_TOKEN unset')
+  const token = String(slackOpts?.token || '').trim()
+  const channel = String(slackOpts?.channel || '').trim()
+  if (!token || !channel) {
+    console.warn('morningBrief: missing Slack token or channel')
     return
   }
 
-  /** ~30h lookback: calendar “yesterday” in Denver when the job runs ~7am MT. */
+  const db = admin.firestore()
   const yesterdayDenver = denverYmd(new Date(Date.now() - 30 * 3600000))
+  const todayDenver = denverYmd(new Date())
+  const isMondayMt = denverWeekdayShort(new Date()).toLowerCase().startsWith('mon')
 
-  const [pendingSnap, transitSnap, completedSnap, djSnap, deadSnap] = await Promise.all([
+  const weekAgo = Timestamp.fromMillis(Date.now() - 8 * 86400000)
+
+  const [
+    pendingSnap,
+    transitSnap,
+    completedSnap,
+    djSnap,
+    deadSnap,
+    scheduledTodaySnap,
+    creditSnap,
+    recentDeadSnap,
+  ] = await Promise.all([
     db.collection('orders').where('status', '==', 'pending').get().catch(() => ({ docs: [] })),
     db.collection('orders').where('status', '==', 'in_transit').get().catch(() => ({ docs: [] })),
     db
@@ -155,6 +185,20 @@ async function morningBriefRun(slackOpts) {
       .catch(() => ({ docs: [] })),
     db.collection('meta').doc('djStats').get().catch(() => null),
     db.collection('tires').where('deadStockFlag', '==', true).get().catch(() => ({ docs: [] })),
+    db
+      .collection('orders')
+      .where('scheduledDate', '==', todayDenver)
+      .limit(80)
+      .get()
+      .catch(() => ({ docs: [] })),
+    db.collection('meta').doc('creditTracker').get().catch(() => null),
+    db
+      .collection('tires')
+      .where('deadStockFlag', '==', true)
+      .where('deadStockFlaggedAt', '>=', weekAgo)
+      .limit(40)
+      .get()
+      .catch(() => ({ docs: [] })),
   ])
 
   const pendingN = pendingSnap.docs?.length ?? 0
@@ -203,13 +247,96 @@ async function morningBriefRun(slackOpts) {
     lines.push(`🔥  DJ streak: ${djStreak} clean orders`)
   }
 
+  const schedRows = (scheduledTodaySnap.docs || [])
+    .map((d) => ({ id: d.id, ...(d.data() || {}) }))
+    .filter((o) => ['pending', 'scheduled', 'in_transit', 'available'].includes(String(o.status || '')))
+  if (schedRows.length) {
+    const head = `🚚  Today’s schedule (${todayDenver}): ${schedRows.length} order${schedRows.length === 1 ? '' : 's'}`
+    const body = schedRows
+      .slice(0, 12)
+      .map((o) => {
+        const typ = String(o.deliveryType || o.fulfillment || '—')
+        const win = String(o.scheduledWindow || o.scheduledTime || '—')
+        return `   • \`${o.id}\` · ${String(o.customerName || '—')} · ${typ} · ${win}`
+      })
+      .join('\n')
+    lines.push(head, body, schedRows.length > 12 ? `   _…+${schedRows.length - 12} more_` : '')
+  } else {
+    lines.push(`🚚  Today’s schedule (${todayDenver}): none on the calendar.`)
+  }
+
+  try {
+    const djUid = await resolveDjUid(db)
+    if (djUid) {
+      const { data } = await fetchAvailabilityDay(db, djUid, todayDenver)
+      const slots = Array.isArray(data.blockedSlots) ? data.blockedSlots : []
+      if (slots.length) {
+        const bits = slots.slice(0, 10).map((s) => {
+          const a = Number(s.start)
+          const b = Number(s.end)
+          if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+          return `${formatHourAmpm(a)}–${formatHourAmpm(b)}`
+        })
+        lines.push(`🧱  DJ blocked today: ${bits.filter(Boolean).join(', ') || '—'}`)
+      } else {
+        lines.push('🧱  DJ blocked today: none')
+      }
+    } else {
+      lines.push('🧱  DJ availability: (no DJ uid configured)')
+    }
+  } catch (e) {
+    console.error('morningBrief DJ availability', e)
+    lines.push('🧱  DJ availability: (could not load)')
+  }
+
+  if (creditSnap?.exists) {
+    const c = creditSnap.data() || {}
+    const bal = Number(c.currentBalance) || 0
+    const avail = availableBuyingPower(c)
+    lines.push(
+      `💳  Credit: balance ${formatCurrency(bal)} · buying power ${formatCurrency(avail)}`,
+    )
+  } else {
+    lines.push('💳  Credit tracker: not configured.')
+  }
+
+  if (isMondayMt && recentDeadSnap.docs?.length) {
+    const ids = recentDeadSnap.docs.map((d) => `\`${d.id}\``).slice(0, 15)
+    lines.push(
+      `🪦  Newly flagged dead stock (last ~7d, Mon digest): ${recentDeadSnap.docs.length} SKU${recentDeadSnap.docs.length === 1 ? '' : 's'}`,
+      ids.join(', ') + (recentDeadSnap.docs.length > 15 ? ' …' : ''),
+    )
+  }
+
+  const vipKeys = new Set()
+  for (const o of schedRows) {
+    const k =
+      String(o.contactPhoneKey || '').trim() || e164DocIdFromContact(o.customerContact) || ''
+    if (k) vipKeys.add(k)
+  }
+  if (vipKeys.size) {
+    const snaps = await Promise.all([...vipKeys].map((id) => db.collection('contacts').doc(id).get()))
+    const vipNames = []
+    for (let i = 0; i < snaps.length; i += 1) {
+      const s = snaps[i]
+      if (!s.exists) continue
+      if (s.get('isVip') === true) {
+        const o = schedRows.find((r) => String(r.contactPhoneKey || '').trim() === s.id)
+        vipNames.push(String(o?.customerName || s.get('name') || s.id))
+      }
+    }
+    if (vipNames.length) {
+      lines.push(`⭐  VIP on the road today: ${vipNames.join(', ')}`)
+    }
+  }
+
   lines.push(
-    `🚨  Dead stock: ${deadN} tire${deadN === 1 ? '' : 's'} flagged (90+ days, no movement)`,
+    `🚨  Dead stock (90d rule, flagged): ${deadN} tire${deadN === 1 ? '' : 's'}`,
     `🌤  Fort Collins: ${weather}`,
     '────────────────────────────',
   )
 
-  await slackFleetOpsQuiet(lines.join('\n'), slackOpts)
+  await slackFleetOpsQuiet(lines.filter(Boolean).join('\n'), { token, channel })
 }
 
 module.exports = {

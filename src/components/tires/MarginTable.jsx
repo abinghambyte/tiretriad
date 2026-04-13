@@ -6,6 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeMargin, marginBadgeClass, marginBadgeLabel } from '../../utils/marginCalc'
+import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 
@@ -278,7 +279,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </div>
           <div className="flex shrink-0 items-stretch divide-x divide-zinc-800/60">
             <div className="flex w-[88px] shrink-0 items-center truncate px-2 font-medium text-zinc-200">
-              {row.brand || '—'}
+              <span className="inline-flex min-w-0 items-center gap-1">
+                {isTireBeastMode(row) ? (
+                  <span className="shrink-0" title="Sold within 24h of intake">
+                    🔥
+                  </span>
+                ) : null}
+                <span className="min-w-0 truncate">{row.brand || '—'}</span>
+              </span>
             </div>
             <div className="flex w-10 shrink-0 items-center justify-center truncate px-1 text-zinc-400">
               {row.lr || '—'}
@@ -364,7 +372,16 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             className="rounded border-zinc-600"
           />
         </div>
-        <div className="truncate px-3 font-medium text-zinc-200">{row.brand || '—'}</div>
+        <div className="truncate px-3 font-medium text-zinc-200">
+          <span className="inline-flex items-center gap-1">
+            {isTireBeastMode(row) ? (
+              <span className="shrink-0" title="Sold within 24h of intake">
+                🔥
+              </span>
+            ) : null}
+            <span className="min-w-0 truncate">{row.brand || '—'}</span>
+          </span>
+        </div>
         <div className="max-w-[200px] truncate px-3 text-zinc-400">
           <span className="inline-flex min-w-0 items-start gap-1.5">
             {row.deadStockFlag ? (

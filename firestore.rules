@@ -150,6 +150,7 @@ service cloud.firestore {
           'firstNotifiedAt',
           'pokeCount',
           'lastPokedAt',
+          'pokedAt',
           'notifyToPokeMinutes',
           'totalTouchpoints',
           'fulfillmentScheduledTime',

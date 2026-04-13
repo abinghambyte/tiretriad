@@ -20,6 +20,7 @@ const {
 const { incrementDjStreak, applyHatTrick } = require('./orderLifecycle')
 const { runCompletionTransaction, computePoolDollars } = require('./financeStats')
 const { sendSinchSms, normalizeToE164 } = require('./sinchSms')
+const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { denverYmd, parseWindowToHourRange } = require('./scheduleAvailability')
 
 function escapeSlackMrkdwn(s) {
@@ -300,6 +301,7 @@ async function handleDone(db, token, fleetChannel, text) {
 
   if (phoneKey) {
     try {
+      const lastTireLabel = await lastTireLabelForMspn(db, String(before.mspn || ''))
       await db
         .collection('contacts')
         .doc(phoneKey)
@@ -309,6 +311,7 @@ async function handleDone(db, token, fleetChannel, text) {
             name: String(before.customerName || '').trim() || '—',
             lastOrderAt: FieldValue.serverTimestamp(),
             lastMspn: String(before.mspn || ''),
+            lastTireLabel,
             orderCount: FieldValue.increment(1),
             totalSpend: FieldValue.increment(paymentAmount),
           },

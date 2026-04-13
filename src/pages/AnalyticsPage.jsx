@@ -1,14 +1,89 @@
 import { signOut } from 'firebase/auth'
-import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore'
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
+import { MarginWeekLineChart } from '../components/analytics/MarginWeekLineChart.jsx'
 import { useAuth } from '../hooks/useAuth'
-import { formatCurrency, formatPercent } from '../utils/format'
+import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 import { WallPage } from './WallPage'
+import { addDaysToYmd, denverYm, isoWeekKey } from '../utils/isoWeekDenver.js'
+import { marginPercentOfPayment, poolDollarsForOrder } from '../utils/orderPoolMargin.js'
 
-const TAB_IDS = ['wall', 'metrics', 'revenue']
+const TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
+
+function completedMs(o) {
+  const t = o?.completedAt
+  return t && typeof t.toMillis === 'function' ? t.toMillis() : null
+}
+
+function denverYmdFromMs(ms) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Denver',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(ms))
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value
+  const d = parts.find((p) => p.type === 'day')?.value
+  return `${y}-${m}-${d}`
+}
+
+/** Consecutive Denver days with ≥1 completed order assigned to DJ (grace: start from yesterday if today empty). */
+function djAssignedStreakDays(rows) {
+  const daySet = new Set()
+  for (const o of rows) {
+    if (String(o.assignedTo || '').toLowerCase() !== 'dj') continue
+    const ms = completedMs(o)
+    if (ms == null) continue
+    daySet.add(denverYmdFromMs(ms))
+  }
+  if (daySet.size === 0) return { current: 0, best: 0 }
+
+  const sorted = [...daySet].sort()
+  let best = 1
+  let run = 1
+  for (let i = 1; i < sorted.length; i += 1) {
+    const prevY = sorted[i - 1]
+    const curY = sorted[i]
+    const gap =
+      (new Date(curY + 'T12:00:00').getTime() - new Date(prevY + 'T12:00:00').getTime()) / 86400000
+    if (gap === 1) {
+      run += 1
+      best = Math.max(best, run)
+    } else {
+      run = 1
+    }
+  }
+
+  let ymd = denverYmdFromMs(Date.now())
+  if (!daySet.has(ymd)) ymd = addDaysToYmd(ymd, -1)
+  let cur = 0
+  while (daySet.has(ymd)) {
+    cur += 1
+    ymd = addDaysToYmd(ymd, -1)
+  }
+  return { current: cur, best }
+}
+
+function flameSize(days) {
+  if (days >= 14) return 'text-2xl'
+  if (days >= 7) return 'text-xl'
+  if (days >= 3) return 'text-lg'
+  return 'text-sm opacity-70'
+}
 
 export function AnalyticsPage() {
   const { user } = useAuth()
@@ -19,7 +94,11 @@ export function AnalyticsPage() {
 
   const [completedRows, setCompletedRows] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
-  const [djStreak, setDjStreak] = useState(undefined)
+  const [djStats, setDjStats] = useState(/** @type {Record<string, unknown> | null} */ (null))
+  const [revenueStats, setRevenueStats] = useState(/** @type {Record<string, unknown> | null} */ (null))
+  const [pokeOrders, setPokeOrders] = useState([])
+  const [pokeLoading, setPokeLoading] = useState(true)
+  const [tiresByMspn, setTiresByMspn] = useState(() => new Map())
 
   useEffect(() => {
     const q = query(
@@ -42,16 +121,61 @@ export function AnalyticsPage() {
   }, [])
 
   useEffect(() => {
+    const q = query(collection(db, 'orders'), where('pokeCount', '>=', 1), limit(800))
+    return getDocs(q).then(
+      (snap) => {
+        setPokeOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setPokeLoading(false)
+      },
+      () => {
+        setPokeOrders([])
+        setPokeLoading(false)
+      },
+    )
+  }, [])
+
+  useEffect(() => {
     const ref = doc(db, 'meta', 'djStats')
     return onSnapshot(
       ref,
       (snap) => {
-        const n = snap.exists() ? Number(snap.data().currentStreak) || 0 : 0
-        setDjStreak(n)
+        setDjStats(snap.exists() ? snap.data() || {} : {})
       },
-      () => setDjStreak(0),
+      () => setDjStats({}),
     )
   }, [])
+
+  useEffect(() => {
+    const ref = doc(db, 'meta', 'revenueStats')
+    return onSnapshot(
+      ref,
+      (snap) => {
+        setRevenueStats(snap.exists() ? snap.data() || {} : {})
+      },
+      () => setRevenueStats({}),
+    )
+  }, [])
+
+  useEffect(() => {
+    const ids = [...new Set(completedRows.map((r) => String(r.mspn || '').trim()).filter(Boolean))].slice(0, 200)
+    if (!ids.length) {
+      setTiresByMspn(new Map())
+      return undefined
+    }
+    let cancelled = false
+    void (async () => {
+      const entries = await Promise.all(
+        ids.map(async (id) => {
+          const s = await getDoc(doc(db, 'tires', id))
+          return [id, s.exists() ? s.data() || {} : {}]
+        }),
+      )
+      if (!cancelled) setTiresByMspn(new Map(entries))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [completedRows])
 
   const metrics = useMemo(() => {
     const rows = completedRows
@@ -60,7 +184,6 @@ export function AnalyticsPage() {
       return {
         totalRevenue: 0,
         avgFulfillment: null,
-        pokeRate: null,
         avgFriction: null,
         hatTricks: 0,
       }
@@ -70,7 +193,6 @@ export function AnalyticsPage() {
     let fulfillN = 0
     let frictionSum = 0
     let frictionN = 0
-    let poked = 0
     let hatTricks = 0
     for (const o of rows) {
       totalRevenue += Number(o.paymentAmount) || 0
@@ -84,17 +206,145 @@ export function AnalyticsPage() {
         frictionSum += Number(fs)
         frictionN += 1
       }
-      if (o.convertedAfterPoke === true) poked += 1
       if (o.hatTrickDay === true) hatTricks += 1
     }
     return {
       totalRevenue,
       avgFulfillment: fulfillN > 0 ? fulfillSum / fulfillN : null,
-      pokeRate: n > 0 ? poked / n : null,
       avgFriction: frictionN > 0 ? frictionSum / frictionN : null,
       hatTricks,
     }
   }, [completedRows])
+
+  const djStreakUi = useMemo(() => djAssignedStreakDays(completedRows), [completedRows])
+  const cleanStreakMeta = djStats ? Number(djStats.longestStreak) || 0 : 0
+
+  const pokeConversion = useMemo(() => {
+    const rows = pokeOrders
+    if (!rows.length) return null
+    const completed = rows.filter((o) => String(o.status).toLowerCase() === 'completed').length
+    return completed / rows.length
+  }, [pokeOrders])
+
+  const revenueWindows = useMemo(() => {
+    const r = revenueStats || {}
+    const now = Date.now() // eslint-disable-line react-hooks/purity -- calendar vs meta/revenueStats windows
+    const wk = isoWeekKey(now)
+    const mo = denverYm(now)
+    const wtd = String(r.weeklyWindow || '') === wk ? Number(r.weeklyRevenue) || 0 : null
+    const mtd = String(r.monthlyWindow || '') === mo ? Number(r.monthlyRevenue) || 0 : null
+    const allTime = Number(r.allTimeRevenue) || 0
+    return { wtd, mtd, allTime, wk, mo }
+  }, [revenueStats])
+
+  const avgOrderSample = useMemo(() => {
+    const n = completedRows.length
+    if (!n) return null
+    const sum = completedRows.reduce((s, o) => s + (Number(o.paymentAmount) || 0), 0)
+    return sum / n
+  }, [completedRows])
+
+  const marginWeekSeries = useMemo(() => {
+    const now = Date.now() // eslint-disable-line react-hooks/purity -- last-12-weeks anchor
+    const keys = []
+    for (let i = 11; i >= 0; i -= 1) {
+      keys.push(isoWeekKey(now - i * 7 * 86400000))
+    }
+    const rev = new Map()
+    const margin = new Map()
+    for (const k of keys) {
+      rev.set(k, 0)
+      margin.set(k, 0)
+    }
+    for (const o of completedRows) {
+      const ms = completedMs(o)
+      if (ms == null) continue
+      const wk = isoWeekKey(ms)
+      if (!rev.has(wk)) continue
+      const tire = tiresByMspn.get(String(o.mspn || '').trim()) || {}
+      const pay = Number(o.paymentAmount) || 0
+      rev.set(wk, (rev.get(wk) || 0) + pay)
+      margin.set(wk, (margin.get(wk) || 0) + poolDollarsForOrder(o, tire))
+    }
+    const percents = keys.map((k) => {
+      const p = rev.get(k) || 0
+      if (p <= 0) return null
+      return (100 * (margin.get(k) || 0)) / p
+    })
+    return { labels: keys.map((k) => k.replace(/^\d{4}-W/, '')), percents }
+  }, [completedRows, tiresByMspn])
+
+  const topSkus = useMemo(() => {
+    const by = new Map()
+    for (const o of completedRows) {
+      const m = String(o.mspn || '').trim()
+      if (!m) continue
+      const pay = Number(o.paymentAmount) || 0
+      const qty = Number(o.quantity) || 0
+      const tire = tiresByMspn.get(m) || {}
+      const pool = poolDollarsForOrder(o, tire)
+      const cur = by.get(m) || { revenue: 0, units: 0, margin: 0 }
+      cur.revenue += pay
+      cur.units += qty
+      cur.margin += pool
+      by.set(m, cur)
+    }
+    const sorted = [...by.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 10)
+    return sorted.map(([mspn, g], idx) => {
+      const tire = tiresByMspn.get(mspn) || {}
+      const desc = String(tire.description || tire.tread || mspn).trim()
+      const avgMargPct = g.revenue > 0 ? (100 * g.margin) / g.revenue : null
+      return { rank: idx + 1, mspn, desc, ...g, avgMargPct }
+    })
+  }, [completedRows, tiresByMspn])
+
+  const leaderboard = useMemo(() => {
+    let bestAll = null
+    let best30 = null
+    const thirty = Date.now() - 30 * 86400000 // eslint-disable-line react-hooks/purity -- 30d window
+    for (const o of completedRows) {
+      const ms = completedMs(o)
+      if (ms == null) continue
+      const tire = tiresByMspn.get(String(o.mspn || '').trim()) || {}
+      const pct = marginPercentOfPayment(o, tire)
+      if (pct == null || !Number.isFinite(pct)) continue
+      const pay = Number(o.paymentAmount) || 0
+      const pool = poolDollarsForOrder(o, tire)
+      const row = { id: o.id, pct, pay, pool, customerName: o.customerName }
+      if (!bestAll || pct > bestAll.pct) bestAll = row
+      if (ms >= thirty && (!best30 || pct > best30.pct)) best30 = row
+    }
+
+    const byWeek = new Map()
+    for (const o of completedRows) {
+      const ms = completedMs(o)
+      if (ms == null) continue
+      const wk = isoWeekKey(ms)
+      const handle = String(o.assignedTo || '').trim().toLowerCase() || 'unassigned'
+      if (!byWeek.has(wk)) byWeek.set(wk, new Map())
+      const m = byWeek.get(wk)
+      m.set(handle, (m.get(handle) || 0) + 1)
+    }
+    let topCrew = { handle: '—', count: 0, week: '' }
+    for (const [wk, handles] of byWeek) {
+      for (const [h, c] of handles) {
+        if (c > topCrew.count) topCrew = { handle: h, count: c, week: wk }
+      }
+    }
+
+    const skuRev = new Map()
+    for (const o of completedRows) {
+      const m = String(o.mspn || '').trim()
+      if (!m) continue
+      skuRev.set(m, (skuRev.get(m) || 0) + (Number(o.paymentAmount) || 0))
+    }
+    let topSku = { mspn: '—', revenue: 0 }
+    for (const [m, rev] of skuRev) {
+      if (rev > topSku.revenue) topSku = { mspn: m, revenue: rev }
+    }
+
+    return { bestAll, best30, topCrew, topSku }
+  }, [completedRows, tiresByMspn])
 
   function setTab(next) {
     const p = new URLSearchParams(searchParams)
@@ -123,6 +373,7 @@ export function AnalyticsPage() {
                 { id: 'wall', label: 'Wall' },
                 { id: 'metrics', label: 'Metrics' },
                 { id: 'revenue', label: 'Revenue' },
+                { id: 'leaderboard', label: 'Leaderboard' },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -180,57 +431,158 @@ export function AnalyticsPage() {
                   hint="Orders with fulfillment minutes recorded."
                 />
                 <MetricCard
-                  label="Poke → conversion rate"
-                  value={
-                    metrics.pokeRate != null ? formatPercent(metrics.pokeRate * 100, 1) : '—'
-                  }
-                  hint="Share of completed orders where convertedAfterPoke is true."
-                />
-                <MetricCard
                   label="Avg friction score"
-                  value={
-                    metrics.avgFriction != null ? metrics.avgFriction.toFixed(1) : '—'
-                  }
+                  value={metrics.avgFriction != null ? metrics.avgFriction.toFixed(1) : '—'}
                   hint="Mean of numeric frictionScore across completed orders."
-                />
-                <MetricCard
-                  label="DJ streak (clean orders)"
-                  value={djStreak === undefined ? '…' : String(djStreak)}
-                  hint="From Firestore meta/djStats · currentStreak."
                 />
                 <MetricCard
                   label="Hat trick days"
                   value={String(metrics.hatTricks)}
                   hint="Completed orders with hatTrickDay set true."
                 />
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    DJ streak (assigned orders)
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <span className={flameSize(djStreakUi.current)} title="Streak heat">
+                      🔥
+                    </span>
+                    <div>
+                      <p className="text-2xl font-semibold tabular-nums text-zinc-50">
+                        {djStreakUi.current} day{djStreakUi.current === 1 ? '' : 's'}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        Personal best (assigned): {formatQty(djStreakUi.best)} days · meta clean-order
+                        record: {formatQty(cleanStreakMeta)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+                    Consecutive Denver days with at least one completed order where{' '}
+                    <code className="text-zinc-400">assignedTo</code> is <code className="text-zinc-400">dj</code>.
+                    Flame grows at 3 / 7 / 14 days.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2 lg:col-span-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Poke conversion
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-50">
+                    {pokeLoading ? '…' : pokeConversion != null ? formatPercent(pokeConversion * 100, 1) : '—'}
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+                    Share of orders with at least one poke (<code className="text-zinc-400">pokeCount</code> ≥ 1)
+                    that reached <code className="text-zinc-400">completed</code>. Pokes append{' '}
+                    <code className="text-zinc-400">pokedAt</code> timestamps on the order.
+                  </p>
+                </div>
               </div>
             )}
           </div>
         ) : null}
 
         {tab === 'revenue' ? (
-          <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/80 to-zinc-950/90 p-8 shadow-inner shadow-black/40 sm:p-10">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-500/90">
-              Revenue intelligence
-            </p>
-            <h2 className="mt-3 text-lg font-semibold text-zinc-100">Coming soon</h2>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">
-              Deeper revenue curves, cohort views, and margin attribution will land here — same dark
-              glass treatment as the rest of the portal, not a raw placeholder.
-            </p>
-            <ul className="mt-6 space-y-2 text-sm text-zinc-500">
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500/70" aria-hidden />
-                Fleet and retail mix breakdowns
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500/60" aria-hidden />
-                Export-ready revenue snapshots
-              </li>
-            </ul>
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <MetricCard
+                label="All-time revenue (meta)"
+                value={formatCurrency(revenueWindows.allTime)}
+                hint="From meta/revenueStats · allTimeRevenue."
+              />
+              <MetricCard
+                label="MTD revenue (meta)"
+                value={
+                  revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '—'
+                }
+                hint={`Monthly window ${revenueWindows.mo} (resets when window rolls).`}
+              />
+              <MetricCard
+                label="WTD revenue (meta)"
+                value={
+                  revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '—'
+                }
+                hint={`ISO week ${revenueWindows.wk} (resets when window rolls).`}
+              />
+            </div>
+            <MetricCard
+              label="Avg order value (sample)"
+              value={avgOrderSample != null ? formatCurrency(avgOrderSample) : '—'}
+              hint={`Mean payment on last ${formatQty(completedRows.length)} completed orders loaded here.`}
+            />
+            <MarginWeekLineChart labels={marginWeekSeries.labels} percents={marginWeekSeries.percents} />
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                Top 10 SKUs by revenue (sample)
+              </p>
+              <ol className="mt-3 space-y-2 text-sm">
+                {topSkus.length === 0 ? (
+                  <li className="text-zinc-500">No data.</li>
+                ) : (
+                  topSkus.map((r) => (
+                    <li key={r.mspn} className="flex flex-wrap gap-x-2 border-b border-zinc-800/60 py-2 text-zinc-300 max-sm:flex-col">
+                      <span className="font-mono text-amber-200/90">
+                        {r.rank}. {r.mspn}
+                      </span>
+                      <span className="text-zinc-500 max-sm:text-xs">{r.desc}</span>
+                      <span className="ml-auto tabular-nums text-zinc-200 max-sm:ml-0">
+                        {formatCurrency(r.revenue)} · {formatQty(r.units)} units
+                        {r.avgMargPct != null ? ` · avg margin ${formatPercent(r.avgMargPct, 1)}` : ''}
+                      </span>
+                    </li>
+                  ))
+                )}
+              </ol>
+            </div>
+          </div>
+        ) : null}
+
+        {tab === 'leaderboard' ? (
+          <div className="grid gap-6 sm:grid-cols-2">
+            <LeaderBlock
+              title="Biggest single order (margin %)"
+              body={
+                leaderboard.bestAll
+                  ? `${formatPercent(leaderboard.bestAll.pct, 2)} · ${formatCurrency(leaderboard.bestAll.pay)} revenue · pool ${formatCurrency(leaderboard.bestAll.pool)} · ${String(leaderboard.bestAll.customerName || '—')}`
+                  : '—'
+              }
+            />
+            <LeaderBlock
+              title="Highest margin % (last 30 days)"
+              body={
+                leaderboard.best30
+                  ? `${formatPercent(leaderboard.best30.pct, 2)} · ${formatCurrency(leaderboard.best30.pay)}`
+                  : '—'
+              }
+            />
+            <LeaderBlock
+              title="Most orders in one week (by assignee)"
+              body={
+                leaderboard.topCrew.count > 0
+                  ? `${leaderboard.topCrew.handle} · ${formatQty(leaderboard.topCrew.count)} orders · week ${leaderboard.topCrew.week}`
+                  : '—'
+              }
+            />
+            <LeaderBlock
+              title="Top SKU revenue (all time, sample)"
+              body={
+                leaderboard.topSku.revenue > 0
+                  ? `${leaderboard.topSku.mspn} · ${formatCurrency(leaderboard.topSku.revenue)}`
+                  : '—'
+              }
+            />
           </div>
         ) : null}
       </main>
+    </div>
+  )
+}
+
+function LeaderBlock({ title, body }) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
+      <p className="mt-2 text-sm leading-relaxed text-zinc-200">{body}</p>
     </div>
   )
 }

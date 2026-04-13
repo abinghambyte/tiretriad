@@ -42,6 +42,8 @@ const {
   processElevationRevertsRun,
 } = require('./peopleScheduled')
 const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
+const { kyleScorecardRun } = require('./kyleScorecard')
+const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { crmStaleCheckRun } = require('./crmStaleCheck')
 const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
@@ -477,6 +479,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
 
   if (phoneKey) {
     try {
+      const lastTireLabel = await lastTireLabelForMspn(db, String(before.mspn || ''))
       await db
         .collection('contacts')
         .doc(phoneKey)
@@ -486,6 +489,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
             name: String(before.customerName || '').trim() || '—',
             lastOrderAt: FieldValue.serverTimestamp(),
             lastMspn: String(before.mspn || ''),
+            lastTireLabel,
             orderCount: FieldValue.increment(1),
             totalSpend: FieldValue.increment(paymentAmount),
           },
@@ -660,7 +664,9 @@ exports.deadStockRadar = onSchedule(
     secrets: SLACK_SECRETS,
   },
   async () => {
-    await deadStockRadarRun()
+    const token = SLACK_BOT_TOKEN.value()
+    const channel = slackChannelWithSecretFallback()
+    await deadStockRadarRun({ token, channel })
   },
 )
 
@@ -676,6 +682,21 @@ exports.morningBrief = onSchedule(
     const token = SLACK_BOT_TOKEN.value()
     const channel = slackChannelWithSecretFallback()
     await morningBriefRun({ token, channel })
+  },
+)
+
+/** 1st of month 8:00 AM America/Denver — Kyle sourcing scorecard to #fleet-ops. */
+exports.kyleScorecard = onSchedule(
+  {
+    schedule: '0 8 1 * *',
+    timeZone: 'America/Denver',
+    region: 'us-central1',
+    secrets: SLACK_SECRETS,
+  },
+  async () => {
+    const token = SLACK_BOT_TOKEN.value()
+    const channel = slackChannelWithSecretFallback()
+    await kyleScorecardRun({ token, channel })
   },
 )
 
