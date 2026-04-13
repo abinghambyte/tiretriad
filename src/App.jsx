@@ -6,6 +6,7 @@ import { CrmPage } from './pages/CrmPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { HandshakePage } from './pages/HandshakePage'
 import { InvitePage } from './pages/InvitePage'
+import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
 import { LandingPage } from './pages/LandingPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { PeoplePage } from './pages/PeoplePage'
@@ -18,6 +19,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/i/:token" element={<InvitePage />} />
+      <Route path="/intake/mechanic" element={<MechanicIntakePage />} />
       <Route element={<PortalChrome />}>
         <Route
           path="/handshake"

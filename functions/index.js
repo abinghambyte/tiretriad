@@ -34,6 +34,7 @@ const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
 const { crmStaleCheckRun } = require('./crmStaleCheck')
 const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
+const { submitMechanicIntake } = require('./mechanicIntake')
 
 admin.initializeApp()
 
@@ -654,6 +655,7 @@ exports.crmStaleCheck = onSchedule(
 
 exports.crmAccountTrigger = crmAccountTrigger
 exports.crmJobTrigger = crmJobTrigger
+exports.submitMechanicIntake = submitMechanicIntake
 
 /**
  * Slack Interactivity — block_actions + view_submission.

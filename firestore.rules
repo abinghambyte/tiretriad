@@ -172,5 +172,10 @@ service cloud.firestore {
       allow create, delete: if crmEdit();
       allow update: if crmEdit();
     }
+
+    // Mechanic onboarding — written only via Cloud Function (Admin SDK).
+    match /mechanicProfiles/{profileId} {
+      allow read, write: if false;
+    }
   }
 }
