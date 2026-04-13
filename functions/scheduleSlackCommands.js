@@ -80,6 +80,22 @@ function splitCommandText(text) {
     .filter(Boolean)
 }
 
+/** Same hour range rules for /block and /unblock so identical start/end matches stored slots. */
+function normalizeBlockRangeFromParsed(ymd, sh, eh) {
+  if (!ymd || sh == null || eh == null) return null
+  const start = Math.min(sh, eh)
+  let end = Math.max(sh, eh)
+  if (end <= start) end = Math.min(OP_END, start + 1)
+  return { start, end }
+}
+
+/** Avoid `**Title**` when callers pass a title already wrapped in Slack mrkdwn bold. */
+function scheduleDayTitlePlain(title) {
+  const t = String(title || '').trim()
+  if (t.startsWith('*') && t.endsWith('*') && t.length >= 2) return t.slice(1, -1).trim()
+  return t
+}
+
 async function updateOrderSchedule(
   db,
   orderId,
@@ -230,8 +246,9 @@ async function handleScheduleDay(db, token, fleetChannel, ymd, title) {
     return `• \`${escapeSlackMrkdwn(o.id)}\` · ${escapeSlackMrkdwn(o.customerName || '—')} · ${escapeSlackMrkdwn(typ)} · ${win}`
   })
   const openLines = open.map((h) => `• ${hourBlockLabel(h)}`)
+  const titlePlain = scheduleDayTitlePlain(title)
   const lines = [
-    `*${escapeSlackMrkdwn(title)}* · ${escapeSlackMrkdwn(ymd)} (Denver)`,
+    `*${escapeSlackMrkdwn(titlePlain)}* · ${escapeSlackMrkdwn(ymd)} (Denver)`,
     '',
     `*Booked (${formatQty(booked.length)}):*`,
     bookedLines.length ? bookedLines.join('\n') : '_None_',
@@ -239,7 +256,7 @@ async function handleScheduleDay(db, token, fleetChannel, ymd, title) {
     `*Open (${formatQty(open.length)}):*`,
     openLines.length ? openLines.join('\n') : '_None_',
   ]
-  await postToFleet(token, fleetChannel, `${title} ${ymd}`, [
+  await postToFleet(token, fleetChannel, `${titlePlain} ${ymd}`, [
     { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
   ])
   return { response_type: 'ephemeral', text: 'Posted schedule to channel.' }
@@ -343,10 +360,9 @@ async function handleBlock(db, token, fleetChannel, text, slackUserId) {
   const sh = parseClockToHour(parts[1])
   const eh = parseClockToHour(parts[2])
   const reason = parts.slice(3).join(' ').trim() || ''
-  if (!ymd || sh == null || eh == null) return { response_type: 'ephemeral', text: 'Invalid date or times.' }
-  const start = Math.min(sh, eh)
-  let end = Math.max(sh, eh)
-  if (end <= start) end = Math.min(OP_END, start + 1)
+  const range = normalizeBlockRangeFromParsed(ymd, sh, eh)
+  if (!range) return { response_type: 'ephemeral', text: 'Invalid date or times.' }
+  const { start, end } = range
   const djUid = await requireDjUid(db)
   const { ref, data } = await fetchAvailabilityDay(db, djUid, ymd)
   const nextSlots = [...(data.blockedSlots || [])]
@@ -380,10 +396,9 @@ async function handleUnblock(db, token, fleetChannel, text) {
   const ymd = parseMmDdToYmd(parts[0])
   const sh = parseClockToHour(parts[1])
   const eh = parseClockToHour(parts[2])
-  if (!ymd || sh == null || eh == null) return { response_type: 'ephemeral', text: 'Invalid date or times.' }
-  const start = Math.min(sh, eh)
-  let end = Math.max(sh, eh)
-  if (end <= start) end = Math.min(OP_END, start + 1)
+  const range = normalizeBlockRangeFromParsed(ymd, sh, eh)
+  if (!range) return { response_type: 'ephemeral', text: 'Invalid date or times.' }
+  const { start, end } = range
   const djUid = await requireDjUid(db)
   const { ref, data } = await fetchAvailabilityDay(db, djUid, ymd)
   const prev = Array.isArray(data.blockedSlots) ? data.blockedSlots : []

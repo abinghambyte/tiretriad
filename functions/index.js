@@ -14,6 +14,7 @@ const {
   SLACK_SIGNING_SECRET,
   SLACK_CHANNEL_ID,
   SLACK_SECRETS,
+  SLACK_ACTIONS_SECRETS,
 } = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
@@ -700,7 +701,7 @@ exports.submitMechanicIntake = submitMechanicIntake
  * https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
  */
 exports.slackActions = onRequest(
-  { secrets: SLACK_SECRETS },
+  { secrets: SLACK_ACTIONS_SECRETS },
   async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).send('Method Not Allowed')
