@@ -15,6 +15,7 @@ const ACCENT_BAR = {
   violet: 'from-violet-500/90 to-violet-700/40',
   emerald: 'from-emerald-500/90 to-emerald-700/40',
   fuchsia: 'from-fuchsia-500/90 to-fuchsia-700/40',
+  zinc: 'from-zinc-500/70 to-zinc-700/35',
 }
 
 const ACCENT_GLOW = {
@@ -24,6 +25,7 @@ const ACCENT_GLOW = {
   violet: 'group-hover:shadow-violet-500/8',
   emerald: 'group-hover:shadow-emerald-500/8',
   fuchsia: 'group-hover:shadow-fuchsia-500/8',
+  zinc: 'group-hover:shadow-zinc-600/8',
 }
 
 const ACCENT_HALO = {
@@ -33,6 +35,7 @@ const ACCENT_HALO = {
   violet: 'from-violet-400/25 to-transparent',
   emerald: 'from-emerald-400/25 to-transparent',
   fuchsia: 'from-fuchsia-400/25 to-transparent',
+  zinc: 'from-zinc-500/20 to-transparent',
 }
 
 /**
@@ -41,7 +44,7 @@ const ACCENT_HALO = {
  * @param {string} props.description
  * @param {string} props.stat
  * @param {'Live'|'Preview'|'Buildout'|'Internal'|'Locked'} props.status
- * @param {'amber'|'cyan'|'blue'|'violet'|'emerald'|'fuchsia'} props.accent
+ * @param {'amber'|'cyan'|'blue'|'violet'|'emerald'|'fuchsia'|'zinc'} props.accent
  * @param {import('react').ReactNode} props.icon
  * @param {string} [props.to]
  * @param {boolean} [props.locked] View-only or limited access (shows lock on card)

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { PortalChrome } from './components/layout/PortalChrome.jsx'
-import { ContactsPage } from './pages/ContactsPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { CrmDispatchPage } from './pages/CrmDispatchPage'
 import { CrmPage } from './pages/CrmPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -11,7 +11,6 @@ import { LandingPage } from './pages/LandingPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { TiresPage } from './pages/TiresPage'
-import { WallPage } from './pages/WallPage'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 
 export default function App() {
@@ -53,19 +52,13 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/wall" element={<Navigate to="/analytics?tab=wall" replace />} />
+        <Route path="/contacts" element={<Navigate to="/people?tab=customers" replace />} />
         <Route
-          path="/wall"
+          path="/analytics"
           element={
-            <ProtectedRoute module="wall" level="view">
-              <WallPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/contacts"
-          element={
-            <ProtectedRoute module="orders" level="view">
-              <ContactsPage />
+            <ProtectedRoute module="analytics" level="view">
+              <AnalyticsPage />
             </ProtectedRoute>
           }
         />

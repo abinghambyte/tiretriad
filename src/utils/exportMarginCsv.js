@@ -1,4 +1,5 @@
-import { marginPercent } from './marginCalc'
+import { effectiveCts } from './ctsCalc'
+import { computeMargin } from './marginCalc'
 
 function csvEscape(value) {
   const s = String(value ?? '')
@@ -15,7 +16,7 @@ export function exportMarginCsv(rows) {
     'Description',
     'MSPN',
     'LR',
-    'Cost',
+    'Buy price',
     'FET',
     'Mount',
     'Delivery',
@@ -28,7 +29,7 @@ export function exportMarginCsv(rows) {
   const lines = [headers.join(',')]
 
   for (const row of rows) {
-    const m = marginPercent(row.retailPrice ?? row.price, row.cts)
+    const m = computeMargin(row)
     const marginStr =
       m != null && !Number.isNaN(m) ? m.toFixed(2) : ''
     const cost = Number(row.cost) || 0
@@ -36,7 +37,7 @@ export function exportMarginCsv(rows) {
     const deliveryCost = Number(row.deliveryCost) || 0
     const otherCost = Number(row.otherCost) || 0
     const fet = Number(row.fet) || 0
-    const cts = Number(row.cts) || 0
+    const cts = effectiveCts(row)
     const retail = Number(row.retailPrice ?? row.price) || 0
 
     lines.push(

@@ -53,12 +53,13 @@ export function MobileBottomNav() {
   const canTires = permissionMeets(permissionFor('tires'), 'view')
   const canCrm = permissionMeets(permissionFor('crm'), 'view')
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
+  const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
 
   const items = [
     canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
-    canCrm ? { to: '/crm', label: 'CRM', icon: <IconCrm /> } : null,
+    canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
     canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
-    { to: '/dashboard', label: 'Analytics', icon: <IconAnalytics /> },
+    canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
   ].filter(Boolean)
 
   if (items.length === 0) return null
@@ -72,7 +73,7 @@ export function MobileBottomNav() {
         <NavLink
           key={item.to}
           to={item.to}
-          end={item.to === '/dashboard'}
+          end={item.to === '/analytics'}
           className={({ isActive }) => `${navCls} ${isActive ? activeCls : ''}`}
         >
           {item.icon}

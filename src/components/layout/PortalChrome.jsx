@@ -358,7 +358,7 @@ export function PortalChrome() {
                             type="button"
                             className="w-full rounded-lg px-2 py-1.5 text-left hover:bg-zinc-800/80"
                             onClick={() => {
-                              navigate('/contacts')
+                              navigate('/people?tab=customers')
                               setOpen(false)
                               setQ('')
                             }}

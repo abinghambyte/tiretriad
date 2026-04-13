@@ -189,7 +189,11 @@ function elevationCountdownLabel(u, tick) {
   return `${Math.ceil(sec / 86400)}d`
 }
 
-export function PeopleDashboard() {
+/**
+ * @param {{ omitPageChrome?: boolean }} props
+ * When true, skips outer shell + header (used under People page with shared chrome).
+ */
+export function PeopleDashboard({ omitPageChrome = false }) {
   const { profile } = useUserProfile()
   const navigate = useNavigate()
   const [users, setUsers] = useState([])
@@ -479,32 +483,9 @@ export function PeopleDashboard() {
     navigate('/', { replace: true })
   }
 
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-          <div className="min-w-0">
-            <Link
-              to="/dashboard"
-              className="text-sm text-zinc-500 transition hover:text-zinc-200"
-            >
-              ← Dashboard
-            </Link>
-            <h1 className="mt-2 text-xl font-semibold text-white">People</h1>
-            <p className="mt-1 text-sm text-zinc-500">
-              Crew access, invites, and permission matrix
-            </p>
-            <div className="mt-2 sm:hidden">
-              <PortalSessionLine email={auth.currentUser?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={auth.currentUser?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
+  const inner = (
+    <>
+    <main className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
         {isMobilePeople && !createDrawerOpen ? (
           <button
             type="button"
@@ -1015,6 +996,38 @@ export function PeopleDashboard() {
           </div>
         </div>
       ) : null}
+    </>
+  )
+
+  if (omitPageChrome) {
+    return <div className="text-zinc-100">{inner}</div>
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <Link
+              to="/dashboard"
+              className="text-sm text-zinc-500 transition hover:text-zinc-200"
+            >
+              ← Dashboard
+            </Link>
+            <h1 className="mt-2 text-xl font-semibold text-white">People</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Crew access, invites, and permission matrix
+            </p>
+            <div className="mt-2 sm:hidden">
+              <PortalSessionLine email={auth.currentUser?.email} onSignOut={handleSignOut} />
+            </div>
+          </div>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={auth.currentUser?.email} onSignOut={handleSignOut} />
+          </div>
+        </div>
+      </header>
+      {inner}
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
-import { marginPercent } from '../../utils/marginCalc'
+import { computeMargin } from '../../utils/marginCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
@@ -121,10 +121,19 @@ export function TiresDashboard() {
       return {
         ...t,
         retailPrice: Number.isFinite(retailNum) ? retailNum : t.retailPrice,
-        margin: marginPercent(Number.isFinite(retailNum) ? retailNum : NaN, t.cts),
+        margin: computeMargin({
+          ...t,
+          price: Number.isFinite(retailNum) ? retailNum : t.price,
+          retailPrice: Number.isFinite(retailNum) ? retailNum : t.retailPrice,
+        }),
       }
     })
   }, [tires])
+
+  const allMarginsNull = useMemo(
+    () => enriched.length > 0 && enriched.every((r) => r.margin == null || Number.isNaN(r.margin)),
+    [enriched],
+  )
 
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
@@ -444,6 +453,7 @@ export function TiresDashboard() {
               onLr={setLr}
               minMargin={minMargin}
               onMinMargin={setMinMargin}
+              minMarginSliderDisabled={allMarginsNull}
               deadStockOnly={deadStockOnly}
               onDeadStockOnly={setDeadStockOnly}
               hasActiveFilters={hasActiveFilters}
@@ -605,7 +615,7 @@ export function TiresDashboard() {
       <BulkCtsModal
         open={bulkCtsOpen && selectedIds.size > 0}
         onClose={() => setBulkCtsOpen(false)}
-        tireIds={Array.from(selectedIds)}
+        tires={selectedTires}
       />
     </div>
   )

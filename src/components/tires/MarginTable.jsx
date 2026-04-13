@@ -4,15 +4,15 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
-import { computeCts, gradeLetter, gradePillClass, tireCostParts } from '../../utils/ctsCalc'
-import { marginBadgeClass, marginBadgeLabel, marginPercent } from '../../utils/marginCalc'
+import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireCostParts } from '../../utils/ctsCalc'
+import { computeMargin, marginBadgeClass, marginBadgeLabel } from '../../utils/marginCalc'
 
 /** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
 const ROW_BASE_PX = 48
 /** Taller rows on narrow viewports for touch targets. */
 const ROW_MOBILE_BASE_PX = 52
-/** Extra height when CTS inline editor is open (py-4 + grid + actions). */
-const ROW_CTS_EDITOR_EXTRA_PX = 176
+/** Extra height when CTS inline editor is open (preview line + grid + actions). */
+const ROW_CTS_EDITOR_EXTRA_PX = 220
 /** Max list viewport height (px). */
 const LIST_MAX_H = 560
 const LIST_MIN_H = 200
@@ -20,9 +20,9 @@ const LIST_MIN_H = 200
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 980,
+  minWidth: 1180,
   gridTemplateColumns:
-    '40px minmax(88px,1fr) minmax(120px,1.6fr) 88px 36px 72px 80px 80px 88px minmax(64px,1fr)',
+    '40px minmax(72px,1fr) minmax(100px,1.35fr) 76px 28px 52px 68px 72px 40px 56px 68px minmax(52px,1fr)',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -35,6 +35,19 @@ function formatMoney(n) {
   }).format(n)
 }
 
+function retailOf(row) {
+  return Number(row?.price ?? row?.retailPrice) || 0
+}
+
+function previewMarginWhileEditing(row, costDraft) {
+  const retail = retailOf(row)
+  const cost = Number(costDraft?.cost) || 0
+  if (!retail || !cost) return null
+  const fet = Number(row?.fet) || 0
+  const cts = computeCts({ ...costDraft, fet })
+  return ((retail - cts) / retail) * 100
+}
+
 function TableSkeleton() {
   return [...Array(8)].map((_, i) => (
     <div
@@ -42,7 +55,7 @@ function TableSkeleton() {
       className="box-border grid border-b border-zinc-800/40 px-0 py-2"
       style={{ ...GRID_STYLE, minHeight: ROW_BASE_PX }}
     >
-      {[...Array(10)].map((__, j) => (
+      {[...Array(12)].map((__, j) => (
         <div key={j} className="px-3">
           <div className="h-4 animate-pulse rounded bg-zinc-800/70" />
         </div>
@@ -127,13 +140,11 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const row = rows[index]
   if (!row) return null
 
-  const m = marginPercent(row.retailPrice, row.cts)
+  const m = computeMargin(row)
   const letter = gradeLetter(row)
   const showCostEditor = editingCostsId === row.id
   const showGradeEditor = editingGradeId === row.id
-  const previewMargin = showCostEditor
-    ? marginPercent(row.retailPrice, draftCts)
-    : m
+  const previewMargin = showCostEditor ? previewMarginWhileEditing(row, costDraft) : m
 
   const marginCell =
     previewMargin != null && !Number.isNaN(previewMargin) && previewMargin > 35 ? (
@@ -144,19 +155,31 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         <span className="ml-1 opacity-80">{marginBadgeLabel(previewMargin)}</span>
       </span>
     ) : (
-      <span className="text-xs font-medium text-zinc-400">
+      <span
+        className="text-xs font-medium text-zinc-400"
+        title={
+          (previewMargin == null || Number.isNaN(previewMargin)) &&
+          (showCostEditor ? Number(costDraft?.cost) <= 0 : m == null)
+            ? 'Enter buy price to see margin.'
+            : undefined
+        }
+      >
         {previewMargin != null && !Number.isNaN(previewMargin)
           ? `${previewMargin.toFixed(1)}%`
           : '—'}
       </span>
     )
 
+  const fetNum = Number(row.fet) || 0
   const ctsEditorSection = showCostEditor ? (
     <div className="border-t border-zinc-800/80 bg-zinc-900/70 px-4 py-4">
+      <p className="mb-3 text-xs text-zinc-500">
+        Enter your cost before FET — FET is added automatically from the catalog.
+      </p>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
           <MiniNum
-            label="Cost"
+            label="Buy price (what you pay per tire)"
             value={costDraft.cost}
             onChange={(v) => setCostDraft((d) => ({ ...d, cost: v }))}
           />
@@ -176,6 +199,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             onChange={(v) => setCostDraft((d) => ({ ...d, otherCost: v }))}
           />
         </div>
+        <p className="w-full font-mono text-[11px] leading-relaxed text-zinc-400">
+          CTS = {formatMoney(Number(costDraft.cost) || 0)} + {formatMoney(fetNum)} FET +{' '}
+          {formatMoney(Number(costDraft.mountCost) || 0)} mount +{' '}
+          {formatMoney(Number(costDraft.deliveryCost) || 0)} delivery +{' '}
+          {formatMoney(Number(costDraft.otherCost) || 0)} other ={' '}
+          <span className="text-amber-200/90">{formatMoney(draftCts)}</span>
+        </p>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <p className="text-xs text-zinc-500">
             CTS after save:{' '}
@@ -248,7 +278,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               {row.mspn || '—'}
             </div>
             <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1 text-xs text-zinc-300">
-              {formatMoney(row.retailPrice)}
+              {formatMoney(retailOf(row))}
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
@@ -309,7 +339,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                   editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
                 }`}
               >
-                {formatMoney(row.cts)}
+                {formatMoney(effectiveCts(row))}
               </button>
             </div>
             <div className="flex min-w-[100px] shrink-0 items-center truncate px-2 text-xs text-zinc-500">
@@ -402,20 +432,43 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             </button>
           )}
         </div>
-        <div className="truncate px-3 text-zinc-300">
+        <div
+          className="truncate px-2 text-right font-mono text-xs text-zinc-300 tabular-nums"
+          title="Retail (Mkt) — catalog market reference"
+        >
+          {formatMoney(retailOf(row))}
+        </div>
+        <div className="flex items-center justify-end px-2">
           <button
             type="button"
             onClick={() => openCostEdit(row)}
-            className={`max-w-full truncate text-left underline-offset-2 hover:underline ${
+            className={`max-w-full truncate text-right text-xs underline-offset-2 hover:underline ${
               editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
             }`}
           >
-            {formatMoney(row.cts)}
+            {Number(row.cost) > 0 ? (
+              formatMoney(row.cost)
+            ) : (
+              <span className="font-normal text-zinc-600">Add cost</span>
+            )}
           </button>
         </div>
-        <div className="truncate px-3 text-zinc-300">{formatMoney(row.retailPrice)}</div>
-        <div className="flex items-center px-3">{marginCell}</div>
-        <div className="hidden truncate px-3 text-zinc-500 md:block">{row.category || '—'}</div>
+        <div className="truncate px-1 text-center font-mono text-[11px] text-zinc-400 tabular-nums">
+          {formatMoney(Number(row.fet) || 0)}
+        </div>
+        <div className="flex items-center justify-end px-2">
+          <button
+            type="button"
+            onClick={() => openCostEdit(row)}
+            className={`max-w-full truncate text-right font-mono text-xs underline-offset-2 hover:underline ${
+              editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
+            }`}
+          >
+            {formatMoney(effectiveCts(row))}
+          </button>
+        </div>
+        <div className="flex items-center justify-end px-2">{marginCell}</div>
+        <div className="hidden truncate px-2 text-zinc-500 lg:block">{row.category || '—'}</div>
       </div>
       {ctsEditorSection}
     </div>
@@ -480,15 +533,24 @@ export function MarginTable({
     setEditingGradeId(null)
   }, [])
 
-  const draftCts = useMemo(() => computeCts(costDraft), [costDraft])
+  const editingRowForDraft = useMemo(
+    () => rows.find((r) => r.id === editingCostsId),
+    [rows, editingCostsId],
+  )
+  const draftCts = useMemo(
+    () => computeCts({ ...costDraft, fet: Number(editingRowForDraft?.fet) || 0 }),
+    [costDraft, editingRowForDraft],
+  )
 
   const saveCosts = useCallback(
     async (rowId) => {
+      const row = rows.find((r) => r.id === rowId)
+      const fet = Number(row?.fet) || 0
       const cost = Number(costDraft.cost) || 0
       const mountCost = Number(costDraft.mountCost) || 0
       const deliveryCost = Number(costDraft.deliveryCost) || 0
       const otherCost = Number(costDraft.otherCost) || 0
-      const cts = computeCts({ cost, mountCost, deliveryCost, otherCost })
+      const cts = computeCts({ cost, fet, mountCost, deliveryCost, otherCost })
       setCostSaving(true)
       try {
         await updateDoc(doc(db, 'tires', rowId), {
@@ -509,7 +571,7 @@ export function MarginTable({
         setCostSaving(false)
       }
     },
-    [costDraft, toast, closeCostEdit],
+    [costDraft, rows, toast, closeCostEdit],
   )
 
   const saveGrade = useCallback(
@@ -617,10 +679,10 @@ export function MarginTable({
       >
         {isMobileTable && rows.length > 0 && !loading && !scrollHintDismissed ? (
           <div className="mx-2 mb-2 rounded-full border border-amber-800/50 bg-amber-950/40 px-3 py-2 text-center text-xs font-medium text-amber-100/95 md:hidden">
-            ← Scroll for CTS, grade, brand, category →
+            ← Scroll for buy price, CTS, grade, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[980px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1180px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/60 py-3 text-xs uppercase tracking-wide text-zinc-500 md:grid"
             style={GRID_STYLE}
@@ -649,10 +711,9 @@ export function MarginTable({
             <div className="px-3">MSPN</div>
             <div className="px-3">LR</div>
             <div className="px-3">Grade</div>
-            <div className="px-3">CTS</div>
-            <div className="px-3">
+            <div className="px-2 text-right">
               <SortButton
-                label="Retail"
+                label="Retail (Mkt)"
                 active={sortKey === 'retail'}
                 dir={sortDir}
                 onClick={() => onSort('retail')}
@@ -660,7 +721,10 @@ export function MarginTable({
                 touchWide={isMobileTable}
               />
             </div>
-            <div className="px-3">
+            <div className="px-2 text-right text-[10px] tracking-wide">Buy</div>
+            <div className="px-1 text-center text-[10px] tracking-wide">FET</div>
+            <div className="px-2 text-right text-[10px] tracking-wide">CTS</div>
+            <div className="px-2 text-right">
               <SortButton
                 label="Margin %"
                 active={sortKey === 'margin'}
@@ -670,7 +734,7 @@ export function MarginTable({
                 touchWide={isMobileTable}
               />
             </div>
-            <div className="hidden px-3 md:block">Category</div>
+            <div className="hidden px-2 lg:block">Category</div>
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
             <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/60 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 md:hidden">

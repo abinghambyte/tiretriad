@@ -91,7 +91,7 @@ export function CrmDispatchPage() {
       <div className="min-h-screen bg-zinc-950 p-8 text-zinc-100">
         <p className="text-sm text-zinc-400">DJ dispatch is for mechanics and admins.</p>
         <Link to="/crm" className="mt-4 inline-block text-violet-400 hover:underline">
-          ← CRM
+          ← Rubber CRM
         </Link>
       </div>
     )
@@ -122,7 +122,7 @@ export function CrmDispatchPage() {
         <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <Link to="/crm" className="text-sm text-zinc-500 hover:text-zinc-200">
-              ← CRM
+              ← Rubber CRM
             </Link>
             <h1 className="text-lg font-semibold text-white">DJ dispatch</h1>
             <div className="w-full basis-full sm:hidden">

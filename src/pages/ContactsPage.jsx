@@ -41,7 +41,11 @@ function displayPhone(id) {
   return d || '—'
 }
 
-export function ContactsPage() {
+/**
+ * @param {{ embedded?: boolean }} props
+ * Embedded mode: no page shell (used under People → Customers).
+ */
+export function ContactsPage({ embedded = false }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
@@ -183,27 +187,15 @@ export function ContactsPage() {
     navigate('/', { replace: true })
   }
 
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-          <div className="min-w-0">
-            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
-              ← Dashboard
-            </Link>
-            <h1 className="mt-2 text-xl font-semibold text-white">Contacts</h1>
-            <p className="mt-1 text-sm text-zinc-500">Customer memory from completed orders</p>
-            <div className="mt-2 sm:hidden">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl space-y-4 px-6 py-8">
+  const content = (
+    <>
+    <main
+      className={
+        embedded
+          ? 'mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6'
+          : 'mx-auto max-w-6xl space-y-4 px-6 py-8'
+      }
+    >
         <div className="relative z-10 w-full max-w-2xl space-y-2 rounded-xl border border-zinc-700/90 bg-zinc-900/70 p-4 ring-1 ring-zinc-800/80">
           <label htmlFor="contacts-search" className="text-sm font-medium text-zinc-300">
             Search contacts
@@ -304,9 +296,9 @@ export function ContactsPage() {
             </tbody>
           </table>
         </div>
-      </main>
+    </main>
 
-      {selected ? (
+    {selected ? (
         <div
           className="fixed inset-0 z-40 flex justify-end bg-black/60 p-0 backdrop-blur-sm"
           role="dialog"
@@ -384,6 +376,33 @@ export function ContactsPage() {
           </div>
         </div>
       ) : null}
+    </>
+  )
+
+  if (embedded) {
+    return <div className="text-zinc-100">{content}</div>
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
+              ← Dashboard
+            </Link>
+            <h1 className="mt-2 text-xl font-semibold text-white">Contacts</h1>
+            <p className="mt-1 text-sm text-zinc-500">Customer memory from completed orders</p>
+            <div className="mt-2 sm:hidden">
+              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+            </div>
+          </div>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+          </div>
+        </div>
+      </header>
+      {content}
     </div>
   )
 }

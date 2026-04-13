@@ -55,7 +55,11 @@ function completedLabel(ts) {
   }
 }
 
-export function WallPage() {
+/**
+ * @param {{ embedded?: boolean }} props
+ * When `embedded` is true, renders feed only (no page chrome) for use inside Analytics.
+ */
+export function WallPage({ embedded = false }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
@@ -104,27 +108,14 @@ export function WallPage() {
     navigate('/', { replace: true })
   }
 
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-          <div className="min-w-0">
-            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
-              ← Dashboard
-            </Link>
-            <h1 className="mt-2 text-xl font-semibold text-white">The Wall</h1>
-            <p className="mt-1 text-sm text-zinc-500">Live completed orders — read only</p>
-            <div className="mt-2 sm:hidden">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl space-y-6 px-6 py-8">
+  const body = (
+    <main
+      className={
+        embedded
+          ? 'mx-auto max-w-4xl space-y-6 px-2 py-4 sm:px-4'
+          : 'mx-auto max-w-4xl space-y-6 px-6 py-8'
+      }
+    >
         <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
           <label className="text-xs text-zinc-500">
             From
@@ -215,6 +206,40 @@ export function WallPage() {
           </ul>
         )}
       </main>
+  )
+
+  if (embedded) {
+    return (
+      <div className="text-zinc-100">
+        <div className="mb-4 border-b border-zinc-800/80 pb-3">
+          <h2 className="text-sm font-semibold text-zinc-200">The Wall</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">Live completed orders — read only</p>
+        </div>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
+              ← Dashboard
+            </Link>
+            <h1 className="mt-2 text-xl font-semibold text-white">The Wall</h1>
+            <p className="mt-1 text-sm text-zinc-500">Live completed orders — read only</p>
+            <div className="mt-2 sm:hidden">
+              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+            </div>
+          </div>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+          </div>
+        </div>
+      </header>
+      {body}
     </div>
   )
 }

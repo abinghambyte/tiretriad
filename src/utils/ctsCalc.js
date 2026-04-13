@@ -1,6 +1,6 @@
 /**
- * CTS = cost to sell — sum of landed cost components (FET excluded; add to cost if needed).
- * @param {{ cost?: unknown, mountCost?: unknown, deliveryCost?: unknown, otherCost?: unknown }} parts
+ * CTS = cost + FET + mount + delivery + other (all per tire, USD).
+ * @param {{ cost?: unknown, fet?: unknown, mountCost?: unknown, deliveryCost?: unknown, otherCost?: unknown }} parts
  * @returns {number}
  */
 export function computeCts(parts) {
@@ -10,6 +10,7 @@ export function computeCts(parts) {
   }
   return (
     n(parts?.cost) +
+    n(parts?.fet) +
     n(parts?.mountCost) +
     n(parts?.deliveryCost) +
     n(parts?.otherCost)
@@ -23,6 +24,14 @@ export function tireCostParts(tire) {
     deliveryCost: Number(tire?.deliveryCost) || 0,
     otherCost: Number(tire?.otherCost) || 0,
   }
+}
+
+/** Canonical CTS from catalog + manual cost fields (matches Firestore `cts` after save). */
+export function effectiveCts(tire) {
+  return computeCts({
+    ...tireCostParts(tire),
+    fet: Number(tire?.fet) || 0,
+  })
 }
 
 /** @returns {'A' | 'B' | 'C' | ''} */

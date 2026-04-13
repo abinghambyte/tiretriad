@@ -242,7 +242,7 @@ export function CrmPage() {
               ← Dashboard
             </Link>
             <span className="hidden h-4 w-px bg-zinc-700 sm:block" aria-hidden />
-            <h1 className="text-lg font-semibold text-white">Fleet CRM</h1>
+            <h1 className="text-lg font-semibold text-white">Rubber CRM</h1>
             {profile?.role === 'mechanic' || profile?.role === 'admin' ? (
               <Link
                 to="/crm/dispatch"

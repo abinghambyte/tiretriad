@@ -101,10 +101,13 @@ For **current phase status** and a shorter living checklist, use **`docs/ROADMAP
 
 - Firebase Auth email/password only
 - Login is the only public route
-- All routes behind `/dashboard` require auth via `ProtectedRoute`
+- All portal routes (except `/`, `/i/:token`, `/intake/mechanic`) require auth via `ProtectedRoute`
 - On login success → `/dashboard`
 - On login fail → inline error, no redirect
 - Users are created via invite flow (Phase 4) — no public signup
+- **Rubber CRM** lives at `/crm` (formerly referred to as Fleet CRM in older docs).
+- **Analytics** hub at `/analytics` (Wall + metrics + revenue lane); legacy `/wall` redirects to `/analytics?tab=wall`.
+- **Customers** (contacts) live under `/people?tab=customers`; legacy `/contacts` redirects there.
 
 ---
 
@@ -122,11 +125,11 @@ description: string     // "11R22.5 X LEZ LRG"
 lr: string              // "G" — store "" not null if empty
 fet: number             // strip $ and parse float, store 0 if blank
 retailPrice: number     // retail (CSV column `Price`); legacy `price` may exist
-cost: number            // base tire cost (portal CTS editor)
+cost: number            // buy price from Kyle (portal; defaults 0 until entered)
 mountCost: number       // mount / install allocation
 deliveryCost: number     // delivery allocation
 otherCost: number       // misc landed cost
-cts: number             // cost to sell = cost + mountCost + deliveryCost + otherCost (written on save)
+cts: number             // cost to sell = cost + fet + mountCost + deliveryCost + otherCost (written on save)
 grade: string           // "A" | "B" | "C" for margin table; "scrap" hidden from portal
 category: string        // "All Terrain" | "Highway" | "Commercial" etc.
 useTags: array          // ["highway", "commercial", "long-haul"]
@@ -148,9 +151,9 @@ Import instructions for `scripts/seed-tires.mjs`:
 
 ### 5.3 Margin Calculator
 
-Table columns: Brand, Description, MSPN, LR, Grade, CTS, Retail, Margin %, Category
+Table columns: Brand, Description, MSPN, LR, Grade, Retail (Mkt), Buy price, FET, CTS, Margin %, Category
 
-Margin % = `((retailPrice - cts) / retailPrice) × 100`
+Margin % = `((retail − cts) / retail) × 100` where `cts` includes FET; margin is suppressed until buy price (`cost`) is entered.
 
 Color badges:
 - Red: < 15%

@@ -6,9 +6,7 @@ import { auth, db } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
-import { usePortalRegisteredUserCount } from '../../hooks/usePortalRegisteredUserCount'
-import { useTires } from '../../hooks/useTires'
-import { marginPercent } from '../../utils/marginCalc'
+import { useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { ProjectCard } from './ProjectCard'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 
@@ -66,22 +64,6 @@ function IconPeople() {
   )
 }
 
-function IconRevenue() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path strokeLinecap="round" d="M5 18V6M9 18V10M13 18v-5M17 18V8" />
-      <path strokeLinecap="round" d="M4 18h16" />
-    </svg>
-  )
-}
-
 function IconGrowth() {
   return (
     <svg
@@ -96,40 +78,6 @@ function IconGrowth() {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M12 4.5l1.8 4.95 5.25.35-4 3.35 1.3 5.05L12 15.9l-4.35 2.4 1.3-5.05-4-3.35 5.25-.35L12 4.5z"
-      />
-    </svg>
-  )
-}
-
-function IconWall() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path strokeLinecap="round" d="M4 5h16M4 10h10M4 15h16M4 20h8" />
-    </svg>
-  )
-}
-
-function IconContacts() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 20v-1a4 4 0 014-4h4a4 4 0 014 4v1M8 8a3 3 0 116 0 3 3 0 01-6 0z"
       />
     </svg>
   )
@@ -151,14 +99,29 @@ function IconCrm() {
   )
 }
 
+/** Tire business ops — not carrier / FedEx fleet tooling. */
+function IconOpsCommand() {
+  return (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden
+    >
+      <path strokeLinecap="round" d="M6 8h12M6 12h8M6 16h10" />
+      <rect x="4" y="5" width="16" height="14" rx="2" className="opacity-40" />
+    </svg>
+  )
+}
+
 export function Dashboard() {
   const { user } = useAuth()
   const { permissionFor, profile, loading: profileGate } = useUserProfile()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { tires, loading: tiresLoading } = useTires()
-  const { count: registeredUsers, loading: registryLoading } =
-    usePortalRegisteredUserCount()
+  const { catalogSkuDisplay, tireSku, crm, people, completedOrders } = useDashboardSignals()
   const [djStreak, setDjStreak] = useState(undefined)
 
   useEffect(() => {
@@ -173,58 +136,46 @@ export function Dashboard() {
     )
   }, [])
 
-  const tireSummary = useMemo(() => {
-    if (tiresLoading) {
-      return { n: 0, avg: null, loading: true }
-    }
-    const n = tires.length
-    const margins = tires
-      .map((t) => marginPercent(t.retailPrice ?? t.price, t.cts))
-      .filter((m) => m != null && !Number.isNaN(m))
-    const avg =
-      margins.length > 0
-        ? margins.reduce((a, b) => a + b, 0) / margins.length
-        : null
-    return { n, avg, loading: false }
-  }, [tires, tiresLoading])
-
   const tireSignal = useMemo(() => {
-    if (tireSummary.loading) return 'Syncing catalog…'
-    const { n, avg } = tireSummary
-    const skuPart =
-      n === 0 ? '0 SKUs in catalog' : `${n} SKU${n === 1 ? '' : 's'} in tire catalog`
-    const marginPart =
-      avg != null ? ` · ${avg.toFixed(1)}% blended margin (CTS basis)` : ' · Margin data pending'
-    return `${skuPart}${marginPart}`
-  }, [tireSummary])
-
-  const analyticsSignal = useMemo(() => {
-    if (tireSummary.loading) return 'Pulling operational lens…'
-    const { n, avg } = tireSummary
-    const sku = n === 0 ? '0 SKUs' : `${n} SKU${n === 1 ? '' : 's'}`
-    const margin =
-      avg != null
-        ? ` · ${avg.toFixed(1)}% blended margin (tire catalog)`
-        : ' · margin band pending'
-    return `Tire ops telemetry · ${sku}${margin}`
-  }, [tireSummary])
-
-  const revenueSignal = useMemo(() => {
-    if (tireSummary.loading) return 'Margin channel loading…'
-    const { avg } = tireSummary
-    if (avg != null) {
-      return `Revenue & margin (tire line) · ${avg.toFixed(1)}% vs CTS / retail`
+    if (tireSku.loading) return 'Syncing catalog…'
+    const { pricedCount, avgMarginPriced } = tireSku
+    const priced = pricedCount ?? 0
+    if (priced === 0) {
+      return `${catalogSkuDisplay} SKUs in catalog — add buy prices to unlock margin data`
     }
-    return 'Revenue & margin (tire line) · CTS / retail spread pending'
-  }, [tireSummary])
+    const marginStr =
+      avgMarginPriced != null && !Number.isNaN(avgMarginPriced)
+        ? `${avgMarginPriced.toFixed(1)}% avg margin on priced SKUs`
+        : 'margin pending'
+    return `${catalogSkuDisplay} SKUs · ${priced} priced · ${marginStr}`
+  }, [tireSku, catalogSkuDisplay])
+
+  const crmSignal = useMemo(() => {
+    if (crm.loading) return 'Loading pipeline…'
+    const a = crm.accounts ?? 0
+    const l = crm.leads ?? 0
+    const j = crm.openJobs ?? 0
+    if (a === 0 && l === 0 && j === 0) return 'Pipeline empty — add your first fleet account'
+    return `${a} accounts · ${l} leads · ${j} open jobs`
+  }, [crm])
 
   const peopleSignal = useMemo(() => {
-    if (registryLoading) return 'Resolving registered users…'
-    if (typeof registeredUsers === 'number') {
-      return `${registeredUsers} registered user${registeredUsers === 1 ? '' : 's'}`
-    }
-    return 'Registered users — not published to dashboard'
-  }, [registeredUsers, registryLoading])
+    if (people.loading) return 'Counting crew and customers…'
+    const u = people.users ?? 0
+    const c = people.contacts ?? 0
+    return `${u} crew · ${c} customers`
+  }, [people])
+
+  const analyticsSignal = useMemo(() => {
+    if (completedOrders.loading) return 'Pulling order outcomes…'
+    const n = completedOrders.count ?? 0
+    const rev = completedOrders.revenue ?? 0
+    if (n === 0) return 'No completed orders yet'
+    const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+      rev,
+    )
+    return `${n} orders completed · ${money} total`
+  }, [completedOrders])
 
   async function handleSignOut() {
     await signOut(auth)
@@ -235,7 +186,7 @@ export function Dashboard() {
     {
       title: 'Skedaddle Tires',
       description:
-        'Margin catalog, listings, sales notify, and tire orders (fleet queue) — open the tool and use Catalog vs Orders.',
+        'Margin catalog, tire orders, and listing generator — Catalog, Orders, and generate listings from the Tires workspace.',
       stat: tireSignal,
       status: 'Live',
       accent: 'amber',
@@ -245,9 +196,21 @@ export function Dashboard() {
       minLevel: 'view',
     },
     {
+      title: 'Rubber CRM',
+      description:
+        'Lead pipeline, fleet accounts, and DJ dispatch for northern Colorado tire operations.',
+      stat: crmSignal,
+      status: 'Live',
+      accent: 'violet',
+      icon: <IconCrm />,
+      to: '/crm',
+      moduleKey: 'crm',
+      minLevel: 'view',
+    },
+    {
       title: 'People Systems',
       description:
-        'User management, team assignment, cadence, access control, pipeline delegation — the people layer at the edge of definition. Scope deliberately unfinished.',
+        'Crew access, invites, permission matrix, and customer contacts (Customers tab).',
       stat: peopleSignal,
       status: 'Live',
       accent: 'violet',
@@ -257,71 +220,34 @@ export function Dashboard() {
       minLevel: 'manage',
     },
     {
-      title: 'The Wall',
-      description:
-        'Live read-only feed of completed tire orders — MSPN, revenue, fulfillment minutes, crew chain, and light signals (hat trick, nudge, friction).',
-      stat: 'Live completions stream',
-      status: 'Live',
-      accent: 'cyan',
-      icon: <IconWall />,
-      to: '/wall',
-      moduleKey: 'wall',
-      minLevel: 'view',
-    },
-    {
-      title: 'Contacts',
-      description:
-        'Customer memory built from completions — lifetime spend, last SKU, notes, and order history per phone.',
-      stat: 'Synced when orders complete',
-      status: 'Live',
-      accent: 'emerald',
-      icon: <IconContacts />,
-      to: '/contacts',
-      moduleKey: 'orders',
-      minLevel: 'view',
-    },
-    {
-      title: 'Fleet CRM',
-      description:
-        'Lead pipeline, fleet accounts, and DJ dispatch for northern Colorado tire operations.',
-      stat: 'Pipeline · leads · dispatch',
-      status: 'Live',
-      accent: 'violet',
-      icon: <IconCrm />,
-      to: '/crm',
-      moduleKey: 'crm',
-      minLevel: 'view',
-    },
-    {
       title: 'Analytics',
       description:
-        'Operational oversight through a single metrics lens — utilization, throughput, and exception bands. Framed for how the network actually runs, not slide decks.',
+        'The Wall (completed orders), operational metrics from completions, and a revenue intelligence lane.',
       stat: analyticsSignal,
-      status: 'Buildout',
+      status: 'Live',
       accent: 'blue',
       icon: <IconAnalytics />,
+      to: '/analytics',
       moduleKey: 'analytics',
-      minLevel: 'view',
-    },
-    {
-      title: 'Revenue & Margin',
-      description:
-        'Settlement posture, cost load, and profitability — distilled for decisions on the ground. Tire-line economics surfaced first; other lines follow.',
-      stat: revenueSignal,
-      status: 'Buildout',
-      accent: 'emerald',
-      icon: <IconRevenue />,
-      moduleKey: 'revenue',
       minLevel: 'view',
     },
     {
       title: 'Growth Lab',
       description:
         'Automations, prototypes, and internal products before they earn a name. Nothing here ships without a deliberate pull.',
-      stat: 'No public builds · access restricted',
+      stat: 'No public builds — access restricted',
       status: 'Locked',
       accent: 'fuchsia',
       icon: <IconGrowth />,
+    },
+    {
+      title: 'Ops Command',
+      description:
+        'Future tire-business ops signals and runbooks — standing dashboards for Skedaddle operations (not carrier fleet ops).',
+      stat: 'Standing signals classified',
+      status: 'Buildout',
+      accent: 'zinc',
+      icon: <IconOpsCommand />,
     },
   ]
 
@@ -427,11 +353,6 @@ export function Dashboard() {
               m.to &&
               permissionMeets(perm, 'view') &&
               !permissionMeets(perm, 'edit')
-            const lockedOrders =
-              m.moduleKey === 'orders' &&
-              m.to &&
-              permissionMeets(perm, 'view') &&
-              !permissionMeets(perm, 'act')
             return (
               <ProjectCard
                 key={m.title}
@@ -442,7 +363,7 @@ export function Dashboard() {
                 accent={m.accent}
                 icon={m.icon}
                 to={m.to}
-                locked={Boolean(lockedTires || lockedOrders)}
+                locked={Boolean(lockedTires)}
               />
             )
           })}

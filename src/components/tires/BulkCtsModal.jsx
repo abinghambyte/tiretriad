@@ -9,7 +9,10 @@ function num(v) {
   return Number.isFinite(n) ? n : 0
 }
 
-export function BulkCtsModal({ open, onClose, tireIds }) {
+/**
+ * @param {{ open: boolean, onClose: () => void, tires: { id: string, fet?: unknown }[] }} props
+ */
+export function BulkCtsModal({ open, onClose, tires }) {
   const [cost, setCost] = useState(0)
   const [mountCost, setMountCost] = useState(0)
   const [deliveryCost, setDeliveryCost] = useState(0)
@@ -27,31 +30,37 @@ export function BulkCtsModal({ open, onClose, tireIds }) {
 
   if (!open) return null
 
-  const previewCts = computeCts({ cost, mountCost, deliveryCost, otherCost })
+  const sampleFet = num(tires[0]?.fet)
+  const previewCts = computeCts({
+    cost: num(cost),
+    fet: sampleFet,
+    mountCost: num(mountCost),
+    deliveryCost: num(deliveryCost),
+    otherCost: num(otherCost),
+  })
 
   async function handleSave() {
-    if (tireIds.length === 0) return
-    const payload = {
-      cost: num(cost),
-      mountCost: num(mountCost),
-      deliveryCost: num(deliveryCost),
-      otherCost: num(otherCost),
-      cts: computeCts({
-        cost: num(cost),
-        mountCost: num(mountCost),
-        deliveryCost: num(deliveryCost),
-        otherCost: num(otherCost),
-      }),
-    }
-
+    if (tires.length === 0) return
     setSaving(true)
     try {
       const chunkSize = 400
-      for (let i = 0; i < tireIds.length; i += chunkSize) {
-        const chunk = tireIds.slice(i, i + chunkSize)
+      for (let i = 0; i < tires.length; i += chunkSize) {
+        const chunk = tires.slice(i, i + chunkSize)
         const batch = writeBatch(db)
-        for (const id of chunk) {
-          batch.update(doc(db, 'tires', id), payload)
+        for (const t of chunk) {
+          const fet = num(t.fet)
+          const c = num(cost)
+          const m = num(mountCost)
+          const d = num(deliveryCost)
+          const o = num(otherCost)
+          const cts = computeCts({ cost: c, fet, mountCost: m, deliveryCost: d, otherCost: o })
+          batch.update(doc(db, 'tires', t.id), {
+            cost: c,
+            mountCost: m,
+            deliveryCost: d,
+            otherCost: o,
+            cts,
+          })
         }
         await batch.commit()
       }
@@ -80,46 +89,32 @@ export function BulkCtsModal({ open, onClose, tireIds }) {
         className={`${MODAL_CENTER_PANEL} border-zinc-700 bg-zinc-950 p-6`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2
-          id="bulk-cts-title"
-          className="text-lg font-semibold text-zinc-100"
-        >
+        <h2 id="bulk-cts-title" className="text-lg font-semibold text-zinc-100">
           Bulk edit CTS
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Apply the same cost stack to{' '}
-          <span className="font-medium text-zinc-300">{tireIds.length}</span>{' '}
-          selected tire{tireIds.length === 1 ? '' : 's'}. CTS preview:{' '}
-          <span className="font-mono text-amber-200/90">
-            ${previewCts.toFixed(2)}
-          </span>
+          Apply the same buy price and add-on costs to{' '}
+          <span className="font-medium text-zinc-300">{tires.length}</span> selected tire
+          {tires.length === 1 ? '' : 's'}. Each row&apos;s CTS includes its own catalog FET. Sample
+          preview (first SKU&apos;s FET):{' '}
+          <span className="font-mono text-amber-200/90">${previewCts.toFixed(2)}</span>
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <NumberField
-            label="Cost"
+            label="Buy price (per tire)"
             value={cost}
             onChange={setCost}
             id="bulk-cost"
           />
-          <NumberField
-            label="Mount"
-            value={mountCost}
-            onChange={setMountCost}
-            id="bulk-mount"
-          />
+          <NumberField label="Mount" value={mountCost} onChange={setMountCost} id="bulk-mount" />
           <NumberField
             label="Delivery"
             value={deliveryCost}
             onChange={setDeliveryCost}
             id="bulk-delivery"
           />
-          <NumberField
-            label="Other"
-            value={otherCost}
-            onChange={setOtherCost}
-            id="bulk-other"
-          />
+          <NumberField label="Other" value={otherCost} onChange={setOtherCost} id="bulk-other" />
         </div>
 
         <div className="mt-8 flex flex-wrap justify-end gap-2">
@@ -134,7 +129,7 @@ export function BulkCtsModal({ open, onClose, tireIds }) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || tireIds.length === 0}
+            disabled={saving || tires.length === 0}
             className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save to all selected'}
