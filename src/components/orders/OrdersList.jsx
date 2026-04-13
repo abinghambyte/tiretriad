@@ -539,7 +539,18 @@ export function OrdersList({ highlightId }) {
                   ) : null}
                 </div>
                 {refShort ? (
-                  <p className="font-mono text-[10px] tracking-wide text-zinc-600">{refShort}</p>
+                  <p className="flex items-center gap-1.5 font-mono text-[10px] tracking-wide text-zinc-600">
+                    {o.priceDiscrepancy != null ? (
+                      <span
+                        className="text-amber-400"
+                        title="Kyle's price differs from system — check before charging."
+                        aria-label="Price discrepancy"
+                      >
+                        ⚠️
+                      </span>
+                    ) : null}
+                    <span>{refShort}</span>
+                  </p>
                 ) : null}
               </div>
 

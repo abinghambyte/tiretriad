@@ -104,8 +104,12 @@ service cloud.firestore {
     }
 
     match /meta/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow read: if docId == 'creditTracker'
+        ? signedIn() && userRole() == 'admin'
+        : signedIn();
+      allow write: if docId == 'creditTracker'
+        ? signedIn() && userRole() == 'admin'
+        : false;
     }
 
     match /ghostContacts/{phoneId} {

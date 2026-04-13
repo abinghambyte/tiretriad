@@ -8,10 +8,15 @@ const {
   frictionScoreCancelled,
 } = require('./orderMetrics')
 const { resetDjStreak, upsertGhostForOrder } = require('./orderLifecycle')
+const {
+  tryHandleCreditBlockActions,
+  tryHandleCreditViewSubmission,
+} = require('./creditTrackerSlack')
 
 const MODAL_REJECT = 'order_modal_reject'
 const MODAL_SCHEDULE = 'order_modal_schedule'
 const MODAL_CANCEL = 'order_modal_cancel'
+const MODAL_KYLE_PRICE = 'order_modal_kyle_price'
 
 const CANCEL_DISPOSITIONS = [
   { value: 'ghost', label: 'Customer ghosted', icon: '👻' },
@@ -69,6 +74,81 @@ function logisticsLabel(method) {
 function orderFromSnap(snap) {
   const d = snap.data() || {}
   return { id: snap.id, ...d }
+}
+
+function buildPendingPriceCheckBlocks(orderId, d) {
+  const px = d.priceCheckSnapshot || {}
+  const sysPrice = Number(px.sysPrice) || 0
+  const fet = Number(px.fet) || 0
+  const combined = Number(px.systemCombined) || sysPrice + fet
+  const desc = escapeSlackMrkdwn(px.description || '—')
+  const mspn = escapeSlackMrkdwn(px.mspn || d.mspn || '—')
+  const text = [
+    '*🔍 Price check*',
+    '',
+    `${desc} (MSPN \`${mspn}\`)`,
+    '',
+    `*Our system shows:* $${sysPrice.toFixed(2)}/tire + $${fet.toFixed(2)} FET`,
+    `*Combined:* $${combined.toFixed(2)}/tire (buy + FET)`,
+  ].join('\n')
+  return [
+    { type: 'section', text: { type: 'mrkdwn', text } },
+    {
+      type: 'actions',
+      block_id: 'price_check_actions',
+      elements: [
+        {
+          type: 'button',
+          text: {
+            type: 'plain_text',
+            text: `Matches system ✓  $${combined.toFixed(2)}/tire`,
+            emoji: true,
+          },
+          style: 'primary',
+          action_id: 'price_check_match',
+          value: orderId,
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Different — enter price ↗', emoji: true },
+          action_id: 'price_check_different',
+          value: orderId,
+        },
+      ],
+    },
+  ]
+}
+
+function kylePriceOverrideModalView(orderId, d) {
+  const px = d.priceCheckSnapshot || {}
+  const sysPrice = Number(px.sysPrice) || 0
+  return {
+    type: 'modal',
+    callback_id: MODAL_KYLE_PRICE,
+    private_metadata: JSON.stringify({ orderId }),
+    title: { type: 'plain_text', text: 'Kyle price' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Close' },
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `System buy (before FET): *$${sysPrice.toFixed(2)}* / tire\nEnter *your* current price per tire *before FET*.`,
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'kyle_price_block',
+        label: { type: 'plain_text', text: 'Your current price per tire (before FET)' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'kyle_price_field',
+          multiline: false,
+        },
+      },
+    ],
+  }
 }
 
 function buildStage1Blocks(orderId, d) {
@@ -293,6 +373,9 @@ function blocksForOrderState(o) {
     case 'prospective':
       return buildProspectivePipelineBlocks(o)
     case 'pending':
+      if (o.pendingKylePriceCheck && o.priceCheckSnapshot) {
+        return buildPendingPriceCheckBlocks(o.id, o)
+      }
       return buildStage1Blocks(o.id, {
         mspn: o.mspn,
         quantity: o.quantity,
@@ -515,6 +598,8 @@ async function executeOrderCancellation(db, token, envChannel, snap, disposition
     cancelledAt: FieldValue.serverTimestamp(),
     stageAtCancellation: st,
     frictionScore,
+    pendingKylePriceCheck: FieldValue.delete(),
+    priceCheckSnapshot: FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
   }
   if (repeatGhost) patch.repeatGhost = true
@@ -559,9 +644,13 @@ function staticSelectValue(view, blockId, elementActionId) {
 
 async function handleSlackPayload(db, token, envChannel, payload) {
   if (payload.type === 'view_submission') {
+    const cr = await tryHandleCreditViewSubmission(db, token, envChannel, payload)
+    if (cr.handled) return cr
     return handleViewSubmission(db, token, envChannel, payload)
   }
   if (payload.type === 'block_actions') {
+    const cr = await tryHandleCreditBlockActions(db, token, envChannel, payload)
+    if (cr.handled) return cr
     return handleBlockActions(db, token, envChannel, payload)
   }
   return { kind: 'empty' }
@@ -570,6 +659,89 @@ async function handleSlackPayload(db, token, envChannel, payload) {
 async function handleViewSubmission(db, token, envChannel, payload) {
   const view = payload.view
   const cb = view?.callback_id
+
+  if (cb === MODAL_KYLE_PRICE) {
+    let meta = {}
+    try {
+      meta = JSON.parse(view.private_metadata || '{}')
+    } catch {
+      return { kind: 'json', body: { response_action: 'clear' } }
+    }
+    const orderId = meta.orderId
+    if (!orderId) return { kind: 'json', body: { response_action: 'clear' } }
+
+    const ref = db.collection('orders').doc(orderId)
+    const snap = await ref.get()
+    if (!snap.exists) {
+      return { kind: 'json', body: { response_action: 'clear' } }
+    }
+    if (snap.get('status') !== 'pending' || !snap.get('pendingKylePriceCheck')) {
+      return { kind: 'json', body: { response_action: 'clear' } }
+    }
+
+    const px = snap.get('priceCheckSnapshot') || {}
+    const systemPrice = Number(px.sysPrice) || 0
+    const qty = Number(snap.get('quantity')) || 0
+    const kylePriceRaw = inputValue(view, 'kyle_price_block', 'kyle_price_field')
+    const kylePrice = Number(kylePriceRaw)
+    if (!Number.isFinite(kylePrice) || kylePrice < 0) {
+      return {
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { kyle_price_block: 'Enter a valid price per tire (before FET).' },
+        },
+      }
+    }
+
+    const delta = kylePrice - systemPrice
+    const totalDelta = delta * qty
+    const now = Date.now()
+    const createdAt = snap.get('createdAt')
+    const saleToAvailableMinutes = minutesBetweenTsAndMs(createdAt, now)
+
+    const patch = {
+      status: 'available',
+      kyleConfirmedAt: FieldValue.serverTimestamp(),
+      saleToAvailableMinutes,
+      kyleConfirmMinutes: saleToAvailableMinutes,
+      pendingKylePriceCheck: FieldValue.delete(),
+      priceCheckSnapshot: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+    if (Math.abs(delta) > 0.005) {
+      patch.kylePriceOverride = kylePrice
+      patch.priceDiscrepancy = delta
+    }
+    await ref.update(patch)
+
+    if (Math.abs(delta) > 0.005 && token && envChannel) {
+      const sign = delta > 0 ? '+' : ''
+      const sysComb = Number(px.systemCombined) || systemPrice + (Number(px.fet) || 0)
+      await slackApiPost(token, 'chat.postMessage', {
+        channel: envChannel,
+        text: `Price discrepancy on order ${orderId}`,
+        blocks: [
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: [
+                `⚠️ *Price discrepancy* on order \`#${escapeSlackMrkdwn(orderId)}\``,
+                `*System buy (before FET):* $${systemPrice.toFixed(2)} | *Combined w/ FET:* $${sysComb.toFixed(2)}/tire`,
+                `*Kyle's actual (before FET):* $${kylePrice.toFixed(2)}`,
+                `*Delta:* ${sign}$${Math.abs(delta).toFixed(2)} per tire × ${qty} = ${sign}$${Math.abs(totalDelta).toFixed(2)} total`,
+                '_Order advanced to Available — review before charging._',
+              ].join('\n'),
+            },
+          },
+        ],
+      })
+    }
+
+    await refreshSlackMessage(db, token, envChannel, orderId)
+    return { kind: 'json', body: { response_action: 'clear' } }
+  }
 
   let meta = {}
   try {
@@ -598,6 +770,8 @@ async function handleViewSubmission(db, token, envChannel, payload) {
       status: 'rejected',
       rejectionReason: reason || '—',
       kyleRejectedAt: FieldValue.serverTimestamp(),
+      pendingKylePriceCheck: FieldValue.delete(),
+      priceCheckSnapshot: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     })
     await refreshSlackMessage(db, token, envChannel, orderId)
@@ -724,7 +898,31 @@ async function handleBlockActions(db, token, envChannel, payload) {
       return { kind: 'empty' }
     }
     case 'confirm_availability': {
-      if (o.status !== 'pending') return { kind: 'empty' }
+      if (o.status !== 'pending' || o.pendingKylePriceCheck) return { kind: 'empty' }
+      const mspn = String(o.mspn || '').trim()
+      const tireSnap = await db.collection('tires').doc(mspn).get()
+      const tire = tireSnap.exists ? tireSnap.data() : {}
+      const sysPrice = Number(tire.price ?? tire.cost) || 0
+      const fet = Number(tire.fet) || 0
+      const description =
+        String(tire.description || tire.tread || o.mspn || '').trim() || '—'
+      const systemCombined = sysPrice + fet
+      await ref.update({
+        pendingKylePriceCheck: true,
+        priceCheckSnapshot: {
+          description,
+          mspn,
+          sysPrice,
+          fet,
+          systemCombined,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      await refreshSlackMessage(db, token, envChannel, orderId)
+      return { kind: 'empty' }
+    }
+    case 'price_check_match': {
+      if (o.status !== 'pending' || !o.pendingKylePriceCheck) return { kind: 'empty' }
       const now = Date.now()
       const createdAt = snap.get('createdAt')
       const saleToAvailableMinutes = minutesBetweenTsAndMs(createdAt, now)
@@ -733,9 +931,16 @@ async function handleBlockActions(db, token, envChannel, payload) {
         kyleConfirmedAt: FieldValue.serverTimestamp(),
         saleToAvailableMinutes,
         kyleConfirmMinutes: saleToAvailableMinutes,
+        pendingKylePriceCheck: FieldValue.delete(),
+        priceCheckSnapshot: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       })
       await refreshSlackMessage(db, token, envChannel, orderId)
+      return { kind: 'empty' }
+    }
+    case 'price_check_different': {
+      if (o.status !== 'pending' || !o.pendingKylePriceCheck) return { kind: 'empty' }
+      await slackViewsOpen(token, triggerId, kylePriceOverrideModalView(orderId, o))
       return { kind: 'empty' }
     }
     case 'confirm_possession': {

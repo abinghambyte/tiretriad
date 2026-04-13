@@ -7,6 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
+import { CreditTrackerCard } from './CreditTrackerCard.jsx'
 import { ProjectCard } from './ProjectCard'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 
@@ -364,6 +365,11 @@ export function Dashboard() {
             )
           })}
         </div>
+        {!profileGate && profile?.role === 'admin' ? (
+          <div className="mx-auto mt-10 max-w-xl">
+            <CreditTrackerCard />
+          </div>
+        ) : null}
       </main>
     </div>
   )

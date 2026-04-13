@@ -26,6 +26,7 @@ const {
   e164DocIdFromContact,
 } = require('./orderMetrics')
 const { incrementDjStreak, applyHatTrick } = require('./orderLifecycle')
+const { handleCreditSlashCommand } = require('./creditTrackerSlack')
 const {
   checkAccessExpiryRun,
   processElevationRevertsRun,
@@ -694,19 +695,8 @@ exports.slackActions = onRequest(async (req, res) => {
   }
 
   let payload
-  try {
-    const params = new URLSearchParams(rawBody)
-    const payloadStr = params.get('payload')
-    if (!payloadStr) {
-      res.status(400).send('Missing payload')
-      return
-    }
-    payload = JSON.parse(payloadStr)
-  } catch (e) {
-    console.error('slackActions: bad payload', e)
-    res.status(400).send('Bad payload')
-    return
-  }
+  const params = new URLSearchParams(rawBody)
+  const payloadStr = params.get('payload')
 
   const token = process.env.SLACK_BOT_TOKEN
   if (!token) {
@@ -716,6 +706,35 @@ exports.slackActions = onRequest(async (req, res) => {
 
   const db = admin.firestore()
   const envChannel = slackChannelEnv()
+
+  if (!payloadStr) {
+    const cmd = params.get('command')
+    if (cmd) {
+      try {
+        const form = Object.fromEntries(params.entries())
+        const slashBody = await handleCreditSlashCommand(db, token, envChannel, form)
+        if (slashBody) {
+          res.setHeader('Content-Type', 'application/json')
+          res.status(200).send(JSON.stringify(slashBody))
+          return
+        }
+      } catch (e) {
+        console.error('slackActions slash', e)
+      }
+      res.status(200).send('')
+      return
+    }
+    res.status(400).send('Missing payload')
+    return
+  }
+
+  try {
+    payload = JSON.parse(payloadStr)
+  } catch (e) {
+    console.error('slackActions: bad payload', e)
+    res.status(400).send('Bad payload')
+    return
+  }
 
   try {
     const result = await handleSlackPayload(db, token, envChannel, payload)
