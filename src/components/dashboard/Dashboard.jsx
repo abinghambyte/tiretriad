@@ -238,15 +238,18 @@ export function Dashboard() {
     {
       title: 'Ops Command',
       description:
-        'Future tire-business ops signals and runbooks — standing dashboards for Skedaddle operations (not carrier fleet ops).',
-      stat: 'Standing signals classified',
-      status: 'Buildout',
+        'Expenses, tax-prep CSV export, reorder queue, and inbound SMS relay to Slack (#fleet-ops).',
+      stat: 'Admin runway',
+      status: 'Live',
       accent: 'zinc',
       icon: <IconOpsCommand />,
+      to: '/ops',
+      adminOnly: true,
     },
   ]
 
   const visibleModules = modules.filter((m) => {
+    if (m.adminOnly && profile?.role !== 'admin') return false
     if (!m.moduleKey) return true
     return permissionMeets(permissionFor(m.moduleKey), m.minLevel)
   })

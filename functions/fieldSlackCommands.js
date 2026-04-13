@@ -21,6 +21,7 @@ const { incrementDjStreak, applyHatTrick } = require('./orderLifecycle')
 const { runCompletionTransaction, computePoolDollars } = require('./financeStats')
 const { sendSinchSms, normalizeToE164 } = require('./sinchSms')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
+const { ensureRepeatCustomerVip } = require('./contactVip')
 const { denverYmd, parseWindowToHourRange } = require('./scheduleAvailability')
 
 function escapeSlackMrkdwn(s) {
@@ -319,6 +320,11 @@ async function handleDone(db, token, fleetChannel, text) {
         )
     } catch (e) {
       console.error('slash /done contacts', e)
+    }
+    try {
+      await ensureRepeatCustomerVip(db, phoneKey)
+    } catch (e) {
+      console.error('slash /done VIP flag', e)
     }
   }
 

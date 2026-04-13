@@ -282,7 +282,14 @@ export function ContactsPage({ embedded = false }) {
                         className="cursor-pointer border-b border-zinc-800/80 hover:bg-zinc-900/50"
                         onClick={() => void openPanel(c)}
                       >
-                        <td className="px-3 py-2 font-medium text-zinc-200">{c.name || '—'}</td>
+                        <td className="px-3 py-2 font-medium text-zinc-200">
+                          {c.isVip ? (
+                            <span className="mr-1 text-amber-300" title="VIP customer">
+                              ⭐
+                            </span>
+                          ) : null}
+                          {c.name || '—'}
+                        </td>
                         <td className="px-3 py-2 font-mono text-xs text-zinc-400">{displayPhone(c.id)}</td>
                         <td className="px-3 py-2 text-zinc-300">{formatQty(c.orderCount ?? 0)}</td>
                         <td className="px-3 py-2 text-zinc-300">
@@ -315,7 +322,14 @@ export function ContactsPage({ embedded = false }) {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-white">{selected.name || '—'}</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  {selected.isVip ? (
+                    <span className="mr-1 text-amber-300" title="VIP customer">
+                      ⭐
+                    </span>
+                  ) : null}
+                  {selected.name || '—'}
+                </h2>
                 <p className="mt-1 font-mono text-xs text-zinc-500">{displayPhone(selected.id)}</p>
                 {ghostCount != null && ghostCount >= 2 ? (
                   <p className="mt-2 text-xs font-medium text-amber-300/90">

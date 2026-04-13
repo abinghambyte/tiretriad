@@ -48,18 +48,30 @@ const navCls =
   'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] font-medium text-zinc-500 transition hover:text-zinc-300'
 const activeCls = 'text-amber-300'
 
+function IconOps() {
+  return (
+    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path strokeLinecap="round" d="M6 8h12M6 12h8M6 16h10" />
+      <rect x="4" y="5" width="16" height="14" rx="2" className="opacity-40" />
+    </svg>
+  )
+}
+
 export function MobileBottomNav() {
-  const { permissionFor } = useUserProfile()
+  const { permissionFor, profile } = useUserProfile()
   const canTires = permissionMeets(permissionFor('tires'), 'view')
   const canCrm = permissionMeets(permissionFor('crm'), 'view')
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
   const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
+
+  const canOps = profile?.role === 'admin'
 
   const items = [
     canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
     canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
     canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
     canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
+    canOps ? { to: '/ops', label: 'Ops', icon: <IconOps /> } : null,
   ].filter(Boolean)
 
   if (items.length === 0) return null

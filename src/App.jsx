@@ -9,6 +9,7 @@ import { InvitePage } from './pages/InvitePage'
 import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
 import { LandingPage } from './pages/LandingPage'
 import { OrdersPage } from './pages/OrdersPage'
+import { OpsPage } from './pages/OpsPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { TiresPage } from './pages/TiresPage'
 import { ProtectedRoute } from './routes/ProtectedRoute'
@@ -67,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute module="people" level="manage">
               <PeoplePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ops"
+          element={
+            <ProtectedRoute>
+              <OpsPage />
             </ProtectedRoute>
           }
         />

@@ -120,7 +120,30 @@ service cloud.firestore {
         ? signedIn() && userRole() == 'admin'
         : docId == 'scheduleSettings'
           ? signedIn() && canManagePeople()
-          : false;
+          : docId == 'reorderQueue'
+            ? signedIn()
+              && userRole() == 'admin'
+              && (
+                !exists(/databases/$(database)/documents/meta/$(docId))
+                && request.resource.data.keys().hasOnly(['entries', 'updatedAt'])
+                || exists(/databases/$(database)/documents/meta/$(docId))
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries', 'updatedAt'])
+              )
+            : false;
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if signedIn() && userRole() == 'admin';
+      allow create: if signedIn()
+        && userRole() == 'admin'
+        && request.resource.data.keys().hasOnly(['amount', 'category', 'note', 'date', 'loggedBy', 'createdAt'])
+        && request.resource.data.amount is number
+        && request.resource.data.category in ['fuel', 'supplies', 'tools', 'other']
+        && request.resource.data.note is string
+        && request.resource.data.date is string
+        && request.resource.data.loggedBy is string
+        && request.resource.data.createdAt is timestamp;
+      allow update, delete: if signedIn() && userRole() == 'admin';
     }
 
     match /ghostContacts/{phoneId} {

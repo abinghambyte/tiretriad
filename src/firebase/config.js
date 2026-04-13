@@ -25,6 +25,8 @@ const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-2WQ1W7MCFD',
 }
 
+export const firebaseProjectId = firebaseConfig.projectId
+
 export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)

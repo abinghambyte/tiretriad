@@ -14,6 +14,10 @@ const {
   tryHandleCreditBlockActions,
   tryHandleCreditViewSubmission,
 } = require('./creditTrackerSlack')
+const {
+  tryHandleSmsReplyBlockActions,
+  tryHandleSmsReplyViewSubmission,
+} = require('./smsReplySlack')
 
 const MODAL_REJECT = 'order_modal_reject'
 const MODAL_SCHEDULE = 'order_modal_schedule'
@@ -646,11 +650,15 @@ function staticSelectValue(view, blockId, elementActionId) {
 
 async function handleSlackPayload(db, token, envChannel, payload) {
   if (payload.type === 'view_submission') {
+    const sms = await tryHandleSmsReplyViewSubmission(db, token, envChannel, payload)
+    if (sms.handled) return sms
     const cr = await tryHandleCreditViewSubmission(db, token, envChannel, payload)
     if (cr.handled) return cr
     return handleViewSubmission(db, token, envChannel, payload)
   }
   if (payload.type === 'block_actions') {
+    const sms = await tryHandleSmsReplyBlockActions(db, token, envChannel, payload)
+    if (sms.handled) return sms
     const cr = await tryHandleCreditBlockActions(db, token, envChannel, payload)
     if (cr.handled) return cr
     return handleBlockActions(db, token, envChannel, payload)

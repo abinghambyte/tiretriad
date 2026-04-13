@@ -44,6 +44,9 @@ const {
 const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
 const { kyleScorecardRun } = require('./kyleScorecard')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
+const { ensureRepeatCustomerVip } = require('./contactVip')
+const { buildTaxPrepCsv } = require('./taxPrepExport')
+const { handleInboundSmsRequest } = require('./inboundSms')
 const { crmStaleCheckRun } = require('./crmStaleCheck')
 const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
@@ -498,6 +501,11 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     } catch (e) {
       console.error('completeOrder contacts upsert', e)
     }
+    try {
+      await ensureRepeatCustomerVip(db, phoneKey)
+    } catch (e) {
+      console.error('completeOrder VIP flag', e)
+    }
   }
 
   await incrementDjStreak(db)
@@ -562,6 +570,37 @@ exports.cancelOrderFromPortal = onCall({ secrets: SLACK_SECRETS }, async (reques
       throw new HttpsError('not-found', msg)
     }
     throw new HttpsError('failed-precondition', msg)
+  }
+})
+
+/** Admin-only: completed orders in a Denver calendar range as tax-prep CSV (plain numbers). */
+exports.exportTaxPrepCsv = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = admin.firestore()
+  const u = await db.collection('users').doc(request.auth.uid).get()
+  if (!u.exists || String(u.get('role') || '') !== 'admin') {
+    throw new HttpsError('permission-denied', 'Admin only.')
+  }
+  const data = request.data || {}
+  const startYmd = String(data.startYmd || '').trim()
+  const endYmd = String(data.endYmd || '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) {
+    throw new HttpsError('invalid-argument', 'startYmd and endYmd must be YYYY-MM-DD (Denver calendar).')
+  }
+  if (startYmd > endYmd) {
+    throw new HttpsError('invalid-argument', 'Start date must be on or before end date.')
+  }
+  try {
+    const csv = await buildTaxPrepCsv(db, { startYmd, endYmd })
+    return {
+      csv,
+      fileName: `tax-prep-orders-${startYmd}_to_${endYmd}.csv`,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new HttpsError('invalid-argument', msg)
   }
 })
 
@@ -721,6 +760,19 @@ exports.submitMechanicIntake = submitMechanicIntake
  * Slack Interactivity — block_actions + view_submission.
  * https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
  */
+/**
+ * Sinch inbound SMS (MO) → Slack #fleet-ops + Reply button (interactivity via slackActions).
+ * https://us-central1-skedaddle-inventory.cloudfunctions.net/inboundSms
+ */
+exports.inboundSms = onRequest({ cors: true, secrets: SLACK_SECRETS }, async (req, res) => {
+  try {
+    await handleInboundSmsRequest(req, res, admin.firestore())
+  } catch (e) {
+    console.error('inboundSms', e)
+    if (!res.headersSent) res.status(500).send('error')
+  }
+})
+
 exports.slackActions = onRequest(
   { secrets: SLACK_ACTIONS_SECRETS },
   async (req, res) => {
