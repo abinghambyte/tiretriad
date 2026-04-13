@@ -12,13 +12,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
-
-function formatMoney(n) {
-  if (n == null || Number.isNaN(Number(n))) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-    Number(n),
-  )
-}
+import { formatCurrency, formatQty } from '../utils/format'
 
 function logisticsLine(o) {
   const f = String(o.fulfillment || '').toLowerCase()
@@ -166,7 +160,7 @@ export function WallPage({ embedded = false }) {
                       ✅
                     </span>
                     <span className="font-mono text-sm font-medium text-zinc-100">
-                      {o.mspn} × {o.quantity}
+                      {o.mspn} × {formatQty(o.quantity)}
                     </span>
                     {o.hatTrickDay ? (
                       <span className="text-xs" title="Hat trick day">
@@ -188,7 +182,7 @@ export function WallPage({ embedded = false }) {
                     ) : null}
                   </div>
                   <p className="text-sm font-semibold text-emerald-200">
-                    {formatMoney(o.paymentAmount)}
+                    {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '—'}
                   </p>
                 </div>
                 <p className="mt-2 text-sm text-zinc-300">{o.customerName || '—'}</p>

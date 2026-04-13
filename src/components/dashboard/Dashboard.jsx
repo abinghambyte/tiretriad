@@ -7,6 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
+import { formatCurrency, formatPercent } from '../../utils/format'
 import { CreditTrackerCard } from './CreditTrackerCard.jsx'
 import { ProjectCard } from './ProjectCard'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
@@ -142,7 +143,7 @@ export function Dashboard() {
     const { avgMarginPriced } = tireSku
     const marginStr =
       avgMarginPriced != null && !Number.isNaN(avgMarginPriced)
-        ? `${avgMarginPriced.toFixed(1)}% avg margin (overhead basis)`
+        ? `${formatPercent(avgMarginPriced, 1)} avg margin (overhead basis)`
         : 'margin pending — missing buy prices on some SKUs'
     return `${catalogSkuDisplay} SKUs · ${marginStr}`
   }, [tireSku, catalogSkuDisplay])
@@ -168,10 +169,7 @@ export function Dashboard() {
     const n = completedOrders.count ?? 0
     const rev = completedOrders.revenue ?? 0
     if (n === 0) return 'No completed orders yet'
-    const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-      rev,
-    )
-    return `${n} orders completed · ${money} total`
+    return `${n} orders completed · ${formatCurrency(rev)} total`
   }, [completedOrders])
 
   async function handleSignOut() {

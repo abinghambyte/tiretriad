@@ -16,12 +16,7 @@ import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 
-function formatMoney(n) {
-  if (n == null || Number.isNaN(Number(n))) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-    Number(n),
-  )
-}
+import { formatCurrency } from '../utils/format'
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -286,7 +281,9 @@ export function ContactsPage({ embedded = false }) {
                         <td className="px-3 py-2 font-medium text-zinc-200">{c.name || '—'}</td>
                         <td className="px-3 py-2 font-mono text-xs text-zinc-400">{displayPhone(c.id)}</td>
                         <td className="px-3 py-2 text-zinc-300">{c.orderCount ?? 0}</td>
-                        <td className="px-3 py-2 text-zinc-300">{formatMoney(c.totalSpend)}</td>
+                        <td className="px-3 py-2 text-zinc-300">
+                          {Number.isFinite(Number(c.totalSpend)) ? formatCurrency(c.totalSpend) : '—'}
+                        </td>
                         <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(c.lastOrderAt)}</td>
                         <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-500">
                           {c.notes || '—'}
@@ -362,7 +359,8 @@ export function ContactsPage({ embedded = false }) {
                     className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-400"
                   >
                     <span className="font-mono text-zinc-200">{o.mspn}</span> × {o.quantity} ·{' '}
-                    {o.status} · {formatMoney(o.paymentAmount)}
+                    {o.status} ·{' '}
+                    {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '—'}
                     <div className="mt-1 text-[10px] text-zinc-600">{formatTs(o.createdAt)}</div>
                     {o.debrief?.notes ? (
                       <p className="mt-2 border-t border-zinc-800/80 pt-2 text-[11px] text-zinc-500">

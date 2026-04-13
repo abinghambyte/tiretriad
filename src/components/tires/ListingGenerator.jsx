@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { buildListingScript } from '../../utils/listingGenerator'
+import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 
 const PLATFORMS = [
@@ -22,7 +23,7 @@ function initLines(tires) {
   for (const t of tires) {
     init[t.id] = {
       qty: 4,
-      price: Number(t.retailPrice ?? t.price ?? t.cost) || 0,
+      price: tireCatalogBuyNumber(t),
     }
   }
   return init

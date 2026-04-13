@@ -2,6 +2,8 @@
  * Credit limit tracker — Slack slash commands + Block Kit (meta/creditTracker).
  */
 const { FieldValue } = require('firebase-admin/firestore')
+const { formatCurrency } = require('./format')
+const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 
 const MODAL_CREDIT_CHARGE_EDIT = 'credit_modal_charge_edit'
 
@@ -9,12 +11,6 @@ const CREDIT_REF = (db) => db.collection('meta').doc('creditTracker')
 
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function money(n) {
-  const x = Number(n)
-  if (!Number.isFinite(x)) return '$0.00'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(x)
 }
 
 async function slackApiPost(token, method, body) {
@@ -136,14 +132,14 @@ function buildChargeConfirmationBlocks(draft, afterAvailable) {
         type: 'mrkdwn',
         text: [
           `*${draft.qty}* × ${escapeSlackMrkdwn(draft.description)} (MSPN \`${escapeSlackMrkdwn(draft.mspn)}\`)`,
-          `*Buy basis (before FET):* ${money(buy)} + FET ${money(fet)} → *${money(combinedCharge)}* / tire`,
+          `*Buy basis (before FET):* ${formatCurrency(buy)} + FET ${formatCurrency(fet)} → *${formatCurrency(combinedCharge)}* / tire`,
           ...(basisDiffers
             ? [
-                `_Catalog buy (before FET):_ ${money(catalogBuy)} → buy+FET _${money(catalogCombined)}_ / tire`,
+                `_Catalog buy (before FET):_ ${formatCurrency(catalogBuy)} → buy+FET _${formatCurrency(catalogCombined)}_ / tire`,
               ]
             : []),
-          `*Total:* ${money(totalResolved)}`,
-          `*Available after charge:* ${money(afterAvailable)}`,
+          `*Total:* ${formatCurrency(totalResolved)}`,
+          `*Available after charge:* ${formatCurrency(afterAvailable)}`,
         ].join('\n'),
       },
     },
@@ -241,7 +237,7 @@ async function handleSlashCharge(db, token, text) {
     return { response_type: 'ephemeral', text: `No tire found for MSPN \`${mspn}\`.` }
   }
   const tire = tireSnap.data() || {}
-  const catalogBuy = Number(tire.price ?? tire.cost) || 0
+  const catalogBuy = tireCatalogBuyNumber(tire)
   const fet = Number(tire.fet) || 0
   const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'
 
@@ -288,7 +284,7 @@ async function handleSlashCharge(db, token, text) {
   try {
     await slackApiPost(token, 'chat.postMessage', {
       channel: fleetCh,
-      text: `Charge preview · ${qty}×${mspn} · ${money(total)}`,
+      text: `Charge preview · ${qty}×${mspn} · ${formatCurrency(total)}`,
       blocks,
     })
   } catch (e) {
@@ -345,13 +341,13 @@ async function handleSlashPayment(db, token, channel, text, userName) {
 
   await slackApiPost(token, 'chat.postMessage', {
     channel: channel || slackChannelEnv(),
-    text: `Payment ${money(amt)} recorded`,
+    text: `Payment ${formatCurrency(amt)} recorded`,
     blocks: [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `✅ Payment of ${money(amt)} recorded by *${escapeSlackMrkdwn(userName || 'user')}*.\n*New balance:* ${money(newBal)} · *Available:* ${money(avail)}`,
+          text: `✅ Payment of ${formatCurrency(amt)} recorded by *${escapeSlackMrkdwn(userName || 'user')}*.\n*New balance:* ${formatCurrency(newBal)} · *Available:* ${formatCurrency(avail)}`,
         },
       },
     ],
@@ -377,7 +373,7 @@ async function handleSlashBalance(db, token, envChannel) {
         .slice(0, 8)
         .map(
           (r) =>
-            `• ${money(Number(r.amount) || 0)}${r.label ? ` — ${escapeSlackMrkdwn(r.label)}` : ''}`,
+            `• ${formatCurrency(Number(r.amount) || 0)}${r.label ? ` — ${escapeSlackMrkdwn(r.label)}` : ''}`,
         )
         .join('\n')
     : '_None_'
@@ -385,11 +381,11 @@ async function handleSlashBalance(db, token, envChannel) {
 
   const text = [
     '*💳 Credit snapshot*',
-    `*Limit:* ${money(limit)}`,
-    `*Current balance:* ${money(bal)}`,
-    `*Available buying power:* ${money(avail)} _(limit − balance)_`,
+    `*Limit:* ${formatCurrency(limit)}`,
+    `*Current balance:* ${formatCurrency(bal)}`,
+    `*Available buying power:* ${formatCurrency(avail)} _(limit − balance)_`,
     '',
-    `_Pending charges (log, not subtracted from available):_ ${money(pendingTotal)} · ${pendingCount} line(s)`,
+    `_Pending charges (log, not subtracted from available):_ ${formatCurrency(pendingTotal)} · ${pendingCount} line(s)`,
     '',
     '*Refund pipeline (active):*',
     refundLines,
@@ -400,7 +396,7 @@ async function handleSlashBalance(db, token, envChannel) {
     try {
       await slackApiPost(token, 'chat.postMessage', {
         channel: ch,
-        text: `Credit · available ${money(avail)}`,
+        text: `Credit · available ${formatCurrency(avail)}`,
         blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }],
       })
     } catch (e) {
@@ -543,13 +539,13 @@ async function tryHandleCreditBlockActions(db, token, envChannel, payload) {
       await slackApiPost(token, 'chat.update', {
         channel,
         ts,
-        text: `Charge confirmed · ${money(draft.total)}`,
+        text: `Charge confirmed · ${formatCurrency(draft.total)}`,
         blocks: [
           {
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `✅ *Charge confirmed* — ${draft.qty}× \`${escapeSlackMrkdwn(draft.mspn)}\` · ${money(draft.total)} (${escapeSlackMrkdwn(user)})`,
+              text: `✅ *Charge confirmed* — ${draft.qty}× \`${escapeSlackMrkdwn(draft.mspn)}\` · ${formatCurrency(draft.total)} (${escapeSlackMrkdwn(user)})`,
             },
           },
         ],
@@ -610,7 +606,7 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
     }
   }
   const tire = tireSnap.data() || {}
-  const catalogBuy = Number(tire.price ?? tire.cost) || 0
+  const catalogBuy = tireCatalogBuyNumber(tire)
   const fet = Number(tire.fet) || 0
   const total = qty * (pricePerTire + fet)
   const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'

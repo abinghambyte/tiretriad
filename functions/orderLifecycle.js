@@ -2,6 +2,7 @@
  * DJ streak, ghost contacts, hat trick Slack celebration.
  */
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
+const { formatCurrency } = require('./format')
 const { e164DocIdFromContact, utcDayRangeMs } = require('./orderMetrics')
 
 async function resetDjStreak(db) {
@@ -105,7 +106,7 @@ async function applyHatTrick(db, token, envChannel, completedMs) {
   const text = [
     '🎩 *Hat trick.* Three orders completed today.',
     mspns.map((m) => `\`${m}\``).join(', '),
-    `*$${revenue.toFixed(2)}* combined revenue`,
+    `*${formatCurrency(revenue)}* combined revenue`,
   ].join('\n')
 
   await slackApiPost(token, 'chat.postMessage', {

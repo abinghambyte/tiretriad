@@ -1,3 +1,5 @@
+import { formatCurrency } from './format'
+
 /**
  * @param {object} d
  * @param {string} d.mspn
@@ -20,7 +22,7 @@ export function formatSaleMessage(d) {
     '',
     `SKU: ${d.mspn}`,
     `Qty: ${d.quantity}`,
-    `Price: $${Number(d.pricePerTire).toFixed(2)} each / $${Number(d.totalPrice).toFixed(2)} total`,
+    `Price: ${formatCurrency(Number(d.pricePerTire))} each / ${formatCurrency(Number(d.totalPrice))} total`,
     '',
     `Customer: ${d.customerName}`,
     `Contact: ${d.customerContact}`,

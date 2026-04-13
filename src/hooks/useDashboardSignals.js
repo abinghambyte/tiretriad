@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { db } from '../firebase/config'
 import { useTires } from './useTires'
 import { computeMargin } from '../utils/marginCalc'
+import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
 
 const CATALOG_SKU_DISPLAY = 1160
 
@@ -21,7 +22,7 @@ export function useDashboardSignals() {
 
   const tireSku = useMemo(() => {
     if (tiresLoading) return { pricedCount: null, avgMarginPriced: null, loading: true }
-    const priced = tires.filter((t) => Number(t.price ?? t.cost) > 0)
+    const priced = tires.filter((t) => tireCatalogBuyNumber(t) > 0)
     const pricedCount = priced.length
     const margins = priced
       .map((t) => computeMargin(t))

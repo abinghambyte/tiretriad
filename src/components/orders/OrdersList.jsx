@@ -23,6 +23,7 @@ import {
   MODAL_CENTER_BACKDROP,
   MODAL_CENTER_PANEL_BASE,
 } from '../ui/modalChrome.js'
+import { formatPercent, formatQty } from '../../utils/format'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -518,7 +519,7 @@ export function OrdersList({ highlightId }) {
                         className="inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-800/40"
                         title={
                           o.pricingAnomalyPct != null
-                            ? `Price ~${o.pricingAnomalyPct}% below catalog buy`
+                            ? `Price ~${formatPercent(o.pricingAnomalyPct, 0)} below catalog buy`
                             : 'Pricing anomaly vs catalog'
                         }
                       >
@@ -527,7 +528,7 @@ export function OrdersList({ highlightId }) {
                     ) : null}
                   </div>
                   <p className="mt-2 font-mono text-sm text-zinc-200">
-                    {o.mspn} × {o.quantity}
+                    {o.mspn} × {formatQty(o.quantity)}
                   </p>
                   <p className="text-xs text-zinc-500">
                     {o.customerName} · {o.customerContact}
@@ -662,7 +663,7 @@ export function OrdersList({ highlightId }) {
           <div className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}>
             <h2 className="text-sm font-semibold text-white">Cancel order</h2>
             <p className="mt-1 font-mono text-xs text-zinc-500">
-              {cancelFor.mspn} × {cancelFor.quantity}
+              {cancelFor.mspn} × {formatQty(cancelFor.quantity)}
             </p>
             <label className="mt-4 block text-xs font-medium text-zinc-500">
               Why cancel?

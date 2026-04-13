@@ -4,6 +4,7 @@
  */
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
+const { formatCurrency } = require('./format')
 
 function slackChannelEnv() {
   return (
@@ -189,7 +190,7 @@ async function morningBriefRun() {
     lines.push('💰  Yesterday: quiet.')
   } else {
     lines.push(
-      `💰  Yesterday: $${yesterdayRevenue.toFixed(2)} across ${yesterdayCount} order${yesterdayCount === 1 ? '' : 's'}`,
+      `💰  Yesterday: ${formatCurrency(yesterdayRevenue)} across ${yesterdayCount} order${yesterdayCount === 1 ? '' : 's'}`,
     )
   }
 

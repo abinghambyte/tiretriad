@@ -3,6 +3,8 @@
  * @see docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
 const { FieldValue } = require('firebase-admin/firestore')
+const { formatCurrency } = require('./format')
+const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 const {
   minutesBetweenTsAndMs,
   frictionScoreCancelled,
@@ -88,8 +90,8 @@ function buildPendingPriceCheckBlocks(orderId, d) {
     '',
     `${desc} (MSPN \`${mspn}\`)`,
     '',
-    `*Our system shows:* $${sysPrice.toFixed(2)}/tire + $${fet.toFixed(2)} FET`,
-    `*Combined:* $${combined.toFixed(2)}/tire (buy + FET)`,
+    `*Our system shows:* ${formatCurrency(sysPrice)}/tire + ${formatCurrency(fet)} FET`,
+    `*Combined:* ${formatCurrency(combined)}/tire (buy + FET)`,
   ].join('\n')
   return [
     { type: 'section', text: { type: 'mrkdwn', text } },
@@ -101,7 +103,7 @@ function buildPendingPriceCheckBlocks(orderId, d) {
           type: 'button',
           text: {
             type: 'plain_text',
-            text: `Matches system ✓  $${combined.toFixed(2)}/tire`,
+            text: `Matches system ✓  ${formatCurrency(combined)}/tire`,
             emoji: true,
           },
           style: 'primary',
@@ -134,7 +136,7 @@ function kylePriceOverrideModalView(orderId, d) {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `System buy (before FET): *$${sysPrice.toFixed(2)}* / tire\nEnter *your* current price per tire *before FET*.`,
+          text: `System buy (before FET): *${formatCurrency(sysPrice)}* / tire\nEnter *your* current price per tire *before FET*.`,
         },
       },
       {
@@ -158,7 +160,7 @@ function buildStage1Blocks(orderId, d) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(d.mspn)}`,
     `*Qty:* ${d.quantity}`,
-    `*Price:* $${Number(d.pricePerTire).toFixed(2)} each / $${Number(d.totalPrice).toFixed(2)} total`,
+    `*Price:* ${formatCurrency(Number(d.pricePerTire))} each / ${formatCurrency(Number(d.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(d.customerName)}`,
     `*Contact:* ${escapeSlackMrkdwn(d.customerContact)}`,
     `*Fulfillment:* ${escapeSlackMrkdwn(d.fulfillment)}`,
@@ -204,7 +206,7 @@ function buildStage2AvailableBlocks(o) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
     `*Qty:* ${o.quantity}`,
-    `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
+    `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     `*Contact:* ${escapeSlackMrkdwn(o.customerContact)}`,
     `*Fulfillment:* ${fulfillmentCustomerLabel(o.fulfillment)}`,
@@ -250,7 +252,7 @@ function buildStage2RejectedBlocks(o) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
     `*Qty:* ${o.quantity}`,
-    `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
+    `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     '',
     `❌ Rejected by Kyle — ${fmtTs(o.kyleRejectedAt)}`,
     `*Reason:* ${escapeSlackMrkdwn(o.rejectionReason || '—')}`,
@@ -268,7 +270,7 @@ function buildStage3ScheduledBlocks(o) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
     `*Qty:* ${o.quantity}`,
-    `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
+    `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     `*Fulfillment:* ${fulfillmentCustomerLabel(o.fulfillment)}`,
     '',
@@ -323,7 +325,7 @@ function buildStage4InTransitBlocks(o) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
     `*Qty:* ${o.quantity}`,
-    `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
+    `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Customer:* ${escapeSlackMrkdwn(o.customerName)}`,
     '',
     `✅ Kyle confirmed → DJ scheduled (${timeStr}) → DJ has tires ${fmtTs(o.djPossessionAt)}`,
@@ -356,7 +358,7 @@ function buildProspectivePipelineBlocks(o) {
     '',
     `*SKU:* ${escapeSlackMrkdwn(o.mspn)}`,
     `*Qty:* ${o.quantity}`,
-    `*Price:* $${Number(o.pricePerTire).toFixed(2)} each / $${Number(o.totalPrice).toFixed(2)} total`,
+    `*Price:* ${formatCurrency(Number(o.pricePerTire))} each / ${formatCurrency(Number(o.totalPrice))} total`,
     `*Notes:* ${escapeSlackMrkdwn(notes)}`,
     '',
     '_Created from the portal tire catalog._',
@@ -720,12 +722,12 @@ async function handleViewSubmission(db, token, envChannel, payload) {
       const absTot = Math.abs(totalDelta)
       const dirLine =
         delta > 0
-          ? `Kyle paid *$${absD.toFixed(2)} more* per tire than system price ($${systemPrice.toFixed(2)} before FET).`
-          : `Kyle paid *$${absD.toFixed(2)} less* per tire than system price ($${systemPrice.toFixed(2)} before FET).`
+          ? `Kyle paid *${formatCurrency(absD)} more* per tire than system price (${formatCurrency(systemPrice)} before FET).`
+          : `Kyle paid *${formatCurrency(absD)} less* per tire than system price (${formatCurrency(systemPrice)} before FET).`
       const totLine =
         delta > 0
-          ? `Across *${qty}* tire(s), that's *$${absTot.toFixed(2)} more* on the order than system cost.`
-          : `Across *${qty}* tire(s), that's *$${absTot.toFixed(2)} less* on the order than system cost.`
+          ? `Across *${qty}* tire(s), that's *${formatCurrency(absTot)} more* on the order than system cost.`
+          : `Across *${qty}* tire(s), that's *${formatCurrency(absTot)} less* on the order than system cost.`
       const sysComb = Number(px.systemCombined) || systemPrice + (Number(px.fet) || 0)
       await slackApiPost(token, 'chat.postMessage', {
         channel: envChannel,
@@ -739,8 +741,8 @@ async function handleViewSubmission(db, token, envChannel, payload) {
                 `⚠️ *Price discrepancy* on order \`#${escapeSlackMrkdwn(orderId)}\``,
                 dirLine,
                 totLine,
-                `*System buy (before FET):* $${systemPrice.toFixed(2)} · *Buy + FET:* $${sysComb.toFixed(2)}/tire`,
-                `*Kyle's actual (before FET):* $${kylePrice.toFixed(2)}`,
+                `*System buy (before FET):* ${formatCurrency(systemPrice)} · *Buy + FET:* ${formatCurrency(sysComb)}/tire`,
+                `*Kyle's actual (before FET):* ${formatCurrency(kylePrice)}`,
                 '_Order advanced to Available — review before charging._',
               ].join('\n'),
             },
@@ -912,7 +914,7 @@ async function handleBlockActions(db, token, envChannel, payload) {
       const mspn = String(o.mspn || '').trim()
       const tireSnap = await db.collection('tires').doc(mspn).get()
       const tire = tireSnap.exists ? tireSnap.data() : {}
-      const sysPrice = Number(tire.price ?? tire.cost) || 0
+      const sysPrice = tireCatalogBuyNumber(tire)
       const fet = Number(tire.fet) || 0
       const description =
         String(tire.description || tire.tread || o.mspn || '').trim() || '—'
@@ -990,7 +992,7 @@ async function postOrderCompletionSummary(token, envChannel, order, portalBaseUr
     `🔧 *${escapeSlackMrkdwn(order.mspn)}* × ${order.quantity}`,
     `👤 ${escapeSlackMrkdwn(order.customerName)}`,
     `📦 ${logistics} → ${custFul}`,
-    `💰 $${Number.isFinite(pay) ? pay.toFixed(2) : '—'} received`,
+    `💰 ${Number.isFinite(pay) ? formatCurrency(pay) : '—'} received`,
     `⏱ Fulfilled in ${timeStr}`,
     '🤝 Kyle → DJ → Customer',
     hat,

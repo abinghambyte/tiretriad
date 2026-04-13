@@ -5,12 +5,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
+import { formatCurrency, formatPercent } from '../utils/format'
 import { WallPage } from './WallPage'
-
-function formatMoney(n) {
-  if (n == null || Number.isNaN(Number(n))) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(n))
-}
 
 const TAB_IDS = ['wall', 'metrics', 'revenue']
 
@@ -171,7 +167,7 @@ export function AnalyticsPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <MetricCard
                   label="Total revenue (sample)"
-                  value={formatMoney(metrics.totalRevenue)}
+                  value={formatCurrency(metrics.totalRevenue)}
                   hint={`Based on up to ${completedRows.length} most recent completed orders.`}
                 />
                 <MetricCard
@@ -186,7 +182,7 @@ export function AnalyticsPage() {
                 <MetricCard
                   label="Poke → conversion rate"
                   value={
-                    metrics.pokeRate != null ? `${(metrics.pokeRate * 100).toFixed(1)}%` : '—'
+                    metrics.pokeRate != null ? formatPercent(metrics.pokeRate * 100, 1) : '—'
                   }
                   hint="Share of completed orders where convertedAfterPoke is true."
                 />

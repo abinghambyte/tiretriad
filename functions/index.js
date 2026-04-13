@@ -3,6 +3,8 @@
  * @see docs/SKEDADDLE-MASTER.md · docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
 const crypto = require('crypto')
+const { formatCurrency, formatPercent } = require('./format')
+const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { setGlobalOptions } = require('firebase-functions/v2')
@@ -51,7 +53,7 @@ function formatSaleMessage(d) {
     '',
     `SKU: ${d.mspn}`,
     `Qty: ${d.quantity}`,
-    `Price: $${Number(d.pricePerTire).toFixed(2)} each / $${Number(d.totalPrice).toFixed(2)} total`,
+    `Price: ${formatCurrency(Number(d.pricePerTire))} each / ${formatCurrency(Number(d.totalPrice))} total`,
     '',
     `Customer: ${d.customerName}`,
     `Contact: ${d.customerContact}`,
@@ -184,7 +186,7 @@ async function notifyTeamSlackBot(db, d) {
     const tireSnap = await db.collection('tires').doc(d.mspn).get()
     if (tireSnap.exists) {
       const td = tireSnap.data() || {}
-      const catalogBuy = Number(td.price ?? td.cost ?? td.retailPrice)
+      const catalogBuy = tireCatalogBuyNumber(td)
       const ppt = Number(d.pricePerTire)
       if (Number.isFinite(catalogBuy) && catalogBuy > 0 && Number.isFinite(ppt)) {
         const discount = (catalogBuy - ppt) / catalogBuy
@@ -197,7 +199,7 @@ async function notifyTeamSlackBot(db, d) {
           })
           await slackApiPost(token, 'chat.postMessage', {
             channel,
-            text: `⚠️ Pricing check — Order ${orderId}: $${ppt.toFixed(2)}/tire is ${pct}% below catalog buy ($${catalogBuy.toFixed(2)}). Intentional?`,
+            text: `⚠️ Pricing check — Order ${orderId}: ${formatCurrency(ppt)}/tire is ${formatPercent(pct, 0)} below catalog buy (${formatCurrency(catalogBuy)}). Intentional?`,
           })
         }
       }

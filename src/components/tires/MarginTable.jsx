@@ -6,6 +6,8 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeMargin, marginBadgeClass, marginBadgeLabel } from '../../utils/marginCalc'
+import { formatCurrency, formatPercent } from '../../utils/format'
+import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 
 /** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
 const ROW_BASE_PX = 48
@@ -27,16 +29,13 @@ const GRID_STYLE = {
   columnGap: 0,
 }
 
-function formatMoney(n) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
+function fmtMoney(n) {
+  if (n == null || Number.isNaN(Number(n))) return '—'
+  return formatCurrency(n)
 }
 
 function buyPriceOf(row) {
-  const n = Number(row?.price ?? row?.cost)
+  const n = tireCatalogBuyNumber(row)
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
@@ -150,7 +149,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
       <span
         className={`inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-xs font-medium ${marginBadgeClass(previewMargin)}`}
       >
-        {`${previewMargin.toFixed(1)}% `}
+        {`${formatPercent(previewMargin, 1)} `}
         <span className="ml-1 opacity-80">{marginBadgeLabel(previewMargin)}</span>
       </span>
     ) : (
@@ -163,7 +162,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         }
       >
         {previewMargin != null && !Number.isNaN(previewMargin)
-          ? `${previewMargin.toFixed(1)}%`
+          ? formatPercent(previewMargin, 1)
           : '—'}
       </span>
     )
@@ -193,23 +192,23 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           />
         </div>
         <p className="w-full font-mono text-[11px] leading-relaxed text-zinc-400">
-          Overhead = {formatMoney(Number(overheadDraft.mountCost) || 0)} mount +{' '}
-          {formatMoney(Number(overheadDraft.deliveryCost) || 0)} delivery +{' '}
-          {formatMoney(Number(overheadDraft.otherCost) || 0)} other ={' '}
-          <span className="text-amber-200/90">{formatMoney(draftOverheadTotal)}</span>
+          Overhead = {fmtMoney(Number(overheadDraft.mountCost) || 0)} mount +{' '}
+          {fmtMoney(Number(overheadDraft.deliveryCost) || 0)} delivery +{' '}
+          {fmtMoney(Number(overheadDraft.otherCost) || 0)} other ={' '}
+          <span className="text-amber-200/90">{fmtMoney(draftOverheadTotal)}</span>
           {' · '}
           Margin ={' '}
           <span className="text-amber-200/90">
             {(() => {
               const pm = previewMarginWhileEditing(row, overheadDraft)
-              return pm != null && !Number.isNaN(pm) ? `${pm.toFixed(1)}%` : '—'
+              return pm != null && !Number.isNaN(pm) ? formatPercent(pm, 1) : '—'
             })()}
           </span>
         </p>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <p className="text-xs text-zinc-500">
             Overhead after save:{' '}
-            <span className="font-mono text-amber-200/90">{formatMoney(draftOverheadTotal)}</span>
+            <span className="font-mono text-amber-200/90">{fmtMoney(draftOverheadTotal)}</span>
           </p>
           <div className="flex gap-2">
             <button
@@ -278,7 +277,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               {row.mspn || '—'}
             </div>
             <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1 text-xs text-zinc-300">
-              {buyPriceOf(row) > 0 ? formatMoney(buyPriceOf(row)) : '—'}
+              {buyPriceOf(row) > 0 ? fmtMoney(buyPriceOf(row)) : '—'}
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
@@ -290,7 +289,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               {row.lr || '—'}
             </div>
             <div className="flex w-11 shrink-0 items-center justify-center px-0.5 font-mono text-[9px] text-zinc-500">
-              {formatMoney(Number(row.fet) || 0)}
+              {fmtMoney(Number(row.fet) || 0)}
             </div>
             <div className="flex w-[72px] shrink-0 items-center justify-center px-1">
               {showGradeEditor ? (
@@ -342,7 +341,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                   editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
                 }`}
               >
-                {formatMoney(effectiveCts(row))}
+                {fmtMoney(effectiveCts(row))}
               </button>
             </div>
             <div className="flex min-w-[100px] shrink-0 items-center truncate px-2 text-xs text-zinc-500">
@@ -439,13 +438,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           className="truncate px-2 text-right font-mono text-xs text-zinc-300 tabular-nums"
           title="Buy (Kyle) — catalog buy price (includes FET component)"
         >
-          {buyPriceOf(row) > 0 ? formatMoney(buyPriceOf(row)) : '—'}
+          {buyPriceOf(row) > 0 ? fmtMoney(buyPriceOf(row)) : '—'}
         </div>
         <div
           className="truncate px-1 text-center font-mono text-[11px] text-zinc-400 tabular-nums"
           title="FET — shown for reference; already included in Buy (Kyle)"
         >
-          {formatMoney(Number(row.fet) || 0)}
+          {fmtMoney(Number(row.fet) || 0)}
         </div>
         <div className="flex items-center justify-end px-2">
           <button
@@ -455,7 +454,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
             }`}
           >
-            {formatMoney(effectiveCts(row))}
+            {fmtMoney(effectiveCts(row))}
           </button>
         </div>
         <div className="flex items-center justify-end px-2">{marginCell}</div>

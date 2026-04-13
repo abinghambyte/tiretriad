@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { doc, writeBatch } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts } from '../../utils/ctsCalc'
+import { formatCurrency } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
 
 function num(v) {
@@ -89,7 +90,7 @@ export function BulkCtsModal({ open, onClose, tires }) {
           <span className="font-medium text-zinc-300">{tires.length}</span> selected tire
           {tires.length === 1 ? '' : 's'}. FET stays in Kyle&apos;s buy price and is not changed.
           Preview overhead total:{' '}
-          <span className="font-mono text-amber-200/90">${previewOverhead.toFixed(2)}</span>
+          <span className="font-mono text-amber-200/90">{formatCurrency(previewOverhead)}</span>
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">

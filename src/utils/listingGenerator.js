@@ -1,3 +1,5 @@
+import { formatCurrency } from './format'
+
 const REASONS = [
   'Upgrading to a different spec for our fleet.',
   'Ordered extras — don’t need them all.',
@@ -116,7 +118,7 @@ export function buildListingScript({ tire, qty, pricePer, platform }) {
     '',
     tireUseCaseLine(tire),
     '',
-    `💰 $${pricePer.toFixed(2)} each / $${total.toFixed(2)} for the set`,
+    `💰 ${formatCurrency(pricePer)} each / ${formatCurrency(total)} for the set`,
     `📦 SKU: ${mspn}`,
     '',
     platformNote

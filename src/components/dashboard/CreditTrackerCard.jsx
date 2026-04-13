@@ -1,12 +1,7 @@
 import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
 import { db } from '../../firebase/config'
-
-function money(n) {
-  const x = Number(n)
-  if (!Number.isFinite(x)) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(x)
-}
+import { formatCurrency } from '../../utils/format'
 
 function sumPending(charges) {
   if (!Array.isArray(charges)) return { total: 0, count: 0, items: [] }
@@ -147,7 +142,7 @@ export function CreditTrackerCard({ compact = false }) {
         <div className={compact ? 'text-right sm:min-w-[8rem]' : ''}>
           <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Available</p>
           <p className={`font-bold tabular-nums ${availClass} ${compact ? 'text-xl sm:text-2xl' : 'mt-1 text-3xl'}`}>
-            {money(avail)}
+            {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
           </p>
         </div>
       </div>
@@ -161,16 +156,16 @@ export function CreditTrackerCard({ compact = false }) {
       >
         <div className={compact ? 'flex justify-between gap-2 sm:block' : 'flex justify-between gap-4'}>
           <dt className="text-zinc-500">Limit</dt>
-          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>{money(data.cardLimit)}</dd>
+          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>{formatCurrency(data.cardLimit)}</dd>
         </div>
         <div className={compact ? 'flex justify-between gap-2 sm:block' : 'flex justify-between gap-4'}>
           <dt className="text-zinc-500">Balance</dt>
-          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>{money(data.currentBalance)}</dd>
+          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>{formatCurrency(data.currentBalance)}</dd>
         </div>
         <div className={compact ? 'col-span-2 flex justify-between gap-2 sm:col-auto sm:block' : 'flex justify-between gap-4'}>
           <dt className="text-zinc-500">Pending (log)</dt>
           <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>
-            {money(pending.total)}{' '}
+            {formatCurrency(pending.total)}{' '}
             <span className="text-zinc-500">
               ({pending.count} {pending.count === 1 ? 'line' : 'lines'})
             </span>
@@ -188,7 +183,7 @@ export function CreditTrackerCard({ compact = false }) {
               {pendingSlice.map((c) => (
                 <li key={c.id || `${c.mspn}-${c.total}`} className="flex justify-between gap-2 border-b border-zinc-800/60 pb-1">
                   <span className="truncate font-mono text-zinc-400">{c.mspn}</span>
-                  <span className="shrink-0 font-mono">{money(c.total)}</span>
+                  <span className="shrink-0 font-mono">{formatCurrency(c.total)}</span>
                 </li>
               ))}
             </ul>
@@ -201,7 +196,7 @@ export function CreditTrackerCard({ compact = false }) {
               {refundSlice.map((r, i) => (
                 <li key={r.id || `r-${i}`} className="flex justify-between gap-2">
                   <span className="truncate text-zinc-400">{r.label || 'Refund'}</span>
-                  <span className="shrink-0 font-mono">{money(r.amount)}</span>
+                  <span className="shrink-0 font-mono">{formatCurrency(r.amount)}</span>
                 </li>
               ))}
             </ul>

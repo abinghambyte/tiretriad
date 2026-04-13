@@ -1,5 +1,7 @@
 import { computeCts } from './ctsCalc'
 import { computeMargin } from './marginCalc'
+import { formatCurrency, formatPercent } from './format'
+import { tireCatalogBuyNumber } from './tireCatalogBuy'
 
 function csvEscape(value) {
   const s = String(value ?? '')
@@ -29,9 +31,8 @@ export function exportMarginCsv(rows) {
 
   for (const row of rows) {
     const m = computeMargin(row)
-    const marginStr =
-      m != null && !Number.isNaN(m) ? m.toFixed(2) : ''
-    const buyPrice = Number(row.price ?? row.cost) || 0
+    const marginStr = m != null && !Number.isNaN(m) ? formatPercent(m, 2) : ''
+    const buyPrice = tireCatalogBuyNumber(row)
     const mountCost = Number(row.mountCost) || 0
     const deliveryCost = Number(row.deliveryCost) || 0
     const otherCost = Number(row.otherCost) || 0
@@ -44,13 +45,13 @@ export function exportMarginCsv(rows) {
         csvEscape(row.description),
         csvEscape(row.mspn),
         csvEscape(row.lr),
-        buyPrice.toFixed(2),
-        fet.toFixed(2),
-        mountCost.toFixed(2),
-        deliveryCost.toFixed(2),
-        otherCost.toFixed(2),
-        overheadTotal.toFixed(2),
-        marginStr,
+        csvEscape(formatCurrency(buyPrice)),
+        csvEscape(formatCurrency(fet)),
+        csvEscape(formatCurrency(mountCost)),
+        csvEscape(formatCurrency(deliveryCost)),
+        csvEscape(formatCurrency(otherCost)),
+        csvEscape(formatCurrency(overheadTotal)),
+        csvEscape(marginStr),
         csvEscape(row.category),
       ].join(','),
     )

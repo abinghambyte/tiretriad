@@ -1,4 +1,5 @@
 import { effectiveCts } from './ctsCalc'
+import { tireCatalogBuyNumber } from './tireCatalogBuy'
 
 /**
  * Markup headroom vs Kyle buy: ((buyPrice − overhead) / buyPrice) × 100.
@@ -7,7 +8,7 @@ import { effectiveCts } from './ctsCalc'
  * @returns {number | null}
  */
 export function computeMargin(tire) {
-  const buyPrice = Number(tire?.price ?? tire?.cost) || 0
+  const buyPrice = tireCatalogBuyNumber(tire)
   if (!buyPrice || buyPrice === 0) return null
   const overhead = effectiveCts(tire)
   return ((buyPrice - overhead) / buyPrice) * 100

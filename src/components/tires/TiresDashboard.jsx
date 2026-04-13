@@ -10,6 +10,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
 import { computeMargin } from '../../utils/marginCalc'
+import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
@@ -147,8 +148,8 @@ export function TiresDashboard() {
         return dir * String(a.brand || '').localeCompare(String(b.brand || ''))
       }
       if (sortKey === 'buy') {
-        const av = Number(a.price ?? a.cost) || 0
-        const bv = Number(b.price ?? b.cost) || 0
+        const av = tireCatalogBuyNumber(a)
+        const bv = tireCatalogBuyNumber(b)
         if (av === bv) return 0
         return av < bv ? -dir : dir
       }
@@ -280,7 +281,7 @@ export function TiresDashboard() {
     const ctx = selectionPrimaryMspnRows()
     if (!ctx) return
     const first = ctx.rows[0]
-    const pricePerTire = Number(first.price ?? first.cost)
+    const pricePerTire = tireCatalogBuyNumber(first)
     if (!Number.isFinite(pricePerTire) || pricePerTire <= 0) {
       window.alert('Selected tire needs a valid buy price (Kyle catalog price) for a prospective order.')
       return

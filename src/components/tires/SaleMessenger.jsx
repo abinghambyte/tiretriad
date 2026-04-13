@@ -6,6 +6,8 @@ import { phoneDocIdFromContact } from '../../utils/phoneDocId'
 import { formatSaleMessage } from '../../utils/saleMessenger'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
 import { cmdEnterSubmitKeyDown } from '../../utils/cmdEnterSubmit.js'
+import { formatCurrency } from '../../utils/format'
+import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 
 /** One callable instance — same reference as form submit and DEV test button. */
 const sendTireSaleSms = httpsCallable(functions, 'sendTireSaleSms')
@@ -44,9 +46,9 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
       const v = String(initialMspn).trim()
       setMspn(v)
       const t = tires.find((x) => x.mspn === v)
-      const ref = t?.retailPrice ?? t?.price ?? t?.cost
-      if (t && ref != null && ref !== '') {
-        setPricePerTire(String(ref))
+      const n = tireCatalogBuyNumber(t)
+      if (t && n > 0) {
+        setPricePerTire(String(n))
       } else {
         setPricePerTire('')
       }
@@ -97,9 +99,9 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
   function handleMspnChange(value) {
     setMspn(value)
     const t = tires.find((x) => x.mspn === value)
-    const ref = t?.retailPrice ?? t?.price ?? t?.cost
-    if (t && ref != null && ref !== '') {
-      setPricePerTire(String(ref))
+    const n = tireCatalogBuyNumber(t)
+    if (t && n > 0) {
+      setPricePerTire(String(n))
     } else {
       setPricePerTire('')
     }
@@ -281,14 +283,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
             </label>
             <input
               readOnly
-              value={
-                totalPrice
-                  ? new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency: 'USD',
-                    }).format(totalPrice)
-                  : '—'
-              }
+              value={totalPrice ? formatCurrency(totalPrice) : '—'}
               className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-400"
             />
           </div>
@@ -318,10 +313,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
                 <span className="font-medium text-zinc-300">👤 {contactRow.name || '—'}</span>
                 {' — '}
                 {contactRow.orderCount ?? 0} orders ·{' '}
-                {new Intl.NumberFormat('en-US', {
-                  style: 'currency',
-                  currency: 'USD',
-                }).format(Number(contactRow.totalSpend) || 0)}{' '}
+                {formatCurrency(Number(contactRow.totalSpend) || 0)}{' '}
                 lifetime
                 <br />
                 <span className="text-zinc-500">
