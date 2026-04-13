@@ -231,7 +231,7 @@ async function handleScheduleDay(db, token, fleetChannel, ymd, title) {
   })
   const openLines = open.map((h) => `• ${hourBlockLabel(h)}`)
   const lines = [
-    `*${title}* · ${escapeSlackMrkdwn(ymd)} (Denver)`,
+    `*${escapeSlackMrkdwn(title)}* · ${escapeSlackMrkdwn(ymd)} (Denver)`,
     '',
     `*Booked (${formatQty(booked.length)}):*`,
     bookedLines.length ? bookedLines.join('\n') : '_None_',
@@ -239,7 +239,7 @@ async function handleScheduleDay(db, token, fleetChannel, ymd, title) {
     `*Open (${formatQty(open.length)}):*`,
     openLines.length ? openLines.join('\n') : '_None_',
   ]
-  await postToFleet(token, fleetChannel, title, [
+  await postToFleet(token, fleetChannel, `${title} ${ymd}`, [
     { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
   ])
   return { response_type: 'ephemeral', text: 'Posted schedule to channel.' }
@@ -248,7 +248,7 @@ async function handleScheduleDay(db, token, fleetChannel, ymd, title) {
 async function handleTomorrow(db, token, fleetChannel) {
   const today = denverYmd()
   const ymd = addDaysYmd(today, 1)
-  return handleScheduleDay(db, token, fleetChannel, ymd, '*📆 Tomorrow · DJ*')
+  return handleScheduleDay(db, token, fleetChannel, ymd, '📆 Tomorrow · DJ')
 }
 
 async function handleWeek(db, token, fleetChannel) {
@@ -382,7 +382,8 @@ async function handleUnblock(db, token, fleetChannel, text) {
   const eh = parseClockToHour(parts[2])
   if (!ymd || sh == null || eh == null) return { response_type: 'ephemeral', text: 'Invalid date or times.' }
   const start = Math.min(sh, eh)
-  const end = Math.max(sh, eh)
+  let end = Math.max(sh, eh)
+  if (end <= start) end = Math.min(OP_END, start + 1)
   const djUid = await requireDjUid(db)
   const { ref, data } = await fetchAvailabilityDay(db, djUid, ymd)
   const prev = Array.isArray(data.blockedSlots) ? data.blockedSlots : []
@@ -482,7 +483,7 @@ async function tryHandleScheduleSlash(db, token, fleetChannel, form) {
     }
     if (command === '/schedule') {
       const ymd = denverYmd()
-      return await handleScheduleDay(db, botToken, ch, ymd, '*📆 Today · DJ*')
+      return await handleScheduleDay(db, botToken, ch, ymd, '📆 Today · DJ')
     }
     if (command === '/tomorrow') {
       return await handleTomorrow(db, botToken, ch)

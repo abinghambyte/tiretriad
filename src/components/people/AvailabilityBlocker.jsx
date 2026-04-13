@@ -274,7 +274,9 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
     try {
       const slots = [...(dayBlocks[ymd] || [])]
       if (kind === 'open') {
-        const reason = window.prompt('Block reason (optional)') || ''
+        const raw = window.prompt('Block reason (optional)')
+        if (raw === null) return
+        const reason = String(raw)
         slots.push({
           start: hour,
           end: Math.min(OP_END, hour + 1),
