@@ -6,7 +6,7 @@
 
 ## Stack
 
-- **Frontend:** React 18 + Vite + Tailwind CSS → Vercel (auto-deploy from GitHub main)
+- **Frontend:** React 19 + Vite + Tailwind CSS → Vercel (auto-deploy from GitHub main)
 - **Backend:** Firebase Cloud Functions Gen2 (Node 22, us-central1) → `npm run deploy:firebase`
 - **Database:** Firestore (project: skedaddle-inventory)
 - **Auth:** Firebase Auth (email/password)

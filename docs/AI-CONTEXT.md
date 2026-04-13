@@ -6,7 +6,7 @@ Private operations portal for a northern Colorado tire resale business.
 Live at skedaddleinc.com | Repo: abinghambyte/skedaddleinc | Auto-deploys to Vercel on push to main.
 
 ## Stack
-- Frontend: React 18 + Vite + Tailwind → Vercel
+- Frontend: React 19 + Vite + Tailwind → Vercel
 - Backend: Firebase Cloud Functions Gen2 (Node 22) → npm run deploy:firebase
 - DB: Firestore (project: skedaddle-inventory)
 - Auth: Firebase Auth
