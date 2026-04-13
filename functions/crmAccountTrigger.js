@@ -2,6 +2,7 @@
  * Firestore onUpdate — Fleet CRM account automations (Phase 9).
  */
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore')
+const { SLACK_SECRETS } = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { computeCrmScore } = require('./crmShared')
@@ -48,6 +49,7 @@ exports.crmAccountTrigger = onDocumentUpdated(
   {
     document: 'crmAccounts/{accountId}',
     region: 'us-central1',
+    secrets: SLACK_SECRETS,
   },
   async (event) => {
     const before = event.data.before.data() || {}

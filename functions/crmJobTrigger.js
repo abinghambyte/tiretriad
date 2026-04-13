@@ -2,6 +2,7 @@
  * Slack when a CRM job is marked Done.
  */
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore')
+const { SLACK_SECRETS } = require('./slackSecrets')
 
 function slackChannelEnv() {
   return (
@@ -31,6 +32,7 @@ exports.crmJobTrigger = onDocumentUpdated(
   {
     document: 'crmJobs/{jobId}',
     region: 'us-central1',
+    secrets: SLACK_SECRETS,
   },
   async (event) => {
     const before = event.data.before.data() || {}

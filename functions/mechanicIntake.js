@@ -2,6 +2,7 @@
  * Public mechanic installer onboarding — Firestore + Slack (#fleet-ops).
  */
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
+const { SLACK_SECRETS } = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue } = require('firebase-admin/firestore')
 
@@ -41,7 +42,7 @@ function asPlainObject(v) {
   }
 }
 
-exports.submitMechanicIntake = onCall(async (request) => {
+exports.submitMechanicIntake = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   const raw = request.data
   if (raw == null || typeof raw !== 'object') {
     throw new HttpsError('invalid-argument', 'Payload required.')

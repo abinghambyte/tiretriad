@@ -1,5 +1,6 @@
 /**
  * Gen2 functions — env via process.env (see functions/.env.example).
+ * Slack bot/signing/channel for select handlers use Secret Manager (defineSecret).
  * @see docs/SKEDADDLE-MASTER.md · docs/PHASE2-ORDER-WORKFLOW-HANDOFF.md
  */
 const crypto = require('crypto')
@@ -8,6 +9,12 @@ const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { setGlobalOptions } = require('firebase-functions/v2')
+const {
+  SLACK_BOT_TOKEN,
+  SLACK_SIGNING_SECRET,
+  SLACK_CHANNEL_ID,
+  SLACK_SECRETS,
+} = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const {
@@ -42,6 +49,20 @@ const { submitMechanicIntake } = require('./mechanicIntake')
 admin.initializeApp()
 
 setGlobalOptions({ region: 'us-central1' })
+
+/** Resolve #fleet-ops target when SLACK_CHANNEL_ID secret is empty (e.g. name-based channel). */
+function slackChannelWithSecretFallback() {
+  const id = SLACK_CHANNEL_ID.value()
+  return id || process.env.SLACK_NOTIFY_CHANNEL || '#fleet-ops'
+}
+
+function slackChannelFromProcessEnv() {
+  return (
+    process.env.SLACK_CHANNEL_ID ||
+    process.env.SLACK_NOTIFY_CHANNEL ||
+    '#fleet-ops'
+  )
+}
 
 function formatSaleMessage(d) {
   const notes = [d.fulfillmentNotes, d.additionalNotes]
@@ -120,25 +141,17 @@ async function notifyTeamWebhook(message) {
   await Promise.all(urls.map((u) => postWebhook(u, message, style)))
 }
 
-function slackChannelEnv() {
-  return (
-    process.env.SLACK_CHANNEL_ID ||
-    process.env.SLACK_NOTIFY_CHANNEL ||
-    '#fleet-ops'
-  )
-}
-
 /**
  * Creates `orders/{id}`, posts Stage 1 Block Kit, stores slack ts + channel on the doc.
+ * @param {{ token: string, channel: string }} slack
  */
-async function notifyTeamSlackBot(db, d) {
-  const token = process.env.SLACK_BOT_TOKEN
-  const channel = slackChannelEnv()
+async function notifyTeamSlackBot(db, d, slack) {
+  const { token, channel } = slack
 
   if (!token) {
     throw new HttpsError(
       'failed-precondition',
-      'SLACK_BOT_TOKEN is not set. Add it to functions/.env for Block Kit + workflow.',
+      'SLACK_BOT_TOKEN is not set. Bind Secret Manager SLACK_BOT_TOKEN to sendTireSaleSms or set legacy env.',
     )
   }
 
@@ -229,7 +242,7 @@ function verifySlackSignature(signingSecret, rawBody, slackSignature, slackReque
 }
 
 /** Kept name for existing clients; Slack notify (Block Kit + bot, or webhook fallback). */
-exports.sendTireSaleSms = onCall(async (request) => {
+exports.sendTireSaleSms = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -272,8 +285,13 @@ exports.sendTireSaleSms = onCall(async (request) => {
   const db = admin.firestore()
 
   try {
-    if (process.env.SLACK_BOT_TOKEN) {
-      const { orderId } = await notifyTeamSlackBot(db, sale)
+    const botToken = SLACK_BOT_TOKEN.value()
+    if (botToken) {
+      const channel = slackChannelWithSecretFallback()
+      const { orderId } = await notifyTeamSlackBot(db, sale, {
+        token: botToken,
+        channel,
+      })
       return { ok: true, mode: 'slack_bot', orderId }
     }
     await notifyTeamWebhook(formatSaleMessage(sale))
@@ -286,7 +304,7 @@ exports.sendTireSaleSms = onCall(async (request) => {
 })
 
 /** Tire availability ping — Block Kit, no order doc (Phase 9). */
-exports.notifyTeamQuick = onCall(async (request) => {
+exports.notifyTeamQuick = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -303,11 +321,11 @@ exports.notifyTeamQuick = onCall(async (request) => {
   if (!mspn) {
     throw new HttpsError('invalid-argument', 'mspn is required.')
   }
-  const token = process.env.SLACK_BOT_TOKEN
+  const token = SLACK_BOT_TOKEN.value()
   if (!token) {
     throw new HttpsError('failed-precondition', 'SLACK_BOT_TOKEN is not configured.')
   }
-  const channel = slackChannelEnv()
+  const channel = slackChannelWithSecretFallback()
   const portalBase = (process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com').replace(
     /\/$/,
     '',
@@ -341,7 +359,7 @@ exports.notifyTeamQuick = onCall(async (request) => {
 /**
  * Mark order completed + post summary to Slack (#fleet-ops).
  */
-exports.completeOrder = onCall(async (request) => {
+exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -470,7 +488,7 @@ exports.completeOrder = onCall(async (request) => {
   await incrementDjStreak(db)
 
   try {
-    await applyHatTrick(db, token, slackChannelEnv(), completedMs)
+    await applyHatTrick(db, token, slackChannelFromProcessEnv(), completedMs)
   } catch (e) {
     console.error('completeOrder: hat trick', e)
   }
@@ -483,7 +501,7 @@ exports.completeOrder = onCall(async (request) => {
   try {
     await postOrderCompletionSummary(
       token,
-      slackChannelEnv(),
+      slackChannelFromProcessEnv(),
       order,
       portalBase,
     )
@@ -499,7 +517,7 @@ exports.completeOrder = onCall(async (request) => {
   }
 })
 
-exports.cancelOrderFromPortal = onCall(async (request) => {
+exports.cancelOrderFromPortal = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -512,7 +530,7 @@ exports.cancelOrderFromPortal = onCall(async (request) => {
   }
   const db = admin.firestore()
   const token = process.env.SLACK_BOT_TOKEN || ''
-  const channel = slackChannelEnv()
+  const channel = slackChannelFromProcessEnv()
   try {
     await runPortalOrderCancellation(
       db,
@@ -603,6 +621,7 @@ exports.checkAccessExpiry = onSchedule(
     schedule: '0 7 * * *',
     timeZone: 'Etc/UTC',
     region: 'us-central1',
+    secrets: SLACK_SECRETS,
   },
   async () => {
     await checkAccessExpiryRun()
@@ -627,6 +646,7 @@ exports.deadStockRadar = onSchedule(
     schedule: '0 13 * * 1',
     timeZone: 'Etc/UTC',
     region: 'us-central1',
+    secrets: SLACK_SECRETS,
   },
   async () => {
     await deadStockRadarRun()
@@ -639,9 +659,12 @@ exports.morningBrief = onSchedule(
     schedule: '0 14 * * 1-5',
     timeZone: 'Etc/UTC',
     region: 'us-central1',
+    secrets: SLACK_SECRETS,
   },
   async () => {
-    await morningBriefRun()
+    const token = SLACK_BOT_TOKEN.value()
+    const channel = slackChannelWithSecretFallback()
+    await morningBriefRun({ token, channel })
   },
 )
 
@@ -651,6 +674,7 @@ exports.crmStaleCheck = onSchedule(
     schedule: '0 14 * * *',
     timeZone: 'Etc/UTC',
     region: 'us-central1',
+    secrets: SLACK_SECRETS,
   },
   async () => {
     await crmStaleCheckRun()
@@ -665,13 +689,15 @@ exports.submitMechanicIntake = submitMechanicIntake
  * Slack Interactivity — block_actions + view_submission.
  * https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
  */
-exports.slackActions = onRequest(async (req, res) => {
+exports.slackActions = onRequest(
+  { secrets: SLACK_SECRETS },
+  async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).send('Method Not Allowed')
     return
   }
 
-  const signingSecret = process.env.SLACK_SIGNING_SECRET
+  const signingSecret = SLACK_SIGNING_SECRET.value()
   if (!signingSecret) {
     console.error('slackActions: SLACK_SIGNING_SECRET not configured')
     res.status(500).send('Server misconfiguration')
@@ -701,14 +727,14 @@ exports.slackActions = onRequest(async (req, res) => {
   const params = new URLSearchParams(rawBody)
   const payloadStr = params.get('payload')
 
-  const token = process.env.SLACK_BOT_TOKEN
+  const token = SLACK_BOT_TOKEN.value()
   if (!token) {
     res.status(500).send('SLACK_BOT_TOKEN not configured')
     return
   }
 
   const db = admin.firestore()
-  const envChannel = slackChannelEnv()
+  const envChannel = slackChannelWithSecretFallback()
 
   if (!payloadStr) {
     const cmd = params.get('command')
@@ -756,4 +782,5 @@ exports.slackActions = onRequest(async (req, res) => {
     }
     res.status(200).send('')
   }
-})
+  }
+)

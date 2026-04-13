@@ -14,10 +14,14 @@ function slackChannelEnv() {
   )
 }
 
-async function slackFleetOpsQuiet(text) {
-  const token = process.env.SLACK_BOT_TOKEN
+/**
+ * @param {string} text
+ * @param {{ token?: string, channel?: string }} [slackOpts] — from Secret Manager when morningBrief passes them
+ */
+async function slackFleetOpsQuiet(text, slackOpts) {
+  const token = slackOpts?.token ?? process.env.SLACK_BOT_TOKEN
   if (!token) return
-  const channel = slackChannelEnv()
+  const channel = slackOpts?.channel ?? slackChannelEnv()
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
@@ -127,10 +131,11 @@ async function fetchWttrLine() {
 
 /**
  * Weekdays 14:00 UTC ≈ 7:00 AM MT — digest to #fleet-ops.
+ * @param {{ token?: string, channel?: string }} [slackOpts] — set by index.js morningBrief when secrets are bound
  */
-async function morningBriefRun() {
+async function morningBriefRun(slackOpts) {
   const db = admin.firestore()
-  const token = process.env.SLACK_BOT_TOKEN
+  const token = slackOpts?.token ?? process.env.SLACK_BOT_TOKEN
   if (!token) {
     console.warn('morningBrief: SLACK_BOT_TOKEN unset')
     return
@@ -204,7 +209,7 @@ async function morningBriefRun() {
     '────────────────────────────',
   )
 
-  await slackFleetOpsQuiet(lines.join('\n'))
+  await slackFleetOpsQuiet(lines.join('\n'), slackOpts)
 }
 
 module.exports = {

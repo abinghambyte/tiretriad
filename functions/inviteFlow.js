@@ -4,6 +4,7 @@
  */
 const crypto = require('crypto')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
+const { SLACK_SECRETS } = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { crewTagFromRole, assertCanManagePeople, normalizeRole } = require('./peopleSystem')
@@ -336,7 +337,7 @@ exports.completeInviteRegistration = onCall(async (request) => {
   return { ok: true, uid }
 })
 
-exports.recordLogin = onCall(async (request) => {
+exports.recordLogin = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
