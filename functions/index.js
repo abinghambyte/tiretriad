@@ -45,6 +45,7 @@ const { crmStaleCheckRun } = require('./crmStaleCheck')
 const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
 const { submitMechanicIntake } = require('./mechanicIntake')
+const { runCompletionTransaction } = require('./financeStats')
 
 admin.initializeApp()
 
@@ -54,14 +55,6 @@ setGlobalOptions({ region: 'us-central1' })
 function slackChannelWithSecretFallback() {
   const id = SLACK_CHANNEL_ID.value()
   return id || process.env.SLACK_NOTIFY_CHANNEL || '#fleet-ops'
-}
-
-function slackChannelFromProcessEnv() {
-  return (
-    process.env.SLACK_CHANNEL_ID ||
-    process.env.SLACK_NOTIFY_CHANNEL ||
-    '#fleet-ops'
-  )
 }
 
 function formatSaleMessage(d) {
@@ -377,7 +370,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     throw new HttpsError('invalid-argument', 'paymentAmount is invalid.')
   }
 
-  const token = process.env.SLACK_BOT_TOKEN
+  const token = SLACK_BOT_TOKEN.value()
   if (!token) {
     throw new HttpsError('failed-precondition', 'SLACK_BOT_TOKEN is not configured.')
   }
@@ -462,7 +455,24 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (phoneKey) {
     completionPatch.contactPhoneKey = phoneKey
   }
-  await ref.update(completionPatch)
+  try {
+    await runCompletionTransaction(db, {
+      orderRef: ref,
+      completionPatch,
+      paymentAmount,
+      completedMs,
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg === 'ORDER_NOT_IN_TRANSIT') {
+      throw new HttpsError('failed-precondition', 'Order must be in_transit to complete.')
+    }
+    if (msg === 'Order not found.') {
+      throw new HttpsError('not-found', 'Order not found.')
+    }
+    console.error('completeOrder transaction', e)
+    throw new HttpsError('internal', `Completion failed: ${msg}`)
+  }
 
   if (phoneKey) {
     try {
@@ -488,7 +498,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   await incrementDjStreak(db)
 
   try {
-    await applyHatTrick(db, token, slackChannelFromProcessEnv(), completedMs)
+    await applyHatTrick(db, token, slackChannelWithSecretFallback(), completedMs)
   } catch (e) {
     console.error('completeOrder: hat trick', e)
   }
@@ -501,7 +511,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   try {
     await postOrderCompletionSummary(
       token,
-      slackChannelFromProcessEnv(),
+      slackChannelWithSecretFallback(),
       order,
       portalBase,
     )
@@ -529,8 +539,8 @@ exports.cancelOrderFromPortal = onCall({ secrets: SLACK_SECRETS }, async (reques
     throw new HttpsError('invalid-argument', 'orderId is required.')
   }
   const db = admin.firestore()
-  const token = process.env.SLACK_BOT_TOKEN || ''
-  const channel = slackChannelFromProcessEnv()
+  const token = SLACK_BOT_TOKEN.value() || ''
+  const channel = slackChannelWithSecretFallback()
   try {
     await runPortalOrderCancellation(
       db,

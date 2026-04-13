@@ -4,6 +4,8 @@
 const { FieldValue } = require('firebase-admin/firestore')
 const { formatCurrency, formatQty } = require('./format')
 const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
+const { SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_SECRETS } = require('./slackSecrets')
+const { tryHandleFinanceSlash } = require('./financeSlackCommands')
 
 const MODAL_CREDIT_CHARGE_EDIT = 'credit_modal_charge_edit'
 
@@ -263,11 +265,11 @@ async function handleSlashCharge(db, token, text) {
   const availBefore = availableBuyingPower(credit)
   const afterAvail = availBefore - total
 
-  const fleetCh = slackChannelEnv()
+  const fleetCh = String(SLACK_CHANNEL_ID.value() || '').trim()
   if (!token || !fleetCh) {
     return {
       response_type: 'ephemeral',
-      text: 'Set `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` (#fleet-ops) so charge previews can be posted.',
+      text: 'Set Secret Manager `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` so charge previews can be posted.',
     }
   }
 
@@ -340,7 +342,7 @@ async function handleSlashPayment(db, token, channel, text, userName) {
   }
 
   await slackApiPost(token, 'chat.postMessage', {
-    channel: channel || slackChannelEnv(),
+    channel: channel || String(SLACK_CHANNEL_ID.value() || '').trim(),
     text: `Payment ${formatCurrency(amt)} recorded`,
     blocks: [
       {
@@ -391,7 +393,7 @@ async function handleSlashBalance(db, token, envChannel) {
     refundLines,
   ].join('\n')
 
-  const ch = envChannel || slackChannelEnv()
+  const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
   if (token && ch) {
     try {
       await slackApiPost(token, 'chat.postMessage', {
@@ -427,14 +429,24 @@ async function handleCreditSlashCommand(db, token, envChannel, form) {
   const channel = String(form.channel_id || envChannel || '')
   const userName = String(form.user_name || form.user_id || 'slack')
 
+  if (!Array.isArray(SLACK_SECRETS) || SLACK_SECRETS.length < 1) {
+    return { response_type: 'ephemeral', text: 'Slack secrets (SLACK_SECRETS) are not configured.' }
+  }
+  const botToken = SLACK_BOT_TOKEN.value() || String(token || '').trim()
+  const fleetChannel =
+    String(channel || envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+
+  const financeResp = await tryHandleFinanceSlash(db, botToken, fleetChannel, form)
+  if (financeResp) return financeResp
+
   if (command === '/charge') {
-    return handleSlashCharge(db, token, text)
+    return handleSlashCharge(db, botToken, text)
   }
   if (command === '/payment') {
-    return handleSlashPayment(db, token, channel, text, userName)
+    return handleSlashPayment(db, botToken, channel, text, userName)
   }
   if (command === '/balance') {
-    return handleSlashBalance(db, token, envChannel)
+    return handleSlashBalance(db, botToken, envChannel)
   }
   return null
 }
@@ -635,7 +647,7 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
   const blocks = buildChargeConfirmationBlocks(draft, afterAvailable)
 
   try {
-    const ch = envChannel || slackChannelEnv()
+    const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
     if (token && ch) {
       await slackApiPost(token, 'chat.postMessage', {
         channel: ch,
@@ -648,10 +660,6 @@ async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
   }
 
   return { handled: true, kind: 'json', body: { response_action: 'clear' } }
-}
-
-function slackChannelEnv() {
-  return process.env.SLACK_CHANNEL_ID || process.env.SLACK_OPS_CHANNEL_ID || ''
 }
 
 module.exports = {
