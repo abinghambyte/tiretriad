@@ -66,6 +66,13 @@ service cloud.firestore {
           'recentLogins',
           'handshakeSeen',
         ]);
+
+      // Crew availability — day docs keyed YYYY-MM-DD (Denver), blockedSlots array.
+      match /availability/{dateId} {
+        allow read: if signedIn() && (request.auth.uid == userId || canManagePeople());
+        allow create, update, delete: if signedIn()
+          && (request.auth.uid == userId || canManagePeople());
+      }
     }
 
     match /inviteTokens/{tokenId} {
@@ -106,10 +113,14 @@ service cloud.firestore {
     match /meta/{docId} {
       allow read: if docId == 'creditTracker'
         ? signedIn() && userRole() == 'admin'
-        : signedIn();
+        : docId == 'scheduleSettings'
+          ? signedIn()
+          : signedIn();
       allow write: if docId == 'creditTracker'
         ? signedIn() && userRole() == 'admin'
-        : false;
+        : docId == 'scheduleSettings'
+          ? signedIn() && canManagePeople()
+          : false;
     }
 
     match /ghostContacts/{phoneId} {

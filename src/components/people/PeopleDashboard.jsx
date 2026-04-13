@@ -16,8 +16,10 @@ import {
   crewTagFromRole,
   MODULE_MATRIX,
   ROLE_DEFAULTS,
+  permissionMeets,
 } from '../../constants/peoplePermissions'
 import { PermissionMatrix } from './PermissionMatrix'
+import { AvailabilityBlocker } from './AvailabilityBlocker.jsx'
 import { cmdEnterInvokeKeyDown } from '../../utils/cmdEnterSubmit.js'
 import {
   MODAL_CENTER_BACKDROP,
@@ -759,6 +761,18 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             ) : (
               <p className="mt-3 text-[11px] text-zinc-600">No active invite token for this user.</p>
             )}
+
+            {profile &&
+            selected &&
+            (permissionMeets(profile.permissions?.people, 'manage') ||
+              selected.id === auth.currentUser?.uid) ? (
+              <AvailabilityBlocker
+                key={selected.id}
+                profile={profile}
+                initialSubjectUid={selected.id}
+                crewUsers={users}
+              />
+            ) : null}
 
             <div className="mt-6 space-y-3">
               <label className="block text-xs text-zinc-500">Role</label>
