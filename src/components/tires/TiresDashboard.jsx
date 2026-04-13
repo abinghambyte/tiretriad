@@ -17,6 +17,8 @@ import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { SaleMessenger } from './SaleMessenger'
+import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
+import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 
 const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
 const notifyTeamQuick = httpsCallable(functions, 'notifyTeamQuick')
@@ -52,6 +54,11 @@ export function TiresDashboard() {
   const [saleInitial, setSaleInitial] = useState(null)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
   const [deadStockOnly, setDeadStockOnly] = useState(false)
+  const [filtersManualOpen, setFiltersManualOpen] = useState(false)
+  const [mobileSelectMode, setMobileSelectMode] = useState(false)
+  const isNarrowForFilters = useMediaQuery('(max-width: 639px)')
+
+  const showFilterPanel = !isNarrowForFilters || filtersManualOpen
 
   const applyFilterPreset = useCallback((p) => {
     setBrand(p.brand ?? '')
@@ -64,6 +71,17 @@ export function TiresDashboard() {
 
   const hasActiveFilters =
     minMargin > 0 || Boolean(brand || category || useTag || lr) || deadStockOnly
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0
+    if (minMargin > 0) n += 1
+    if (brand) n += 1
+    if (category) n += 1
+    if (useTag) n += 1
+    if (lr) n += 1
+    if (deadStockOnly) n += 1
+    return n
+  }, [minMargin, brand, category, useTag, lr, deadStockOnly])
 
   function clearFilters() {
     setMinMargin(0)
@@ -302,8 +320,8 @@ export function TiresDashboard() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               to="/dashboard"
               className="text-sm text-zinc-500 transition hover:text-zinc-200"
@@ -311,37 +329,29 @@ export function TiresDashboard() {
               ← Dashboard
             </Link>
             <span className="hidden h-6 w-px bg-zinc-800 sm:block" aria-hidden />
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
                 Tool
               </p>
-              <h1 className="text-xl font-semibold text-zinc-100">
-                Skedaddle Tires
-              </h1>
+              <h1 className="text-xl font-semibold text-zinc-100">Skedaddle Tires</h1>
+              <div className="mt-2 sm:hidden">
+                <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="hidden text-sm text-zinc-500 lg:inline max-w-[200px] truncate">
-              {user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-500"
-            >
-              Sign out
-            </button>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
           </div>
         </div>
         <div className="border-t border-zinc-800/80 bg-zinc-950/80">
           <nav
-            className="mx-auto flex max-w-7xl gap-1 px-6 sm:pl-8"
+            className="mx-auto flex max-w-7xl gap-1 px-4 sm:px-6 sm:pl-8"
             aria-label="Skedaddle Tires sections"
           >
             <Link
               to="/tires"
               className={[
-                '-mb-px border-b-2 px-4 py-3 text-sm font-medium transition',
+                '-mb-px flex min-h-[44px] min-w-[44px] items-center border-b-2 px-4 py-3 text-sm font-medium transition sm:min-h-0 sm:min-w-0',
                 tab === 'catalog'
                   ? 'border-amber-500 text-amber-100'
                   : 'border-transparent text-zinc-500 hover:text-zinc-300',
@@ -352,7 +362,7 @@ export function TiresDashboard() {
             <Link
               to="/tires?tab=orders"
               className={[
-                '-mb-px border-b-2 px-4 py-3 text-sm font-medium transition',
+                '-mb-px flex min-h-[44px] min-w-[44px] items-center border-b-2 px-4 py-3 text-sm font-medium transition sm:min-h-0 sm:min-w-0',
                 tab === 'orders'
                   ? 'border-amber-500 text-amber-100'
                   : 'border-transparent text-zinc-500 hover:text-zinc-300',
@@ -397,38 +407,63 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
-        <MarginFilters
-          brands={brands}
-          categories={categories}
-          useTags={useTags}
-          lrs={lrs}
-          brand={brand}
-          category={category}
-          useTag={useTag}
-          lr={lr}
-          onBrand={setBrand}
-          onCategory={setCategory}
-          onUseTag={setUseTag}
-          onLr={setLr}
-          minMargin={minMargin}
-          onMinMargin={setMinMargin}
-          deadStockOnly={deadStockOnly}
-          onDeadStockOnly={setDeadStockOnly}
-          hasActiveFilters={hasActiveFilters}
-          onClearAll={clearFilters}
-        />
+        {isNarrowForFilters ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2 sm:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersManualOpen((v) => !v)}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-500"
+              aria-expanded={filtersManualOpen}
+            >
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-semibold text-amber-100 ring-1 ring-amber-800/50">
+                  {activeFilterCount} active
+                </span>
+              ) : (
+                <span className="text-xs font-normal text-zinc-500">· none active</span>
+              )}
+            </button>
+          </div>
+        ) : null}
 
-        <FilterPresetsBar
-          brand={brand}
-          category={category}
-          useTag={useTag}
-          lr={lr}
-          minMargin={minMargin}
-          onApplyPreset={applyFilterPreset}
-        />
+        {showFilterPanel ? (
+          <>
+            <MarginFilters
+              brands={brands}
+              categories={categories}
+              useTags={useTags}
+              lrs={lrs}
+              brand={brand}
+              category={category}
+              useTag={useTag}
+              lr={lr}
+              onBrand={setBrand}
+              onCategory={setCategory}
+              onUseTag={setUseTag}
+              onLr={setLr}
+              minMargin={minMargin}
+              onMinMargin={setMinMargin}
+              deadStockOnly={deadStockOnly}
+              onDeadStockOnly={setDeadStockOnly}
+              hasActiveFilters={hasActiveFilters}
+              onClearAll={clearFilters}
+            />
+
+            <FilterPresetsBar
+              brand={brand}
+              category={category}
+              useTag={useTag}
+              lr={lr}
+              minMargin={minMargin}
+              onApplyPreset={applyFilterPreset}
+            />
+          </>
+        ) : null}
 
         <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-zinc-400">
               {loading ? (
                 <span className="inline-flex items-center gap-2">
@@ -453,9 +488,17 @@ export function TiresDashboard() {
             </p>
             <button
               type="button"
+              onClick={() => setMobileSelectMode((v) => !v)}
+              className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 md:hidden"
+            >
+              {mobileSelectMode ? 'Exit select mode' : 'Select mode'}
+            </button>
+            </div>
+            <button
+              type="button"
               disabled={loading || sortedRows.length === 0}
               onClick={() => exportMarginCsv(sortedRows)}
-              className="self-start rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
+              className="self-start rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center min-h-[44px] sm:min-h-0"
             >
               Export CSV
             </button>
@@ -467,7 +510,7 @@ export function TiresDashboard() {
                   type="button"
                   disabled={selectedTires.length === 0 || loading}
                   onClick={() => setListingOpen(true)}
-                  className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-[44px] rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                 >
                   Generate listings
                 </button>
@@ -481,7 +524,7 @@ export function TiresDashboard() {
                       setSaleOpen(true)
                     }
                   }}
-                  className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
+                  className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
                 >
                   Log sale
                 </button>
@@ -489,7 +532,7 @@ export function TiresDashboard() {
                   type="button"
                   disabled={loading}
                   onClick={() => void notifySelectedQuick()}
-                  className="rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50"
+                  className="min-h-[44px] rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
                 >
                   Notify team
                 </button>
@@ -497,7 +540,7 @@ export function TiresDashboard() {
                   type="button"
                   disabled={loading}
                   onClick={() => void logSelectedProspective()}
-                  className="rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50"
+                  className="min-h-[44px] rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
                 >
                   Log prospective order
                 </button>
@@ -507,7 +550,7 @@ export function TiresDashboard() {
                 <button
                   type="button"
                   onClick={clearSelection}
-                  className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                  className="min-h-[44px] rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 sm:min-h-0"
                 >
                   Clear selection
                 </button>
@@ -515,7 +558,7 @@ export function TiresDashboard() {
                   type="button"
                   disabled={loading}
                   onClick={() => setBulkCtsOpen(true)}
-                  className="rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50"
+                  className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
                 >
                   Bulk edit CTS
                 </button>
@@ -534,6 +577,7 @@ export function TiresDashboard() {
           onSort={handleSort}
           loading={loading}
           emptyState={emptyState}
+          selectMode={mobileSelectMode}
         />
           </>
         ) : null}

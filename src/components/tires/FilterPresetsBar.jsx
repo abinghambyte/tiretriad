@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 
 const STORAGE_KEY = 'skedaddle-tire-margin-presets-v1'
 
@@ -37,6 +38,8 @@ export function FilterPresetsBar({
   onApplyPreset,
 }) {
   const [presets, setPresets] = useState(() => readPresets())
+  const [compactMenuOpen, setCompactMenuOpen] = useState(false)
+  const isNarrow = useMediaQuery('(max-width: 639px)')
 
   const saveCurrent = useCallback(() => {
     const name = window.prompt('Name for this filter preset')
@@ -79,8 +82,40 @@ export function FilterPresetsBar({
   }, [])
 
   if (presets.length === 0) {
+    if (isNarrow) {
+      return (
+        <div className="relative flex justify-end rounded-xl border border-zinc-800/40 bg-transparent px-1 py-1 sm:hidden">
+          <button
+            type="button"
+            title="Filter presets"
+            aria-expanded={compactMenuOpen}
+            aria-haspopup="true"
+            onClick={() => setCompactMenuOpen((o) => !o)}
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/50 text-lg text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          >
+            <span aria-hidden>⚙</span>
+            <span className="sr-only">Filter presets</span>
+          </button>
+          {compactMenuOpen ? (
+            <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl">
+              <p className="text-xs text-zinc-500">No saved presets yet.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCompactMenuOpen(false)
+                  saveCurrent()
+                }}
+                className="mt-2 w-full rounded-lg border border-zinc-600 py-2 text-xs font-medium text-zinc-200 hover:border-zinc-500"
+              >
+                Save current filters
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )
+    }
     return (
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3">
+      <div className="hidden flex-wrap items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 sm:flex">
         <p className="text-xs text-zinc-500">No saved filter presets yet.</p>
         <button
           type="button"

@@ -10,6 +10,7 @@ import { usePortalRegisteredUserCount } from '../../hooks/usePortalRegisteredUse
 import { useTires } from '../../hooks/useTires'
 import { marginPercent } from '../../utils/marginCalc'
 import { ProjectCard } from './ProjectCard'
+import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 
 function IconTires() {
   return (
@@ -359,36 +360,45 @@ export function Dashboard() {
       />
 
       <header className="relative border-b border-zinc-800/90 bg-zinc-950/75 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5">
-          <div className="flex min-w-0 flex-1 items-center gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
             <div className="hidden h-10 w-px bg-gradient-to-b from-amber-500/50 via-zinc-600 to-cyan-500/40 sm:block" />
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            <div className="min-w-0">
+              <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 sm:block">
                 Skedaddle OS · Operations grid
               </p>
-              <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              <h1 className="mt-0 text-xl font-semibold tracking-tight text-white sm:mt-1 sm:text-2xl">
                 Operations overview
               </h1>
+              <div className="mt-2 sm:hidden">
+                <PortalSessionLine
+                  email={user?.email || auth.currentUser?.email}
+                  onSignOut={handleSignOut}
+                />
+              </div>
               {djStreak !== undefined ? (
-                <p className="mt-2 text-sm font-medium text-amber-200/95">
-                  DJ streak: {djStreak} clean orders 🔥
+                <p
+                  className={`mt-2 text-sm font-medium ${
+                    djStreak === 0
+                      ? 'text-zinc-500'
+                      : djStreak >= 3
+                        ? 'text-amber-200/95'
+                        : 'text-zinc-400'
+                  }`}
+                >
+                  DJ streak: {djStreak} clean orders
+                  {djStreak >= 3 ? ' 🔥' : ''}
                 </p>
               ) : (
                 <p className="mt-2 text-sm text-zinc-500">Loading DJ streak…</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="max-w-[200px] truncate text-xs text-zinc-500 sm:max-w-[220px] sm:text-sm sm:text-zinc-400">
-              {user?.email || auth.currentUser?.email}
-            </span>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="rounded-lg border border-zinc-600/80 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800/80 hover:text-white"
-            >
-              Sign out
-            </button>
+          <div className="hidden sm:block">
+            <PortalSessionLine
+              email={user?.email || auth.currentUser?.email}
+              onSignOut={handleSignOut}
+            />
           </div>
         </div>
       </header>
@@ -406,6 +416,9 @@ export function Dashboard() {
             </button>
           </div>
         ) : null}
+        <p className="mb-3 text-center text-xs text-zinc-600 sm:hidden">
+          Scroll for more modules
+        </p>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {visibleModules.map((m) => {
             const perm = m.moduleKey ? permissionFor(m.moduleKey) : 'none'

@@ -1,6 +1,7 @@
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { MobileBottomNav } from './MobileBottomNav.jsx'
 import { db } from '../../firebase/config'
 import { useAuth } from '../../hooks/useAuth'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -97,7 +98,7 @@ function ThemeToggle() {
       type="button"
       title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
       onClick={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))}
-      className="rounded-lg border border-zinc-700 p-2 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+      className="min-h-[44px] min-w-[44px] rounded-lg border border-zinc-700 p-2 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 sm:min-h-0 sm:min-w-0"
       aria-label="Toggle color theme"
     >
       {mode === 'dark' ? (
@@ -124,7 +125,7 @@ function ShortcutHint() {
     <div className="relative">
       <button
         type="button"
-        className="rounded-lg border border-zinc-700 px-2 py-1.5 text-xs font-semibold text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+        className="min-h-[44px] min-w-[44px] rounded-lg border border-zinc-700 px-2 py-1.5 text-xs font-semibold text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 sm:min-h-0 sm:min-w-0"
         aria-label="Keyboard shortcuts"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
@@ -168,6 +169,7 @@ export function PortalChrome() {
   )
 
   const hideChrome = loc.pathname === '/' || loc.pathname.startsWith('/i/')
+  const hideMobileBottomNav = loc.pathname.startsWith('/handshake')
 
   const runSearch = useCallback(async (raw) => {
     const needle = raw.trim().toLowerCase()
@@ -282,7 +284,7 @@ export function PortalChrome() {
             }}
             onFocus={() => setOpen(true)}
             placeholder="Search tires, orders, contacts, CRM…"
-            className="min-w-[160px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+            className="min-h-[44px] min-w-[160px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 sm:min-h-0"
             autoComplete="off"
           />
           {busy ? <span className="text-xs text-zinc-500">Searching…</span> : null}
@@ -397,7 +399,16 @@ export function PortalChrome() {
           </div>
         ) : null}
       </div>
-      <Outlet />
+      <div
+        className={
+          hideMobileBottomNav
+            ? ''
+            : 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0'
+        }
+      >
+        <Outlet />
+      </div>
+      {hideMobileBottomNav ? null : <MobileBottomNav />}
     </>
   )
 }

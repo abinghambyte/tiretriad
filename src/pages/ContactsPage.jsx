@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
+import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 
 function formatMoney(n) {
@@ -185,25 +186,19 @@ export function ContactsPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div>
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="min-w-0">
             <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
               ← Dashboard
             </Link>
             <h1 className="mt-2 text-xl font-semibold text-white">Contacts</h1>
             <p className="mt-1 text-sm text-zinc-500">Customer memory from completed orders</p>
+            <div className="mt-2 sm:hidden">
+              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden max-w-[200px] truncate text-xs text-zinc-500 sm:inline">
-              {user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleSignOut()}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-500"
-            >
-              Sign out
-            </button>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
           </div>
         </div>
       </header>

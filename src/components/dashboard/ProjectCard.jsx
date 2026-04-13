@@ -65,7 +65,7 @@ export function ProjectCard({
   const inner = (
     <article
       className={[
-        'group relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-6 transition duration-300',
+        'group relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-5 transition duration-300 sm:min-h-[220px] sm:p-6',
         clickable
           ? `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 ${glowClass}`
           : 'cursor-not-allowed border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50 hover:border-zinc-800 hover:bg-zinc-950/55',

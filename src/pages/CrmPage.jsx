@@ -20,6 +20,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
 import { cmdEnterSubmitKeyDown } from '../utils/cmdEnterSubmit.js'
+import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { permissionMeets } from '../constants/peoplePermissions'
 import { computeCrmScore, scoreBadgeClass } from '../utils/crmScore'
 
@@ -235,8 +236,8 @@ export function CrmPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2">
             <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
               ← Dashboard
             </Link>
@@ -250,18 +251,12 @@ export function CrmPage() {
                 DJ dispatch
               </Link>
             ) : null}
+            <div className="w-full basis-full sm:hidden">
+              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden max-w-[180px] truncate text-xs text-zinc-500 sm:inline">
-              {user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleSignOut()}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300"
-            >
-              Sign out
-            </button>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
           </div>
         </div>
         <div className="mx-auto flex max-w-[1600px] gap-2 border-t border-zinc-800/80 px-4 sm:px-6">
@@ -271,7 +266,7 @@ export function CrmPage() {
               type="button"
               onClick={() => setTab(t)}
               className={[
-                '-mb-px border-b-2 px-4 py-3 text-sm font-medium capitalize',
+                '-mb-px flex min-h-[44px] min-w-[44px] items-center border-b-2 px-4 py-3 text-sm font-medium capitalize sm:min-h-0 sm:min-w-0',
                 tab === t
                   ? 'border-violet-500 text-violet-100'
                   : 'border-transparent text-zinc-500 hover:text-zinc-300',

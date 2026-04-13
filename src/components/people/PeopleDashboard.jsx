@@ -8,7 +8,7 @@ import {
   where,
 } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, db, functions } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
@@ -24,6 +24,8 @@ import {
   MODAL_CENTER_BACKDROP_TOP,
   MODAL_CENTER_PANEL,
 } from '../ui/modalChrome.js'
+import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
+import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -55,6 +57,110 @@ function streakLabel(n) {
   const v = Number(n) || 0
   if (v <= 0) return '—'
   return `${v}-day streak`
+}
+
+function PeopleRowActionsMenu({
+  u,
+  profile,
+  lockAwaitUid,
+  onHistory,
+  onEdit,
+  onRenew,
+  onLock,
+  onToggleGhost,
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    function onDoc(e) {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  return (
+    <div className="relative flex justify-end sm:hidden" ref={rootRef}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-600/90 bg-zinc-900/50 text-lg leading-none text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80"
+        aria-label="Row actions"
+      >
+        ⋯
+      </button>
+      {open ? (
+        <ul className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-zinc-700 bg-zinc-900 py-1 text-left text-sm shadow-xl">
+          <li>
+            <button
+              type="button"
+              className="block w-full px-3 py-2.5 text-left text-zinc-200 hover:bg-zinc-800/80"
+              onClick={() => {
+                setOpen(false)
+                void onHistory(u)
+              }}
+            >
+              History
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              className="block w-full px-3 py-2.5 text-left text-violet-100 hover:bg-zinc-800/80"
+              onClick={() => {
+                setOpen(false)
+                onEdit(u)
+              }}
+            >
+              Edit
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              className="block w-full px-3 py-2.5 text-left text-zinc-200 hover:bg-zinc-800/80"
+              onClick={() => {
+                setOpen(false)
+                onRenew(u)
+              }}
+            >
+              Renew
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              className="block w-full px-3 py-2.5 text-left text-red-200 hover:bg-zinc-800/80"
+              onClick={() => {
+                setOpen(false)
+                void onLock(u)
+              }}
+            >
+              {lockAwaitUid === u.id ? 'Confirm lock' : 'Lock'}
+            </button>
+          </li>
+          {profile?.role === 'admin' ? (
+            <li>
+              <button
+                type="button"
+                className="block w-full px-3 py-2.5 text-left text-zinc-300 hover:bg-zinc-800/80"
+                onClick={() => {
+                  setOpen(false)
+                  onToggleGhost(u)
+                }}
+              >
+                Ghost {u.ghostMode ? 'off' : 'on'}
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+    </div>
+  )
 }
 
 const INVITE_SITE = 'https://www.skedaddleinc.com'
@@ -117,6 +223,8 @@ export function PeopleDashboard() {
   const [eleSaving, setEleSaving] = useState(false)
   const [lockAwaitUid, setLockAwaitUid] = useState(null)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
+  const isMobilePeople = useMediaQuery('(max-width: 639px)')
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60000)
@@ -311,6 +419,7 @@ export function PeopleDashboard() {
       setPhone('')
       setAccessDate('')
       setPreviewOpen(false)
+      setCreateDrawerOpen(false)
     } catch (err) {
       console.error(err)
       window.alert(err?.message || String(err))
@@ -373,8 +482,8 @@ export function PeopleDashboard() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div>
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+          <div className="min-w-0">
             <Link
               to="/dashboard"
               className="text-sm text-zinc-500 transition hover:text-zinc-200"
@@ -385,25 +494,47 @@ export function PeopleDashboard() {
             <p className="mt-1 text-sm text-zinc-500">
               Crew access, invites, and permission matrix
             </p>
+            <div className="mt-2 sm:hidden">
+              <PortalSessionLine email={auth.currentUser?.email} onSignOut={handleSignOut} />
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="hidden max-w-[200px] truncate text-xs text-zinc-500 sm:inline">
-              {auth.currentUser?.email}
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleSignOut()}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-500"
-            >
-              Sign out
-            </button>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={auth.currentUser?.email} onSignOut={handleSignOut} />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-10 px-6 py-8">
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-          <h2 className="text-lg font-semibold text-zinc-100">Create user + invite</h2>
+      <main className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
+        {isMobilePeople && !createDrawerOpen ? (
+          <button
+            type="button"
+            onClick={() => setCreateDrawerOpen(true)}
+            className="flex w-full min-h-[48px] items-center justify-center rounded-xl border border-violet-600/70 bg-violet-900/35 text-sm font-semibold text-violet-50 hover:bg-violet-900/55 sm:hidden"
+          >
+            Add crew member +
+          </button>
+        ) : null}
+        <section
+          className={[
+            'rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6',
+            isMobilePeople
+              ? createDrawerOpen
+                ? 'fixed inset-0 z-50 overflow-y-auto pb-24'
+                : 'hidden'
+              : '',
+          ].join(' ')}
+        >
+          <div className="mb-4 flex items-start justify-between gap-2 sm:mb-0 sm:hidden">
+            <h2 className="text-lg font-semibold text-zinc-100">Create user + invite</h2>
+            <button
+              type="button"
+              onClick={() => setCreateDrawerOpen(false)}
+              className="min-h-[44px] shrink-0 text-sm text-zinc-400 underline decoration-zinc-600 underline-offset-2 hover:text-zinc-200"
+            >
+              Close
+            </button>
+          </div>
+          <h2 className="hidden text-lg font-semibold text-zinc-100 sm:block">Create user + invite</h2>
           <p className="mt-1 text-sm text-zinc-500">
             Creates an Auth account (disabled until invite registration), Firestore profile,
             and invite token. Use Preview invite before sending.
@@ -458,7 +589,7 @@ export function PeopleDashboard() {
                 type="button"
                 disabled={createBusy}
                 onClick={() => void openInvitePreview()}
-                className="rounded-xl border border-violet-500/60 bg-violet-950/40 px-5 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-900/50 disabled:opacity-50"
+                className="min-h-[44px] rounded-xl border border-violet-500/60 bg-violet-950/40 px-5 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-900/50 disabled:opacity-50 sm:min-h-0"
               >
                 Preview invite
               </button>
@@ -473,16 +604,17 @@ export function PeopleDashboard() {
         </section>
 
         <section className="overflow-x-auto rounded-2xl border border-zinc-800">
-          <table className="min-w-[960px] w-full border-collapse text-left text-sm">
+          <table className="w-full min-w-0 border-collapse text-left text-sm sm:min-w-[960px]">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
                 <th className="px-3 py-3">Name</th>
-                <th className="px-3 py-3">Crew tag</th>
-                <th className="px-3 py-3">Invite</th>
-                <th className="px-3 py-3">Access expiry</th>
-                <th className="px-3 py-3">Streak</th>
-                <th className="px-3 py-3">Last seen</th>
-                <th className="sticky right-0 z-[3] border-l border-zinc-800/90 bg-zinc-900/95 px-3 py-3 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)]">
+                <th className="hidden px-3 py-3 sm:table-cell">Crew tag</th>
+                <th className="hidden px-3 py-3 sm:table-cell">Invite</th>
+                <th className="hidden px-3 py-3 sm:table-cell">Access expiry</th>
+                <th className="hidden px-3 py-3 sm:table-cell">Streak</th>
+                <th className="hidden px-3 py-3 sm:table-cell">Last seen</th>
+                <th className="px-3 py-3 text-right sm:hidden"> </th>
+                <th className="sticky right-0 z-[3] hidden border-l border-zinc-800/90 bg-zinc-900/95 px-3 py-3 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] sm:table-cell">
                   Actions
                 </th>
               </tr>
@@ -490,13 +622,13 @@ export function PeopleDashboard() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                  <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
                     Loading crew…
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
+                  <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
                     No user profiles yet.
                   </td>
                 </tr>
@@ -505,21 +637,25 @@ export function PeopleDashboard() {
                   const evLabel = elevationCountdownLabel(u, tick)
                   return (
                   <tr key={u.id} className="group border-b border-zinc-800/80 hover:bg-zinc-900/40">
-                    <td className="px-3 py-2 font-medium text-zinc-100">
-                      <span>
+                    <td className="max-w-none px-3 py-2 font-medium leading-snug text-zinc-100 sm:max-w-[220px]">
+                      <span className="max-sm:whitespace-normal">
                         {u.firstName} {u.lastName}
                       </span>
                       {evLabel ? (
-                        <span className="ml-2 inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-700/40">
+                        <span className="ml-2 inline-flex items-center rounded-full bg-amber-950/50 px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-700/40 max-sm:mt-1 max-sm:ml-0 max-sm:inline-flex">
                           ⏱ {evLabel}
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 text-violet-300">{u.crewTag || crewTagFromRole(u.role)}</td>
-                    <td className="px-3 py-2 text-zinc-400">{u.inviteStatus || '—'}</td>
-                    <td className="px-3 py-2 text-zinc-400">{formatTs(u.accessExpiry)}</td>
-                    <td className="px-3 py-2 text-zinc-300">{streakLabel(u.loginStreak)}</td>
-                    <td className="max-w-[240px] px-3 py-2 text-xs text-zinc-500">
+                    <td className="hidden px-3 py-2 text-violet-300 sm:table-cell">
+                      {u.crewTag || crewTagFromRole(u.role)}
+                    </td>
+                    <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">{u.inviteStatus || '—'}</td>
+                    <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">
+                      {formatTs(u.accessExpiry)}
+                    </td>
+                    <td className="hidden px-3 py-2 text-zinc-300 sm:table-cell">{streakLabel(u.loginStreak)}</td>
+                    <td className="hidden max-w-[240px] px-3 py-2 text-xs text-zinc-500 sm:table-cell">
                       {u.ghostMode ? (
                         <span className="text-zinc-600">Ghost mode</span>
                       ) : (
@@ -529,11 +665,23 @@ export function PeopleDashboard() {
                         </>
                       )}
                     </td>
-                    <td className="sticky right-0 z-[2] whitespace-nowrap border-l border-zinc-800/90 bg-zinc-950 px-3 py-2 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] group-hover:bg-zinc-900/40">
+                    <td className="px-2 py-2 text-right sm:hidden">
+                      <PeopleRowActionsMenu
+                        u={u}
+                        profile={profile}
+                        lockAwaitUid={lockAwaitUid}
+                        onHistory={openHistory}
+                        onEdit={openEditor}
+                        onRenew={renewInvite}
+                        onLock={lockUser}
+                        onToggleGhost={toggleGhost}
+                      />
+                    </td>
+                    <td className="sticky right-0 z-[2] hidden whitespace-nowrap border-l border-zinc-800/90 bg-zinc-950 px-3 py-2 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] group-hover:bg-zinc-900/40 sm:table-cell">
                       <div className="inline-flex shrink-0 flex-nowrap items-center justify-end gap-1">
                         <button
                           type="button"
-                          className="inline-flex h-9 min-h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-md border border-zinc-600/90 bg-zinc-900/50 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-100"
+                          className="inline-flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-md border border-zinc-600/90 bg-zinc-900/50 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-100 sm:h-9 sm:min-h-9 sm:w-9 sm:min-w-9"
                           title="Access history"
                           aria-label="Access history"
                           onClick={(e) => {
@@ -555,14 +703,14 @@ export function PeopleDashboard() {
                         </button>
                         <button
                           type="button"
-                          className="rounded-lg border border-violet-600/70 bg-violet-900/40 px-2.5 py-1 text-xs font-semibold text-violet-50 hover:bg-violet-900/60"
+                          className="min-h-[44px] rounded-lg border border-violet-600/70 bg-violet-900/40 px-2.5 py-2 text-xs font-semibold text-violet-50 hover:bg-violet-900/60 sm:min-h-0 sm:py-1"
                           onClick={() => openEditor(u)}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="rounded-lg border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800/80"
+                          className="min-h-[44px] rounded-lg border border-zinc-600 px-2 py-2 text-xs text-zinc-300 hover:bg-zinc-800/80 sm:min-h-0 sm:py-1"
                           onClick={() => renewInvite(u)}
                         >
                           Renew
@@ -571,8 +719,8 @@ export function PeopleDashboard() {
                           type="button"
                           className={
                             lockAwaitUid === u.id
-                              ? 'rounded-lg border border-red-600 bg-red-950/50 px-2 py-1 text-xs font-semibold text-red-100'
-                              : 'rounded-lg border border-red-900/55 px-2 py-1 text-xs text-red-200 hover:bg-red-950/25'
+                              ? 'min-h-[44px] rounded-lg border border-red-600 bg-red-950/50 px-2 py-2 text-xs font-semibold text-red-100 sm:min-h-0 sm:py-1'
+                              : 'min-h-[44px] rounded-lg border border-red-900/55 px-2 py-2 text-xs text-red-200 hover:bg-red-950/25 sm:min-h-0 sm:py-1'
                           }
                           onClick={() => void lockUser(u)}
                         >
@@ -581,7 +729,7 @@ export function PeopleDashboard() {
                         {profile?.role === 'admin' ? (
                           <button
                             type="button"
-                            className="rounded-lg border border-zinc-700/90 bg-zinc-900/40 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                            className="min-h-[44px] rounded-lg border border-zinc-700/90 bg-zinc-900/40 px-2 py-2 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 sm:min-h-0 sm:py-1"
                             onClick={() => toggleGhost(u)}
                           >
                             Ghost {u.ghostMode ? 'off' : 'on'}

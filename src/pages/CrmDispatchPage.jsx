@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
+import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 
@@ -117,25 +118,19 @@ export function CrmDispatchPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 px-4 py-4 sm:px-6">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <Link to="/crm" className="text-sm text-zinc-500 hover:text-zinc-200">
               ← CRM
             </Link>
             <h1 className="text-lg font-semibold text-white">DJ dispatch</h1>
+            <div className="w-full basis-full sm:hidden">
+              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden max-w-[160px] truncate text-xs text-zinc-500 sm:inline">
-              {user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleSignOut()}
-              className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
-            >
-              Sign out
-            </button>
+          <div className="hidden sm:block">
+            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
           </div>
         </div>
       </header>

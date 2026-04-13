@@ -19,7 +19,7 @@ export function MarginFilters({
   onClearAll,
 }) {
   return (
-    <div className="flex flex-col gap-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-6">
+    <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:gap-6 sm:p-6">
       {hasActiveFilters && onClearAll ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-4">
           <p className="text-xs text-zinc-500">Filters are narrowing the table.</p>
@@ -48,8 +48,8 @@ export function MarginFilters({
           className="w-full accent-zinc-200"
         />
       </div>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-        <div className="flex flex-1 flex-wrap gap-4 border-zinc-800 lg:border-r lg:pr-6">
+      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-col sm:gap-4 lg:flex-row lg:items-end">
+        <div className="contents sm:flex sm:flex-1 sm:flex-wrap sm:gap-4 lg:border-r lg:border-zinc-800 lg:pr-6">
           <FilterSelect
             label="Brand"
             value={brand}
@@ -63,7 +63,7 @@ export function MarginFilters({
             options={categories}
           />
         </div>
-        <div className="flex flex-1 flex-wrap gap-4">
+        <div className="contents sm:flex sm:flex-1 sm:flex-wrap sm:gap-4">
           <FilterSelect label="LR" value={lr} onChange={onLr} options={lrs} />
           <FilterSelect
             label="Use tag"
@@ -74,7 +74,7 @@ export function MarginFilters({
         </div>
       </div>
       {onDeadStockOnly != null ? (
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400">
+        <label className="flex cursor-pointer items-center gap-2 pt-0 text-sm text-zinc-400 sm:pt-0">
           <input
             type="checkbox"
             checked={Boolean(deadStockOnly)}
@@ -95,7 +95,7 @@ function FilterSelect({ label, value, onChange, options }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+        className="min-h-[44px] w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 sm:min-h-0"
       >
         <option value="">All</option>
         {options.map((o) => (
