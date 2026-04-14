@@ -1,0 +1,24 @@
+# Skedaddle Portal — Cursor session rules
+
+## First read
+Open `docs/AI-CONTEXT.md` at the start of substantive sessions for stack, crew, pricing, and module names.
+
+## Stack (short)
+- Frontend: React + Vite + Tailwind (Vercel on push to `main`).
+- Backend: Firebase Cloud Functions Gen2 (Node 22), Firestore project `skedaddle-inventory`.
+- Deploy functions/rules: `npm run deploy:firebase` from repo root.
+
+## Slack in Cloud Functions
+- Import secrets from `functions/slackSecrets.js` (e.g. `SLACK_BOT_TOKEN.value()`).
+- Do not use `process.env` for Slack credentials in functions.
+
+## Product naming
+- Use **Rubber CRM** (not “Fleet CRM”). Dashboard order and labels match `docs/AI-CONTEXT.md`.
+
+## Money / orders (do not drift)
+- Revenue figure: `paymentAmount`. Profit uses buy price, mount/delivery/other costs; do not subtract FET from customer-facing margin logic.
+- See `docs/AI-CONTEXT.md` for full pricing and order lifecycle.
+
+## Code style for this repo
+- Prefer existing patterns; avoid drive-by refactors unrelated to the task.
+- When the task touches UI numbers: use `formatCurrency`, `formatPercent`, `formatQty` from `src/utils/format.js` where appropriate.
