@@ -1,0 +1,83 @@
+---
+description: Skedaddle ops portal — stack, domain model, deploy, secrets, UI, and naming (always apply)
+alwaysApply: true
+---
+
+# Skedaddle Portal
+
+Private ops portal for a northern Colorado tire resale business. Live at skedaddleinc.com. Repo: abinghambyte/skedaddleinc.
+
+Before making **recommendations** or architectural suggestions, read `docs/AI-CONTEXT.md` and `docs/ROADMAP.md`.
+
+## Stack
+
+- React 19 + Vite + Tailwind → Vercel (git push deploys frontend)
+- Firebase Cloud Functions Gen2 Node 22 → `npm run deploy:firebase`
+- Firestore (project: skedaddle-inventory)
+- **firebase-functions v7.2.5 — do not downgrade**
+
+## Deploy
+
+- Functions: `npm run deploy:firebase`
+- Frontend: `git add . && git commit -m "message" && git push`
+- Always run `npm run lint && npm run build` before declaring work done
+- When both change: **deploy functions before pushing frontend**
+
+## Secrets (Slack / Functions)
+
+- Slack secrets live in **Firebase Secret Manager** — never in `functions/.env`
+- Functions that use Slack must import from `functions/slackSecrets.js`
+- Always use **`SLACK_BOT_TOKEN.value()`** (and the pattern from that module) — never `process.env` for Slack credentials
+- New secrets: `firebase functions:secrets:set SECRET_NAME`
+
+## Pricing model
+
+- **`price`** = Kyle's buy price per tire (in Firestore for catalog tires)
+- **`paymentAmount`** = total the customer paid (revenue). **No `salePrice` field**
+- **profit** = `(paymentAmount - buyPrice - mountCost - deliveryCost - otherCost) × qty`
+- **FET washes out** — never subtract FET in margin or profit calcs
+- **`kylePriceOverride`** = use as buy price when set on an order; else catalog price
+- **CTS** = mount + delivery + other only; FET is never part of CTS
+- Tires can sell before inventory arrives — **qty may be zero or negative**; never gate core logic on `qty > 0`
+
+## Order lifecycle
+
+Six stages only: `pending` → `available` → `scheduled` → `in_transit` → `completed`. Never use the old 3-stage model (pending/ready/sold).
+
+## Formatting
+
+- Currency: `formatCurrency` from `src/utils/format.js` (frontend) or `functions/format.js` (backend)
+- Percentages: `formatPercent` from the same files
+- Quantities: `formatQty` from the same files
+- CSV exports: plain numeric strings — no currency symbols
+
+## UI
+
+- **Desktop layout must not change** when adding mobile fixes; use **`max-sm:`** and **`sm:`** only for mobile
+- Crew tags in UI: **Overwatch, Source, Field, Spotter** — use `src/utils/portalCrewTag.js`; never raw role strings in UI
+- Margin % colors: **red below 10%**, **amber 10–25%**, **green above 25%**
+- Modals: always **Escape** and **backdrop click** to dismiss
+
+## Naming — do not change
+
+- **"Rubber CRM"** — do not rename (e.g. not "Fleet CRM")
+- **`paymentAmount`** — never rename to salePrice or anything else
+- **`SLACK_SECRETS` / `functions/slackSecrets.js`** — never inline Slack secrets
+
+## Utilities — prefer these, avoid duplicating
+
+- `src/utils/format.js` — currency, percent, qty
+- `src/utils/parseTireDescription.js` — tire description parser
+- `src/utils/portalCrewTag.js` — portal crew tag labels
+- `src/utils/orderPoolMargin.js` — pool and margin
+- `src/utils/isoWeekDenver.js` — Denver ISO week
+- `functions/slackSecrets.js` — secret definitions
+- `functions/format.js` — server formatters
+- `functions/financeStats.js` — e.g. `runCompletionTransaction`
+
+## Crew profit split (reference)
+
+- Alex (Overwatch / admin): 50% of profit pool
+- DJ (Field / mechanic): 20%
+- Tanner (Field / mechanic): 20%
+- Kyle (Source / supplier): 10%
