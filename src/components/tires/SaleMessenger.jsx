@@ -18,8 +18,9 @@ const sendTireSaleSms = httpsCallable(functions, 'sendTireSaleSms')
  * @param {object[]} props.tires
  * @param {string} [props.initialMspn]
  * @param {number} [props.initialQuantity]
+ * @param {number} [props.initialPricePerTire] Sale price per tire (e.g. AI listing advisor recommendation)
  */
-export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) {
+export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, initialPricePerTire }) {
   const [mspn, setMspn] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [pricePerTire, setPricePerTire] = useState('')
@@ -42,18 +43,22 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity }) 
   }, [onClose])
 
   useEffect(() => {
-    if (initialMspn != null && String(initialMspn).trim() !== '') {
-      const v = String(initialMspn).trim()
-      setMspn(v)
-      const t = tires.find((x) => x.mspn === v)
-      const n = tireCatalogBuyNumber(t)
-      if (t && n > 0) {
-        setPricePerTire(String(n))
-      } else {
-        setPricePerTire('')
-      }
+    if (initialMspn == null || String(initialMspn).trim() === '') return
+    const v = String(initialMspn).trim()
+    setMspn(v)
+    const t = tires.find((x) => x.mspn === v)
+    const rec = Number(initialPricePerTire)
+    if (Number.isFinite(rec) && rec > 0) {
+      setPricePerTire(String(rec))
+      return
     }
-  }, [initialMspn, tires])
+    const n = tireCatalogBuyNumber(t)
+    if (t && n > 0) {
+      setPricePerTire(String(n))
+    } else {
+      setPricePerTire('')
+    }
+  }, [initialMspn, initialPricePerTire, tires])
 
   useEffect(() => {
     if (initialQuantity != null && Number(initialQuantity) >= 1) {

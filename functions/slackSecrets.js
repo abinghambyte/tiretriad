@@ -10,7 +10,13 @@ const SLACK_CHANNEL_ID = defineSecret('SLACK_CHANNEL_ID')
 /** Slack user ID for `<@kyle>` mentions on `/reorder` (set via `firebase functions:secrets:set SLACK_KYLE_ID`). */
 const SLACK_KYLE_ID = defineSecret('SLACK_KYLE_ID')
 
+/** Google AI Studio / Gemini — Listing Generator advisor (`listingAdvisor` callable). Set to `-` if you only use Anthropic from env. */
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
+
 const SLACK_SECRETS = [SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID]
+
+/** Gen2 `secrets` for `listingAdvisor` (Gemini only). Anthropic uses `ANTHROPIC_API_KEY` in functions env / `.env` via `anthropicApiKeyFromEnv()`. */
+const LISTING_ADVISOR_SECRETS = [GEMINI_API_KEY]
 
 /** `slackActions` only — includes Kyle mention secret so other callables are not blocked on it. */
 const SLACK_ACTIONS_SECRETS = [...SLACK_SECRETS, SLACK_KYLE_ID]
@@ -32,6 +38,8 @@ module.exports = {
   SLACK_KYLE_ID,
   SLACK_SECRETS,
   SLACK_ACTIONS_SECRETS,
+  GEMINI_API_KEY,
+  LISTING_ADVISOR_SECRETS,
   anthropicApiKeyFromEnv,
   slackAdminUserIdsRawFromEnv,
 }

@@ -544,14 +544,24 @@ export function TiresDashboard() {
           key={selectedTires.map((t) => t.id).sort().join('-')}
           tires={selectedTires}
           onClose={() => setListingOpen(false)}
+          onUseRecommendedPrice={({ mspn, quantity, pricePerTire }) => {
+            setListingOpen(false)
+            setSaleInitial({ mspn, quantity, pricePerTire })
+            setSaleOpen(true)
+          }}
         />
       ) : null}
       {saleOpen ? (
         <SaleMessenger
-          key={saleInitial ? `${saleInitial.mspn}-${saleInitial.quantity}` : 'sale-open'}
+          key={
+            saleInitial
+              ? `${saleInitial.mspn}-${saleInitial.quantity}-${saleInitial.pricePerTire ?? ''}`
+              : 'sale-open'
+          }
           tires={tires}
           initialMspn={saleInitial?.mspn}
           initialQuantity={saleInitial?.quantity}
+          initialPricePerTire={saleInitial?.pricePerTire}
           onClose={() => {
             setSaleOpen(false)
             setSaleInitial(null)

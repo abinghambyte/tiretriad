@@ -15,7 +15,9 @@ const {
   SLACK_CHANNEL_ID,
   SLACK_SECRETS,
   SLACK_ACTIONS_SECRETS,
+  LISTING_ADVISOR_SECRETS,
 } = require('./slackSecrets')
+const { listingAdvisorHandler } = require('./listingAdvisor')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const {
@@ -303,6 +305,11 @@ exports.sendTireSaleSms = onCall({ secrets: SLACK_SECRETS }, async (request) => 
 })
 
 /** Tire availability ping — Block Kit, no order doc (Phase 9). */
+/** AI listing copy + sell probability + recommended price (Gemini or Anthropic). */
+exports.listingAdvisor = onCall({ secrets: LISTING_ADVISOR_SECRETS }, async (request) => {
+  return listingAdvisorHandler(request)
+})
+
 exports.notifyTeamQuick = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
