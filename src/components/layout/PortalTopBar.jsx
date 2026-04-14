@@ -32,22 +32,25 @@ export function PortalTopBar({ pathname, navigate, user, profile, onOpenPalette,
         {showBack ? (
           <Link
             to="/dashboard"
-            className="shrink-0 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-zinc-800/60 hover:text-zinc-200 sm:text-sm"
+            className="group inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-800/70 hover:text-zinc-100 sm:text-sm"
           >
-            ← Dashboard
+            <span className="transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden>
+              ←
+            </span>
+            <span>Dashboard</span>
           </Link>
         ) : (
           <span className="w-px" aria-hidden />
         )}
       </div>
-      <h1 className="min-w-0 truncate text-center text-base font-bold tracking-tight text-white sm:text-xl">
+      <h1 className="min-w-0 truncate text-center text-base font-bold tracking-tight text-zinc-50 sm:text-xl">
         {title}
       </h1>
       <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={onOpenPalette}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100 sm:h-8 sm:w-8"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition-all duration-200 hover:border-amber-600/40 hover:bg-zinc-800/80 hover:text-zinc-100 hover:ring-1 hover:ring-amber-500/25 sm:h-8 sm:w-8"
           aria-label="Open search"
           title="Search (⌘K / Ctrl+K)"
         >
@@ -67,7 +70,7 @@ export function PortalTopBar({ pathname, navigate, user, profile, onOpenPalette,
         <button
           type="button"
           onClick={() => void onSignOut()}
-          className="shrink-0 rounded-lg border border-zinc-600 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800/80 hover:text-white sm:px-3 sm:text-sm"
+          className="shrink-0 rounded-lg border border-zinc-600 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition-colors duration-200 hover:border-zinc-500 hover:bg-zinc-800/90 hover:text-white sm:px-3 sm:text-sm"
         >
           Sign out
         </button>

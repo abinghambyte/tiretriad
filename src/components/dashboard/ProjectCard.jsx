@@ -81,9 +81,9 @@ export function ProjectCard({
   const inner = (
     <article
       className={[
-        'group relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-5 transition duration-300 sm:min-h-[220px] sm:p-6',
+        'group relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-5 transition-all duration-200 ease-out sm:min-h-[220px] sm:p-6',
         clickable
-          ? `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 ${glowClass}`
+          ? `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 sm:hover:-translate-y-0.5 ${glowClass}`
           : 'cursor-not-allowed border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50 hover:border-zinc-800 hover:bg-zinc-950/55',
       ].join(' ')}
       aria-disabled={!clickable}
@@ -139,7 +139,7 @@ export function ProjectCard({
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
             {statLabel}
           </p>
-          <p className="mt-1 font-mono text-sm tabular-nums text-zinc-200">
+          <p className="sk-figures mt-1 text-sm text-zinc-200">
             {stat}
           </p>
         </div>

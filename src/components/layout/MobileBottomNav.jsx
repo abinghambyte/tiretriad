@@ -4,7 +4,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 
 function IconTires() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <circle cx="12" cy="12" r="7.25" />
       <circle cx="12" cy="12" r="2.25" />
       <path strokeLinecap="round" d="M12 4.75v2M12 17.25v2M4.75 12h2M17.25 12h2" />
@@ -14,7 +14,7 @@ function IconTires() {
 
 function IconCrm() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h16" />
       <circle cx="16" cy="8" r="2" fill="currentColor" />
     </svg>
@@ -23,7 +23,7 @@ function IconCrm() {
 
 function IconPeople() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <circle cx="9" cy="8" r="2.75" />
       <circle cx="16" cy="9" r="2.25" />
       <path
@@ -37,7 +37,7 @@ function IconPeople() {
 
 function IconAnalytics() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <path strokeLinecap="round" d="M5 19V5M9 19v-6M13 19V9M17 19v-9" />
       <path strokeLinecap="round" d="M4 19h16" />
     </svg>
@@ -45,12 +45,12 @@ function IconAnalytics() {
 }
 
 const navCls =
-  'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[10px] font-medium text-zinc-500 transition hover:text-zinc-300'
-const activeCls = 'text-amber-300'
+  'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[11px] font-medium text-zinc-500 transition-colors duration-200 hover:bg-zinc-800/60 hover:text-zinc-200 active:bg-zinc-800/80'
+const activeCls = 'bg-amber-500/12 text-amber-200 ring-1 ring-amber-600/35 hover:bg-amber-500/15 hover:text-amber-100'
 
 function IconOps() {
   return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
       <path strokeLinecap="round" d="M6 8h12M6 12h8M6 16h10" />
       <rect x="4" y="5" width="16" height="14" rx="2" className="opacity-40" />
     </svg>

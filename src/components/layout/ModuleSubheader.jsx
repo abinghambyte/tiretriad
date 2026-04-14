@@ -10,19 +10,26 @@ import { Link } from 'react-router-dom'
  */
 export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'max-w-7xl' }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md">
       <div className={`mx-auto px-4 py-4 sm:px-6 ${maxWidthClass}`}>
         <Link
           to="/dashboard"
-          className="text-xs font-medium text-zinc-500 transition hover:text-zinc-200 max-sm:text-[11px]"
+          className="group inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors duration-200 hover:text-zinc-100 max-sm:text-[12px]"
         >
-          ← Dashboard
+          <span className="transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden>
+            ←
+          </span>
+          <span>Dashboard</span>
         </Link>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-white max-sm:text-xl">{title}</h1>
-        {subtitle ? <p className="mt-1 text-sm text-zinc-500 max-sm:text-xs">{subtitle}</p> : null}
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl max-sm:text-xl">
+          {title}
+        </h1>
+        {subtitle ? (
+          <p className="mt-1.5 text-sm font-normal leading-relaxed text-zinc-400 max-sm:text-[13px]">{subtitle}</p>
+        ) : null}
         {tabs.length > 0 ? (
           <nav
-            className="mt-4 flex flex-wrap gap-1 border-t border-zinc-800/80 pt-3"
+            className="mt-4 flex flex-wrap gap-0.5 border-t border-zinc-800/80 pt-3"
             aria-label={`${title} sections`}
           >
             {tabs.map((t) => {
@@ -32,10 +39,10 @@ export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'm
                   key={t.key}
                   to={t.to}
                   className={[
-                    '-mb-px flex min-h-[44px] items-center border-b-2 px-4 py-2.5 text-sm font-semibold transition sm:min-h-0',
+                    '-mb-px flex min-h-[44px] items-center rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors duration-200 sm:min-h-0',
                     active
-                      ? 'border-amber-500 text-amber-100'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-300',
+                      ? 'border-amber-500 bg-amber-500/10 text-amber-100'
+                      : 'border-transparent text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-200',
                   ].join(' ')}
                 >
                   {t.label}

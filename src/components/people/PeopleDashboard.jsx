@@ -731,19 +731,33 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
       {selected ? (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-md sk-modal-backdrop-enter"
           role="dialog"
           aria-modal
           onClick={closeEditor}
         >
           <div
-            className="h-full w-full max-w-md overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
+            className="sk-panel-slide-in h-full w-full max-w-md overflow-y-auto border-l border-zinc-800/90 bg-zinc-950 p-6 shadow-2xl shadow-black/40"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold text-white">
-              {selected.firstName} {selected.lastName}
-            </h2>
-            <p className="text-xs text-zinc-500">{selected.email}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
+                  {selected.firstName} {selected.lastName}
+                </h2>
+                <p className="mt-1 text-xs text-zinc-400">{selected.email}</p>
+              </div>
+              <button
+                type="button"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-zinc-400 transition-colors duration-200 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100"
+                onClick={closeEditor}
+                aria-label="Close panel"
+              >
+                <span className="text-xl leading-none" aria-hidden>
+                  ×
+                </span>
+              </button>
+            </div>
             {panelInviteUrl ? (
               <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
                 <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
@@ -1024,12 +1038,15 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           <div className="min-w-0">
             <Link
               to="/dashboard"
-              className="text-sm text-zinc-500 transition hover:text-zinc-200"
+              className="group inline-flex items-center gap-1 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:text-zinc-100"
             >
-              ← Dashboard
+              <span className="transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden>
+                ←
+              </span>
+              <span>Dashboard</span>
             </Link>
-            <h1 className="mt-2 text-xl font-semibold text-white">People</h1>
-            <p className="mt-1 text-sm text-zinc-500">
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-50 max-sm:text-xl">People</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">
               Crew access, invites, and permission matrix
             </p>
             <div className="mt-2 sm:hidden">
@@ -1049,7 +1066,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 function Field({ label, value, onChange, type = 'text', required }) {
   return (
     <div>
-      <label className="mb-1 block text-xs text-zinc-500">
+      <label className="mb-1.5 block text-xs font-medium text-zinc-400">
         {label}
         {required ? ' *' : ''}
       </label>
@@ -1058,7 +1075,7 @@ function Field({ label, value, onChange, type = 'text', required }) {
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-shadow duration-200 placeholder:text-zinc-600 focus:border-amber-600/45 focus:ring-2 focus:ring-amber-500/25"
       />
     </div>
   )

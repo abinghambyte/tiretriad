@@ -1,5 +1,25 @@
 @import 'tailwindcss';
 
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+}
+
+@layer base {
+  html:not([data-theme='light']) body {
+    background-color: rgb(9 9 11);
+    color: rgb(244 244 245);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
 @keyframes sk-fade-in {
   from {
     opacity: 0;
@@ -20,12 +40,90 @@
   }
 }
 
+@keyframes sk-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sk-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes sk-shimmer-fire {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.35));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(251, 146, 60, 0.65));
+    transform: scale(1.08);
+  }
+}
+
+@keyframes sk-number-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45);
+  }
+  40% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
 .sk-animate-fade-in {
   animation: sk-fade-in 0.7s ease-out forwards;
 }
 
 .sk-animate-fade-up {
   animation: sk-fade-up 0.9s ease-out forwards;
+}
+
+.sk-toast-enter {
+  animation: sk-toast-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sk-modal-backdrop-enter {
+  animation: sk-fade-in 0.22s ease-out both;
+}
+
+.sk-modal-panel-enter {
+  animation: sk-fade-up 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sk-panel-slide-in {
+  animation: sk-slide-in-right 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.sk-beast-pulse {
+  animation: sk-shimmer-fire 2.2s ease-in-out infinite;
+}
+
+.sk-credit-flash {
+  animation: sk-number-flash 0.65s ease-out both;
+}
+
+@layer utilities {
+  .sk-figures {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
 }
 
 html {
@@ -54,6 +152,7 @@ html[data-theme='light'] {
 html[data-theme='light'] body {
   background-color: #fafafa;
   color: #18181b;
+  font-family: var(--font-sans);
 }
 
 html[data-theme='light'] .bg-zinc-950 {

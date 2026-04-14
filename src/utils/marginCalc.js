@@ -28,13 +28,14 @@ export function marginPercent(referencePrice, overheadTotal) {
 }
 
 export function marginBadgeClass(percent) {
+  const base = 'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 transition-colors duration-300 ease-out '
   if (percent == null || Number.isNaN(percent)) {
-    return 'bg-zinc-700 text-zinc-300'
+    return base + 'bg-zinc-800 text-zinc-300 ring-zinc-600/60'
   }
-  if (percent < 15) return 'bg-red-950/80 text-red-300 ring-1 ring-red-900/60'
-  if (percent < 25) return 'bg-amber-950/80 text-amber-200 ring-1 ring-amber-900/50'
-  if (percent < 35) return 'bg-emerald-950/80 text-emerald-200 ring-1 ring-emerald-900/50'
-  return 'bg-sky-950/80 text-sky-200 ring-1 ring-amber-500/40'
+  if (percent < 15) return base + 'bg-red-950/85 text-red-200 ring-red-900/55'
+  if (percent < 25) return base + 'bg-amber-950/85 text-amber-200 ring-amber-900/45'
+  if (percent < 35) return base + 'bg-emerald-950/85 text-emerald-200 ring-emerald-900/45'
+  return base + 'bg-sky-950/85 text-sky-200 ring-sky-700/40'
 }
 
 export function marginBadgeLabel(percent) {

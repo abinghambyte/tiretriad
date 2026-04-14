@@ -52,7 +52,7 @@ function TableSkeleton() {
     >
       {[...Array(11)].map((__, j) => (
         <div key={j} className="px-3">
-          <div className="h-4 animate-pulse rounded bg-zinc-800/70" />
+          <div className="h-3.5 animate-pulse rounded-md bg-zinc-800/65" />
         </div>
       ))}
     </div>
@@ -82,17 +82,18 @@ function MiniNum({ label, value, onChange }) {
           const raw = e.target.value
           onChange(raw === '' ? 0 : Number(raw))
         }}
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 font-mono text-xs text-zinc-100 outline-none focus:border-amber-600/60"
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 font-mono text-xs text-zinc-100 outline-none transition-shadow duration-200 focus:border-amber-600/50 focus:ring-2 focus:ring-amber-500/30"
       />
     </div>
   )
 }
 
 function marginPctTone(pct) {
-  if (pct == null || Number.isNaN(pct)) return 'text-zinc-500'
-  if (pct < 10) return 'text-red-400'
-  if (pct <= 25) return 'text-amber-300'
-  return 'text-emerald-300'
+  const t = 'transition-colors duration-300 ease-out '
+  if (pct == null || Number.isNaN(pct)) return t + 'text-zinc-500'
+  if (pct < 10) return t + 'text-red-400'
+  if (pct <= 25) return t + 'text-amber-300'
+  return t + 'text-emerald-300'
 }
 
 const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
@@ -192,7 +193,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const marginCell =
     previewMargin != null && !Number.isNaN(previewMargin) ? (
       <span
-        className={`inline-flex tabular-nums text-sm font-semibold ${marginPctTone(previewMargin)}`}
+        className={`sk-figures inline-flex text-sm font-semibold ${marginPctTone(previewMargin)}`}
         title={marginTitle}
       >
         {formatPercent(previewMargin, 1)}
@@ -256,7 +257,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               type="button"
               disabled={costSaving}
               onClick={closeCostEdit}
-              className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500"
+              className="rounded-lg border border-rose-900/50 bg-rose-950/20 px-3 py-1.5 text-xs font-medium text-rose-200 transition-colors duration-200 hover:border-rose-800/60 hover:bg-rose-950/35"
             >
               Cancel
             </button>
@@ -279,7 +280,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
     return (
       <div
         style={style}
-        className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 hover:bg-zinc-900/40"
+        className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
@@ -326,7 +327,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex w-[88px] shrink-0 items-center justify-center truncate px-2 text-center font-medium text-zinc-200">
               <span className="inline-flex min-w-0 items-center justify-center gap-1">
                 {isTireBeastMode(row) ? (
-                  <span className="shrink-0" title="Sold within 24h of intake">
+                  <span className="sk-beast-pulse inline-flex shrink-0" title="Sold within 24h of intake" aria-hidden>
                     🔥
                   </span>
                 ) : null}
@@ -405,7 +406,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   return (
     <div
       style={style}
-      className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 hover:bg-zinc-900/40"
+      className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...GRID_STYLE, height: ROW_BASE_PX }}>
         <div className="flex items-center px-3">
@@ -420,7 +421,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         <div className="truncate px-3 text-center font-medium text-zinc-200">
           <span className="inline-flex items-center justify-center gap-1">
             {isTireBeastMode(row) ? (
-              <span className="shrink-0" title="Sold within 24h of intake">
+              <span className="sk-beast-pulse inline-flex shrink-0" title="Sold within 24h of intake" aria-hidden>
                 🔥
               </span>
             ) : null}
@@ -713,7 +714,7 @@ export function MarginTable({
       <div
         ref={scrollRef}
         onScroll={onTableScroll}
-        className="overflow-x-auto rounded-2xl border border-zinc-800"
+        className="relative overflow-x-auto rounded-2xl border border-zinc-800 max-sm:after:pointer-events-none max-sm:after:absolute max-sm:after:right-0 max-sm:after:top-0 max-sm:after:z-[5] max-sm:after:h-full max-sm:after:w-10 max-sm:after:bg-gradient-to-l max-sm:after:from-zinc-950 max-sm:after:to-transparent max-sm:after:opacity-90 max-sm:after:content-[''] sm:after:hidden"
       >
         {isMobileTable && rows.length > 0 && !loading && !scrollHintDismissed ? (
           <div className="mx-2 mb-2 rounded-full border border-amber-800/50 bg-amber-950/40 px-3 py-2 text-center text-xs font-medium text-amber-100/95 md:hidden">
@@ -722,7 +723,7 @@ export function MarginTable({
         ) : null}
         <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1120px]'}`}>
           <div
-            className="box-border hidden border-b border-zinc-800 bg-zinc-900/60 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid"
+            className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
           >
             <div className="flex flex-col items-stretch justify-center gap-1 px-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-1">
@@ -784,7 +785,7 @@ export function MarginTable({
             <div className="hidden px-2 lg:block">Category</div>
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
-            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/60 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 md:hidden">
+            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
                 <div className="flex w-[104px] shrink-0 flex-col items-stretch justify-center gap-1 px-1.5 py-1">
                   <button
@@ -862,8 +863,20 @@ export function MarginTable({
               <TableSkeleton />
             )
           ) : rows.length === 0 ? (
-            <div className="px-4 py-14 text-center text-sm leading-relaxed text-zinc-500">
-              {emptyState}
+            <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+              <div
+                className="rounded-2xl border border-zinc-800/90 bg-zinc-900/50 p-8 shadow-inner shadow-black/20"
+                role="status"
+              >
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/50 text-zinc-500">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                    <circle cx="12" cy="12" r="7.25" />
+                    <circle cx="12" cy="12" r="2.25" />
+                    <path strokeLinecap="round" d="M12 4.75v2M12 17.25v2M4.75 12h2M17.25 12h2" />
+                  </svg>
+                </div>
+                <div className="max-w-sm text-sm leading-relaxed text-zinc-400">{emptyState}</div>
+              </div>
             </div>
           ) : (
             <List

@@ -175,19 +175,28 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/60 p-0 backdrop-blur-sm sm:p-0"
+      className="fixed inset-0 z-40 flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter sm:p-0"
       role="dialog"
       aria-modal
       onClick={onClose}
     >
       <div
-        className="h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl max-sm:max-w-none max-sm:border-l-0"
+        className="sk-panel-slide-in h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800/90 bg-zinc-950 p-6 shadow-2xl shadow-black/40 max-sm:max-w-none max-sm:border-l-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="text-lg font-semibold text-white">{draft.companyName}</h2>
-          <button type="button" className="text-sm text-zinc-500 hover:text-zinc-300" onClick={onClose}>
-            Close
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="min-w-0 flex-1 text-lg font-semibold tracking-tight text-zinc-50 sm:text-xl">
+            {draft.companyName}
+          </h2>
+          <button
+            type="button"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-zinc-400 transition-colors duration-200 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100"
+            onClick={onClose}
+            aria-label="Close panel"
+          >
+            <span className="text-xl leading-none" aria-hidden>
+              ×
+            </span>
           </button>
         </div>
         <p className="mt-2 text-xs text-zinc-500">

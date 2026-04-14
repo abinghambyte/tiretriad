@@ -17,8 +17,9 @@ export function computeCrmScore(data) {
 
 export function scoreBadgeClass(score) {
   const s = Number(score) || 0
-  if (s >= 80) return 'bg-emerald-950/70 text-emerald-100 ring-emerald-700/50'
-  if (s >= 60) return 'bg-sky-950/70 text-sky-100 ring-sky-700/50'
-  if (s >= 40) return 'bg-amber-950/70 text-amber-100 ring-amber-700/50'
-  return 'bg-zinc-800 text-zinc-300 ring-zinc-600/50'
+  const t = 'transition-colors duration-200 ease-out '
+  if (s >= 80) return t + 'bg-emerald-950/75 text-emerald-100 ring-emerald-700/45'
+  if (s >= 60) return t + 'bg-sky-950/75 text-sky-100 ring-sky-700/45'
+  if (s >= 40) return t + 'bg-amber-950/75 text-amber-100 ring-amber-700/45'
+  return t + 'bg-zinc-800 text-zinc-300 ring-zinc-600/50'
 }

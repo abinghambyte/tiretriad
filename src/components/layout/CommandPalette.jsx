@@ -122,7 +122,7 @@ export function CommandPalette({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-start justify-center bg-black/70 p-4 pt-[12vh] sm:pt-[15vh]"
+      className="fixed inset-0 z-[200] flex items-start justify-center bg-black/75 p-4 pt-[10vh] backdrop-blur-sm sk-modal-backdrop-enter sm:pt-[14vh]"
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
@@ -131,10 +131,10 @@ export function CommandPalette({ open, onClose }) {
       }}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl"
+        className="sk-modal-panel-enter w-full max-w-lg rounded-2xl border border-zinc-700/90 bg-zinc-900/95 shadow-2xl shadow-black/50"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2">
+        <div className="flex items-center gap-3 border-b border-zinc-800/90 px-3 py-2.5 sm:px-4">
           <span className="text-zinc-500" aria-hidden>
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="11" cy="11" r="7" />
@@ -147,30 +147,44 @@ export function CommandPalette({ open, onClose }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="MSPN, customer, order ID, company…"
-            className="min-h-[40px] flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
+            className="min-h-[44px] flex-1 rounded-lg bg-transparent text-sm text-zinc-100 outline-none ring-0 placeholder:text-zinc-600 focus:ring-2 focus:ring-amber-500/35 sm:min-h-[40px]"
             autoComplete="off"
           />
-          <kbd className="hidden shrink-0 rounded border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 sm:inline">
+          <kbd className="hidden shrink-0 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-[10px] text-zinc-500 sm:inline">
             Esc
           </kbd>
         </div>
-        <div className="max-h-[50vh] overflow-y-auto px-2 py-2 text-sm">
-          {busy ? <p className="px-2 py-3 text-xs text-zinc-500">Searching…</p> : null}
+        <div className="max-h-[min(50vh,28rem)] overflow-y-auto px-2 py-3 text-sm sm:px-3">
+          {busy ? (
+            <div className="space-y-2 px-2 py-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-zinc-800/60" />
+              ))}
+            </div>
+          ) : null}
           {!busy && q.trim().length < 2 ? (
-            <p className="px-2 py-4 text-center text-xs text-zinc-500">Type at least 2 characters to search.</p>
+            <p className="px-3 py-6 text-center text-sm text-zinc-400">Type at least 2 characters to search.</p>
           ) : null}
           {!busy && q.trim().length >= 2 && totalHits === 0 ? (
-            <p className="px-2 py-4 text-center text-xs text-zinc-500">No matches.</p>
+            <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+              <span className="rounded-full border border-zinc-700 bg-zinc-800/50 p-3 text-zinc-500" aria-hidden>
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="7" />
+                  <path strokeLinecap="round" d="M20 20l-3-3" />
+                </svg>
+              </span>
+              <p className="text-sm text-zinc-400">No matches for that query.</p>
+            </div>
           ) : null}
           {hits.tires.length ? (
             <div className="mt-1">
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Tires</p>
-              <ul className="mt-1 space-y-0.5">
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Tires</p>
+              <ul className="mt-1 space-y-1">
                 {hits.tires.map((t) => (
                   <li key={t.id}>
                     <button
                       type="button"
-                      className="w-full rounded-lg px-2 py-2 text-left text-zinc-200 hover:bg-zinc-800/80"
+                      className="w-full rounded-lg px-3 py-2.5 text-left text-zinc-200 transition-colors duration-150 hover:bg-zinc-800/90 active:bg-zinc-800"
                       onClick={() => {
                         navigate(`/tires?tab=catalog`)
                         onClose()
@@ -187,13 +201,13 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.orders.length ? (
             <div className="mt-2">
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Orders</p>
-              <ul className="mt-1 space-y-0.5">
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Orders</p>
+              <ul className="mt-1 space-y-1">
                 {hits.orders.map((o) => (
                   <li key={o.id}>
                     <button
                       type="button"
-                      className="w-full rounded-lg px-2 py-2 text-left hover:bg-zinc-800/80"
+                      className="w-full rounded-lg px-3 py-2.5 text-left transition-colors duration-150 hover:bg-zinc-800/90 active:bg-zinc-800"
                       onClick={() => {
                         navigate(`/tires?tab=orders&highlight=${encodeURIComponent(o.id)}`)
                         onClose()
@@ -212,13 +226,13 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.contacts.length ? (
             <div className="mt-2">
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Contacts</p>
-              <ul className="mt-1 space-y-0.5">
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Contacts</p>
+              <ul className="mt-1 space-y-1">
                 {hits.contacts.map((c) => (
                   <li key={c.id}>
                     <button
                       type="button"
-                      className="w-full rounded-lg px-2 py-2 text-left hover:bg-zinc-800/80"
+                      className="w-full rounded-lg px-3 py-2.5 text-left transition-colors duration-150 hover:bg-zinc-800/90 active:bg-zinc-800"
                       onClick={() => {
                         navigate('/people?tab=customers')
                         onClose()
@@ -234,13 +248,13 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.crm.length ? (
             <div className="mt-2">
-              <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">CRM</p>
-              <ul className="mt-1 space-y-0.5">
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">CRM</p>
+              <ul className="mt-1 space-y-1">
                 {hits.crm.map((a) => (
                   <li key={a.id}>
                     <button
                       type="button"
-                      className="w-full rounded-lg px-2 py-2 text-left hover:bg-zinc-800/80"
+                      className="w-full rounded-lg px-3 py-2.5 text-left transition-colors duration-150 hover:bg-zinc-800/90 active:bg-zinc-800"
                       onClick={() => {
                         navigate('/crm')
                         onClose()

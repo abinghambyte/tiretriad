@@ -184,7 +184,7 @@ export function TiresDashboard() {
           <button
             type="button"
             onClick={clearFilters}
-            className="mt-3 text-amber-200/90 underline decoration-amber-700/50 hover:text-amber-100"
+            className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-amber-700/50 bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-100 transition-colors duration-200 hover:border-amber-600/60 hover:bg-amber-950/50 sm:min-h-0"
           >
             Clear filters
           </button>

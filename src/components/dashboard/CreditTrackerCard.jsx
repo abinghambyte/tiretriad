@@ -1,5 +1,5 @@
 import { doc, onSnapshot } from 'firebase/firestore'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, startTransition } from 'react'
 import { db } from '../../firebase/config'
 import { formatCurrency } from '../../utils/format'
 
@@ -63,6 +63,19 @@ export function CreditTrackerCard({ compact = false }) {
   const refunds = useMemo(() => activeRefunds(data?.refundPipeline), [data])
   const avail = useMemo(() => (data ? availablePower(data) : null), [data])
 
+  const prevAvailRef = useRef(/** @type {number | null} */ (null))
+  const [availAnimKey, setAvailAnimKey] = useState(0)
+  useEffect(() => {
+    if (avail == null || !Number.isFinite(avail)) return
+    const prev = prevAvailRef.current
+    prevAvailRef.current = avail
+    if (prev != null && Math.abs(prev - avail) > 0.005) {
+      startTransition(() => {
+        setAvailAnimKey((k) => k + 1)
+      })
+    }
+  }, [avail])
+
   const availClass =
     avail == null || !Number.isFinite(avail)
       ? 'text-zinc-200'
@@ -114,8 +127,12 @@ export function CreditTrackerCard({ compact = false }) {
 
   if (!data) {
     return (
-      <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 text-sm text-zinc-500 ${compact ? 'px-4 py-3' : 'p-5'}`}>
-        Loading credit tracker…
+      <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 ${compact ? 'px-4 py-3' : 'p-5'}`}>
+        <div className="space-y-3 animate-pulse">
+          <div className="h-3 w-32 rounded-md bg-zinc-800/80" />
+          <div className="h-8 w-48 max-w-full rounded-md bg-zinc-800/70" />
+          <div className="h-3 w-full rounded-md bg-zinc-800/50" />
+        </div>
       </div>
     )
   }
@@ -134,7 +151,10 @@ export function CreditTrackerCard({ compact = false }) {
         >
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Available</span>
-            <span className={`text-lg font-bold tabular-nums sm:text-xl ${availClass}`}>
+            <span
+              key={availAnimKey}
+              className={`sk-figures text-lg font-bold tabular-nums sm:text-xl ${availClass} ${availAnimKey > 0 ? 'sk-credit-flash rounded-md' : ''}`}
+            >
               {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
             </span>
           </div>
@@ -197,7 +217,10 @@ export function CreditTrackerCard({ compact = false }) {
           Fleet buying power
         </p>
         <h2 className="mt-1 text-lg font-semibold text-zinc-100">Credit limit tracker</h2>
-        <p className={`mt-2 text-3xl font-bold tabular-nums ${availClass}`}>
+        <p
+          key={availAnimKey}
+          className={`sk-figures mt-2 text-3xl font-bold tabular-nums ${availClass} ${availAnimKey > 0 ? 'sk-credit-flash inline-block rounded-md' : ''}`}
+        >
           {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
         </p>
         <p className="mt-1 text-xs text-zinc-500">Available (limit − balance)</p>

@@ -311,18 +311,18 @@ export function ContactsPage({ embedded = false }) {
 
     {selected ? (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/60 p-0 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter"
           role="dialog"
           aria-modal
           onClick={() => setSelected(null)}
         >
           <div
-            className="h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl max-sm:max-w-none max-sm:border-l-0"
+            className="sk-panel-slide-in h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800/90 bg-zinc-950 p-6 shadow-2xl shadow-black/40 max-sm:max-w-none max-sm:border-l-0"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-white">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
                   {selected.isVip ? (
                     <span className="mr-1 text-amber-300" title="VIP customer">
                       ⭐
@@ -330,7 +330,7 @@ export function ContactsPage({ embedded = false }) {
                   ) : null}
                   {selected.name || '—'}
                 </h2>
-                <p className="mt-1 font-mono text-xs text-zinc-500">{displayPhone(selected.id)}</p>
+                <p className="sk-figures mt-1 text-xs text-zinc-400">{displayPhone(selected.id)}</p>
                 {ghostCount != null && ghostCount >= 2 ? (
                   <p className="mt-2 text-xs font-medium text-amber-300/90">
                     👻 Repeat ghost — flagged {ghostCount} times
@@ -339,10 +339,13 @@ export function ContactsPage({ embedded = false }) {
               </div>
               <button
                 type="button"
-                className="text-sm text-zinc-500 hover:text-zinc-300"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-zinc-400 transition-colors duration-200 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100"
                 onClick={() => setSelected(null)}
+                aria-label="Close panel"
               >
-                Close
+                <span className="text-xl leading-none" aria-hidden>
+                  ×
+                </span>
               </button>
             </div>
 

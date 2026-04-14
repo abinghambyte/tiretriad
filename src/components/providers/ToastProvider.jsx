@@ -30,12 +30,12 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             className={[
-              'pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md',
+              'sk-toast-enter pointer-events-auto rounded-xl border px-4 py-3 text-sm leading-snug shadow-lg shadow-black/30 backdrop-blur-md transition-opacity duration-200',
               t.variant === 'error'
-                ? 'border-red-900/60 bg-red-950/90 text-red-100'
+                ? 'border-red-900/55 bg-red-950/92 text-red-50'
                 : t.variant === 'success'
-                  ? 'border-emerald-900/50 bg-emerald-950/90 text-emerald-50'
-                  : 'border-zinc-700 bg-zinc-900/95 text-zinc-100',
+                  ? 'border-emerald-900/45 bg-emerald-950/92 text-emerald-50'
+                  : 'border-zinc-700/90 bg-zinc-900/95 text-zinc-100',
             ].join(' ')}
           >
             {t.message}
