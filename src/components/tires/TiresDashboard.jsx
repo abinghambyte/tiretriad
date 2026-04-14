@@ -1,10 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
-import { signOut } from 'firebase/auth'
 import { httpsCallable } from 'firebase/functions'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { auth, functions } from '../../firebase/config'
+import { functions } from '../../firebase/config'
 import { permissionMeets } from '../../constants/peoplePermissions'
-import { useAuth } from '../../hooks/useAuth'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
@@ -18,7 +16,7 @@ import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { SaleMessenger } from './SaleMessenger'
-import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
+import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 
 const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
@@ -32,7 +30,6 @@ function uniqueSorted(values) {
 
 export function TiresDashboard() {
   const { toast } = useToast()
-  const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { permissionFor } = useUserProfile()
@@ -216,15 +213,18 @@ export function TiresDashboard() {
     })
   }
 
-  function toggleAllVisible(rows) {
-    const allOn = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
+  function selectAllVisible(rows) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (allOn) {
-        for (const r of rows) next.delete(r.id)
-      } else {
-        for (const r of rows) next.add(r.id)
-      }
+      for (const r of rows) next.add(r.id)
+      return next
+    })
+  }
+
+  function deselectAllVisible(rows) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const r of rows) next.delete(r.id)
       if (next.size === 0) setBulkCtsOpen(false)
       return next
     })
@@ -308,67 +308,26 @@ export function TiresDashboard() {
     }
   }
 
-  async function handleSignOut() {
-    await signOut(auth)
-    navigate('/', { replace: true })
-  }
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <Link
-              to="/dashboard"
-              className="text-sm text-zinc-500 transition hover:text-zinc-200"
-            >
-              ← Dashboard
-            </Link>
-            <span className="hidden h-6 w-px bg-zinc-800 sm:block" aria-hidden />
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-                Tool
-              </p>
-              <h1 className="text-xl font-semibold text-zinc-100">Skedaddle Tires</h1>
-              <div className="mt-2 sm:hidden">
-                <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-              </div>
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-        <div className="border-t border-zinc-800/80 bg-zinc-950/80">
-          <nav
-            className="mx-auto flex max-w-7xl gap-1 px-4 sm:px-6 sm:pl-8"
-            aria-label="Skedaddle Tires sections"
-          >
-            <Link
-              to="/tires"
-              className={[
-                '-mb-px flex min-h-[44px] min-w-[44px] items-center border-b-2 px-4 py-3 text-sm font-medium transition sm:min-h-0 sm:min-w-0',
-                tab === 'catalog'
-                  ? 'border-amber-500 text-amber-100'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300',
-              ].join(' ')}
-            >
-              Catalog
-            </Link>
-            <Link
-              to="/tires?tab=orders"
-              className={[
-                '-mb-px flex min-h-[44px] min-w-[44px] items-center border-b-2 px-4 py-3 text-sm font-medium transition sm:min-h-0 sm:min-w-0',
-                tab === 'orders'
-                  ? 'border-amber-500 text-amber-100'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300',
-              ].join(' ')}
-            >
-              Orders
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <ModuleSubheader
+        title="Skedaddle Tires"
+        subtitle="Margin catalog, orders, and listings"
+        tabs={[
+          {
+            key: 'catalog',
+            label: 'Catalog',
+            to: '/tires',
+            active: tab === 'catalog',
+          },
+          {
+            key: 'orders',
+            label: 'Orders',
+            to: '/tires?tab=orders',
+            active: tab === 'orders',
+          },
+        ]}
+      />
 
       <main className="mx-auto max-w-7xl space-y-8 px-6 py-8">
         {error ? (
@@ -567,7 +526,8 @@ export function TiresDashboard() {
           rows={sortedRows}
           selectedIds={selectedIds}
           onToggle={toggle}
-          onToggleAllVisible={toggleAllVisible}
+          onSelectAllVisible={selectAllVisible}
+          onDeselectAllVisible={deselectAllVisible}
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}

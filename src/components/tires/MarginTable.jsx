@@ -5,10 +5,11 @@ import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
-import { computeMargin, marginBadgeClass, marginBadgeLabel } from '../../utils/marginCalc'
+import { computeMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { parseDescription } from '../../utils/parseTireDescription.js'
 
 /** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
 const ROW_BASE_PX = 48
@@ -23,9 +24,9 @@ const LIST_MIN_H = 200
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 1080,
+  minWidth: 1120,
   gridTemplateColumns:
-    '40px minmax(72px,1fr) minmax(100px,1.35fr) 76px 28px 52px 76px 40px 68px 72px minmax(52px,1fr)',
+    'minmax(104px,1.05fr) minmax(72px,1fr) minmax(100px,1.35fr) 88px 28px 52px 84px 44px 72px 76px minmax(52px,1fr)',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -87,6 +88,50 @@ function MiniNum({ label, value, onChange }) {
   )
 }
 
+function marginPctTone(pct) {
+  if (pct == null || Number.isNaN(pct)) return 'text-zinc-500'
+  if (pct < 10) return 'text-red-400'
+  if (pct <= 25) return 'text-amber-300'
+  return 'text-emerald-300'
+}
+
+const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
+  const d = String(description ?? '').trim()
+  const parsed = useMemo(() => parseDescription(d), [d])
+  if (!d) return <span className="text-zinc-500">—</span>
+  const hasParsed =
+    parsed.width != null &&
+    parsed.aspectRatio != null &&
+    parsed.construction != null &&
+    parsed.rimDiameter != null
+  if (!hasParsed) {
+    return <span className="min-w-0 truncate text-sm text-zinc-400">{d}</span>
+  }
+  const loadParts = []
+  if (parsed.loadIndex != null) loadParts.push(String(parsed.loadIndex))
+  if (parsed.speedRating) loadParts.push(parsed.speedRating)
+  if (parsed.extraLoad) loadParts.push('XL')
+  const loadSpeed = loadParts.join(' ')
+  return (
+    <div className="min-w-0 text-sm leading-snug text-zinc-300">
+      <div className="font-mono text-zinc-200">
+        {parsed.width}/{parsed.aspectRatio}
+        {parsed.construction}
+        {parsed.rimDiameter}
+        {loadSpeed ? (
+          <>
+            {' '}
+            <span className="text-zinc-500">·</span> {loadSpeed}
+          </>
+        ) : null}
+      </div>
+      {parsed.treadName ? (
+        <div className="mt-0.5 truncate text-xs font-medium text-zinc-500">{parsed.treadName}</div>
+      ) : null}
+    </div>
+  )
+})
+
 function SortButton({ label, active, dir, onClick, disabled, touchWide }) {
   return (
     <button
@@ -140,26 +185,21 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const showGradeEditor = editingGradeId === row.id
   const previewMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : m
 
+  const marginTitle =
+    (previewMargin == null || Number.isNaN(previewMargin)) && (showCostEditor ? buyPriceOf(row) <= 0 : m == null)
+      ? 'No buy price on this catalog row.'
+      : marginBadgeLabel(previewMargin)
   const marginCell =
-    previewMargin != null && !Number.isNaN(previewMargin) && previewMargin > 35 ? (
+    previewMargin != null && !Number.isNaN(previewMargin) ? (
       <span
-        className={`inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-xs font-medium ${marginBadgeClass(previewMargin)}`}
+        className={`inline-flex tabular-nums text-sm font-semibold ${marginPctTone(previewMargin)}`}
+        title={marginTitle}
       >
-        {`${formatPercent(previewMargin, 1)} `}
-        <span className="ml-1 opacity-80">{marginBadgeLabel(previewMargin)}</span>
+        {formatPercent(previewMargin, 1)}
       </span>
     ) : (
-      <span
-        className="text-xs font-medium text-zinc-400"
-        title={
-          (previewMargin == null || Number.isNaN(previewMargin)) && (showCostEditor ? buyPriceOf(row) <= 0 : m == null)
-            ? 'No buy price on this catalog row.'
-            : undefined
-        }
-      >
-        {previewMargin != null && !Number.isNaN(previewMargin)
-          ? formatPercent(previewMargin, 1)
-          : '—'}
+      <span className="text-sm font-semibold text-zinc-500" title={marginTitle}>
+        —
       </span>
     )
 
@@ -194,7 +234,12 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           <span className="text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
           {' · '}
           Margin ={' '}
-          <span className="text-amber-200/90">
+          <span
+            className={`font-semibold ${(() => {
+              const pm = previewMarginWhileEditing(row, overheadDraft)
+              return pm != null && !Number.isNaN(pm) ? marginPctTone(pm) : 'text-zinc-500'
+            })()}`}
+          >
             {(() => {
               const pm = previewMarginWhileEditing(row, overheadDraft)
               return pm != null && !Number.isNaN(pm) ? formatPercent(pm, 1) : '—'
@@ -237,8 +282,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 hover:bg-zinc-900/40"
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
-          <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
-            <div className="flex w-10 shrink-0 items-center justify-center px-1">
+            <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
+            <div className="flex w-[104px] shrink-0 items-center justify-center px-1">
               <input
                 type="checkbox"
                 checked={selected}
@@ -257,7 +302,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 {selected ? '✓' : 'Select'}
               </button>
             ) : null}
-            <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">
+            <div className="flex w-[200px] shrink-0 items-center border-r border-zinc-800/60 px-2">
               <span className="inline-flex min-w-0 items-start gap-1.5">
                 {row.deadStockFlag ? (
                   <span
@@ -266,20 +311,20 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                     aria-label="Dead stock"
                   />
                 ) : null}
-                <span className="min-w-0 truncate text-zinc-400">{row.description || '—'}</span>
+                <TireDescriptionCell description={row.description} />
               </span>
             </div>
-            <div className="flex w-[70px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-xs text-zinc-400">
+            <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300">
               {row.mspn || '—'}
             </div>
-            <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1 text-xs text-zinc-300">
+            <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
               {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
           <div className="flex shrink-0 items-stretch divide-x divide-zinc-800/60">
-            <div className="flex w-[88px] shrink-0 items-center truncate px-2 font-medium text-zinc-200">
-              <span className="inline-flex min-w-0 items-center gap-1">
+            <div className="flex w-[88px] shrink-0 items-center justify-center truncate px-2 text-center font-medium text-zinc-200">
+              <span className="inline-flex min-w-0 items-center justify-center gap-1">
                 {isTireBeastMode(row) ? (
                   <span className="shrink-0" title="Sold within 24h of intake">
                     🔥
@@ -291,7 +336,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex w-10 shrink-0 items-center justify-center truncate px-1 text-zinc-400">
               {row.lr || '—'}
             </div>
-            <div className="flex w-11 shrink-0 items-center justify-center px-0.5 font-mono text-[9px] text-zinc-500">
+            <div className="flex w-11 shrink-0 items-center justify-center px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
               {formatCurrencyOrDash(Number(row.fet) || 0)}
             </div>
             <div className="flex w-[72px] shrink-0 items-center justify-center px-1">
@@ -336,7 +381,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 </button>
               )}
             </div>
-            <div className="flex w-[88px] shrink-0 items-center px-2 text-xs text-zinc-300">
+            <div className="flex w-[88px] shrink-0 items-center px-2 text-sm font-semibold tabular-nums text-zinc-200">
               <button
                 type="button"
                 onClick={() => openCostEdit(row)}
@@ -372,8 +417,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             className="rounded border-zinc-600"
           />
         </div>
-        <div className="truncate px-3 font-medium text-zinc-200">
-          <span className="inline-flex items-center gap-1">
+        <div className="truncate px-3 text-center font-medium text-zinc-200">
+          <span className="inline-flex items-center justify-center gap-1">
             {isTireBeastMode(row) ? (
               <span className="shrink-0" title="Sold within 24h of intake">
                 🔥
@@ -382,7 +427,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <span className="min-w-0 truncate">{row.brand || '—'}</span>
           </span>
         </div>
-        <div className="max-w-[200px] truncate px-3 text-zinc-400">
+        <div className="min-w-0 px-3">
           <span className="inline-flex min-w-0 items-start gap-1.5">
             {row.deadStockFlag ? (
               <span
@@ -391,10 +436,12 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 aria-label="Dead stock"
               />
             ) : null}
-            <span className="min-w-0 truncate">{row.description || '—'}</span>
+            <TireDescriptionCell description={row.description} />
           </span>
         </div>
-        <div className="truncate px-3 font-mono text-xs text-zinc-400">{row.mspn || '—'}</div>
+        <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
+          {row.mspn || '—'}
+        </div>
         <div className="truncate px-3 text-zinc-400">{row.lr || '—'}</div>
         <div className="flex items-center px-3">
           {showGradeEditor ? (
@@ -447,14 +494,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           )}
         </div>
         <div
-          className="truncate px-2 text-right font-mono text-xs text-zinc-300 tabular-nums"
-          title="Buy (Kyle) — catalog buy price (includes FET component)"
+          className="truncate px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
+          title="Buy price — catalog buy (includes FET component)"
         >
           {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}
         </div>
         <div
-          className="truncate px-1 text-center font-mono text-[11px] text-zinc-400 tabular-nums"
-          title="FET — shown for reference; already included in Buy (Kyle)"
+          className="truncate px-1 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
+          title="FET — shown for reference; already included in buy price"
         >
           {formatCurrencyOrDash(Number(row.fet) || 0)}
         </div>
@@ -462,7 +509,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           <button
             type="button"
             onClick={() => openCostEdit(row)}
-            className={`max-w-full truncate text-right font-mono text-xs underline-offset-2 hover:underline ${
+            className={`max-w-full truncate text-right font-mono text-sm font-semibold tabular-nums underline-offset-2 hover:underline ${
               editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
             }`}
           >
@@ -481,7 +528,8 @@ export function MarginTable({
   rows,
   selectedIds,
   onToggle,
-  onToggleAllVisible,
+  onSelectAllVisible,
+  onDeselectAllVisible,
   sortKey,
   sortDir,
   onSort,
@@ -511,8 +559,8 @@ export function MarginTable({
   const [gradeDraft, setGradeDraft] = useState('B')
   const [gradeSaving, setGradeSaving] = useState(false)
 
-  const allVisibleSelected =
-    rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
+  const allVisibleSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
+  const anyVisibleSelected = rows.some((r) => selectedIds.has(r.id))
 
   const openCostEdit = useCallback((row) => {
     setEditingGradeId(null)
@@ -672,22 +720,30 @@ export function MarginTable({
             ← Scroll for overhead, FET, grade, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1080px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1120px]'}`}>
           <div
-            className="box-border hidden border-b border-zinc-800 bg-zinc-900/60 py-3 text-xs uppercase tracking-wide text-zinc-500 md:grid"
+            className="box-border hidden border-b border-zinc-800 bg-zinc-900/60 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid"
             style={GRID_STYLE}
           >
-            <div className="flex items-center px-3">
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={() => onToggleAllVisible(rows)}
-                disabled={loading || rows.length === 0}
-                aria-label="Select all visible"
-                className="rounded border-zinc-600 disabled:opacity-40"
-              />
+            <div className="flex flex-col items-stretch justify-center gap-1 px-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-1">
+              <button
+                type="button"
+                onClick={() => onSelectAllVisible(rows)}
+                disabled={loading || rows.length === 0 || allVisibleSelected}
+                className="rounded-md border border-zinc-700 bg-zinc-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={() => onDeselectAllVisible(rows)}
+                disabled={loading || rows.length === 0 || !anyVisibleSelected}
+                className="rounded-md border border-zinc-700 bg-zinc-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Deselect all
+              </button>
             </div>
-            <div className="px-3">
+            <div className="px-3 text-center">
               <SortButton
                 label="Brand"
                 active={sortKey === 'brand'}
@@ -703,7 +759,7 @@ export function MarginTable({
             <div className="px-3">Grade</div>
             <div className="px-2 text-right">
               <SortButton
-                label="Buy (Kyle)"
+                label="Buy Price"
                 active={sortKey === 'buy'}
                 dir={sortDir}
                 onClick={() => onSort('buy')}
@@ -711,13 +767,10 @@ export function MarginTable({
                 touchWide={isMobileTable}
               />
             </div>
-            <div
-              className="px-1 text-center text-[10px] tracking-wide"
-              title="Already included in Buy (Kyle); shown for reference"
-            >
+            <div className="px-1 text-center" title="Already included in buy price; shown for reference">
               FET
             </div>
-            <div className="px-2 text-right text-[10px] tracking-wide">Overhead</div>
+            <div className="px-2 text-right">Overhead</div>
             <div className="px-2 text-right">
               <SortButton
                 label="Margin %"
@@ -733,15 +786,23 @@ export function MarginTable({
           {isMobileTable && !loading && rows.length > 0 ? (
             <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/60 py-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
-                <div className="flex w-10 shrink-0 items-center justify-center px-1">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={() => onToggleAllVisible(rows)}
-                    disabled={loading || rows.length === 0}
-                    aria-label="Select all visible"
-                    className="rounded border-zinc-600 disabled:opacity-40"
-                  />
+                <div className="flex w-[104px] shrink-0 flex-col items-stretch justify-center gap-1 px-1.5 py-1">
+                  <button
+                    type="button"
+                    onClick={() => onSelectAllVisible(rows)}
+                    disabled={loading || rows.length === 0 || allVisibleSelected}
+                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeselectAllVisible(rows)}
+                    disabled={loading || rows.length === 0 || !anyVisibleSelected}
+                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
+                  >
+                    None
+                  </button>
                 </div>
                 {selectMode ? <div className="w-12 shrink-0 border-r border-zinc-800/60" aria-hidden /> : null}
                 <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">

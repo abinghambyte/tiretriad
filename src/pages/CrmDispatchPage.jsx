@@ -1,4 +1,3 @@
-import { signOut } from 'firebase/auth'
 import {
   collection,
   limit,
@@ -10,12 +9,13 @@ import {
   doc,
 } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { auth, db } from '../firebase/config'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { db } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
-import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
+import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
+import { buildCrmTabs } from '../utils/crmModuleTabs.js'
 
 const JOB_COMPLETION_LABELS = {
   Pending: 'Pending',
@@ -46,7 +46,8 @@ export function CrmDispatchPage() {
   const { toast } = useToast()
   const { user } = useAuth()
   const { profile, loading: profileLoading } = useUserProfile()
-  const navigate = useNavigate()
+  const loc = useLocation()
+  const [searchParams] = useSearchParams()
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -97,11 +98,6 @@ export function CrmDispatchPage() {
     )
   }
 
-  async function handleSignOut() {
-    await signOut(auth)
-    navigate('/', { replace: true })
-  }
-
   async function setStatus(job, status) {
     const patch = {
       completionStatus: status,
@@ -116,24 +112,16 @@ export function CrmDispatchPage() {
     }
   }
 
+  const crmTabs = buildCrmTabs({ profile, pathname: loc.pathname, searchParams })
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 px-4 py-3 sm:px-6 sm:py-4">
-        <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-            <Link to="/crm" className="text-sm text-zinc-500 hover:text-zinc-200">
-              ← Rubber CRM
-            </Link>
-            <h1 className="text-lg font-semibold text-white">DJ dispatch</h1>
-            <div className="w-full basis-full sm:hidden">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-      </header>
+      <ModuleSubheader
+        title="DJ Dispatch"
+        subtitle="Field jobs from scheduled trials"
+        tabs={crmTabs}
+        maxWidthClass="max-w-3xl"
+      />
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
         {loading ? <p className="text-sm text-zinc-500">Loading jobs…</p> : null}
         {!loading && loadError ? (

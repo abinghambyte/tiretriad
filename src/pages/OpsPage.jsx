@@ -1,4 +1,3 @@
-import { signOut } from 'firebase/auth'
 import {
   addDoc,
   collection,
@@ -13,10 +12,9 @@ import {
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { auth, db, functions, firebaseProjectId } from '../firebase/config'
-import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
-import { useAuth } from '../hooks/useAuth'
+import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 
@@ -52,9 +50,7 @@ function downloadCsvString(csv, fileName) {
 }
 
 export function OpsPage() {
-  const { user } = useAuth()
   const { profile, loading: profileLoading } = useUserProfile()
-  const navigate = useNavigate()
 
   const [expenses, setExpenses] = useState([])
   const [expLoading, setExpLoading] = useState(true)
@@ -157,7 +153,7 @@ export function OpsPage() {
       window.alert('Enter a valid amount.')
       return
     }
-    const loggedBy = String(user?.email || user?.uid || 'unknown')
+    const loggedBy = String(auth.currentUser?.email || auth.currentUser?.uid || 'unknown')
     setSavingExp(true)
     try {
       await addDoc(collection(db, 'expenses'), {
@@ -215,43 +211,18 @@ export function OpsPage() {
     }
   }
 
-  async function handleSignOut() {
-    await signOut(auth)
-    navigate('/', { replace: true })
-  }
-
   if (!profileLoading && profile && String(profile.role || '') !== 'admin') {
     return <Navigate to="/dashboard?notice=access" replace />
   }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800/90 bg-zinc-950/75 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 max-sm:hidden">
-              Skedaddle OS · Admin
-            </p>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">Ops Command</h1>
-            <p className="mt-2 max-w-xl text-sm text-zinc-400">
-              Business expenses, tax-prep order export, inventory reorder queue, and inbound SMS relay to Slack.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-              <Link to="/dashboard" className="text-amber-300/90 hover:text-amber-200">
-                ← Dashboard
-              </Link>
-            </div>
-          </div>
-          <div className="max-sm:w-full sm:text-right">
-            <div className="max-sm:mb-3 sm:hidden">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-            <div className="hidden sm:block">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleSubheader
+        title="Ops Command"
+        subtitle="Business expenses, tax-prep export, reorder queue, and inbound SMS relay to Slack"
+        tabs={[]}
+        maxWidthClass="max-w-6xl"
+      />
 
       <main className="mx-auto max-w-6xl space-y-10 px-6 py-10 sm:py-12">
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">

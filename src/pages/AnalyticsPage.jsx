@@ -1,4 +1,3 @@
-import { signOut } from 'firebase/auth'
 import {
   collection,
   doc,
@@ -11,11 +10,10 @@ import {
   where,
 } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { auth, db } from '../firebase/config'
-import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
+import { useSearchParams } from 'react-router-dom'
+import { db } from '../firebase/config'
+import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { MarginWeekLineChart } from '../components/analytics/MarginWeekLineChart.jsx'
-import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 import { WallPage } from './WallPage'
 import { addDaysToYmd, denverYm, isoWeekKey } from '../utils/isoWeekDenver.js'
@@ -85,10 +83,10 @@ function flameSize(days) {
   return 'text-sm opacity-70'
 }
 
+const TAB_LABELS = { wall: 'Wall', metrics: 'Metrics', revenue: 'Revenue', leaderboard: 'Leaderboard' }
+
 export function AnalyticsPage() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const rawTab = searchParams.get('tab') || 'wall'
   const tab = TAB_IDS.includes(rawTab) ? rawTab : 'wall'
 
@@ -346,58 +344,21 @@ export function AnalyticsPage() {
     return { bestAll, best30, topCrew, topSku }
   }, [completedRows, tiresByMspn])
 
-  function setTab(next) {
-    const p = new URLSearchParams(searchParams)
-    if (next === 'wall') p.delete('tab')
-    else p.set('tab', next)
-    setSearchParams(p, { replace: true })
-  }
-
-  async function handleSignOut() {
-    await signOut(auth)
-    navigate('/', { replace: true })
-  }
+  const analyticsTabs = TAB_IDS.map((id) => ({
+    key: id,
+    label: TAB_LABELS[id] || id,
+    to: id === 'wall' ? '/analytics' : `/analytics?tab=${id}`,
+    active: tab === id,
+  }))
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-          <div className="min-w-0">
-            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
-              ← Dashboard
-            </Link>
-            <h1 className="mt-2 text-xl font-semibold text-white">Analytics</h1>
-            <p className="mt-1 text-sm text-zinc-500">Wall, operational metrics, and revenue lens</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                { id: 'wall', label: 'Wall' },
-                { id: 'metrics', label: 'Metrics' },
-                { id: 'revenue', label: 'Revenue' },
-                { id: 'leaderboard', label: 'Leaderboard' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-                    tab === t.id
-                      ? 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-600/50'
-                      : 'bg-zinc-900 text-zinc-500 ring-1 ring-zinc-800 hover:text-zinc-300'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-2 sm:hidden">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-      </header>
+      <ModuleSubheader
+        title="Analytics"
+        subtitle="Wall, operational metrics, and revenue lens"
+        tabs={analyticsTabs}
+        maxWidthClass="max-w-5xl"
+      />
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         {tab === 'wall' ? (

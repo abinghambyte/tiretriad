@@ -9,33 +9,39 @@ const STATUS_STYLES = {
 }
 
 const ACCENT_BAR = {
-  amber: 'from-amber-500/90 to-amber-600/40',
-  cyan: 'from-cyan-400/90 to-cyan-600/40',
-  blue: 'from-blue-500/90 to-blue-700/40',
-  violet: 'from-violet-500/90 to-violet-700/40',
-  emerald: 'from-emerald-500/90 to-emerald-700/40',
-  fuchsia: 'from-fuchsia-500/90 to-fuchsia-700/40',
-  zinc: 'from-zinc-500/70 to-zinc-700/35',
+  teal: 'from-teal-500/90 to-teal-800/35',
+  orange: 'from-orange-500/90 to-orange-800/40',
+  slate: 'from-slate-500/90 to-slate-800/40',
+  green: 'from-green-600/90 to-emerald-950/45',
+  rose: 'from-rose-600/90 to-rose-950/45',
+  amber: 'from-amber-500/90 to-amber-800/40',
 }
 
 const ACCENT_GLOW = {
-  amber: 'group-hover:shadow-amber-500/8',
-  cyan: 'group-hover:shadow-cyan-500/8',
-  blue: 'group-hover:shadow-blue-500/8',
-  violet: 'group-hover:shadow-violet-500/8',
-  emerald: 'group-hover:shadow-emerald-500/8',
-  fuchsia: 'group-hover:shadow-fuchsia-500/8',
-  zinc: 'group-hover:shadow-zinc-600/8',
+  teal: 'group-hover:shadow-teal-500/10',
+  orange: 'group-hover:shadow-orange-500/10',
+  slate: 'group-hover:shadow-slate-400/10',
+  green: 'group-hover:shadow-green-500/10',
+  rose: 'group-hover:shadow-rose-500/10',
+  amber: 'group-hover:shadow-amber-500/10',
 }
 
 const ACCENT_HALO = {
-  amber: 'from-amber-400/25 to-transparent',
-  cyan: 'from-cyan-400/25 to-transparent',
-  blue: 'from-blue-400/25 to-transparent',
-  violet: 'from-violet-400/25 to-transparent',
-  emerald: 'from-emerald-400/25 to-transparent',
-  fuchsia: 'from-fuchsia-400/25 to-transparent',
-  zinc: 'from-zinc-500/20 to-transparent',
+  teal: 'from-teal-400/22 to-transparent',
+  orange: 'from-orange-400/22 to-transparent',
+  slate: 'from-slate-400/20 to-transparent',
+  green: 'from-green-400/22 to-transparent',
+  rose: 'from-rose-400/22 to-transparent',
+  amber: 'from-amber-400/22 to-transparent',
+}
+
+const ACCENT_CTA_RING = {
+  teal: 'group-hover:border-teal-500/45 group-hover:ring-teal-500/25',
+  orange: 'group-hover:border-orange-500/45 group-hover:ring-orange-500/25',
+  slate: 'group-hover:border-slate-400/45 group-hover:ring-slate-400/20',
+  green: 'group-hover:border-green-500/45 group-hover:ring-green-500/25',
+  rose: 'group-hover:border-rose-500/45 group-hover:ring-rose-500/25',
+  amber: 'group-hover:border-amber-500/45 group-hover:ring-amber-500/25',
 }
 
 /**
@@ -43,8 +49,10 @@ const ACCENT_HALO = {
  * @param {string} props.title
  * @param {string} props.description
  * @param {string} props.stat
+ * @param {string} [props.statLabel]
+ * @param {string} [props.ctaLabel]
  * @param {'Live'|'Preview'|'Buildout'|'Internal'|'Locked'} props.status
- * @param {'amber'|'cyan'|'blue'|'violet'|'emerald'|'fuchsia'|'zinc'} props.accent
+ * @param {'teal'|'orange'|'slate'|'green'|'rose'|'amber'} props.accent
  * @param {import('react').ReactNode} props.icon
  * @param {string} [props.to]
  * @param {boolean} [props.locked] View-only or limited access (shows lock on card)
@@ -53,6 +61,8 @@ export function ProjectCard({
   title,
   description,
   stat,
+  statLabel = 'Snapshot',
+  ctaLabel,
   status,
   accent,
   icon,
@@ -61,9 +71,12 @@ export function ProjectCard({
 }) {
   const clickable = Boolean(to)
   const statusClass = STATUS_STYLES[status] ?? STATUS_STYLES.Internal
-  const barClass = ACCENT_BAR[accent] ?? ACCENT_BAR.amber
+  const barClass = ACCENT_BAR[accent] ?? ACCENT_BAR.teal
   const glowClass = ACCENT_GLOW[accent] ?? ''
-  const haloClass = ACCENT_HALO[accent] ?? ACCENT_HALO.amber
+  const haloClass = ACCENT_HALO[accent] ?? ACCENT_HALO.teal
+  const ctaRing = ACCENT_CTA_RING[accent] ?? ACCENT_CTA_RING.teal
+
+  const primaryCta = clickable ? (ctaLabel ?? 'Open') : (ctaLabel ?? 'Unavailable · under construction')
 
   const inner = (
     <article
@@ -124,21 +137,22 @@ export function ProjectCard({
         </p>
         <div className="mt-5 border-t border-zinc-800/80 pt-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-            Signal
+            {statLabel}
           </p>
           <p className="mt-1 font-mono text-sm tabular-nums text-zinc-200">
             {stat}
           </p>
         </div>
-        {clickable ? (
-          <span className="mt-3 text-xs font-medium text-zinc-500 transition group-hover:text-zinc-300">
-            Enter module →
-          </span>
-        ) : (
-          <span className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
-            Unavailable · under construction
-          </span>
-        )}
+        <div
+          className={[
+            'mt-4 flex w-full items-center justify-center rounded-xl border bg-zinc-900/70 py-3 text-sm font-bold tracking-tight ring-0 transition',
+            clickable
+              ? `border-zinc-600/90 text-zinc-50 ring-1 ring-transparent ${ctaRing} group-hover:bg-zinc-800/90`
+              : 'border-zinc-800/80 text-zinc-500',
+          ].join(' ')}
+        >
+          {primaryCta}
+        </div>
       </div>
     </article>
   )

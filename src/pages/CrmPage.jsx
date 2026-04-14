@@ -1,4 +1,3 @@
-import { signOut } from 'firebase/auth'
 import {
   addDoc,
   collection,
@@ -14,14 +13,14 @@ import {
   where,
 } from 'firebase/firestore'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
-import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
 import { cmdEnterSubmitKeyDown } from '../utils/cmdEnterSubmit.js'
-import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
+import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { permissionMeets } from '../constants/peoplePermissions'
+import { buildCrmTabs } from '../utils/crmModuleTabs.js'
 import { computeCrmScore, scoreBadgeClass } from '../utils/crmScore'
 
 const STAGES = [1, 2, 3, 4, 5, 6]
@@ -45,12 +44,12 @@ function formatTs(ts) {
 }
 
 export function CrmPage() {
-  const { user } = useAuth()
   const { toast } = useToast()
   const { permissionFor, profile } = useUserProfile()
-  const navigate = useNavigate()
+  const loc = useLocation()
+  const [searchParams] = useSearchParams()
+  const tab = searchParams.get('tab') === 'leads' ? 'leads' : 'board'
   const canEdit = permissionMeets(permissionFor('crm'), 'edit')
-  const [tab, setTab] = useState('board')
   const [accounts, setAccounts] = useState([])
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
@@ -131,11 +130,6 @@ export function CrmPage() {
     (stage) => filteredAccounts.filter((a) => Number(a.pipelineStage || 1) === stage),
     [filteredAccounts],
   )
-
-  async function handleSignOut() {
-    await signOut(auth)
-    navigate('/', { replace: true })
-  }
 
   async function onDropStage(stage, e) {
     e.preventDefault()
@@ -233,50 +227,16 @@ export function CrmPage() {
     })
   }
 
+  const crmTabs = buildCrmTabs({ profile, pathname: loc.pathname, searchParams })
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2">
-            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
-              ← Dashboard
-            </Link>
-            <span className="hidden h-4 w-px bg-zinc-700 sm:block" aria-hidden />
-            <h1 className="text-lg font-semibold text-white">Rubber CRM</h1>
-            {profile?.role === 'mechanic' || profile?.role === 'admin' ? (
-              <Link
-                to="/crm/dispatch"
-                className="text-sm text-cyan-400/90 hover:text-cyan-300 hover:underline"
-              >
-                DJ dispatch
-              </Link>
-            ) : null}
-            <div className="w-full basis-full sm:hidden">
-              <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-            </div>
-          </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
-          </div>
-        </div>
-        <div className="mx-auto flex max-w-[1600px] gap-2 border-t border-zinc-800/80 px-4 sm:px-6">
-          {['board', 'leads'].map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={[
-                '-mb-px flex min-h-[44px] min-w-[44px] items-center border-b-2 px-4 py-3 text-sm font-medium capitalize sm:min-h-0 sm:min-w-0',
-                tab === t
-                  ? 'border-violet-500 text-violet-100'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300',
-              ].join(' ')}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </header>
+      <ModuleSubheader
+        title="Rubber CRM"
+        subtitle="Fleet pipeline, leads, and DJ jobs"
+        tabs={crmTabs}
+        maxWidthClass="max-w-[1600px]"
+      />
 
       <main className="mx-auto max-w-[1600px] space-y-6 px-4 py-6 sm:px-6">
         {tab === 'board' ? (

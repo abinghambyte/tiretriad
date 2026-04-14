@@ -1,16 +1,13 @@
-import { signOut } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { auth, db } from '../../firebase/config'
+import { Navigate, useSearchParams } from 'react-router-dom'
+import { db } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { permissionMeets } from '../../constants/peoplePermissions'
-import { useAuth } from '../../hooks/useAuth'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { formatCurrency, formatPercent } from '../../utils/format'
 import { CreditTrackerCard } from './CreditTrackerCard.jsx'
 import { ProjectCard } from './ProjectCard'
-import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 
 function IconTires() {
   return (
@@ -119,10 +116,8 @@ function IconOpsCommand() {
 }
 
 export function Dashboard() {
-  const { user } = useAuth()
   const { permissionFor, profile, loading: profileGate } = useUserProfile()
   const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
   const { catalogSkuDisplay, tireSku, crm, people, completedOrders } = useDashboardSignals()
   const [djStreak, setDjStreak] = useState(undefined)
 
@@ -172,19 +167,16 @@ export function Dashboard() {
     return `${n} orders completed · ${formatCurrency(rev)} total`
   }, [completedOrders])
 
-  async function handleSignOut() {
-    await signOut(auth)
-    navigate('/', { replace: true })
-  }
-
   const modules = [
     {
       title: 'Skedaddle Tires',
       description:
         'Margin catalog, tire orders, and listing generator — Catalog, Orders, and generate listings from the Tires workspace.',
       stat: tireSignal,
+      statLabel: 'Catalog',
+      ctaLabel: 'Open Catalog',
       status: 'Live',
-      accent: 'amber',
+      accent: 'teal',
       icon: <IconTires />,
       to: '/tires',
       moduleKey: 'tires',
@@ -195,8 +187,10 @@ export function Dashboard() {
       description:
         'Lead pipeline, fleet accounts, and DJ dispatch for northern Colorado tire operations.',
       stat: crmSignal,
+      statLabel: 'Pipeline',
+      ctaLabel: 'View Pipeline',
       status: 'Live',
-      accent: 'violet',
+      accent: 'orange',
       icon: <IconCrm />,
       to: '/crm',
       moduleKey: 'crm',
@@ -207,8 +201,10 @@ export function Dashboard() {
       description:
         'Crew access, invites, permission matrix, and customer contacts (Customers tab).',
       stat: peopleSignal,
+      statLabel: 'Crew',
+      ctaLabel: 'Manage Crew',
       status: 'Live',
-      accent: 'violet',
+      accent: 'slate',
       icon: <IconPeople />,
       to: '/people',
       moduleKey: 'people',
@@ -219,8 +215,10 @@ export function Dashboard() {
       description:
         'The Wall (completed orders), operational metrics from completions, and a revenue intelligence lane.',
       stat: analyticsSignal,
+      statLabel: 'Outcomes',
+      ctaLabel: 'See the Numbers',
       status: 'Live',
-      accent: 'blue',
+      accent: 'green',
       icon: <IconAnalytics />,
       to: '/analytics',
       moduleKey: 'analytics',
@@ -231,8 +229,10 @@ export function Dashboard() {
       description:
         'Automations, prototypes, and internal products before they earn a name. Nothing here ships without a deliberate pull.',
       stat: 'No public builds — access restricted',
+      statLabel: 'Status',
+      ctaLabel: 'Coming Soon',
       status: 'Locked',
-      accent: 'fuchsia',
+      accent: 'amber',
       icon: <IconGrowth />,
     },
     {
@@ -240,8 +240,10 @@ export function Dashboard() {
       description:
         'Expenses, tax-prep CSV export, reorder queue, and inbound SMS relay to Slack (#fleet-ops).',
       stat: 'Admin runway',
+      statLabel: 'Runway',
+      ctaLabel: 'Run Ops',
       status: 'Live',
-      accent: 'zinc',
+      accent: 'rose',
       icon: <IconOpsCommand />,
       to: '/ops',
       adminOnly: true,
@@ -294,12 +296,6 @@ export function Dashboard() {
               <h1 className="mt-0 text-xl font-semibold tracking-tight text-white sm:mt-1 sm:text-2xl">
                 Operations overview
               </h1>
-              <div className="mt-2 sm:hidden">
-                <PortalSessionLine
-                  email={user?.email || auth.currentUser?.email}
-                  onSignOut={handleSignOut}
-                />
-              </div>
               {djStreak !== undefined ? (
                 <p
                   className={`mt-2 text-sm font-medium ${
@@ -318,16 +314,10 @@ export function Dashboard() {
               )}
             </div>
           </div>
-          <div className="hidden sm:block">
-            <PortalSessionLine
-              email={user?.email || auth.currentUser?.email}
-              onSignOut={handleSignOut}
-            />
-          </div>
         </div>
         {!profileGate && profile?.role === 'admin' ? (
-          <div className="border-t border-zinc-800/70 bg-zinc-950/55">
-            <div className="mx-auto max-w-6xl px-6 py-3">
+          <div className="border-t border-zinc-800/70 bg-zinc-950/80">
+            <div className="mx-auto max-w-6xl px-6 py-2">
               <CreditTrackerCard compact />
             </div>
           </div>
@@ -364,6 +354,8 @@ export function Dashboard() {
                 title={m.title}
                 description={m.description}
                 stat={m.stat}
+                statLabel={m.statLabel}
+                ctaLabel={m.ctaLabel}
                 status={m.status}
                 accent={m.accent}
                 icon={m.icon}

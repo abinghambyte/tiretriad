@@ -36,6 +36,7 @@ export function CreditTrackerCard({ compact = false }) {
   const [data, setData] = useState(null)
   const [exists, setExists] = useState(true)
   const [err, setErr] = useState(null)
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     const ref = doc(db, 'meta', 'creditTracker')
@@ -80,7 +81,7 @@ export function CreditTrackerCard({ compact = false }) {
       : '—'
 
   const shell = compact
-    ? 'rounded-xl border border-amber-900/35 bg-zinc-950/80 px-4 py-3 shadow-sm shadow-black/20 sm:px-5'
+    ? 'rounded-lg border border-zinc-800/90 bg-zinc-950/90 px-3 py-2 shadow-sm shadow-black/20 sm:px-4'
     : 'rounded-2xl border border-amber-900/40 bg-gradient-to-br from-zinc-950 to-amber-950/20 p-5 shadow-lg shadow-black/20'
 
   if (err) {
@@ -119,52 +120,101 @@ export function CreditTrackerCard({ compact = false }) {
     )
   }
 
-  const pendingSlice = pending.items.slice(0, compact ? 4 : 12)
-  const refundSlice = refunds.slice(0, compact ? 3 : 10)
+  const pendingSlice = pending.items.slice(0, compact ? 8 : 12)
+  const refundSlice = refunds.slice(0, compact ? 6 : 10)
+
+  if (compact) {
+    return (
+      <div className={shell}>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex w-full flex-col gap-1 text-left sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-6 sm:gap-y-1"
+          aria-expanded={expanded}
+        >
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Available</span>
+            <span className={`text-lg font-bold tabular-nums sm:text-xl ${availClass}`}>
+              {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs text-zinc-400 sm:text-sm">
+            <span>
+              <span className="text-zinc-500">Balance</span>{' '}
+              <span className="font-mono font-semibold text-zinc-200">{formatCurrency(data.currentBalance)}</span>
+            </span>
+            <span>
+              <span className="text-zinc-500">Limit</span>{' '}
+              <span className="font-mono font-semibold text-zinc-200">{formatCurrency(data.cardLimit)}</span>
+            </span>
+          </div>
+          <span className="text-[10px] text-zinc-600 sm:ml-auto">
+            {expanded ? 'Hide detail' : 'Pending & refunds'}
+            <span className="ml-1 text-zinc-500" aria-hidden>
+              {expanded ? '▴' : '▾'}
+            </span>
+          </span>
+        </button>
+        {expanded ? (
+          <div className="mt-3 border-t border-zinc-800/80 pt-3">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Pending charges</p>
+            {pendingSlice.length === 0 ? (
+              <p className="mt-1 text-xs text-zinc-600">None</p>
+            ) : (
+              <ul className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs text-zinc-300">
+                {pendingSlice.map((c) => (
+                  <li key={c.id || `${c.mspn}-${c.total}`} className="flex justify-between gap-2 border-b border-zinc-800/60 pb-1">
+                    <span className="truncate font-mono text-zinc-400">{c.mspn}</span>
+                    <span className="shrink-0 font-mono">{formatCurrency(c.total)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Refund pipeline</p>
+            {refundSlice.length === 0 ? (
+              <p className="mt-1 text-xs text-zinc-600">None active</p>
+            ) : (
+              <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-zinc-300">
+                {refundSlice.map((r, i) => (
+                  <li key={r.id || `r-${i}`} className="flex justify-between gap-2">
+                    <span className="truncate text-zinc-400">{r.label || 'Refund'}</span>
+                    <span className="shrink-0 font-mono">{formatCurrency(r.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+        <p className="mt-2 text-[10px] text-zinc-600">Updated {updated}</p>
+      </div>
+    )
+  }
 
   return (
     <div className={shell}>
-      <div
-        className={
-          compact
-            ? 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between'
-            : ''
-        }
-      >
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-600/90">
-            Fleet buying power
-          </p>
-          <h2 className={`font-semibold text-zinc-100 ${compact ? 'text-sm sm:text-base' : 'mt-1 text-lg'}`}>
-            Credit limit tracker
-          </h2>
-        </div>
-        <div className={compact ? 'text-right sm:min-w-[8rem]' : ''}>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Available</p>
-          <p className={`font-bold tabular-nums ${availClass} ${compact ? 'text-xl sm:text-2xl' : 'mt-1 text-3xl'}`}>
-            {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
-          </p>
-        </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-600/90">
+          Fleet buying power
+        </p>
+        <h2 className="mt-1 text-lg font-semibold text-zinc-100">Credit limit tracker</h2>
+        <p className={`mt-2 text-3xl font-bold tabular-nums ${availClass}`}>
+          {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">Available (limit − balance)</p>
       </div>
 
-      <dl
-        className={
-          compact
-            ? 'mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:mt-2 sm:flex sm:flex-wrap sm:gap-x-6'
-            : 'mt-4 space-y-2 text-sm'
-        }
-      >
-        <div className={compact ? 'flex justify-between gap-2 sm:block' : 'flex justify-between gap-4'}>
+      <dl className="mt-4 space-y-2 text-sm">
+        <div className="flex justify-between gap-4">
           <dt className="text-zinc-500">Limit</dt>
-          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>{formatCurrency(data.cardLimit)}</dd>
+          <dd className="font-mono text-zinc-200">{formatCurrency(data.cardLimit)}</dd>
         </div>
-        <div className={compact ? 'flex justify-between gap-2 sm:block' : 'flex justify-between gap-4'}>
+        <div className="flex justify-between gap-4">
           <dt className="text-zinc-500">Balance</dt>
-          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>{formatCurrency(data.currentBalance)}</dd>
+          <dd className="font-mono text-zinc-200">{formatCurrency(data.currentBalance)}</dd>
         </div>
-        <div className={compact ? 'col-span-2 flex justify-between gap-2 sm:col-auto sm:block' : 'flex justify-between gap-4'}>
+        <div className="flex justify-between gap-4">
           <dt className="text-zinc-500">Pending (log)</dt>
-          <dd className={`font-mono text-zinc-200 ${compact ? 'text-xs' : ''}`}>
+          <dd className="font-mono text-zinc-200">
             {formatCurrency(pending.total)}{' '}
             <span className="text-zinc-500">
               ({pending.count} {pending.count === 1 ? 'line' : 'lines'})
@@ -173,43 +223,36 @@ export function CreditTrackerCard({ compact = false }) {
         </div>
       </dl>
 
-      {!compact ? (
-        <div className="mt-4 border-t border-zinc-800/80 pt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Pending charges</p>
-          {pendingSlice.length === 0 ? (
-            <p className="mt-1 text-xs text-zinc-600">None</p>
-          ) : (
-            <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-xs text-zinc-300">
-              {pendingSlice.map((c) => (
-                <li key={c.id || `${c.mspn}-${c.total}`} className="flex justify-between gap-2 border-b border-zinc-800/60 pb-1">
-                  <span className="truncate font-mono text-zinc-400">{c.mspn}</span>
-                  <span className="shrink-0 font-mono">{formatCurrency(c.total)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-500">Refund pipeline</p>
-          {refundSlice.length === 0 ? (
-            <p className="mt-1 text-xs text-zinc-600">None active</p>
-          ) : (
-            <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-xs text-zinc-300">
-              {refundSlice.map((r, i) => (
-                <li key={r.id || `r-${i}`} className="flex justify-between gap-2">
-                  <span className="truncate text-zinc-400">{r.label || 'Refund'}</span>
-                  <span className="shrink-0 font-mono">{formatCurrency(r.amount)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : (
-        <div className="mt-2 text-[11px] text-zinc-500">
-          {pending.count > 0 ? `${pending.count} pending line(s) · ` : ''}
-          {refunds.length > 0 ? `${refunds.length} active refund(s)` : 'No active refunds'}
-        </div>
-      )}
+      <div className="mt-4 border-t border-zinc-800/80 pt-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Pending charges</p>
+        {pendingSlice.length === 0 ? (
+          <p className="mt-1 text-xs text-zinc-600">None</p>
+        ) : (
+          <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto text-xs text-zinc-300">
+            {pendingSlice.map((c) => (
+              <li key={c.id || `${c.mspn}-${c.total}`} className="flex justify-between gap-2 border-b border-zinc-800/60 pb-1">
+                <span className="truncate font-mono text-zinc-400">{c.mspn}</span>
+                <span className="shrink-0 font-mono">{formatCurrency(c.total)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-500">Refund pipeline</p>
+        {refundSlice.length === 0 ? (
+          <p className="mt-1 text-xs text-zinc-600">None active</p>
+        ) : (
+          <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-xs text-zinc-300">
+            {refundSlice.map((r, i) => (
+              <li key={r.id || `r-${i}`} className="flex justify-between gap-2">
+                <span className="truncate text-zinc-400">{r.label || 'Refund'}</span>
+                <span className="shrink-0 font-mono">{formatCurrency(r.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-      <p className={`text-zinc-600 ${compact ? 'mt-2 text-[10px]' : 'mt-3 text-xs'}`}>Last updated: {updated}</p>
+      <p className="mt-3 text-xs text-zinc-600">Last updated: {updated}</p>
     </div>
   )
 }

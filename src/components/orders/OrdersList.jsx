@@ -311,6 +311,23 @@ export function OrdersList({ highlightId }) {
     }
   }, [highlightId, orders])
 
+  const dismissOrderModals = useCallback(() => {
+    setNotifyModalOrder(null)
+    setCancelFor(null)
+    setCancelDisp('')
+    setCancelNote('')
+    setCompleteFor(null)
+  }, [])
+
+  useEffect(() => {
+    if (!notifyModalOrder && !cancelFor && !completeFor) return undefined
+    function onKeyDown(e) {
+      if (e.key === 'Escape') dismissOrderModals()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [notifyModalOrder, cancelFor, completeFor, dismissOrderModals])
+
   const persistCustomerNotified = useCallback(async (order) => {
     const patch = { customerNotifiedAt: serverTimestamp() }
     if (!order.firstNotifiedAt) {
@@ -610,8 +627,14 @@ export function OrdersList({ highlightId }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="notify-customer-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) dismissOrderModals()
+          }}
         >
-          <div className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}>
+          <div
+            className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 id="notify-customer-title" className="text-sm font-semibold text-white">
               Notify customer
             </h2>
@@ -648,7 +671,7 @@ export function OrdersList({ highlightId }) {
               <button
                 type="button"
                 className="ml-auto rounded-lg px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300"
-                onClick={() => setNotifyModalOrder(null)}
+                onClick={dismissOrderModals}
               >
                 Close
               </button>
@@ -662,8 +685,14 @@ export function OrdersList({ highlightId }) {
           className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) dismissOrderModals()
+          }}
         >
-          <div className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}>
+          <div
+            className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-sm font-semibold text-white">Cancel order</h2>
             <p className="mt-1 font-mono text-xs text-zinc-500">
               {cancelFor.mspn} × {formatQty(cancelFor.quantity)}
@@ -699,7 +728,7 @@ export function OrdersList({ highlightId }) {
               <button
                 type="button"
                 className="rounded-lg px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200"
-                onClick={() => setCancelFor(null)}
+                onClick={dismissOrderModals}
                 disabled={cancelSubmitting}
               >
                 Close
@@ -722,8 +751,14 @@ export function OrdersList({ highlightId }) {
           className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) dismissOrderModals()
+          }}
         >
-          <div className={`${MODAL_CENTER_PANEL_BASE} max-w-sm p-5`}>
+          <div
+            className={`${MODAL_CENTER_PANEL_BASE} max-w-sm p-5`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-sm font-semibold text-white">Mark order complete</h2>
             <p className="mt-1 text-xs text-zinc-500">Payment received and amount for the record.</p>
             <label className="mt-4 flex items-center gap-2 text-sm text-zinc-300">
@@ -749,7 +784,7 @@ export function OrdersList({ highlightId }) {
               <button
                 type="button"
                 className="rounded-lg px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200"
-                onClick={() => setCompleteFor(null)}
+                onClick={dismissOrderModals}
                 disabled={submitting}
               >
                 Cancel
