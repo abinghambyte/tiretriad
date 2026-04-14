@@ -326,6 +326,16 @@ async function handleDone(db, token, fleetChannel, text) {
     } catch (e) {
       console.error('slash /done VIP flag', e)
     }
+    try {
+      const { linkCompletedOrderToCrmAccounts } = require('./crmLinkOrders')
+      await linkCompletedOrderToCrmAccounts(db, {
+        orderId,
+        customerContact: before.customerContact,
+        contactPhoneKey: phoneKey,
+      })
+    } catch (e) {
+      console.error('slash /done crm link', e)
+    }
   }
 
   await incrementDjStreak(db)

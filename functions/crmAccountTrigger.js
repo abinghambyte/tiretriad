@@ -2,23 +2,16 @@
  * Firestore onUpdate — Fleet CRM account automations (Phase 9).
  */
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore')
-const { SLACK_SECRETS } = require('./slackSecrets')
+const { SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_SECRETS } = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { computeCrmScore } = require('./crmShared')
-
-function slackChannelEnv() {
-  return (
-    process.env.SLACK_CHANNEL_ID ||
-    process.env.SLACK_NOTIFY_CHANNEL ||
-    '#fleet-ops'
-  )
-}
+const { normalizePipelineStage, CRM_LOST_STAGE } = require('./crmPipeline')
 
 async function slackQuiet(text) {
-  const token = process.env.SLACK_BOT_TOKEN
-  if (!token) return
-  const channel = slackChannelEnv()
+  const token = String(SLACK_BOT_TOKEN.value() || '').trim()
+  const channel = String(SLACK_CHANNEL_ID.value() || '').trim() || '#fleet-ops'
+  if (!token || !channel) return
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
     headers: {
@@ -61,8 +54,8 @@ exports.crmAccountTrigger = onDocumentUpdated(
 
     const bPain = num(before.painScore)
     const aPain = num(after.painScore)
-    const bStage = num(before.pipelineStage) || 1
-    const aStage = num(after.pipelineStage) || 1
+    const bNorm = normalizePipelineStage(before.pipelineStage, before)
+    const aNorm = normalizePipelineStage(after.pipelineStage, after)
 
     if (aPain >= 7 && bPain < 7) {
       await slackQuiet(
@@ -70,20 +63,19 @@ exports.crmAccountTrigger = onDocumentUpdated(
       )
     }
 
-    if (bStage !== 3 && aStage === 3) {
-      await slackQuiet(`✅ *${after.companyName || accountId}* moved to stage 3 (pain confirmed).`)
+    if (bNorm !== 3 && aNorm === 3) {
+      await slackQuiet(`✅ *${after.companyName || accountId}* moved to Qualified.`)
     }
 
-    if (bStage !== 5 && aStage === 5) {
+    if (bNorm !== 4 && aNorm === 4) {
       const jobRef = db.collection('crmJobs').doc()
       await jobRef.set({
         accountId,
-        /** Pool jobs (null) show to all DJs; set to a uid to restrict dispatch queue. */
         assignedToUid: null,
         jobType: 'Trial',
         location: String(after.location || 'TBD'),
-        vehicleCount: num(after.fleetSize) || 1,
-        tireSizes: '',
+        vehicleCount: num(after.fleetSize) || num(after.vehicleProfile?.vehicleCount) || 1,
+        tireSizes: String(after.vehicleProfile?.tireSizeRange || ''),
         scheduledAt: null,
         completionStatus: 'Pending',
         actualTime: '',
@@ -94,7 +86,7 @@ exports.crmAccountTrigger = onDocumentUpdated(
         updatedAt: FieldValue.serverTimestamp(),
       })
       await slackQuiet(
-        `📅 Trial scheduled — *${after.companyName || accountId}* — job \`${jobRef.id}\` (DJ queue).`,
+        `📅 Quoted / trial path — *${after.companyName || accountId}* — job \`${jobRef.id}\` (DJ queue).`,
       )
     }
 
@@ -106,16 +98,16 @@ exports.crmAccountTrigger = onDocumentUpdated(
     }
 
     let notes = after.notes
-    if (bStage !== 3 && aStage === 3) {
-      patch.notes = appendNote(notes, 'Pain confirmed — ready to offer pilot', 'system:crm-trigger')
+    if (bNorm !== 3 && aNorm === 3) {
+      patch.notes = appendNote(notes, 'Qualified — ready to quote', 'system:crm-trigger')
       notes = patch.notes
     }
 
     const fu = after.followUpAt
     const fuMs = fu && typeof fu.toMillis === 'function' ? fu.toMillis() : null
-    if (fuMs != null && fuMs < now && aStage < 6 && aStage !== 7 && !after.followUpOverdueNotified) {
+    if (fuMs != null && fuMs < now && aNorm <= 4 && aNorm !== CRM_LOST_STAGE && !after.followUpOverdueNotified) {
       await slackQuiet(
-        `⏰ Follow-up overdue — *${after.companyName || accountId}* (stage ${aStage}).`,
+        `⏰ Follow-up overdue — *${after.companyName || accountId}* (stage ${aNorm}).`,
       )
       patch.followUpOverdueNotified = true
     }
@@ -123,7 +115,7 @@ exports.crmAccountTrigger = onDocumentUpdated(
     if (fuMs != null && fuMs >= now && after.followUpOverdueNotified) {
       patch.followUpOverdueNotified = false
     }
-    if (aStage >= 6 || aStage === 7) {
+    if (aNorm >= 5 || aNorm === CRM_LOST_STAGE) {
       patch.followUpOverdueNotified = false
     }
 

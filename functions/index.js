@@ -506,6 +506,16 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     } catch (e) {
       console.error('completeOrder VIP flag', e)
     }
+    try {
+      const { linkCompletedOrderToCrmAccounts } = require('./crmLinkOrders')
+      await linkCompletedOrderToCrmAccounts(db, {
+        orderId,
+        customerContact: before.customerContact,
+        contactPhoneKey: phoneKey,
+      })
+    } catch (e) {
+      console.error('completeOrder crm link', e)
+    }
   }
 
   await incrementDjStreak(db)

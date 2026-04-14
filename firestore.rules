@@ -50,7 +50,7 @@ service cloud.firestore {
 
     function crmAccountPipelineDragOnly() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['pipelineStage', 'lastContactedAt', 'updatedAt']);
+        .hasOnly(['pipelineStage', 'pipelineSchemaVersion', 'lastContactedAt', 'updatedAt']);
     }
 
     match /users/{userId} {

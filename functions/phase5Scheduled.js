@@ -6,6 +6,7 @@
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency } = require('./format')
+const { normalizePipelineStage, CRM_LOST_STAGE } = require('./crmPipeline')
 const { resolveDjUid, fetchAvailabilityDay } = require('./scheduleAvailability')
 const { e164DocIdFromContact } = require('./orderMetrics')
 
@@ -328,6 +329,41 @@ async function morningBriefRun(slackOpts) {
     if (vipNames.length) {
       lines.push(`⭐  VIP on the road today: ${vipNames.join(', ')}`)
     }
+  }
+
+  try {
+    const crmSnap = await db.collection('crmAccounts').limit(400).get()
+    const dueRows = []
+    for (const d of crmSnap.docs) {
+      const a = d.data() || {}
+      const ns = normalizePipelineStage(a.pipelineStage, a)
+      if (ns === CRM_LOST_STAGE || ns === 5) continue
+      const na = a.nextAction || {}
+      const due = na.dueDate
+      if (!due || typeof due.toMillis !== 'function') continue
+      const dueYmd = denverYmd(new Date(due.toMillis()))
+      if (dueYmd <= todayDenver) {
+        dueRows.push({
+          name: a.companyName || d.id,
+          task: String(na.task || '—'),
+          owner: String(na.ownedBy || '—'),
+        })
+      }
+    }
+    if (dueRows.length) {
+      lines.push(`📇  CRM — next actions due or overdue (${todayDenver}):`)
+      for (const r of dueRows.slice(0, 20)) {
+        lines.push(`   • *${r.name}* — ${r.task} (_${r.owner}_)`)
+      }
+      if (dueRows.length > 20) {
+        lines.push(`   _…+${dueRows.length - 20} more_`)
+      }
+    } else {
+      lines.push(`📇  CRM — no open-pipeline next actions due by end of today (${todayDenver}).`)
+    }
+  } catch (e) {
+    console.error('morningBrief CRM', e)
+    lines.push('📇  CRM — (could not load)')
   }
 
   lines.push(

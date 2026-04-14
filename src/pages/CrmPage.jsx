@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   limit,
   onSnapshot,
@@ -14,25 +13,29 @@ import {
 } from 'firebase/firestore'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { auth, db } from '../firebase/config'
+import { db } from '../firebase/config'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
+import { useTires } from '../hooks/useTires'
 import { cmdEnterSubmitKeyDown } from '../utils/cmdEnterSubmit.js'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { permissionMeets } from '../constants/peoplePermissions'
 import { buildCrmTabs } from '../utils/crmModuleTabs.js'
 import { computeCrmScore, scoreBadgeClass } from '../utils/crmScore'
+import { formatCurrency } from '../utils/format'
+import {
+  CRM_LOST_STAGE,
+  CRM_PIPELINE_SCHEMA_VERSION,
+  CRM_STAGE_LABELS,
+  crmStageLabel,
+  estimatedDealValue,
+  lastActivityEntry,
+  normalizePipelineStage,
+} from '../utils/crmPipeline'
+import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
+import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
 
-const STAGES = [1, 2, 3, 4, 5, 6]
-
-const STAGE_TITLES = {
-  1: 'Identified Fleet',
-  2: 'Contact Made',
-  3: 'Pain Confirmed',
-  4: 'Pilot Offered',
-  5: 'Trial Scheduled',
-  6: 'Active Fleet Client',
-}
+const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -43,9 +46,32 @@ function formatTs(ts) {
   }
 }
 
+function nextActionSummary(a) {
+  const na = a.nextAction || {}
+  const task = String(na.task || '').trim()
+  const due =
+    na.dueDate && typeof na.dueDate.toDate === 'function'
+      ? na.dueDate.toDate().toLocaleDateString('en-US', {
+          timeZone: 'America/Denver',
+          month: 'short',
+          day: 'numeric',
+        })
+      : null
+  if (!task && !due) return '—'
+  return [task || '—', due].filter(Boolean).join(' · ')
+}
+
+function lastActivityNotePreview(a) {
+  const e = lastActivityEntry(a)
+  const text = String(e?.note || '').trim()
+  if (!text) return '—'
+  return text.length > 90 ? `${text.slice(0, 87)}…` : text
+}
+
 export function CrmPage() {
   const { toast } = useToast()
   const { permissionFor, profile } = useUserProfile()
+  const { tires } = useTires()
   const loc = useLocation()
   const [searchParams] = useSearchParams()
   const tab = searchParams.get('tab') === 'leads' ? 'leads' : 'board'
@@ -107,8 +133,14 @@ export function CrmPage() {
     })
   }, [detail?.id])
 
+  const avgBuyPerTire = useMemo(() => {
+    const prices = tires.map((t) => Number(t.price)).filter((n) => n > 0)
+    if (!prices.length) return 0
+    return prices.reduce((a, b) => a + b, 0) / prices.length
+  }, [tires])
+
   const lostCount = useMemo(
-    () => accounts.filter((a) => Number(a.pipelineStage) === 7).length,
+    () => accounts.filter((a) => Number(a.pipelineStage) === CRM_LOST_STAGE).length,
     [accounts],
   )
 
@@ -127,7 +159,13 @@ export function CrmPage() {
   }, [accounts, segment, location, minScore, search])
 
   const byStage = useCallback(
-    (stage) => filteredAccounts.filter((a) => Number(a.pipelineStage || 1) === stage),
+    (stage) =>
+      filteredAccounts.filter((a) => normalizePipelineStage(a.pipelineStage, a) === stage),
+    [filteredAccounts],
+  )
+
+  const lostAccounts = useMemo(
+    () => filteredAccounts.filter((a) => Number(a.pipelineStage) === CRM_LOST_STAGE),
     [filteredAccounts],
   )
 
@@ -138,10 +176,11 @@ export function CrmPage() {
     try {
       await updateDoc(doc(db, 'crmAccounts', id), {
         pipelineStage: stage,
+        pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
         lastContactedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
-      toast(`Account moved to stage ${stage}`, 'success')
+      toast(`Moved to ${CRM_STAGE_LABELS[stage] || 'stage ' + stage}`, 'success')
     } catch (err) {
       window.alert(err?.message || String(err))
     }
@@ -154,6 +193,7 @@ export function CrmPage() {
     await addDoc(collection(db, 'crmAccounts'), {
       companyName: name.trim(),
       pipelineStage: 1,
+      pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
       fleetSize: 0,
       painScore: 1,
       decisionMaker: '',
@@ -161,10 +201,22 @@ export function CrmPage() {
       location: '',
       lastContactedAt: serverTimestamp(),
       followUpAt: null,
+      nextAction: { task: '', ownedBy: 'alex', dueDate: null },
+      activityLog: [],
+      vehicleProfile: {
+        vehicleCount: 0,
+        vehicleTypes: '',
+        tireSizeRange: '',
+        currentVendor: '',
+        estimatedAnnualSpend: 0,
+      },
+      linkedPhone: '',
+      linkedOrders: [],
       score: computeCrmScore({
         fleetSize: 0,
         painScore: 1,
         pipelineStage: 1,
+        pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
         lastContactedAt: null,
       }),
       tags: [],
@@ -180,6 +232,7 @@ export function CrmPage() {
     const ref = await addDoc(collection(db, 'crmAccounts'), {
       companyName: lead.businessName || 'Account',
       pipelineStage: 1,
+      pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
       fleetSize: Number(lead.fleetSize) || 0,
       painScore: 1,
       decisionMaker: '',
@@ -187,10 +240,22 @@ export function CrmPage() {
       location: '',
       lastContactedAt: serverTimestamp(),
       followUpAt: lead.followUpAt || null,
+      nextAction: { task: '', ownedBy: 'alex', dueDate: null },
+      activityLog: [],
+      vehicleProfile: {
+        vehicleCount: Number(lead.fleetSize) || 0,
+        vehicleTypes: '',
+        tireSizeRange: '',
+        currentVendor: '',
+        estimatedAnnualSpend: 0,
+      },
+      linkedPhone: '',
+      linkedOrders: [],
       score: computeCrmScore({
         fleetSize: Number(lead.fleetSize) || 0,
         painScore: 1,
         pipelineStage: 1,
+        pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
         lastContactedAt: null,
       }),
       tags: [],
@@ -286,7 +351,7 @@ export function CrmPage() {
             {loading ? (
               <>
                 <div className="hidden gap-2 md:grid md:grid-cols-6">
-                  {STAGES.map((stage) => (
+                  {KANBAN_STAGES.map((stage) => (
                     <div
                       key={stage}
                       className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
@@ -304,7 +369,7 @@ export function CrmPage() {
                   ))}
                 </div>
                 <div className="space-y-2 md:hidden">
-                  {STAGES.map((stage) => (
+                  {KANBAN_STAGES.map((stage) => (
                     <div
                       key={stage}
                       className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3"
@@ -325,7 +390,7 @@ export function CrmPage() {
             ) : (
               <>
                 <div className="hidden gap-2 md:grid md:grid-cols-6 md:overflow-visible">
-                  {STAGES.map((stage) => (
+                  {KANBAN_STAGES.map((stage) => (
                     <div
                       key={stage}
                       className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
@@ -333,7 +398,7 @@ export function CrmPage() {
                       onDrop={(e) => void onDropStage(stage, e)}
                     >
                       <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
-                        {STAGE_TITLES[stage] || `Stage ${stage}`}
+                        {CRM_STAGE_LABELS[stage]}
                       </p>
                       <div className="space-y-2">
                         {byStage(stage).map((a) => (
@@ -348,6 +413,20 @@ export function CrmPage() {
                             className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
                           >
                             <span className="font-medium text-zinc-100">{a.companyName}</span>
+                            <p className="mt-1 text-[10px] font-medium text-violet-300/90">
+                              {crmStageLabel(a.pipelineStage, a)}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-zinc-500">
+                              Next: {nextActionSummary(a)}
+                            </p>
+                            <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
+                              Last note: {lastActivityNotePreview(a)}
+                            </p>
+                            <p className="mt-1 text-[10px] font-semibold text-amber-200/90">
+                              {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
+                                ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
+                                : '—'}
+                            </p>
                             <div className="mt-1 flex flex-wrap items-center gap-1">
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
@@ -356,17 +435,46 @@ export function CrmPage() {
                               </span>
                               <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
                             </div>
-                            <p className="mt-1 text-[10px] text-zinc-500">
-                              {a.decisionMaker || '—'} · {formatTs(a.lastContactedAt)}
-                            </p>
                           </button>
                         ))}
                       </div>
                     </div>
                   ))}
+                  <div
+                    className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/20 p-2"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => void onDropStage(CRM_LOST_STAGE, e)}
+                  >
+                    <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-500">
+                      {CRM_STAGE_LABELS[CRM_LOST_STAGE]}
+                    </p>
+                    <div className="space-y-2">
+                      {lostAccounts.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          draggable={canEdit}
+                          onDragStart={(e) => e.dataTransfer.setData('text/accountId', a.id)}
+                          onClick={() => setDetail(a)}
+                          className="w-full rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2 text-left text-xs hover:border-zinc-600"
+                        >
+                          <span className="font-medium text-zinc-400">{a.companyName}</span>
+                          <p className="mt-1 text-[10px] text-zinc-600">Next: {nextActionSummary(a)}</p>
+                          <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-600">
+                            Last note: {lastActivityNotePreview(a)}
+                          </p>
+                          <p className="mt-1 text-[10px] font-semibold text-amber-200/70">
+                            {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
+                              ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
+                              : '—'}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2 md:hidden">
-                  {STAGES.map((stage) => {
+                  {[...KANBAN_STAGES, CRM_LOST_STAGE].map((stage) => {
                     const open = crmMobileStage === stage
                     return (
                       <div
@@ -380,7 +488,7 @@ export function CrmPage() {
                           onClick={() => setCrmMobileStage(open ? null : stage)}
                         >
                           <span className="text-xs font-semibold leading-snug text-zinc-300">
-                            {STAGE_TITLES[stage] || `Stage ${stage}`}
+                            {CRM_STAGE_LABELS[stage] || `Stage ${stage}`}
                           </span>
                           <span className="text-zinc-500">{open ? '▾' : '▸'}</span>
                         </button>
@@ -390,7 +498,7 @@ export function CrmPage() {
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => void onDropStage(stage, e)}
                           >
-                            {byStage(stage).map((a) => (
+                            {(stage === CRM_LOST_STAGE ? lostAccounts : byStage(stage)).map((a) => (
                               <button
                                 key={a.id}
                                 type="button"
@@ -402,17 +510,22 @@ export function CrmPage() {
                                 className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
                               >
                                 <span className="font-medium text-zinc-100">{a.companyName}</span>
+                                <p className="mt-1 text-[10px] text-zinc-500">Next: {nextActionSummary(a)}</p>
+                                <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
+                                  Last note: {lastActivityNotePreview(a)}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-semibold text-amber-200/90">
+                                  {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
+                                    ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
+                                    : '—'}
+                                </p>
                                 <div className="mt-1 flex flex-wrap items-center gap-1">
                                   <span
                                     className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
                                   >
                                     {a.score ?? computeCrmScore(a)}
                                   </span>
-                                  <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
                                 </div>
-                                <p className="mt-1 text-[10px] text-zinc-500">
-                                  {a.decisionMaker || '—'} · {formatTs(a.lastContactedAt)}
-                                </p>
                               </button>
                             ))}
                           </div>
@@ -425,7 +538,7 @@ export function CrmPage() {
             )}
           </>
         ) : (
-          <section className="space-y-4">
+          <section className="space-y-6">
             <h2 className="text-sm font-semibold text-zinc-300">Leads</h2>
             {canEdit ? (
               <form
@@ -527,233 +640,61 @@ export function CrmPage() {
                 </tbody>
               </table>
             </div>
+            <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <input
+                placeholder="Segment"
+                value={segment}
+                onChange={(e) => setSegment(e.target.value)}
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+              />
+              <input
+                placeholder="Location contains"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+              />
+              <input
+                type="number"
+                placeholder="Min score"
+                value={minScore}
+                onChange={(e) => setMinScore(e.target.value)}
+                className="w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+              />
+              <input
+                placeholder="Search company"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="min-w-[140px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-300">Accounts pipeline</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Sortable accounts (filters above apply here and on the Board tab).
+              </p>
+              <div className="mt-3">
+                <CrmAccountsPipelineTable
+                  accounts={filteredAccounts}
+                  avgBuyPerTire={avgBuyPerTire}
+                  onOpen={(a) => setDetail(a)}
+                />
+              </div>
+            </div>
           </section>
         )}
       </main>
 
       {detail ? (
-        <CrmAccountPanel
+        <CrmAccountDetailPanel
           key={detail.id}
           account={detail}
           vehicles={vehicles}
           canEdit={canEdit}
+          avgBuyPerTire={avgBuyPerTire}
           onClose={() => setDetail(null)}
           onRefresh={(a) => setDetail(a)}
         />
       ) : null}
-    </div>
-  )
-}
-
-function CrmAccountPanel({ account, vehicles, canEdit, onClose, onRefresh }) {
-  const [draft, setDraft] = useState({ ...account })
-  const [vehLabel, setVehLabel] = useState('')
-  const [noteText, setNoteText] = useState('')
-
-  useEffect(() => {
-    queueMicrotask(() => setDraft({ ...account }))
-  }, [account])
-
-  async function saveField(patch) {
-    if (!canEdit) return
-    await updateDoc(doc(db, 'crmAccounts', account.id), {
-      ...patch,
-      updatedAt: serverTimestamp(),
-    })
-    onRefresh({ ...account, ...patch })
-  }
-
-  async function addVehicle() {
-    if (!canEdit || !vehLabel.trim()) return
-    await addDoc(collection(db, 'crmVehicles'), {
-      accountId: account.id,
-      label: vehLabel.trim(),
-      tireSize: '',
-      notes: '',
-      createdAt: serverTimestamp(),
-    })
-    setVehLabel('')
-  }
-
-  async function removeVehicle(id) {
-    if (!canEdit || !window.confirm('Remove vehicle?')) return
-    await deleteDoc(doc(db, 'crmVehicles', id))
-  }
-
-  async function appendNote() {
-    if (!canEdit || !noteText.trim()) return
-    const arr = Array.isArray(account.notes) ? [...account.notes] : []
-    arr.push({
-      text: noteText.trim(),
-      at: Timestamp.now(),
-      by: auth.currentUser?.uid || '',
-    })
-    await saveField({ notes: arr })
-    setNoteText('')
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/60 p-0 backdrop-blur-sm sm:p-0"
-      role="dialog"
-      aria-modal
-      onClick={onClose}
-    >
-      <div
-        className="h-full min-h-screen w-full max-w-lg overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6 shadow-2xl max-sm:max-w-none max-sm:border-l-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="text-lg font-semibold text-white">{account.companyName}</h2>
-          <button type="button" className="text-sm text-zinc-500 hover:text-zinc-300" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-zinc-500">
-          Score{' '}
-          <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${scoreBadgeClass(draft.score)}`}>
-            {computeCrmScore(draft)}
-          </span>
-        </p>
-
-        <div className="mt-6 space-y-3 text-sm">
-          {[
-            ['companyName', 'Company'],
-            ['decisionMaker', 'Decision maker'],
-            ['segment', 'Segment'],
-            ['location', 'Location'],
-            ['fleetSize', 'Fleet size', 'number'],
-          ].map(([key, label, type]) => (
-            <label key={key} className="block text-xs text-zinc-500">
-              {label}
-              <input
-                type={type === 'number' ? 'number' : 'text'}
-                disabled={!canEdit}
-                value={draft[key] ?? ''}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    [key]: type === 'number' ? Number(e.target.value) : e.target.value,
-                  }))
-                }
-                onBlur={() => void saveField({ [key]: draft[key] })}
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
-              />
-            </label>
-          ))}
-          <label className="block text-xs text-zinc-500">
-            Pipeline stage (1–7)
-            <input
-              type="number"
-              min={1}
-              max={7}
-              disabled={!canEdit}
-              value={draft.pipelineStage ?? 1}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, pipelineStage: Number(e.target.value) || 1 }))
-              }
-              onBlur={() => void saveField({ pipelineStage: Number(draft.pipelineStage) || 1 })}
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 disabled:opacity-50"
-            />
-          </label>
-          <label className="block text-xs text-zinc-500">
-            Pain score (release to save)
-            <input
-              type="range"
-              min={1}
-              max={10}
-              disabled={!canEdit}
-              value={draft.painScore ?? 1}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, painScore: Number(e.target.value) }))
-              }
-              onMouseUp={() => void saveField({ painScore: Number(draft.painScore) || 1 })}
-              onTouchEnd={() => void saveField({ painScore: Number(draft.painScore) || 1 })}
-              className="mt-2 w-full"
-            />
-            <span className="text-zinc-400">{draft.painScore ?? 1}</span>
-          </label>
-          <label className="block text-xs text-zinc-500">
-            Follow-up date
-            <input
-              type="date"
-              disabled={!canEdit}
-              value={
-                draft.followUpAt?.toDate
-                  ? draft.followUpAt.toDate().toISOString().slice(0, 10)
-                  : ''
-              }
-              onChange={async (e) => {
-                const v = e.target.value
-                if (!v) {
-                  await saveField({ followUpAt: null })
-                  return
-                }
-                await saveField({ followUpAt: Timestamp.fromDate(new Date(`${v}T12:00:00`)) })
-              }}
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 disabled:opacity-50"
-            />
-          </label>
-        </div>
-
-        <h3 className="mt-8 text-sm font-semibold text-zinc-200">Vehicles</h3>
-        <div className="mt-2 flex gap-2">
-          <input
-            placeholder="Label"
-            value={vehLabel}
-            onChange={(e) => setVehLabel(e.target.value)}
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-          />
-          <button
-            type="button"
-            disabled={!canEdit}
-            onClick={() => void addVehicle()}
-            className="rounded-lg bg-zinc-700 px-2 py-1.5 text-sm text-white disabled:opacity-50"
-          >
-            Add
-          </button>
-        </div>
-        <ul className="mt-2 space-y-1 text-xs text-zinc-400">
-          {vehicles.map((v) => (
-            <li key={v.id} className="flex justify-between gap-2">
-              <span>{v.label}</span>
-              {canEdit ? (
-                <button type="button" className="text-red-400 hover:underline" onClick={() => void removeVehicle(v.id)}>
-                  Remove
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-
-        <h3 className="mt-8 text-sm font-semibold text-zinc-200">Notes</h3>
-        <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto text-xs text-zinc-500">
-          {(Array.isArray(account.notes) ? account.notes : []).map((n, i) => (
-            <li key={i} className="border-l border-zinc-700 pl-2">
-              {n.text}
-              <div className="text-[10px] text-zinc-600">{n.at}</div>
-            </li>
-          ))}
-        </ul>
-        {canEdit ? (
-          <div className="mt-2 flex flex-col gap-2">
-            <textarea
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={2}
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              placeholder="Add note…"
-            />
-            <button
-              type="button"
-              onClick={() => void appendNote()}
-              className="rounded-lg bg-violet-800 px-2 py-1.5 text-sm text-white"
-            >
-              Append note
-            </button>
-          </div>
-        ) : null}
-      </div>
     </div>
   )
 }
