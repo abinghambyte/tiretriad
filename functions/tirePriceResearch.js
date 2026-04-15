@@ -1,7 +1,7 @@
 'use strict'
 
 const admin = require('firebase-admin')
-const { FieldValue, Timestamp } = require('firebase-admin/firestore')
+const { FieldValue, Timestamp, FieldPath } = require('firebase-admin/firestore')
 const { parseDescription } = require('./parseTireDescription')
 const { formatCurrency, formatPercent, formatQty } = require('./format')
 
@@ -219,9 +219,40 @@ function historicLowFromSources(sources, activeBuy) {
 }
 
 /**
- * @param {import('firebase-admin/firestore').Firestore} db
- * @param {number} limit
+ * True when the tire has never been successfully stamped with lastResearched:
+ * missing `priceIntel`, missing `lastResearched`, or `lastResearched` is null.
+ * @param {Record<string, unknown>} data
  */
+function tireNeedsFirstResearch(data) {
+  const pi = data && data.priceIntel
+  if (!pi || typeof pi !== 'object') return true
+  const lr = pi.lastResearched
+  if (lr == null) return true
+  return false
+}
+
+/**
+ * Full-catalog count of tires that need first research (for preflight / Slack).
+ * @param {import('firebase-admin/firestore').Firestore} db
+ */
+async function countNeverResearchedTires(db) {
+  const PAGE = 400
+  let last = null
+  let total = 0
+  while (true) {
+    let q = db.collection('tires').select('priceIntel').orderBy(FieldPath.documentId()).limit(PAGE)
+    if (last) q = q.startAfter(last)
+    const snap = await q.get()
+    if (snap.empty) break
+    for (const d of snap.docs) {
+      if (tireNeedsFirstResearch(d.data() || {})) total += 1
+    }
+    if (snap.docs.length < PAGE) break
+    last = snap.docs[snap.docs.length - 1]
+  }
+  return total
+}
+
 /**
  * Pre-flight counts for logs + Slack (does not change selection logic).
  * @param {import('firebase-admin/firestore').Firestore} db
@@ -237,10 +268,12 @@ async function countPriceIntelPreflight(db) {
       return -1
     }
   }
-  const neverN = await safeCount(
-    'never',
-    db.collection('tires').where('priceIntel.lastResearched', '==', null),
-  )
+  let neverN = -1
+  try {
+    neverN = await countNeverResearchedTires(db)
+  } catch (e) {
+    console.error('tirePriceResearch preflight count never (full scan)', e)
+  }
   const staleN = await safeCount(
     'stale',
     db.collection('tires').where('priceIntel.lastResearched', '<', cutoff),
@@ -255,14 +288,39 @@ async function countPriceIntelPreflight(db) {
 async function pickTiresForResearch(db, limit) {
   const cutoff = Timestamp.fromMillis(Date.now() - 6 * 86400000)
   const picked = new Map()
+  const mergeCap = Math.min(100, limit)
 
   const nullSnap = await db
     .collection('tires')
     .where('priceIntel.lastResearched', '==', null)
-    .limit(limit)
+    .limit(200)
     .get()
     .catch(() => ({ docs: [] }))
-  for (const d of nullSnap.docs || []) picked.set(d.id, d)
+
+  const scanSnap = await db
+    .collection('tires')
+    .orderBy(FieldPath.documentId())
+    .limit(200)
+    .get()
+    .catch(() => ({ docs: [] }))
+
+  const mergeOrder = []
+  const seen = new Set()
+  for (const d of nullSnap.docs || []) {
+    if (!seen.has(d.id)) {
+      seen.add(d.id)
+      mergeOrder.push(d)
+    }
+  }
+  for (const d of scanSnap.docs || []) {
+    if (!tireNeedsFirstResearch(d.data() || {})) continue
+    if (!seen.has(d.id)) {
+      seen.add(d.id)
+      mergeOrder.push(d)
+    }
+  }
+  mergeOrder.sort((a, b) => a.id.localeCompare(b.id))
+  for (const d of mergeOrder.slice(0, mergeCap)) picked.set(d.id, d)
 
   const need = limit - picked.size
   if (need > 0) {
@@ -482,7 +540,7 @@ async function tirePriceResearchRun(opts) {
     const fmt = (n) => (typeof n === 'number' && n >= 0 ? formatQty(n) : '—')
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Price research starting — ${fmt(neverN)} never researched, ${fmt(staleN)} due for refresh, ${fmt(kyleN)} Kyle-confirmed (skipped). Researching up to 100 tires…`,
+      text: `🔍 Price research starting — ${fmt(neverN)} never researched (missing \`priceIntel\`, missing \`lastResearched\`, or null), ${fmt(staleN)} due for refresh (last researched 6+ days ago), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching up to 100 tires…`,
     })
   }
 

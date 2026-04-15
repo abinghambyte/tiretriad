@@ -128,15 +128,67 @@ async function deadStockRadarRun(slackOpts) {
   }
 }
 
-async function fetchWttrLine() {
-  const url = 'https://wttr.in/FortCollins?format=%22%25C+%25t%22'
+const OPEN_METEO_FORT_COLLINS =
+  'https://api.open-meteo.com/v1/forecast?latitude=40.5853&longitude=-105.0844&current_weather=true&temperature_unit=fahrenheit'
+
+/** WMO Weather interpretation codes (subset) — https://open-meteo.com/en/docs */
+function openMeteoConditionLabel(code) {
+  const c = Number(code)
+  const labels = {
+    0: 'clear',
+    1: 'mainly clear',
+    2: 'partly cloudy',
+    3: 'overcast',
+    45: 'fog',
+    48: 'fog',
+    51: 'light drizzle',
+    53: 'drizzle',
+    55: 'heavy drizzle',
+    61: 'light rain',
+    63: 'rain',
+    65: 'heavy rain',
+    71: 'light snow',
+    73: 'snow',
+    75: 'heavy snow',
+    77: 'snow grains',
+    80: 'rain showers',
+    81: 'rain showers',
+    82: 'violent rain showers',
+    85: 'snow showers',
+    86: 'snow showers',
+    95: 'thunderstorm',
+    96: 'thunderstorm w/ hail',
+    99: 'thunderstorm w/ hail',
+  }
+  if (Number.isFinite(c) && labels[c]) return labels[c]
+  if (Number.isFinite(c)) return `code ${c}`
+  return 'unknown'
+}
+
+async function fetchFortCollinsWeatherLine() {
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'SkedaddlePortal/1.0' } })
-    const t = (await res.text()).trim()
-    return t.replace(/^"|"$/g, '') || '—'
+    const res = await fetch(OPEN_METEO_FORT_COLLINS, {
+      headers: { 'User-Agent': 'SkedaddlePortal/1.0' },
+    })
+    if (!res.ok) {
+      console.error('morningBrief weather http', res.status)
+      return 'Weather unavailable'
+    }
+    const json = await res.json().catch(() => null)
+    const cw = json && json.current_weather
+    const temp = cw && Number(cw.temperature)
+    if (!Number.isFinite(temp)) {
+      console.error('morningBrief weather parse', json)
+      return 'Weather unavailable'
+    }
+    const t = Math.round(temp)
+    const cond = openMeteoConditionLabel(cw.weathercode)
+    const wind = Number(cw.windspeed)
+    const windBit = Number.isFinite(wind) ? `, wind ${Math.round(wind)} km/h` : ''
+    return `${t}°F, ${cond}${windBit}`
   } catch (e) {
     console.error('morningBrief weather', e)
-    return '—'
+    return 'Weather unavailable'
   }
 }
 
@@ -225,7 +277,7 @@ async function morningBriefRun(slackOpts) {
   const djStreak = djSnap?.exists ? Number(djSnap.data().currentStreak) || 0 : 0
   const deadN = deadSnap.docs?.length ?? 0
   const flaggedPriceN = flaggedPriceSnap.docs?.length ?? 0
-  const weather = await fetchWttrLine()
+  const weather = await fetchFortCollinsWeatherLine()
 
   const dayHead = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Denver',
