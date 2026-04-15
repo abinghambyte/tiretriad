@@ -14,6 +14,7 @@ const {
   tryHandleCreditBlockActions,
   tryHandleCreditViewSubmission,
 } = require('./creditTrackerSlack')
+const { tryHandlePriceIntelBlockActions } = require('./priceIntelSlack')
 const {
   tryHandleSmsReplyBlockActions,
   tryHandleSmsReplyViewSubmission,
@@ -659,6 +660,8 @@ async function handleSlackPayload(db, token, envChannel, payload) {
   if (payload.type === 'block_actions') {
     const sms = await tryHandleSmsReplyBlockActions(db, token, envChannel, payload)
     if (sms.handled) return sms
+    const pir = await tryHandlePriceIntelBlockActions(db, token, envChannel, payload)
+    if (pir.handled) return pir
     const cr = await tryHandleCreditBlockActions(db, token, envChannel, payload)
     if (cr.handled) return cr
     return handleBlockActions(db, token, envChannel, payload)

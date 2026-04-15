@@ -20,8 +20,11 @@ const SLACK_SECRETS = [SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID]
 /** Gen2 `secrets` for `listingAdvisor` — both bound on deploy; use `-` for a key you want to skip. */
 const LISTING_ADVISOR_SECRETS = [GEMINI_API_KEY, ANTHROPIC_API_KEY]
 
-/** `slackActions` only — includes Kyle mention + Anthropic for `/hype` (same secret as listing advisor). */
-const SLACK_ACTIONS_SECRETS = [...SLACK_SECRETS, SLACK_KYLE_ID, ANTHROPIC_API_KEY]
+/** `slackActions` only — includes Kyle mention + Anthropic for `/hype` + Gemini for price-intel slash commands. */
+const SLACK_ACTIONS_SECRETS = [...SLACK_SECRETS, SLACK_KYLE_ID, ANTHROPIC_API_KEY, GEMINI_API_KEY]
+
+/** Scheduled `tirePriceResearch` — Slack fleet posts + Gemini wholesale lookup. */
+const TIRE_PRICE_INTEL_SECRETS = [...SLACK_SECRETS, GEMINI_API_KEY]
 
 /** Optional `/hype` — not a Slack credential; set in `functions/.env` or Cloud Run env. */
 function anthropicApiKeyFromEnv() {
@@ -57,6 +60,7 @@ module.exports = {
   SLACK_KYLE_ID,
   SLACK_SECRETS,
   SLACK_ACTIONS_SECRETS,
+  TIRE_PRICE_INTEL_SECRETS,
   GEMINI_API_KEY,
   ANTHROPIC_API_KEY,
   LISTING_ADVISOR_SECRETS,

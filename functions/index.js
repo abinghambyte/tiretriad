@@ -16,6 +16,8 @@ const {
   SLACK_SECRETS,
   SLACK_ACTIONS_SECRETS,
   LISTING_ADVISOR_SECRETS,
+  TIRE_PRICE_INTEL_SECRETS,
+  GEMINI_API_KEY,
 } = require('./slackSecrets')
 const { listingAdvisorHandler } = require('./listingAdvisor')
 const admin = require('firebase-admin')
@@ -44,6 +46,7 @@ const {
   processElevationRevertsRun,
 } = require('./peopleScheduled')
 const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
+const { tirePriceResearchRun } = require('./tirePriceResearch')
 const { kyleScorecardRun } = require('./kyleScorecard')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
@@ -738,6 +741,24 @@ exports.morningBrief = onSchedule(
     const token = SLACK_BOT_TOKEN.value()
     const channel = slackChannelWithSecretFallback()
     await morningBriefRun({ token, channel })
+  },
+)
+
+/** Daily 2:00 AM America/Denver — tire wholesale price intelligence (Gemini + Slack). */
+exports.tirePriceResearch = onSchedule(
+  {
+    schedule: '0 2 * * *',
+    timeZone: 'America/Denver',
+    region: 'us-central1',
+    secrets: TIRE_PRICE_INTEL_SECRETS,
+    timeoutSeconds: 540,
+    memory: '1GiB',
+  },
+  async () => {
+    const token = SLACK_BOT_TOKEN.value()
+    const channel = slackChannelWithSecretFallback()
+    const geminiKey = GEMINI_API_KEY.value()
+    await tirePriceResearchRun({ token, channel, geminiKey })
   },
 )
 

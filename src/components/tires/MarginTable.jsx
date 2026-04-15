@@ -7,7 +7,7 @@ import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
-import { formatCurrencyOrDash, formatPercent } from '../../utils/format'
+import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 
@@ -36,11 +36,50 @@ function buyPriceOf(row) {
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
-/** Buy column: never show $0.00 — missing buy is em dash. */
-function buyPriceCellText(row) {
+function BuyPriceCell({ row }) {
+  const pi = row?.priceIntel && typeof row.priceIntel === 'object' ? row.priceIntel : null
   const n = tireCatalogBuyNumber(row)
-  if (n == null || !Number.isFinite(n) || n <= 0) return '—'
-  return formatCurrencyOrDash(n)
+  const text = n > 0 && Number.isFinite(n) ? formatCurrency(n) : '—'
+  const conf = pi ? String(pi.confidence || '').toLowerCase() : ''
+  const dotTitle =
+    conf === 'high'
+      ? 'Confidence: high'
+      : conf === 'medium'
+        ? 'Confidence: medium'
+        : conf === 'low'
+          ? 'Confidence: low'
+          : pi
+            ? 'Confidence: unknown'
+            : 'No price intelligence yet'
+  const dotClass =
+    conf === 'high'
+      ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.45)]'
+      : conf === 'medium'
+        ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.4)]'
+        : conf === 'low'
+          ? 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.45)]'
+          : 'bg-zinc-500'
+  const flagReason = pi?.flagged ? String(pi.flagReason || 'flagged') : ''
+  return (
+    <span className="inline-flex max-sm:min-w-0 max-sm:items-center max-sm:gap-0.5 sm:items-center sm:gap-1">
+      {pi?.flagged ? (
+        <span className="max-sm:text-[11px] sm:text-xs" title={flagReason} aria-label={`Flagged: ${flagReason}`}>
+          🔴
+        </span>
+      ) : null}
+      {pi?.kyleConfirmed ? (
+        <span className="max-sm:text-[11px] sm:text-xs" title="Kyle confirmed" aria-label="Kyle confirmed">
+          ✅
+        </span>
+      ) : null}
+      <span className="font-mono text-sm font-semibold tabular-nums text-zinc-200">{text}</span>
+      <span
+        className={`inline-block h-2 w-2 shrink-0 rounded-full max-sm:translate-y-px sm:translate-y-px ${dotClass}`}
+        title={dotTitle}
+        aria-hidden
+      />
+    </span>
+  )
 }
 
 function previewMarginWhileEditing(row, overheadDraft) {
@@ -365,7 +404,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               {row.mspn || '—'}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
-              {buyPriceCellText(row)}
+              <BuyPriceCell row={row} />
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
@@ -544,7 +583,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           className="min-w-[6.25rem] whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
           title="Buy price — catalog buy (includes FET component)"
         >
-          {buyPriceCellText(row)}
+          <BuyPriceCell row={row} />
         </div>
         <div
           className="truncate px-1 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"

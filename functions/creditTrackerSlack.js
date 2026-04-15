@@ -11,6 +11,7 @@ const { tryHandleScheduleSlash } = require('./scheduleSlackCommands')
 const { tryHandleFieldSlash } = require('./fieldSlackCommands')
 const { tryHandleInventorySlash } = require('./inventorySlackCommands')
 const { tryHandleCrmSlash } = require('./crmSlackCommands')
+const { tryHandlePriceIntelSlash } = require('./priceIntelSlack')
 
 const MODAL_CREDIT_CHARGE_EDIT = 'credit_modal_charge_edit'
 
@@ -458,6 +459,9 @@ async function handleCreditSlashCommand(db, token, envChannel, form) {
 
   const crmSlashResp = await tryHandleCrmSlash(db, botToken, fleetChannel, form)
   if (crmSlashResp) return crmSlashResp
+
+  const priceIntelResp = await tryHandlePriceIntelSlash(db, botToken, fleetChannel, form)
+  if (priceIntelResp) return priceIntelResp
 
   if (command === '/charge') {
     return handleSlashCharge(db, botToken, text)

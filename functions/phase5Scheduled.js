@@ -175,6 +175,7 @@ async function morningBriefRun(slackOpts) {
     scheduledTodaySnap,
     creditSnap,
     recentDeadSnap,
+    flaggedPriceSnap,
   ] = await Promise.all([
     db.collection('orders').where('status', '==', 'pending').get().catch(() => ({ docs: [] })),
     db.collection('orders').where('status', '==', 'in_transit').get().catch(() => ({ docs: [] })),
@@ -200,6 +201,7 @@ async function morningBriefRun(slackOpts) {
       .limit(40)
       .get()
       .catch(() => ({ docs: [] })),
+    db.collection('tires').where('priceIntel.flagged', '==', true).get().catch(() => ({ docs: [] })),
   ])
 
   const pendingN = pendingSnap.docs?.length ?? 0
@@ -221,6 +223,7 @@ async function morningBriefRun(slackOpts) {
 
   const djStreak = djSnap?.exists ? Number(djSnap.data().currentStreak) || 0 : 0
   const deadN = deadSnap.docs?.length ?? 0
+  const flaggedPriceN = flaggedPriceSnap.docs?.length ?? 0
   const weather = await fetchWttrLine()
 
   const dayHead = new Intl.DateTimeFormat('en-US', {
@@ -246,6 +249,12 @@ async function morningBriefRun(slackOpts) {
 
   if (djStreak > 0) {
     lines.push(`🔥  DJ streak: ${djStreak} clean orders`)
+  }
+
+  if (flaggedPriceN > 0) {
+    lines.push(
+      `📊  Price intel: ${flaggedPriceN} tire${flaggedPriceN === 1 ? '' : 's'} flagged for review — run /flaggedprices for details`,
+    )
   }
 
   const schedRows = (scheduledTodaySnap.docs || [])
