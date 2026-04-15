@@ -38,18 +38,31 @@ export function parseDescription(desc) {
 
   const extraLoad = /\bXL\b/i.test(raw)
 
+  /**
+   * After size token: load index + speed + tread (metric and flotation).
+   * Handles spaced form (100 Y XL …) and concatenated (109QTLMDTRTA).
+   */
   function parseLoadSpeedTail(rest) {
     const r = String(rest || '').trim()
-    const loadSpeed = /^(\d{2,3})\s*([A-Z]{1,2})\b\s*(.*)$/i.exec(r)
     let loadIndex = null
     let speedRating = null
     let tail = r
-    if (loadSpeed) {
-      loadIndex = Number(loadSpeed[1])
-      speedRating = loadSpeed[2].toUpperCase()
-      tail = String(loadSpeed[3] || '').trim()
+
+    const spaced = /^(\d{2,3})\s*([A-Z]{1,2})\b\s*(.*)$/i.exec(r)
+    if (spaced) {
+      loadIndex = Number(spaced[1])
+      speedRating = spaced[2].toUpperCase()
+      tail = String(spaced[3] || '').trim()
+    } else {
+      const tight = /^(\d{2,3})([A-Z])(.*)$/i.exec(r)
+      if (tight) {
+        loadIndex = Number(tight[1])
+        speedRating = tight[2].toUpperCase()
+        tail = String(tight[3] || '').trim()
+      }
     }
-    let treadName = tail.replace(/^\s*XL\s+/i, '').trim() || raw
+
+    const treadName = tail.replace(/^\s*XL\s+/i, '').trim() || raw
     return {
       loadIndex: Number.isFinite(loadIndex) ? loadIndex : null,
       speedRating,
@@ -57,23 +70,26 @@ export function parseDescription(desc) {
     }
   }
 
-  // Flotation: 31X10.50R15LT … or LT31X10.50R15LT … or 37X12.5R18LT …
-  const flotRe = /^(\d{2})X(\d{1,2}\.\d{1,2})R(\d{2})(LT)?(?:\s+(.*))?$/i
+  // Flotation: optional LT/P prefix, NN x aspect R rim (LT)? remainder (load/speed may follow LT with no space)
+  const flotRe = /^(LT|P)?(\d{2})X(\d{1,2}\.\d{1,2})R(\d{2})(LT)?(.*)$/i
+
   function tryFlotation(s) {
     return s.match(flotRe)
   }
+
   let fm = tryFlotation(raw)
   if (!fm) {
     const stripped = raw.replace(/^(LT|P)(?=\d{2}X)/i, '')
     if (stripped !== raw) fm = tryFlotation(stripped)
   }
+
   if (fm) {
-    const trailingLt = Boolean(fm[4])
-    const rest = String(fm[5] != null ? fm[5] : '').trim()
+    const trailingLt = Boolean(fm[5])
+    const rest = String(fm[6] != null ? fm[6] : '').trim()
     const ls = parseLoadSpeedTail(rest)
-    const rim = Number(fm[3])
+    const rim = Number(fm[4])
     return {
-      width: Number(fm[1]),
+      width: Number(fm[2]),
       aspectRatio: null,
       construction: trailingLt ? 'LT' : null,
       rimDiameter: Number.isFinite(rim) ? rim : null,
@@ -82,7 +98,7 @@ export function parseDescription(desc) {
       extraLoad,
       treadName: ls.treadName,
       parseKind: 'flotation',
-      flotationMid: String(fm[2]),
+      flotationMid: String(fm[3]),
       trailingLt,
       ltPrefixedMetric: false,
     }

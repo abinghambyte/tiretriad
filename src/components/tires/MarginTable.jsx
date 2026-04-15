@@ -123,7 +123,7 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
 
   if (!hasMetric && !hasFlotation) {
     return (
-      <span className="min-w-0 max-w-full break-words text-sm leading-snug text-zinc-400 [overflow-wrap:anywhere] line-clamp-2">
+      <span className="min-w-0 max-w-full overflow-hidden break-words text-sm leading-snug text-zinc-400 [overflow-wrap:anywhere] line-clamp-2">
         {d}
       </span>
     )
@@ -139,7 +139,7 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
     const ltSuffix = parsed.trailingLt ? 'LT' : ''
     const sizeLine = `${parsed.width}X${parsed.flotationMid}R${parsed.rimDiameter}${ltSuffix}`
     return (
-      <div className="min-w-0 max-w-full text-sm leading-snug text-zinc-300">
+      <div className="min-w-0 max-w-full overflow-hidden text-sm leading-snug text-zinc-300">
         <div className="break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">
           {sizeLine}
           {loadSpeed ? (
@@ -160,7 +160,7 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
 
   const sizeLine = `${parsed.ltPrefixedMetric ? 'LT ' : ''}${parsed.width}/${parsed.aspectRatio}${parsed.construction}${parsed.rimDiameter}`
   return (
-    <div className="min-w-0 max-w-full text-sm leading-snug text-zinc-300">
+    <div className="min-w-0 max-w-full overflow-hidden text-sm leading-snug text-zinc-300">
       <div className="break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">
         {sizeLine}
         {loadSpeed ? (
