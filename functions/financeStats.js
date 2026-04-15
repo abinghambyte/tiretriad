@@ -11,6 +11,20 @@ const CREW_REF = (db) => db.collection('meta').doc('crewEarnings')
 const CREW_KEYS = ['alex', 'dj', 'tanner', 'kyle']
 const CREW_SPLIT = { alex: 0.5, dj: 0.2, tanner: 0.2, kyle: 0.1 }
 
+/** Slack /spoils + /owed pool/balance lines — Tanner as DJ's field partner (co-owner, not silent). */
+function crewSlackSplitDisplayName(key) {
+  const k = String(key || '').toLowerCase()
+  if (k === 'tanner') return "Tanner (Field · DJ's crew)"
+  return k
+}
+
+/** meta/crewEarnings UI (portal + Slack confirmations tied to stored balances). */
+function crewEarningsMetaDisplayName(key) {
+  const k = String(key || '').toLowerCase()
+  if (k === 'tanner') return "Tanner — Field (DJ's crew)"
+  return k
+}
+
 function denverYmd(ms = Date.now()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Denver',
@@ -272,6 +286,8 @@ module.exports = {
   CREW_REF,
   CREW_KEYS,
   CREW_SPLIT,
+  crewSlackSplitDisplayName,
+  crewEarningsMetaDisplayName,
   denverYmd,
   isoWeekKey,
   denverYear,

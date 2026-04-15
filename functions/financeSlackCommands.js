@@ -14,6 +14,8 @@ const {
   denverYear,
   round2,
   defaultCrewDoc,
+  crewSlackSplitDisplayName,
+  crewEarningsMetaDisplayName,
 } = require('./financeStats')
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -113,7 +115,7 @@ async function handleSlashSpoils(db, token, channel, text) {
   poolSum = round2(poolSum)
   const lines = CREW_KEYS.map(
     (k) =>
-      `*${k}* (${(CREW_SPLIT[k] * 100).toFixed(0)}%): ${formatCurrency(round2(poolSum * (CREW_SPLIT[k] || 0)))}`,
+      `*${escapeSlackMrkdwn(crewSlackSplitDisplayName(k))}* (${(CREW_SPLIT[k] * 100).toFixed(0)}%): ${formatCurrency(round2(poolSum * (CREW_SPLIT[k] || 0)))}`,
   )
   const blocks = [
     {
@@ -219,7 +221,7 @@ async function handleSlashPayout(db, token, channel, text, userName) {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `✅ *Payout recorded* — *${escapeSlackMrkdwn(name)}* ${formatCurrency(amt)} by *${escapeSlackMrkdwn(userName || 'user')}*\nNew paid total ${formatCurrency(newPaid)} · balance ${formatCurrency(newBal)}`,
+          text: `✅ *Payout recorded* — *${escapeSlackMrkdwn(crewEarningsMetaDisplayName(name))}* ${formatCurrency(amt)} by *${escapeSlackMrkdwn(userName || 'user')}*\nNew paid total ${formatCurrency(newPaid)} · balance ${formatCurrency(newBal)}`,
         },
       },
     ],
