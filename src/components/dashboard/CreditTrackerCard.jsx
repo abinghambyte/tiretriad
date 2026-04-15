@@ -1,6 +1,7 @@
-import { doc, onSnapshot } from 'firebase/firestore'
+import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
 import { useEffect, useMemo, useRef, useState, startTransition } from 'react'
 import { db } from '../../firebase/config'
+import { useUserProfile } from '../../hooks/useUserProfile'
 import { formatCurrency } from '../../utils/format'
 
 function sumPending(charges) {
@@ -33,10 +34,12 @@ function availablePower(data) {
  * @param {{ compact?: boolean }} props
  */
 export function CreditTrackerCard({ compact = false }) {
+  const { profile } = useUserProfile()
   const [data, setData] = useState(null)
   const [exists, setExists] = useState(true)
   const [err, setErr] = useState(null)
   const [expanded, setExpanded] = useState(false)
+  const seedingRef = useRef(false)
 
   useEffect(() => {
     const ref = doc(db, 'meta', 'creditTracker')
@@ -47,6 +50,24 @@ export function CreditTrackerCard({ compact = false }) {
         if (!snap.exists()) {
           setExists(false)
           setData(null)
+          if (profile?.role === 'admin' && !seedingRef.current) {
+            seedingRef.current = true
+            void setDoc(
+              ref,
+              {
+                cardLimit: 20000,
+                currentBalance: 15000,
+                pendingCharges: [],
+                refundPipeline: [],
+                payments: [],
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true },
+            ).catch((e) => {
+              console.error(e)
+              seedingRef.current = false
+            })
+          }
           return
         }
         setExists(true)
@@ -57,7 +78,7 @@ export function CreditTrackerCard({ compact = false }) {
         setErr(e)
       },
     )
-  }, [])
+  }, [profile?.role])
 
   const pending = useMemo(() => sumPending(data?.pendingCharges), [data])
   const refunds = useMemo(() => activeRefunds(data?.refundPipeline), [data])
@@ -109,18 +130,12 @@ export function CreditTrackerCard({ compact = false }) {
 
   if (!exists) {
     return (
-      <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 text-sm text-zinc-400 ${compact ? 'px-4 py-3' : 'p-5'}`}>
-        <p className="font-medium text-zinc-200">Credit tracker</p>
-        {!compact ? (
-          <p className="mt-2">
-            No <code className="text-zinc-500">meta/creditTracker</code> document yet. Seed with{' '}
-            <code className="text-zinc-500">node scripts/seed-credit-tracker.mjs</code>.
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-zinc-500">
-            Seed <code className="text-zinc-600">meta/creditTracker</code> (see script in repo).
-          </p>
-        )}
+      <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 ${compact ? 'px-4 py-3' : 'p-5'}`}>
+        <div className="space-y-3 animate-pulse">
+          <div className="h-3 w-32 rounded-md bg-zinc-800/80" />
+          <div className="h-8 w-48 max-w-full rounded-md bg-zinc-800/70" />
+          <div className="h-3 w-full rounded-md bg-zinc-800/50" />
+        </div>
       </div>
     )
   }

@@ -150,9 +150,6 @@ export function CommandPalette({ open, onClose }) {
             className="min-h-[44px] flex-1 rounded-lg bg-transparent text-sm text-zinc-100 outline-none ring-0 placeholder:text-zinc-600 focus:ring-2 focus:ring-amber-500/35 sm:min-h-[40px]"
             autoComplete="off"
           />
-          <kbd className="hidden shrink-0 rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 font-mono text-[10px] text-zinc-500 sm:inline">
-            Esc
-          </kbd>
         </div>
         <div className="max-h-[min(50vh,28rem)] overflow-y-auto px-2 py-3 text-sm sm:px-3">
           {busy ? (
@@ -163,7 +160,9 @@ export function CommandPalette({ open, onClose }) {
             </div>
           ) : null}
           {!busy && q.trim().length < 2 ? (
-            <p className="px-3 py-6 text-center text-sm text-zinc-400">Type at least 2 characters to search.</p>
+            <p className="px-3 py-6 text-center text-sm text-zinc-500">
+              Search tires, orders, customers, or fleet accounts
+            </p>
           ) : null}
           {!busy && q.trim().length >= 2 && totalHits === 0 ? (
             <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">

@@ -46,6 +46,16 @@ function formatTs(ts) {
   }
 }
 
+function isTannerPortalBlocked(firstName, lastName, emailAddr) {
+  const f = String(firstName || '').trim().toLowerCase()
+  const l = String(lastName || '').trim().toLowerCase()
+  const local = String(emailAddr || '')
+    .trim()
+    .toLowerCase()
+    .split('@')[0]
+  return f === 'tanner' || l === 'tanner' || local === 'tanner'
+}
+
 function timeAgo(ts) {
   if (!ts || typeof ts.toMillis !== 'function') return ''
   const s = Math.max(0, Math.floor((Date.now() - ts.toMillis()) / 1000))
@@ -400,6 +410,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   }
 
   async function submitCreateUser() {
+    if (isTannerPortalBlocked(fn, ln, email)) {
+      window.alert('This partner is not provisioned in the People system.')
+      return
+    }
     setCreateBusy(true)
     setLastInviteUrl('')
     try {
@@ -437,6 +451,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   async function openInvitePreview() {
     if (!fn.trim() || !ln.trim() || !email.trim()) {
       window.alert('Enter first name, last name, and email before preview.')
+      return
+    }
+    if (isTannerPortalBlocked(fn, ln, email)) {
+      window.alert('This partner is not provisioned in the People system.')
       return
     }
     setPreviewOpen(true)
@@ -538,10 +556,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 onChange={(e) => setRole(e.target.value)}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
               >
-                <option value="admin">admin → {crewTagFromRole('admin')}</option>
-                <option value="supplier">supplier → {crewTagFromRole('supplier')}</option>
-                <option value="mechanic">mechanic → {crewTagFromRole('mechanic')}</option>
-                <option value="viewer">viewer → {crewTagFromRole('viewer')}</option>
+                <option value="admin">{crewTagFromRole('admin')}</option>
+                <option value="supplier">{crewTagFromRole('supplier')}</option>
+                <option value="mechanic">{crewTagFromRole('mechanic')}</option>
+                <option value="viewer">{crewTagFromRole('viewer')}</option>
               </select>
             </div>
             <div>
@@ -795,10 +813,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 onChange={(e) => setRoleDraft(e.target.value)}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
               >
-                <option value="admin">admin</option>
-                <option value="supplier">supplier</option>
-                <option value="mechanic">mechanic</option>
-                <option value="viewer">viewer</option>
+                <option value="admin">{crewTagFromRole('admin')}</option>
+                <option value="supplier">{crewTagFromRole('supplier')}</option>
+                <option value="mechanic">{crewTagFromRole('mechanic')}</option>
+                <option value="viewer">{crewTagFromRole('viewer')}</option>
               </select>
               <button
                 type="button"

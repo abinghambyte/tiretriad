@@ -298,7 +298,7 @@ export function CrmPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <ModuleSubheader
         title="Rubber CRM"
-        subtitle="Fleet pipeline, leads, and DJ jobs"
+        subtitle="Lead pipeline, fleet accounts, and DJ dispatch"
         tabs={crmTabs}
         maxWidthClass="max-w-[1600px]"
       />
@@ -311,7 +311,7 @@ export function CrmPage() {
                 <button
                   type="button"
                   onClick={() => void addAccount()}
-                  className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+                  className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
                 >
                   Add account
                 </button>
@@ -387,6 +387,35 @@ export function CrmPage() {
                   ))}
                 </div>
               </>
+            ) : accounts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/25 px-6 py-16 text-center">
+                <div
+                  className="rounded-full border border-zinc-700/80 bg-zinc-950/80 p-4 text-zinc-500"
+                  aria-hidden
+                >
+                  <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M2.25 21h19.5M3.75 3h16.5L18 18H6L3.75 3zM9 9h6M9 13.5h4.5"
+                    />
+                  </svg>
+                </div>
+                <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-400">
+                  Track your HVAC fleet prospects from first contact to closed account.
+                </p>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => void addAccount()}
+                    className="mt-6 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
+                  >
+                    Add your first fleet account
+                  </button>
+                ) : (
+                  <p className="mt-4 text-xs text-zinc-600">Ask Overwatch to add the first account.</p>
+                )}
+              </div>
             ) : (
               <>
                 <div className="hidden gap-2 md:grid md:grid-cols-6 md:overflow-visible">
@@ -582,7 +611,7 @@ export function CrmPage() {
                 </select>
                 <button
                   type="submit"
-                  className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white"
+                  className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
                 >
                   Add lead
                 </button>

@@ -34,12 +34,14 @@ export function denverYm(ms = Date.now()) {
   return `${y}-${m}`
 }
 
-/** @param {string} ymd `YYYY-MM-DD` */
+/** @param {string} ymd `YYYY-MM-DD` — calendar day math (UTC), independent of browser local TZ */
 export function addDaysToYmd(ymd, deltaDays) {
   const [y, mo, da] = ymd.split('-').map(Number)
-  const dt = new Date(y, mo - 1, da + deltaDays)
-  const yy = dt.getFullYear()
-  const mm = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd = String(dt.getDate()).padStart(2, '0')
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) return ymd
+  const ms = Date.UTC(y, mo - 1, da + deltaDays)
+  const dt = new Date(ms)
+  const yy = dt.getUTCFullYear()
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getUTCDate()).padStart(2, '0')
   return `${yy}-${mm}-${dd}`
 }

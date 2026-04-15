@@ -1,7 +1,5 @@
-import { doc, onSnapshot } from 'firebase/firestore'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { db } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
@@ -119,19 +117,6 @@ export function Dashboard() {
   const { permissionFor, profile, loading: profileGate } = useUserProfile()
   const [searchParams, setSearchParams] = useSearchParams()
   const { catalogSkuDisplay, tireSku, crm, people, completedOrders } = useDashboardSignals()
-  const [djStreak, setDjStreak] = useState(undefined)
-
-  useEffect(() => {
-    const ref = doc(db, 'meta', 'djStats')
-    return onSnapshot(
-      ref,
-      (snap) => {
-        const n = snap.exists() ? Number(snap.data().currentStreak) || 0 : 0
-        setDjStreak(n)
-      },
-      () => setDjStreak(0),
-    )
-  }, [])
 
   const tireSignal = useMemo(() => {
     if (tireSku.loading) return 'Syncing catalog…'
@@ -285,44 +270,13 @@ export function Dashboard() {
         aria-hidden
       />
 
-      <header className="relative border-b border-zinc-800/90 bg-zinc-950/75 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-1 items-start gap-4">
-            <div className="hidden h-10 w-px bg-gradient-to-b from-amber-500/50 via-zinc-600 to-cyan-500/40 sm:block" />
-            <div className="min-w-0">
-              <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 sm:block">
-                Skedaddle OS · Operations grid
-              </p>
-              <h1 className="mt-0 text-xl font-semibold tracking-tight text-white sm:mt-1 sm:text-2xl">
-                Operations overview
-              </h1>
-              {djStreak !== undefined ? (
-                <p
-                  className={`mt-2 text-sm font-medium ${
-                    djStreak === 0
-                      ? 'text-zinc-500'
-                      : djStreak >= 3
-                        ? 'text-amber-200/95'
-                        : 'text-zinc-400'
-                  }`}
-                >
-                  DJ streak: {djStreak} clean orders
-                  {djStreak >= 3 ? ' 🔥' : ''}
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-zinc-500">Loading DJ streak…</p>
-              )}
-            </div>
+      {!profileGate && profile?.role === 'admin' ? (
+        <header className="relative border-b border-zinc-800/90 bg-zinc-950/75 backdrop-blur-md">
+          <div className="mx-auto max-w-6xl px-6 py-2">
+            <CreditTrackerCard compact />
           </div>
-        </div>
-        {!profileGate && profile?.role === 'admin' ? (
-          <div className="border-t border-zinc-800/70 bg-zinc-950/80">
-            <div className="mx-auto max-w-6xl px-6 py-2">
-              <CreditTrackerCard compact />
-            </div>
-          </div>
-        ) : null}
-      </header>
+        </header>
+      ) : null}
 
       <main className="relative mx-auto max-w-6xl px-6 py-10 sm:py-12">
         {notice === 'access' ? (

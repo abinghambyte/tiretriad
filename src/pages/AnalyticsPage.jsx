@@ -39,6 +39,11 @@ function denverYmdFromMs(ms) {
   return `${y}-${m}-${d}`
 }
 
+function ymdUtcNoonMs(ymd) {
+  const [y, mo, da] = ymd.split('-').map(Number)
+  return Date.UTC(y, mo - 1, da, 12, 0, 0)
+}
+
 /** Consecutive Denver days with ≥1 completed order assigned to DJ (grace: start from yesterday if today empty). */
 function djAssignedStreakDays(rows) {
   const daySet = new Set()
@@ -56,8 +61,7 @@ function djAssignedStreakDays(rows) {
   for (let i = 1; i < sorted.length; i += 1) {
     const prevY = sorted[i - 1]
     const curY = sorted[i]
-    const gap =
-      (new Date(curY + 'T12:00:00').getTime() - new Date(prevY + 'T12:00:00').getTime()) / 86400000
+    const gap = (ymdUtcNoonMs(curY) - ymdUtcNoonMs(prevY)) / 86400000
     if (gap === 1) {
       run += 1
       best = Math.max(best, run)
@@ -235,6 +239,17 @@ export function AnalyticsPage() {
     return { wtd, mtd, allTime, wk, mo }
   }, [revenueStats])
 
+  const revenueSampleTotal = useMemo(
+    () => completedRows.reduce((s, o) => s + (Number(o.paymentAmount) || 0), 0),
+    [completedRows],
+  )
+  const allTimeIsEstimate =
+    revenueWindows.allTime <= 0 && revenueSampleTotal > 0 && completedRows.length > 0
+  const allTimeRevenueDisplay = revenueWindows.allTime > 0 ? revenueWindows.allTime : revenueSampleTotal
+  const allTimeRevenueHint = allTimeIsEstimate
+    ? `Sum of paymentAmount on ${formatQty(completedRows.length)} completed orders in this view (estimated from loaded orders). Shown while meta/revenueStats is at $0 or missing.`
+    : 'From meta/revenueStats · allTimeRevenue.'
+
   const avgOrderSample = useMemo(() => {
     const n = completedRows.length
     if (!n) return null
@@ -297,10 +312,13 @@ export function AnalyticsPage() {
   }, [completedRows, tiresByMspn])
 
   const leaderboard = useMemo(() => {
+    const isCatalogMspn = (mspn) => /^[A-Za-z0-9]{5}$/.test(String(mspn || '').trim())
+    const lbRows = completedRows.filter((o) => isCatalogMspn(o.mspn))
+
     let bestAll = null
     let best30 = null
     const thirty = Date.now() - 30 * 86400000 // eslint-disable-line react-hooks/purity -- 30d window
-    for (const o of completedRows) {
+    for (const o of lbRows) {
       const ms = completedMs(o)
       if (ms == null) continue
       const tire = tiresByMspn.get(String(o.mspn || '').trim()) || {}
@@ -314,7 +332,7 @@ export function AnalyticsPage() {
     }
 
     const byWeek = new Map()
-    for (const o of completedRows) {
+    for (const o of lbRows) {
       const ms = completedMs(o)
       if (ms == null) continue
       const wk = isoWeekKey(ms)
@@ -331,7 +349,7 @@ export function AnalyticsPage() {
     }
 
     const skuRev = new Map()
-    for (const o of completedRows) {
+    for (const o of lbRows) {
       const m = String(o.mspn || '').trim()
       if (!m) continue
       skuRev.set(m, (skuRev.get(m) || 0) + (Number(o.paymentAmount) || 0))
@@ -447,9 +465,9 @@ export function AnalyticsPage() {
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard
-                label="All-time revenue (meta)"
-                value={formatCurrency(revenueWindows.allTime)}
-                hint="From meta/revenueStats · allTimeRevenue."
+                label={allTimeIsEstimate ? 'All-time revenue (estimated from loaded orders)' : 'All-time revenue (meta)'}
+                value={formatCurrency(allTimeRevenueDisplay)}
+                hint={allTimeRevenueHint}
               />
               <MetricCard
                 label="MTD revenue (meta)"

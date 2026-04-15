@@ -3,6 +3,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   increment,
   onSnapshot,
   orderBy,
@@ -25,7 +26,7 @@ import {
   MODAL_CENTER_BACKDROP,
   MODAL_CENTER_PANEL_BASE,
 } from '../ui/modalChrome.js'
-import { formatPercent, formatQty } from '../../utils/format'
+import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -115,6 +116,24 @@ function orderRefFromId(id) {
   const s = String(id || '').replace(/\s/g, '')
   if (!s) return ''
   return `#${s.slice(0, 8)}`
+}
+
+function fulfillmentBadgeLabel(o) {
+  const f = String(o.fulfillment || '').toLowerCase()
+  if (f === 'pickup') return 'Pickup'
+  if (f === 'delivery') return 'Delivery'
+  return 'Fulfillment'
+}
+
+function fulfillmentBadgeClass(o) {
+  const f = String(o.fulfillment || '').toLowerCase()
+  if (f === 'pickup') {
+    return 'inline-flex items-center rounded-full bg-sky-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-200 ring-1 ring-sky-800/40'
+  }
+  if (f === 'delivery') {
+    return 'inline-flex items-center rounded-full bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-200 ring-1 ring-violet-800/40'
+  }
+  return 'inline-flex items-center rounded-full bg-zinc-800/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 ring-1 ring-zinc-700/60'
 }
 
 function statusBadge(status) {
@@ -273,6 +292,7 @@ export function OrdersList({ highlightId }) {
 
   const prevStatusRef = useRef(new Map())
   const [soundOn, setSoundOn] = useState(() => readSoundEnabled())
+  const [tiresByMspn, setTiresByMspn] = useState(() => new Map())
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -304,6 +324,27 @@ export function OrdersList({ highlightId }) {
     )
     return () => unsub()
   }, [])
+
+  useEffect(() => {
+    const ids = [...new Set(orders.map((o) => String(o.mspn || '').trim()).filter(Boolean))].slice(0, 120)
+    if (!ids.length) {
+      setTiresByMspn(new Map())
+      return undefined
+    }
+    let cancelled = false
+    void (async () => {
+      const entries = await Promise.all(
+        ids.map(async (id) => {
+          const s = await getDoc(doc(db, 'tires', id))
+          return [id, s.exists() ? s.data() || {} : null]
+        }),
+      )
+      if (!cancelled) setTiresByMspn(new Map(entries))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [orders])
 
   useEffect(() => {
     if (highlightId && highlightElRef.current) {
@@ -519,6 +560,16 @@ export function OrdersList({ highlightId }) {
           const isHi = highlightId && o.id === highlightId
           const cancellable = orderCanCancel(o.status)
           const refShort = orderRefFromId(o.id)
+          const mspn = String(o.mspn || '').trim()
+          const tire = tiresByMspn.get(mspn)
+          const brand = tire ? String(tire.brand || '').trim() : ''
+          const tdesc = tire ? String(tire.description || tire.tread || '').trim() : ''
+          const tireLine = [brand, tdesc].filter(Boolean).join(' · ').trim() || mspn || '—'
+          const qty = Number(o.quantity) || 0
+          const ppt = Number(o.pricePerTire) || 0
+          const total = Number(o.totalPrice) || (qty > 0 && ppt > 0 ? qty * ppt : 0)
+          const cust = String(o.customerName || '').trim()
+          const missingCustomer = !cust
           return (
             <li
               key={o.id}
@@ -529,10 +580,13 @@ export function OrdersList({ highlightId }) {
               ].join(' ')}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={statusBadge(o.status)} title={orderStatusLabel(o.status)}>
                       {orderStatusLabel(o.status)}
+                    </span>
+                    <span className={fulfillmentBadgeClass(o)} title="Customer fulfillment">
+                      {fulfillmentBadgeLabel(o)}
                     </span>
                     {o.pricingAnomaly ? (
                       <span
@@ -547,12 +601,32 @@ export function OrdersList({ highlightId }) {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 font-mono text-sm text-zinc-200">
-                    {o.mspn} × {formatQty(o.quantity)}
+                  <p className="mt-2 text-sm font-medium leading-snug text-zinc-100">{tireLine}</p>
+                  <p className="mt-1 font-mono text-xs text-zinc-500">
+                    {mspn || '—'} × {formatQty(qty)}
                   </p>
-                  <p className="text-xs text-zinc-500">
-                    {o.customerName} · {o.customerContact}
+                  <p className="mt-2 text-sm text-zinc-300">
+                    <span className="text-zinc-500">Price </span>
+                    {ppt > 0 ? formatCurrency(ppt) : '—'}
+                    <span className="text-zinc-500"> each · </span>
+                    {total > 0 ? `${formatCurrency(total)} total` : '—'}
                   </p>
+                  {missingCustomer ? (
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-900/50 bg-amber-950/25 px-2 py-1 text-xs font-medium text-amber-200/95">
+                      <span aria-hidden>⚠</span>
+                      No customer
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-zinc-400">
+                      {cust}
+                      {o.customerContact ? (
+                        <>
+                          {' '}
+                          · {o.customerContact}
+                        </>
+                      ) : null}
+                    </p>
+                  )}
                   {o.repeatGhost ? (
                     <p className="mt-1 text-[11px] font-medium text-amber-400/90">
                       Repeat ghost contact
@@ -560,18 +634,21 @@ export function OrdersList({ highlightId }) {
                   ) : null}
                 </div>
                 {refShort ? (
-                  <p className="flex items-center gap-1.5 font-mono text-[10px] tracking-wide text-zinc-600">
-                    <span>{refShort}</span>
-                    {o.priceDiscrepancy != null ? (
-                      <span
-                        className="text-amber-400"
-                        title="Kyle's price differs from system — check before charging."
-                        aria-label="Price discrepancy"
-                      >
-                        ⚠️
-                      </span>
-                    ) : null}
-                  </p>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Reference</p>
+                    <p className="mt-0.5 flex items-center justify-end gap-1.5 font-mono text-[10px] tracking-wide text-zinc-300">
+                      <span>{refShort}</span>
+                      {o.priceDiscrepancy != null ? (
+                        <span
+                          className="text-amber-400"
+                          title="Kyle's price differs from system — check before charging."
+                          aria-label="Price discrepancy"
+                        >
+                          ⚠️
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
                 ) : null}
               </div>
 

@@ -11,6 +11,8 @@ import {
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { auth, db } from '../../firebase/config'
 import { permissionMeets } from '../../constants/peoplePermissions'
+import { addDaysToYmd } from '../../utils/isoWeekDenver.js'
+import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
 
 const DENVER = 'America/Denver'
 const OP_START = 8
@@ -29,15 +31,6 @@ function denverYmd(ms = Date.now()) {
   return `${y}-${m}-${d}`
 }
 
-function addDaysYmd(ymd, days) {
-  const [y, mo, da] = ymd.split('-').map(Number)
-  const dt = new Date(y, mo - 1, da + days)
-  const yy = dt.getFullYear()
-  const mm = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd = String(dt.getDate()).padStart(2, '0')
-  return `${yy}-${mm}-${dd}`
-}
-
 function mondayYmdDenver(refMs = Date.now()) {
   let ymd = denverYmd(refMs)
   const backFromMon = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
@@ -48,12 +41,24 @@ function mondayYmdDenver(refMs = Date.now()) {
       timeZone: DENVER,
       weekday: 'short',
     }).format(new Date(utcNoon))
-    const off = backFromMon[wd] ?? 0
+    const off = backFromMon[wd]
     if (off === 0) return ymd
-    ymd = addDaysYmd(ymd, -off)
-    return ymd
+    if (off == null) break
+    ymd = addDaysToYmd(ymd, -off)
   }
   return ymd
+}
+
+/** @param {string} ymd */
+function formatAvailabilityDayHeader(ymd) {
+  const [y, mo, da] = ymd.split('-').map(Number)
+  const d = new Date(Date.UTC(y, mo - 1, da, 12, 0, 0))
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: DENVER,
+    weekday: 'short',
+    month: 'numeric',
+    day: 'numeric',
+  }).format(d)
 }
 
 function operatingHours() {
@@ -179,15 +184,15 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
     }
   }, [])
 
-  const weekMon = useMemo(() => addDaysYmd(mondayYmdDenver(), weekOffset * 7), [weekOffset])
+  const weekMon = useMemo(() => addDaysToYmd(mondayYmdDenver(), weekOffset * 7), [weekOffset])
   const weekDays = useMemo(
-    () => [...Array(7)].map((_, i) => ({ ymd: addDaysYmd(weekMon, i), i })),
+    () => [...Array(7)].map((_, i) => ({ ymd: addDaysToYmd(weekMon, i), i })),
     [weekMon],
   )
 
   useEffect(() => {
     if (!subjectUid) return undefined
-    const sun = addDaysYmd(weekMon, 6)
+    const sun = addDaysToYmd(weekMon, 6)
     const q = query(
       collection(db, 'orders'),
       where('scheduledDate', '>=', weekMon),
@@ -204,7 +209,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
       },
     )
 
-    const dayYmids = [...Array(7)].map((_, i) => addDaysYmd(weekMon, i))
+    const dayYmids = [...Array(7)].map((_, i) => addDaysToYmd(weekMon, i))
     const unsubs = dayYmids.map((ymd) => {
       const ref = doc(db, 'users', subjectUid, 'availability', ymd)
       return onSnapshot(
@@ -346,11 +351,15 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
             onChange={(e) => setSubjectUid(e.target.value)}
             className="w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
           >
-            {(crewUsers || []).map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.firstName} {u.lastName} ({u.email})
-              </option>
-            ))}
+            {(crewUsers || []).map((u) => {
+              const fn = String(u.firstName || '').trim() || 'Crew'
+              const tag = portalCrewTagFromRole(String(u.role || 'viewer'))
+              return (
+                <option key={u.id} value={u.id}>
+                  {fn} ({tag})
+                </option>
+              )
+            })}
           </select>
         </div>
       ) : null}
@@ -371,12 +380,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
           </div>
           {weekDays.map(({ ymd }) => (
             <div key={ymd} className="bg-zinc-950 p-2 text-center text-[10px] font-medium text-zinc-400">
-              <div>
-                {new Intl.DateTimeFormat('en-US', { timeZone: DENVER, weekday: 'short' }).format(
-                  new Date(`${ymd}T12:00:00Z`),
-                )}
-              </div>
-              <div className="mt-0.5 font-mono text-[9px] text-zinc-600">{ymd.slice(5)}</div>
+              {formatAvailabilityDayHeader(ymd)}
             </div>
           ))}
 

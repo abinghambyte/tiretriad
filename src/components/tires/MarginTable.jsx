@@ -495,7 +495,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           )}
         </div>
         <div
-          className="truncate px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
+          className="whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
           title="Buy price — catalog buy (includes FET component)"
         >
           {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}

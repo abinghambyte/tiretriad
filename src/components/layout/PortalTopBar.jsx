@@ -9,17 +9,17 @@ import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
  * @param {object} props
  * @param {string} props.pathname
  * @param {import('react-router-dom').NavigateFunction} props.navigate
- * @param {import('firebase/auth').User | null} props.user
  * @param {Record<string, unknown> | null} props.profile
  * @param {() => void} props.onOpenPalette
  * @param {import('react').ReactNode} props.themeToggle
  * @param {import('react').ReactNode} props.shortcutHint
  */
-export function PortalTopBar({ pathname, navigate, user, profile, onOpenPalette, themeToggle, shortcutHint }) {
+export function PortalTopBar({ pathname, navigate, profile, onOpenPalette, themeToggle, shortcutHint }) {
   const showBack = showDashboardBackLink(pathname)
   const title = moduleTitleFromPath(pathname)
-  const first = displayFirstName(profile, user)
+  const first = displayFirstName(profile)
   const tag = portalCrewTagFromRole(String(profile?.role || 'viewer'))
+  const nameBadge = `${first} · ${tag}`
 
   async function onSignOut() {
     await signOut(auth)
@@ -61,11 +61,11 @@ export function PortalTopBar({ pathname, navigate, user, profile, onOpenPalette,
         </button>
         {themeToggle}
         {shortcutHint}
-        <div className="ml-1 flex max-w-[min(200px,42vw)] items-center gap-2 rounded-full border border-zinc-700/90 bg-zinc-900/90 px-2.5 py-1 sm:max-w-none sm:px-3">
-          <span className="truncate text-xs font-semibold text-zinc-100 sm:text-sm">{first}</span>
-          <span className="shrink-0 rounded-md bg-zinc-800/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
-            {tag}
-          </span>
+        <div
+          className="ml-1 max-w-[min(220px,48vw)] truncate rounded-full border border-zinc-700/90 bg-zinc-900/90 px-2.5 py-1 text-xs font-semibold text-zinc-100 sm:max-w-xs sm:px-3 sm:text-sm"
+          title={nameBadge}
+        >
+          {nameBadge}
         </div>
         <button
           type="button"

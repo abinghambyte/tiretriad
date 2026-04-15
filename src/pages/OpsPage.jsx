@@ -27,6 +27,32 @@ const EXPENSE_CATEGORIES = [
 
 const exportTaxPrepCsv = httpsCallable(functions, 'exportTaxPrepCsv')
 
+const DENVER_TZ = 'America/Denver'
+
+function denverYmdString(ms = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DENVER_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(ms))
+  const y = parts.find((p) => p.type === 'year')?.value
+  const m = parts.find((p) => p.type === 'month')?.value
+  const d = parts.find((p) => p.type === 'day')?.value
+  return `${y}-${m}-${d}`
+}
+
+function denverMonthStartYmd(ms = Date.now()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DENVER_TZ,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date(ms))
+  const y = parts.find((p) => p.type === 'year')?.value
+  const mo = parts.find((p) => p.type === 'month')?.value
+  return `${y}-${mo}-01`
+}
+
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
   try {
@@ -63,12 +89,8 @@ export function OpsPage() {
   const [reorderEntries, setReorderEntries] = useState([])
   const [reorderDesc, setReorderDesc] = useState(() => new Map())
 
-  const [taxStart, setTaxStart] = useState(() => {
-    const d = new Date()
-    d.setMonth(d.getMonth() - 1)
-    return d.toISOString().slice(0, 10)
-  })
-  const [taxEnd, setTaxEnd] = useState(() => new Date().toISOString().slice(0, 10))
+  const [taxStart, setTaxStart] = useState(() => denverMonthStartYmd())
+  const [taxEnd, setTaxEnd] = useState(() => denverYmdString())
   const [taxBusy, setTaxBusy] = useState(false)
 
   const region = import.meta.env.VITE_FUNCTIONS_REGION || 'us-central1'
@@ -376,7 +398,7 @@ export function OpsPage() {
               type="button"
               onClick={() => void runTaxExport()}
               disabled={taxBusy}
-              className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-600 disabled:opacity-50"
+              className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50"
             >
               {taxBusy ? 'Building CSV…' : 'Download CSV'}
             </button>

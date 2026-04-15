@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 /**
- * Shared module page header: back link → title → optional subtitle → tab row.
+ * Shared module page header: title → optional subtitle → tab row (back lives in PortalTopBar).
  * @param {object} props
  * @param {string} props.title
  * @param {string} [props.subtitle]
@@ -12,16 +12,7 @@ export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'm
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md">
       <div className={`mx-auto px-4 py-4 sm:px-6 ${maxWidthClass}`}>
-        <Link
-          to="/dashboard"
-          className="group inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors duration-200 hover:text-zinc-100 max-sm:text-[12px]"
-        >
-          <span className="transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden>
-            ←
-          </span>
-          <span>Dashboard</span>
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl max-sm:text-xl">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl max-sm:text-xl">
           {title}
         </h1>
         {subtitle ? (

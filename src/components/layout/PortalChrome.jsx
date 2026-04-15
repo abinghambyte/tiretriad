@@ -192,7 +192,6 @@ export function PortalChrome() {
         <PortalTopBar
           pathname={loc.pathname}
           navigate={navigate}
-          user={user}
           profile={profile}
           onOpenPalette={() => setPaletteOpen(true)}
           themeToggle={<ThemeToggle />}
