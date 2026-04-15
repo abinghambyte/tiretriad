@@ -177,6 +177,114 @@ function PeopleRowActionsMenu({
 
 const INVITE_SITE = 'https://www.skedaddleinc.com'
 
+const NFC_TOOLS_WRITE_INTENT =
+  'intent://write#Intent;scheme=nfctools;package=com.wakdev.wdnfc;end'
+
+function shouldShowAndroidInviteHardwareActions() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  if (typeof window.NDEFReader !== 'undefined') return true
+  return /Android/i.test(navigator.userAgent || '')
+}
+
+/**
+ * Copy + Web NFC + NFC Tools fallback (mobile-first layout via max-sm / sm).
+ * @param {{ url: string }} props
+ */
+function InviteUrlToolkit({ url }) {
+  const safeUrl = String(url || '').trim()
+  const [nfcHint, setNfcHint] = useState('')
+  const [nfcBusy, setNfcBusy] = useState(false)
+  const [nfcSuccess, setNfcSuccess] = useState('')
+  const [nfcErr, setNfcErr] = useState('')
+  const showHardware = shouldShowAndroidInviteHardwareActions()
+
+  async function copyUrl() {
+    try {
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(50)
+    } catch {
+      /* ignore */
+    }
+    try {
+      await navigator.clipboard.writeText(safeUrl)
+    } catch {
+      window.prompt('Copy URL:', safeUrl)
+    }
+  }
+
+  async function writeNfcCard() {
+    if (!safeUrl) return
+    setNfcErr('')
+    setNfcSuccess('')
+    setNfcHint('Hold card to back of phone…')
+    setNfcBusy(true)
+    await new Promise((r) => setTimeout(r, 450))
+    try {
+      const Reader = window.NDEFReader
+      if (typeof Reader !== 'function') {
+        throw new Error('Web NFC is not available in this browser. Use Open NFC Tools below.')
+      }
+      const ndef = new Reader()
+      await ndef.write({ records: [{ recordType: 'url', data: safeUrl }] })
+      setNfcSuccess('Card programmed ✅ tap another to write again')
+      setNfcHint('')
+    } catch (e) {
+      setNfcErr(e?.message || String(e))
+      setNfcHint('')
+    } finally {
+      setNfcBusy(false)
+    }
+  }
+
+  function openNfcTools() {
+    try {
+      window.location.href = NFC_TOOLS_WRITE_INTENT
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!safeUrl) return null
+
+  return (
+    <div className="space-y-3">
+      <pre className="max-h-40 overflow-y-auto scroll-smooth whitespace-pre-wrap break-all rounded-xl border border-emerald-900/40 bg-black/30 p-3 font-mono text-[13px] leading-snug text-emerald-50/95 max-sm:max-h-none max-sm:min-h-[4.5rem] max-sm:p-4 max-sm:text-sm sm:max-h-48 sm:text-xs">
+        {safeUrl}
+      </pre>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+        <button
+          type="button"
+          onClick={() => void copyUrl()}
+          className="min-h-[44px] rounded-xl border border-emerald-600/60 bg-emerald-900/35 px-4 text-sm font-semibold text-emerald-50 hover:bg-emerald-900/55 max-sm:w-full sm:min-h-0 sm:px-4 sm:py-2"
+        >
+          Copy URL
+        </button>
+        {showHardware ? (
+          <>
+            <button
+              type="button"
+              disabled={nfcBusy}
+              onClick={() => void writeNfcCard()}
+              className="min-h-[44px] rounded-xl border border-amber-500/55 bg-amber-950/40 px-4 text-sm font-semibold text-amber-100 ring-1 ring-amber-800/40 hover:bg-amber-950/60 disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full sm:min-h-0 sm:px-4 sm:py-2"
+            >
+              {nfcBusy ? 'Writing…' : 'Write to NFC card'}
+            </button>
+            <button
+              type="button"
+              onClick={openNfcTools}
+              className="min-h-[44px] rounded-xl border border-zinc-600 bg-zinc-900/60 px-4 text-sm font-medium text-zinc-200 hover:bg-zinc-800 max-sm:w-full sm:min-h-0 sm:px-4 sm:py-2"
+            >
+              Open NFC Tools
+            </button>
+          </>
+        ) : null}
+      </div>
+      {nfcHint ? <p className="text-sm text-amber-100/90">{nfcHint}</p> : null}
+      {nfcSuccess ? <p className="text-sm text-emerald-200">{nfcSuccess}</p> : null}
+      {nfcErr ? <p className="text-sm text-amber-200">{nfcErr}</p> : null}
+    </div>
+  )
+}
+
 function inviteUrlFromToken(token) {
   const t = String(token || '').trim()
   if (!t) return ''
@@ -232,6 +340,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewGreeting, setPreviewGreeting] = useState('')
   const [previewError, setPreviewError] = useState('')
+  const [previewShowCreatedUrl, setPreviewShowCreatedUrl] = useState(false)
   const [tick, setTick] = useState(0)
   const [eleModule, setEleModule] = useState('tires')
   const [eleLevel, setEleLevel] = useState('edit')
@@ -432,13 +541,19 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         accessExpiryMs,
       })
       const data = res.data
-      setLastInviteUrl(inviteUrlFromToken(data.token || data.inviteUrl?.split('/i/').pop()))
+      const createdUrl = inviteUrlFromToken(data.token || data.inviteUrl?.split('/i/').pop())
+      setLastInviteUrl(createdUrl)
       setFn('')
       setLn('')
       setEmail('')
       setPhone('')
       setAccessDate('')
-      setPreviewOpen(false)
+      if (previewOpen && isMobilePeople) {
+        setPreviewShowCreatedUrl(true)
+      } else {
+        setPreviewOpen(false)
+        setPreviewShowCreatedUrl(false)
+      }
       setCreateDrawerOpen(false)
     } catch (err) {
       console.error(err)
@@ -458,6 +573,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       return
     }
     setPreviewOpen(true)
+    setPreviewShowCreatedUrl(false)
     setPreviewLoading(true)
     setPreviewGreeting('')
     setPreviewError('')
@@ -520,7 +636,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             'rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6',
             isMobilePeople
               ? createDrawerOpen
-                ? 'fixed inset-0 z-50 overflow-y-auto pb-24'
+                ? 'fixed inset-0 z-50 overflow-y-auto overscroll-y-contain scroll-smooth pb-24'
                 : 'hidden'
               : '',
           ].join(' ')}
@@ -543,18 +659,18 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           <form
             onSubmit={(e) => e.preventDefault()}
             onKeyDown={cmdEnterInvokeKeyDown(() => void submitCreateUser())}
-            className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             <Field label="First name" value={fn} onChange={setFn} required />
             <Field label="Last name" value={ln} onChange={setLn} required />
             <Field label="Email" type="email" value={email} onChange={setEmail} required />
             <Field label="Phone" value={phone} onChange={setPhone} />
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">Role</label>
+              <label className="mb-1 block text-xs text-zinc-500 max-sm:mb-2 max-sm:text-[13px]">Role</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm max-sm:min-h-[44px] max-sm:py-3"
               >
                 <option value="admin">{crewTagFromRole('admin')}</option>
                 <option value="supplier">{crewTagFromRole('supplier')}</option>
@@ -563,11 +679,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">Delivery</label>
+              <label className="mb-1 block text-xs text-zinc-500 max-sm:mb-2 max-sm:text-[13px]">Delivery</label>
               <select
                 value={delivery}
                 onChange={(e) => setDelivery(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm max-sm:min-h-[44px] max-sm:py-3"
               >
                 <option value="sms">SMS</option>
                 <option value="nfc">NFC</option>
@@ -575,31 +691,33 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-zinc-500">
+              <label className="mb-1 block text-xs text-zinc-500 max-sm:mb-2 max-sm:text-[13px]">
                 Access expiry (optional)
               </label>
               <input
                 type="date"
                 value={accessDate}
                 onChange={(e) => setAccessDate(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm max-sm:min-h-[44px] max-sm:py-3"
               />
             </div>
-            <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-3">
+            <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:flex-wrap sm:items-end lg:col-span-3">
               <button
                 type="button"
                 disabled={createBusy}
                 onClick={() => void openInvitePreview()}
-                className="min-h-[44px] rounded-xl border border-violet-500/60 bg-violet-950/40 px-5 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-900/50 disabled:opacity-50 sm:min-h-0"
+                className="min-h-[44px] rounded-xl border border-violet-500/60 bg-violet-950/40 px-5 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-900/50 disabled:opacity-50 max-sm:w-full sm:min-h-0 sm:w-auto"
               >
                 Preview invite
               </button>
             </div>
           </form>
           {lastInviteUrl ? (
-            <div className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-4 text-sm">
+            <div className="mt-4 rounded-lg border border-emerald-900/50 bg-emerald-950/20 p-4 text-sm max-sm:p-5">
               <p className="font-medium text-emerald-200">Invite URL (copy for SMS / NFC / email)</p>
-              <p className="mt-2 break-all font-mono text-xs text-emerald-100/90">{lastInviteUrl}</p>
+              <div className="mt-3">
+                <InviteUrlToolkit url={lastInviteUrl} />
+              </div>
             </div>
           ) : null}
         </section>
@@ -777,18 +895,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               </button>
             </div>
             {panelInviteUrl ? (
-              <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
+              <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3 max-sm:p-4">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90 max-sm:text-xs">
                   Active invite link
                 </p>
-                <p className="mt-1 break-all font-mono text-[11px] text-emerald-100/90">{panelInviteUrl}</p>
-                <button
-                  type="button"
-                  className="mt-2 rounded border border-emerald-800/60 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-950/40"
-                  onClick={() => void navigator.clipboard.writeText(panelInviteUrl)}
-                >
-                  Copy link
-                </button>
+                <div className="mt-2 max-sm:mt-3">
+                  <InviteUrlToolkit url={panelInviteUrl} />
+                </div>
               </div>
             ) : (
               <p className="mt-3 text-[11px] text-zinc-600">No active invite token for this user.</p>
@@ -930,56 +1043,87 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           aria-modal
           aria-labelledby="preview-invite-title"
         >
-          <div className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6`}>
-            <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
-              Invite preview
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              <span className="font-medium text-zinc-300">Entrance:</span> Dark screen → bolt
-              animation → Skedaddle reveal. Then a short generative greeting, then registration.
-            </p>
-            <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Sample greeting
-              </p>
-              {previewLoading ? (
-                <p className="mt-2 text-sm text-zinc-500">Loading greeting…</p>
-              ) : previewError ? (
-                <p className="mt-2 text-sm text-red-300">{previewError}</p>
-              ) : (
-                <p className="mt-2 text-sm italic text-zinc-200">&ldquo;{previewGreeting}&rdquo;</p>
-              )}
-            </div>
-            <div className="mt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                Registration steps
-              </p>
-              <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
-                <li>Email (must match invite)</li>
-                <li>6-digit code (sent to email)</li>
-                <li>First and last name</li>
-                <li>Phone</li>
-                <li>Password — then sign in and first-login handshake</li>
-              </ol>
-            </div>
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300"
-                onClick={() => setPreviewOpen(false)}
-                disabled={createBusy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={createBusy || previewLoading}
-                onClick={() => void submitCreateUser()}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
-              >
-                {createBusy ? 'Sending…' : 'Send invite'}
-              </button>
-            </div>
+          <div className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}>
+            {previewShowCreatedUrl && lastInviteUrl ? (
+              <>
+                <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
+                  Invite link ready
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-400 max-sm:text-[15px]">
+                  Copy this URL or write it to an NFC card — stay in the browser on your Pixel.
+                </p>
+                <div className="mt-4">
+                  <InviteUrlToolkit url={lastInviteUrl} />
+                </div>
+                <div className="mt-6 flex flex-col gap-2 max-sm:gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 max-sm:w-full sm:min-h-0 sm:w-auto"
+                    onClick={() => {
+                      setPreviewOpen(false)
+                      setPreviewShowCreatedUrl(false)
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
+                  Invite preview
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                  <span className="font-medium text-zinc-300">Entrance:</span> Dark screen → bolt
+                  animation → Skedaddle reveal. Then a short generative greeting, then registration.
+                </p>
+                <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Sample greeting
+                  </p>
+                  {previewLoading ? (
+                    <p className="mt-2 text-sm text-zinc-500">Loading greeting…</p>
+                  ) : previewError ? (
+                    <p className="mt-2 text-sm text-red-300">{previewError}</p>
+                  ) : (
+                    <p className="mt-2 text-sm italic text-zinc-200">&ldquo;{previewGreeting}&rdquo;</p>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Registration steps
+                  </p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
+                    <li>Email (must match invite)</li>
+                    <li>6-digit code (sent to email)</li>
+                    <li>First and last name</li>
+                    <li>Phone</li>
+                    <li>Password — then sign in and first-login handshake</li>
+                  </ol>
+                </div>
+                <div className="mt-6 flex flex-col gap-2 max-sm:gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+                  <button
+                    type="button"
+                    className="min-h-[44px] rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 max-sm:order-2 max-sm:w-full sm:min-h-0 sm:w-auto"
+                    onClick={() => {
+                      setPreviewOpen(false)
+                      setPreviewShowCreatedUrl(false)
+                    }}
+                    disabled={createBusy}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={createBusy || previewLoading}
+                    onClick={() => void submitCreateUser()}
+                    className="min-h-[44px] rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 max-sm:order-1 max-sm:w-full sm:min-h-0 sm:w-auto"
+                  >
+                    {createBusy ? 'Sending…' : 'Send invite'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}
@@ -1084,7 +1228,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 function Field({ label, value, onChange, type = 'text', required }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+      <label className="mb-1.5 block text-xs font-medium text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
         {label}
         {required ? ' *' : ''}
       </label>
@@ -1093,7 +1237,7 @@ function Field({ label, value, onChange, type = 'text', required }) {
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-shadow duration-200 placeholder:text-zinc-600 focus:border-amber-600/45 focus:ring-2 focus:ring-amber-500/25"
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-shadow duration-200 placeholder:text-zinc-600 focus:border-amber-600/45 focus:ring-2 focus:ring-amber-500/25 max-sm:min-h-[44px] max-sm:py-3"
       />
     </div>
   )

@@ -222,6 +222,36 @@ function historicLowFromSources(sources, activeBuy) {
  * @param {import('firebase-admin/firestore').Firestore} db
  * @param {number} limit
  */
+/**
+ * Pre-flight counts for logs + Slack (does not change selection logic).
+ * @param {import('firebase-admin/firestore').Firestore} db
+ */
+async function countPriceIntelPreflight(db) {
+  const cutoff = Timestamp.fromMillis(Date.now() - 6 * 86400000)
+  const safeCount = async (label, q) => {
+    try {
+      const snap = await q.count().get()
+      return snap.data().count
+    } catch (e) {
+      console.error(`tirePriceResearch preflight count ${label}`, e)
+      return -1
+    }
+  }
+  const neverN = await safeCount(
+    'never',
+    db.collection('tires').where('priceIntel.lastResearched', '==', null),
+  )
+  const staleN = await safeCount(
+    'stale',
+    db.collection('tires').where('priceIntel.lastResearched', '<', cutoff),
+  )
+  const kyleN = await safeCount(
+    'kyle',
+    db.collection('tires').where('priceIntel.kyleConfirmed', '==', true),
+  )
+  return { neverN, staleN, kyleN }
+}
+
 async function pickTiresForResearch(db, limit) {
   const cutoff = Timestamp.fromMillis(Date.now() - 6 * 86400000)
   const picked = new Map()
@@ -441,6 +471,21 @@ async function tirePriceResearchRun(opts) {
   const token = String(opts?.token || '').trim()
   const channel = String(opts?.channel || '').trim()
   const geminiKey = String(opts?.geminiKey || '').trim()
+
+  const { neverN, staleN, kyleN } = await countPriceIntelPreflight(db)
+  console.log('[tirePriceResearch] preflight', {
+    neverResearched: neverN,
+    dueForRefresh: staleN,
+    kyleConfirmed: kyleN,
+  })
+  if (token && channel) {
+    const fmt = (n) => (typeof n === 'number' && n >= 0 ? formatQty(n) : '—')
+    await slackApiPost(token, 'chat.postMessage', {
+      channel,
+      text: `🔍 Price research starting — ${fmt(neverN)} never researched, ${fmt(staleN)} due for refresh, ${fmt(kyleN)} Kyle-confirmed (skipped). Researching up to 100 tires…`,
+    })
+  }
+
   const docs = await pickTiresForResearch(db, 100)
   let updated = 0
   let flagged = 0

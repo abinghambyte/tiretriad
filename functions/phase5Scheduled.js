@@ -152,6 +152,7 @@ function formatHourAmpm(h) {
  * @param {{ token: string, channel: string }} slackOpts
  */
 async function morningBriefRun(slackOpts) {
+  console.log('[morningBrief] firing at', new Date().toISOString())
   const token = String(slackOpts?.token || '').trim()
   const channel = String(slackOpts?.channel || '').trim()
   if (!token || !channel) {
