@@ -26,10 +26,10 @@ import {
 } from '../../utils/crmPipeline'
 import { computeCrmScore, scoreBadgeClass } from '../../utils/crmScore'
 
+// Tanner is a silent partner — no portal access, never assignable.
 const OWNERS = [
   { value: 'alex', label: 'Alex' },
   { value: 'dj', label: 'DJ' },
-  { value: 'tanner', label: 'Tanner' },
   { value: 'kyle', label: 'Kyle' },
 ]
 

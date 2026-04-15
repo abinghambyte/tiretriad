@@ -8,7 +8,7 @@ const MODEL = 'claude-sonnet-4-20250514'
 
 const SKEDADDLE_CONTEXT = `Skedaddle Portal — northern Colorado tire resale (Fort Collins area).
 Stack: React + Vite frontend, Firebase (Firestore, Auth, Cloud Functions Gen2), Slack Rubber Signal app, SMS.
-Crew: Alex (admin/Overwatch), Kyle (Source/supplier, Michelin), DJ + Tanner (Field mechanics, fulfillment).
+Crew: Alex (admin/Overwatch), Kyle (Source/supplier, Michelin), DJ (Field/mechanic, fulfillment). Tanner is a silent partner — profit share only, no ops role, no portal access.
 Pricing: paymentAmount is revenue; catalog buy + CTS overhead; FET washes out of margin calcs; priceIntel.activeBuyPrice when set.
 Orders: pending → available → scheduled → in_transit → completed.
 Never assume salePrice field — use paymentAmount.`

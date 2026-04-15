@@ -4,6 +4,6 @@
  */
 export function crewEarningsMetaDisplayName(key) {
   const k = String(key || '').toLowerCase()
-  if (k === 'tanner') return "Tanner — Field (DJ's crew)"
+  if (k === 'tanner') return "Tanner — Silent partner"
   return k
 }

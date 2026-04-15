@@ -11,17 +11,17 @@ const CREW_REF = (db) => db.collection('meta').doc('crewEarnings')
 const CREW_KEYS = ['alex', 'dj', 'tanner', 'kyle']
 const CREW_SPLIT = { alex: 0.5, dj: 0.2, tanner: 0.2, kyle: 0.1 }
 
-/** Slack /spoils + /owed pool/balance lines — Tanner as DJ's field partner (co-owner, not silent). */
+/** Slack /spoils + /owed pool/balance lines — Tanner is a silent partner (profit share only, no ops role). */
 function crewSlackSplitDisplayName(key) {
   const k = String(key || '').toLowerCase()
-  if (k === 'tanner') return "Tanner (Field · DJ's crew)"
+  if (k === 'tanner') return "Tanner (Silent partner)"
   return k
 }
 
 /** meta/crewEarnings UI (portal + Slack confirmations tied to stored balances). */
 function crewEarningsMetaDisplayName(key) {
   const k = String(key || '').toLowerCase()
-  if (k === 'tanner') return "Tanner — Field (DJ's crew)"
+  if (k === 'tanner') return "Tanner — Silent partner"
   return k
 }
 

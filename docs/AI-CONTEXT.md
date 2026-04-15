@@ -16,7 +16,7 @@ Live at skedaddleinc.com | Repo: abinghambyte/skedaddleinc | Auto-deploys to Ver
 - Alex (Overwatch/admin): boydabingham@gmail.com — owner, 50% of profit pool
 - Kyle (Source/supplier): Michelin rep — charges Alex's card for tires, 10% of profit pool
 - DJ (Field/mechanic): road service — fulfills orders, 20% of profit pool
-- Tanner (Field/mechanic): road service — fulfills orders, 20% of profit pool
+- Tanner: silent partner — 20% of profit pool only. No operational role, no order fulfillment, no portal access. Do not invite. Do not assign orders or leads to him.
 
 ## Deploy commands
 - Frontend: git add . && git commit -m "message" && git push
@@ -42,12 +42,19 @@ Live at skedaddleinc.com | Repo: abinghambyte/skedaddleinc | Auto-deploys to Ver
 - Tires are often sold before they are physically in inventory. qty can be zero or negative — never gate logic on qty > 0.
 
 ## Order lifecycle
-6 stages: pending → available → scheduled → in_transit → completed
+5 happy-path stages: pending → available → scheduled → in_transit → completed
+Plus 2 terminal off-ramps that can apply from any active stage: cancelled, rejected
+
+Active-order filter (used by SMS routing, reminders, etc.):
+ACTIVE_ORDER_STATUSES = {pending, available, scheduled, in_transit}
+
 - pending: sale fired from portal, Slack notified
 - available: Kyle confirmed availability (with optional price override)
 - scheduled: delivery or pickup window set
 - in_transit: DJ on the way
 - completed: order done, paymentAmount recorded, revenue stats updated
+- cancelled: order pulled before fulfillment (any pre-completed stage)
+- rejected: Kyle or ops declined; terminal, does not re-enter the pipeline
 
 ## Dashboard structure (7 cards in order)
 1. Skedaddle Tires → /tires (Catalog, Orders, Listing Generator)

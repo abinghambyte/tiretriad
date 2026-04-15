@@ -45,7 +45,7 @@
 ### Phase 5 — Role-based portal experience ✅
 - Admin (Overwatch): full access
 - Supplier (Source/Kyle): sale alerts, order status
-- Mechanic (Field/DJ, Tanner): assigned orders, mark fulfillment
+- Mechanic (Field/DJ): assigned orders, mark fulfillment. Tanner is a silent partner with no portal access.
 
 ### Phase 6 — eBay listing integration
 - Status: PLANNED

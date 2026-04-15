@@ -84,7 +84,10 @@ export function legacyStageHint(rawStage, account = null) {
   return null
 }
 
-const OWNER_OPTIONS = ['alex', 'dj', 'tanner', 'kyle']
+// Tanner is a silent partner — no portal access, never a CRM owner going forward.
+// Legacy records may still have owner='tanner'; label fallback keeps them readable
+// (with a flag) until they're manually reassigned.
+const OWNER_OPTIONS = ['alex', 'dj', 'kyle']
 
 export function isValidCrmOwner(v) {
   return OWNER_OPTIONS.includes(String(v || '').toLowerCase())
@@ -94,7 +97,7 @@ export function crmOwnerLabel(v) {
   const k = String(v || '').toLowerCase()
   if (k === 'alex') return 'Alex'
   if (k === 'dj') return 'DJ'
-  if (k === 'tanner') return 'Tanner'
+  if (k === 'tanner') return 'Tanner (reassign — silent partner)'
   if (k === 'kyle') return 'Kyle'
   return v || '—'
 }
