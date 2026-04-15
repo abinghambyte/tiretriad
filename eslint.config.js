@@ -30,6 +30,9 @@ export default defineConfig([
     languageOptions: {
       globals: { ...globals.node },
     },
+    rules: {
+      'no-console': 'off',
+    },
   },
   {
     files: ['**/*.{js,jsx}'],

@@ -17,6 +17,9 @@ dist-ssr
 # Never commit Cloud Functions secrets (explicit; `.env` also matches nested paths)
 functions/.env
 
+# Local mkcert / dev TLS (see docs/AI-CONTEXT.md)
+.certs/
+
 # Editor directories and files
 .cursor/*
 !.cursor/rules/

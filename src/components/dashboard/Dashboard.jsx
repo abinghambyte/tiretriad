@@ -220,6 +220,7 @@ export function Dashboard() {
       accent: 'amber',
       icon: <IconGrowth />,
       to: '/growth',
+      adminOnly: true,
     },
     {
       title: 'Ops Command',

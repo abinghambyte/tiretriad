@@ -91,7 +91,7 @@ Never revert to the old 3-stage model (pending/ready/sold).
 - src/utils/isoWeekDenver.js — Denver ISO week helpers
 - src/utils/crewEarningsLabels.js — crew display labels
 - src/utils/tireBeastMode.js — beast mode badge logic
-- functions/slackSecrets.js — all secret definitions (SLACK_SECRETS, SLACK_ACTIONS_SECRETS, EBAY_SECRETS)
+- functions/slackSecrets.js — all secret definitions (`SLACK_SECRETS`, `SLACK_ACTIONS_SECRETS`, `EBAY_SECRETS`; eBay `defineSecret` wired when GCP secrets exist — see comments in file)
 - functions/format.js — server-side formatters
 - functions/financeStats.js — runCompletionTransaction, revenue stats, crew earnings
 - functions/tireCatalogBuy.js — buy price resolution (prefers priceIntel.activeBuyPrice)
@@ -104,10 +104,14 @@ Never revert to the old 3-stage model (pending/ready/sold).
 
 ## eBay
 - eBay seller account: front-range-rubber
-- eBay functions: functions/ebayIntegration.js
-- EBAY_SECRETS array defined in slackSecrets.js — separate from SLACK_SECRETS
-- Publish price = AI recommended price + 12% markup for eBay fees
-- Inventory sync: completeOrder decrements eBay qty automatically
+- eBay functions: `functions/ebayIntegration.js` (webhook logs + publish stub until Inventory API is wired)
+- `EBAY_SECRETS` in `slackSecrets.js` — separate from `SLACK_SECRETS`; mount when Secret Manager has `EBAY_*` versions
+- Publish price = AI recommended price + 12% markup for eBay fees (portal Listing Generator)
+- Inventory sync: when live, `completeOrder` (or dedicated job) should decrement eBay qty — confirm before relying on it
+
+## Growth Lab
+- Route `/growth` — Overwatch (admin) only; matches `ProtectedRoute requireAdmin` and dashboard card `adminOnly`
+- Callable `growthLabTaskDispatch` — Anthropic Sonnet JSON routing; secrets via `slackSecrets` patterns
 
 ## Price Intelligence
 - tirePriceResearch runs nightly at 2am Denver — never modify schedule without approval
