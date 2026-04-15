@@ -50,7 +50,8 @@ function buildUserPayload(input) {
   }
 }
 
-const ANTHROPIC_LISTING_MODEL = 'claude-3-5-haiku-20241022'
+/** Primary Haiku, then Sonnet if the first model or response handling fails. */
+const ANTHROPIC_LISTING_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-5']
 
 function parseModelJson(text) {
   let s = String(text || '').trim()
@@ -125,14 +126,13 @@ function extractAnthropicAssistantText(body) {
 }
 
 /**
- * After a successful Anthropic HTTP response, never throw — return success or parse-failure payload.
+ * Single model attempt. Never throws.
  * @returns {Promise<
  *   | { success: true, model: string, listing: object }
  *   | { success: false, model: string, parseError: string, rawAssistantText?: string, contentSummary?: string }
  * >}
  */
-async function callAnthropic(apiKey, userJson) {
-  const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only (no markdown).`
+async function anthropicMessagesAttempt(apiKey, userJson, modelId, userText) {
   let res
   let body = {}
   try {
@@ -144,7 +144,7 @@ async function callAnthropic(apiKey, userJson) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: ANTHROPIC_LISTING_MODEL,
+        model: modelId,
         max_tokens: 1200,
         system: SYSTEM,
         messages: [{ role: 'user', content: userText }],
@@ -155,14 +155,14 @@ async function callAnthropic(apiKey, userJson) {
     const nm = net instanceof Error ? net.message : String(net)
     return {
       success: false,
-      model: ANTHROPIC_LISTING_MODEL,
-      parseError: `Network error calling Anthropic: ${nm}`,
+      model: modelId,
+      parseError: `Network error calling Anthropic (${modelId}): ${nm}`,
     }
   }
 
   const logPayload = JSON.stringify(body, null, 2)
   console.log(
-    '[listingAdvisor] Anthropic raw API response (pre-parse)',
+    `[listingAdvisor] Anthropic raw API response (pre-parse) model=${modelId}`,
     logPayload.length > 20000 ? `${logPayload.slice(0, 20000)}\n…[truncated ${logPayload.length} chars]` : logPayload,
   )
 
@@ -170,8 +170,8 @@ async function callAnthropic(apiKey, userJson) {
     const detail = body?.error?.message || res.statusText || 'Anthropic request failed'
     return {
       success: false,
-      model: ANTHROPIC_LISTING_MODEL,
-      parseError: `Anthropic HTTP ${res.status}: ${detail}`,
+      model: modelId,
+      parseError: `Anthropic HTTP ${res.status} (${modelId}): ${detail}`,
       contentSummary: JSON.stringify(body?.error ?? body).slice(0, 4000),
     }
   }
@@ -181,8 +181,8 @@ async function callAnthropic(apiKey, userJson) {
     if (!assistantText) {
       return {
         success: false,
-        model: ANTHROPIC_LISTING_MODEL,
-        parseError: 'Empty assistant text (check content[].text blocks in raw response above)',
+        model: modelId,
+        parseError: `Empty assistant text for ${modelId} (check content[].text blocks in raw response above)`,
         contentSummary: JSON.stringify(body?.content ?? []).slice(0, 4000),
       }
     }
@@ -192,22 +192,43 @@ async function callAnthropic(apiKey, userJson) {
     if (!parsed.ok) {
       return {
         success: false,
-        model: ANTHROPIC_LISTING_MODEL,
-        parseError: parsed.error || 'Parse failed',
+        model: modelId,
+        parseError: parsed.error || `Parse failed (${modelId})`,
         rawAssistantText: assistantText.slice(0, 8000),
       }
     }
 
-    return { success: true, model: ANTHROPIC_LISTING_MODEL, listing: parsed.listing }
+    return { success: true, model: modelId, listing: parsed.listing }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return {
       success: false,
-      model: ANTHROPIC_LISTING_MODEL,
-      parseError: `Unexpected error while parsing Anthropic response: ${msg}`,
+      model: modelId,
+      parseError: `Unexpected error while parsing Anthropic response (${modelId}): ${msg}`,
       contentSummary: JSON.stringify(body?.content ?? body).slice(0, 4000),
     }
   }
+}
+
+/**
+ * Try Haiku first, then Sonnet. Never throws.
+ * @returns {Promise<
+ *   | { success: true, model: string, listing: object }
+ *   | { success: false, model: string, parseError: string, rawAssistantText?: string, contentSummary?: string }
+ * >}
+ */
+async function callAnthropic(apiKey, userJson) {
+  const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only (no markdown).`
+  let last = {
+    success: false,
+    model: 'unknown',
+    parseError: 'Anthropic listing model list is empty.',
+  }
+  for (const modelId of ANTHROPIC_LISTING_MODELS) {
+    last = await anthropicMessagesAttempt(apiKey, userJson, modelId, userText)
+    if (last.success) return last
+  }
+  return last
 }
 
 function normalizeListingJson(raw) {
