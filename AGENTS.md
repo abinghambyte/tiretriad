@@ -44,19 +44,27 @@ Live at skedaddleinc.com. Repo: abinghambyte/skedaddleinc.
 ## Order lifecycle
 5 happy-path stages: pending → available → scheduled → in_transit → completed
 Plus 2 terminal off-ramps that can apply from any active stage: cancelled, rejected
+Plus 1 pre-lifecycle state: prospective (pipeline lead, not yet a real sale)
 
 Active-order filter (used by SMS routing, reminders, etc.):
 ACTIVE_ORDER_STATUSES = {pending, available, scheduled, in_transit}
+Cancellable statuses (orderWorkflow.js:41): pending, available, scheduled, in_transit, prospective
 
-- pending: sale fired from portal, Slack notified
+- prospective: logged from the catalog as a pipeline lead (`createProspectiveOrder` callable, index.js:646). No customer contact required. Does NOT enter the active-order SMS/reminder filters. Gets a dedicated Slack block (`buildProspectivePipelineBlocks`, orderWorkflow.js:381).
+- pending: real sale fired from the portal (`notifyTeamSlackBot`, index.js:172), Slack notified
 - available: Kyle confirmed availability (with optional price override)
 - scheduled: delivery or pickup window set
 - in_transit: DJ on the way
-- completed: order done, paymentAmount recorded, revenue stats updated
-- cancelled: order pulled before fulfillment (any pre-completed stage)
+- completed: order done, paymentAmount recorded, revenue stats updated. Status written in exactly two places: `functions/index.js:474` (portal-driven completion, calls `runCompletionTransaction`) and `functions/fieldSlackCommands.js:220` (Slack `/done`, shares the same `runCompletionTransaction` in financeStats.js).
+- cancelled: order pulled before fulfillment (any pre-completed stage; applies to prospective too)
 - rejected: Kyle or ops declined; terminal, does not re-enter the pipeline
 
 Never revert to the old 3-stage model (pending/ready/sold).
+
+## Inventory qty accounting — do not "fix" this
+`tires/{mspn}.qty` is *manually* managed by Kyle via `/intake [mspn] [qty]` (the only write site: `functions/inventorySlackCommands.js:101`, `FieldValue.increment(delta)`). The order lifecycle **never** auto-decrements `qty` — not on sale creation, not on completion, not anywhere. What the completion transaction *does* touch on the tire doc (`runCompletionTransaction`, financeStats.js:261): `salesCount` (++qty), `lastSoldAt`, `weeklyVelocity`, `weeklyVelocityWeek`. Those are analytics fields, not inventory-on-hand.
+
+Consequence: there is no inventory-leak bug on cancel or reject. Do NOT add logic that "restores" qty on cancellation — Kyle's physical count is the source of truth, and auto-incrementing it would corrupt `/intake`-based reconciliation. `qty` can also be zero or negative (tires are often sold before they're physically in inventory) — never gate order or completion logic on `qty > 0`.
 
 ## Formatting
 - All currency: formatCurrency from src/utils/format.js (frontend) or functions/format.js (backend)

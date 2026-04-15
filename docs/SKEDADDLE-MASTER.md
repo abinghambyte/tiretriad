@@ -1,5 +1,13 @@
 # Skedaddle Portal — Master Spec & Roadmap
-> Hand this file to Cursor as your first message in any session. It contains full project context, current build state, and the complete phase roadmap.
+
+> **⚠️ DEPRECATED — HISTORICAL REFERENCE ONLY.** This file is no longer the canonical context for AI sessions or contributors.
+> - Canonical agent rules: [`../AGENTS.md`](../AGENTS.md)
+> - Canonical project context: [`./AI-CONTEXT.md`](./AI-CONTEXT.md)
+> - Canonical phase plan: [`./ROADMAP.md`](./ROADMAP.md)
+>
+> Sections below may be stale — especially the order lifecycle (3-stage `pending/ready/sold` model predates the current 5+2+1 lifecycle), Tanner's role (now silent partner, no ops / no portal access), and the pricing model. Do not prime Cursor / Antigravity / Claude Code with this file. Kept in-tree for historical reference only.
+
+---
 
 ---
 

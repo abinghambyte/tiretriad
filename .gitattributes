@@ -1,0 +1,24 @@
+# Normalize line endings so Windows (CRLF on disk) and Linux/Vercel (LF)
+# don't generate noise in diffs on files nobody actually changed.
+* text=auto eol=lf
+
+# Keep binary assets binary — never transform.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp4 binary
+*.mov binary
+*.zip binary
+
+# Windows batch/PS scripts legitimately need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
