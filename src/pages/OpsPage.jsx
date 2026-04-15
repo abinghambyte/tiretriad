@@ -321,7 +321,7 @@ export function OpsPage() {
               <button
                 type="submit"
                 disabled={savingExp}
-                className="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-500 disabled:opacity-50 sm:w-auto"
+                className="w-full rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50 sm:w-auto"
               >
                 {savingExp ? 'Saving…' : 'Add expense'}
               </button>

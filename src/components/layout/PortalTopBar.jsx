@@ -17,7 +17,7 @@ import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
 export function PortalTopBar({ pathname, navigate, profile, onOpenPalette, themeToggle, shortcutHint }) {
   const showBack = showDashboardBackLink(pathname)
   const title = moduleTitleFromPath(pathname)
-  const first = displayFirstName(profile)
+  const first = displayFirstName(profile, auth.currentUser?.email || undefined)
   const tag = portalCrewTagFromRole(String(profile?.role || 'viewer'))
   const nameBadge = `${first} · ${tag}`
 

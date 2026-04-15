@@ -31,6 +31,10 @@ function crewLine(o) {
   return `Source (${s}) → Field (${m})`
 }
 
+function isCatalogMspn(mspn) {
+  return /^[A-Za-z0-9]{5}$/.test(String(mspn || '').trim())
+}
+
 function completedLabel(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
   try {
@@ -159,9 +163,17 @@ export function WallPage({ embedded = false }) {
                     <span className="text-emerald-400" aria-hidden>
                       ✅
                     </span>
-                    <span className="font-mono text-sm font-medium text-zinc-100">
-                      {o.mspn} × {formatQty(o.quantity)}
-                    </span>
+                    {isCatalogMspn(o.mspn) ? (
+                      <span className="font-mono text-sm font-medium text-zinc-100">
+                        {o.mspn} × {formatQty(o.quantity)}
+                      </span>
+                    ) : (
+                      <span className="inline-flex flex-wrap items-center gap-1.5 font-mono text-sm text-zinc-500">
+                        <span>{String(o.mspn ?? '—')}</span>
+                        <span>× {formatQty(o.quantity)}</span>
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">(test)</span>
+                      </span>
+                    )}
                     {o.hatTrickDay ? (
                       <span className="text-xs" title="Hat trick day">
                         🎩

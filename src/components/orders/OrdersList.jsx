@@ -570,6 +570,9 @@ export function OrdersList({ highlightId }) {
           const total = Number(o.totalPrice) || (qty > 0 && ppt > 0 ? qty * ppt : 0)
           const cust = String(o.customerName || '').trim()
           const missingCustomer = !cust
+          const payRaw = o.paymentAmount
+          const noPriceRecorded =
+            payRaw == null || payRaw === '' || !Number.isFinite(Number(payRaw)) || Number(payRaw) === 0
           return (
             <li
               key={o.id}
@@ -611,6 +614,9 @@ export function OrdersList({ highlightId }) {
                     <span className="text-zinc-500"> each · </span>
                     {total > 0 ? `${formatCurrency(total)} total` : '—'}
                   </p>
+                  {noPriceRecorded ? (
+                    <p className="mt-1 text-[11px] font-medium text-amber-300/90">No price recorded</p>
+                  ) : null}
                   {missingCustomer ? (
                     <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-900/50 bg-amber-950/25 px-2 py-1 text-xs font-medium text-amber-200/95">
                       <span aria-hidden>⚠</span>

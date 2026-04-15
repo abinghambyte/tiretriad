@@ -26,7 +26,7 @@ const GRID_STYLE = {
   width: '100%',
   minWidth: 1120,
   gridTemplateColumns:
-    'minmax(104px,1.05fr) minmax(72px,1fr) minmax(100px,1.35fr) 88px 28px 52px 84px 44px 72px 76px minmax(52px,1fr)',
+    'minmax(104px,1.05fr) minmax(72px,1fr) minmax(100px,1.35fr) 88px 28px 52px 84px 44px 72px minmax(6.25rem,5.5rem) minmax(52px,1fr)',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -34,6 +34,13 @@ const GRID_STYLE = {
 function buyPriceOf(row) {
   const n = tireCatalogBuyNumber(row)
   return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/** Buy column: never show $0.00 — missing buy is em dash. */
+function buyPriceCellText(row) {
+  const n = tireCatalogBuyNumber(row)
+  if (n == null || !Number.isFinite(n) || n <= 0) return '—'
+  return formatCurrencyOrDash(n)
 }
 
 function previewMarginWhileEditing(row, overheadDraft) {
@@ -100,25 +107,62 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
   const d = String(description ?? '').trim()
   const parsed = useMemo(() => parseDescription(d), [d])
   if (!d) return <span className="text-zinc-500">—</span>
-  const hasParsed =
+
+  const hasMetric =
+    parsed.parseKind === 'metric' &&
     parsed.width != null &&
     parsed.aspectRatio != null &&
     parsed.construction != null &&
     parsed.rimDiameter != null
-  if (!hasParsed) {
-    return <span className="min-w-0 truncate text-sm text-zinc-400">{d}</span>
+
+  const hasFlotation =
+    parsed.parseKind === 'flotation' &&
+    parsed.width != null &&
+    parsed.rimDiameter != null &&
+    parsed.flotationMid != null
+
+  if (!hasMetric && !hasFlotation) {
+    return (
+      <span className="min-w-0 max-w-full break-words text-sm leading-snug text-zinc-400 [overflow-wrap:anywhere] line-clamp-2">
+        {d}
+      </span>
+    )
   }
+
   const loadParts = []
   if (parsed.loadIndex != null) loadParts.push(String(parsed.loadIndex))
   if (parsed.speedRating) loadParts.push(parsed.speedRating)
   if (parsed.extraLoad) loadParts.push('XL')
   const loadSpeed = loadParts.join(' ')
+
+  if (hasFlotation) {
+    const ltSuffix = parsed.trailingLt ? 'LT' : ''
+    const sizeLine = `${parsed.width}X${parsed.flotationMid}R${parsed.rimDiameter}${ltSuffix}`
+    return (
+      <div className="min-w-0 max-w-full text-sm leading-snug text-zinc-300">
+        <div className="break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">
+          {sizeLine}
+          {loadSpeed ? (
+            <>
+              {' '}
+              <span className="text-zinc-500">·</span> {loadSpeed}
+            </>
+          ) : null}
+        </div>
+        {parsed.treadName ? (
+          <div className="mt-0.5 line-clamp-2 break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
+            {parsed.treadName}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  const sizeLine = `${parsed.ltPrefixedMetric ? 'LT ' : ''}${parsed.width}/${parsed.aspectRatio}${parsed.construction}${parsed.rimDiameter}`
   return (
-    <div className="min-w-0 text-sm leading-snug text-zinc-300">
-      <div className="font-mono text-zinc-200">
-        {parsed.width}/{parsed.aspectRatio}
-        {parsed.construction}
-        {parsed.rimDiameter}
+    <div className="min-w-0 max-w-full text-sm leading-snug text-zinc-300">
+      <div className="break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">
+        {sizeLine}
         {loadSpeed ? (
           <>
             {' '}
@@ -127,7 +171,9 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
         ) : null}
       </div>
       {parsed.treadName ? (
-        <div className="mt-0.5 truncate text-xs font-medium text-zinc-500">{parsed.treadName}</div>
+        <div className="mt-0.5 line-clamp-2 break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
+          {parsed.treadName}
+        </div>
       ) : null}
     </div>
   )
@@ -318,8 +364,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300">
               {row.mspn || '—'}
             </div>
-            <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
-              {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}
+            <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
+              {buyPriceCellText(row)}
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
@@ -495,10 +541,10 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           )}
         </div>
         <div
-          className="whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
+          className="min-w-[6.25rem] whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
           title="Buy price — catalog buy (includes FET component)"
         >
-          {buyPriceOf(row) > 0 ? formatCurrencyOrDash(buyPriceOf(row)) : '—'}
+          {buyPriceCellText(row)}
         </div>
         <div
           className="truncate px-1 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
