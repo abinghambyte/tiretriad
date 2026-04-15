@@ -50,6 +50,8 @@ function buildUserPayload(input) {
   }
 }
 
+const ANTHROPIC_LISTING_MODEL = 'claude-3-5-haiku-20241022'
+
 function parseModelJson(text) {
   let s = String(text || '').trim()
   const fence = /^```(?:json)?\s*([\s\S]*?)```$/im.exec(s)
@@ -62,6 +64,134 @@ function parseModelJson(text) {
   }
   if (!obj || typeof obj !== 'object') throw new Error('Model JSON was not an object')
   return normalizeListingJson(obj)
+}
+
+/** Strip ``` / ```json fences (including embedded blocks) before JSON.parse. */
+function stripAssistantJsonFences(text) {
+  let s = String(text || '').trim()
+  const full = /^```(?:json)?\s*([\s\S]*?)```\s*$/im.exec(s)
+  if (full) return full[1].trim()
+  const inner = /```(?:json)?\s*([\s\S]*?)```/im.exec(s)
+  if (inner) return inner[1].trim()
+  return s
+    .replace(/^```(?:json)?\s*\n?/i, '')
+    .replace(/\n?```\s*$/i, '')
+    .trim()
+}
+
+function tryParseListingJsonObject(s) {
+  const trimmed = String(s || '').trim()
+  if (!trimmed) return { ok: false, error: 'Empty text after fence strip' }
+  try {
+    const obj = JSON.parse(trimmed)
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      return { ok: false, error: 'JSON root was not an object' }
+    }
+    return { ok: true, listing: normalizeListingJson(obj) }
+  } catch {
+    const start = trimmed.indexOf('{')
+    const end = trimmed.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      try {
+        const obj = JSON.parse(trimmed.slice(start, end + 1))
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+          return { ok: false, error: 'Extracted JSON was not an object' }
+        }
+        return { ok: true, listing: normalizeListingJson(obj) }
+      } catch (e2) {
+        return {
+          ok: false,
+          error: e2 instanceof Error ? e2.message : 'JSON.parse failed on extracted object',
+        }
+      }
+    }
+    return { ok: false, error: 'Model did not return valid JSON' }
+  }
+}
+
+/** Concatenate all assistant `text` blocks (Anthropic returns `content` as an array). */
+function extractAnthropicAssistantText(body) {
+  const content = body?.content
+  if (typeof content === 'string') return content.trim()
+  if (!Array.isArray(content)) return ''
+  const chunks = []
+  for (const block of content) {
+    if (!block || typeof block !== 'object') continue
+    if (typeof block.text === 'string' && block.text) {
+      chunks.push(block.text)
+    }
+  }
+  return chunks.join('\n').trim()
+}
+
+/**
+ * After a successful Anthropic HTTP response, never throw — return success or parse-failure payload.
+ * @returns {Promise<
+ *   | { success: true, model: string, listing: object }
+ *   | { success: false, model: string, parseError: string, rawAssistantText?: string, contentSummary?: string }
+ * >}
+ */
+async function callAnthropic(apiKey, userJson) {
+  const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only (no markdown).`
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_LISTING_MODEL,
+      max_tokens: 1200,
+      system: SYSTEM,
+      messages: [{ role: 'user', content: userText }],
+    }),
+  })
+  const body = await res.json().catch(() => ({}))
+
+  const logPayload = JSON.stringify(body, null, 2)
+  console.log(
+    '[listingAdvisor] Anthropic raw API response (pre-parse)',
+    logPayload.length > 20000 ? `${logPayload.slice(0, 20000)}\n…[truncated ${logPayload.length} chars]` : logPayload,
+  )
+
+  if (!res.ok) {
+    const msg = body?.error?.message || res.statusText || 'Anthropic request failed'
+    throw new Error(msg)
+  }
+
+  try {
+    const assistantText = extractAnthropicAssistantText(body)
+    if (!assistantText) {
+      return {
+        success: false,
+        model: ANTHROPIC_LISTING_MODEL,
+        parseError: 'Empty assistant text (check content[].text blocks in raw response above)',
+        contentSummary: JSON.stringify(body?.content ?? []).slice(0, 4000),
+      }
+    }
+
+    const forJson = stripAssistantJsonFences(assistantText)
+    const parsed = tryParseListingJsonObject(forJson)
+    if (!parsed.ok) {
+      return {
+        success: false,
+        model: ANTHROPIC_LISTING_MODEL,
+        parseError: parsed.error || 'Parse failed',
+        rawAssistantText: assistantText.slice(0, 8000),
+      }
+    }
+
+    return { success: true, model: ANTHROPIC_LISTING_MODEL, listing: parsed.listing }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      success: false,
+      model: ANTHROPIC_LISTING_MODEL,
+      parseError: `Unexpected error while parsing Anthropic response: ${msg}`,
+      contentSummary: JSON.stringify(body?.content ?? body).slice(0, 4000),
+    }
+  }
 }
 
 function normalizeListingJson(raw) {
@@ -115,33 +245,6 @@ async function callGemini(apiKey, userJson) {
   }
 }
 
-async function callAnthropic(apiKey, userJson) {
-  const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only (no markdown).`
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 1200,
-      system: SYSTEM,
-      messages: [{ role: 'user', content: userText }],
-    }),
-  })
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const msg = body?.error?.message || res.statusText || 'Anthropic request failed'
-    throw new Error(msg)
-  }
-  const text = body?.content?.[0]?.text
-  if (!text) throw new Error('Empty Anthropic response')
-  const listing = parseModelJson(text)
-  return { listing, model: 'claude-3-5-haiku-20241022' }
-}
-
 /**
  * @param {import('firebase-functions/v2/https').CallableRequest} request
  */
@@ -187,12 +290,19 @@ async function listingAdvisorHandler(request) {
 
   if (anthropicKey) {
     try {
-      const { listing, model } = await callAnthropic(anthropicKey, userJson)
+      const ar = await callAnthropic(anthropicKey, userJson)
+      const provider = geminiKey ? 'anthropic_fallback' : 'anthropic'
+      if (ar.success) {
+        return { ok: true, provider, model: ar.model, listing: ar.listing }
+      }
       return {
-        ok: true,
-        provider: geminiKey ? 'anthropic_fallback' : 'anthropic',
-        model,
-        listing,
+        ok: false,
+        provider,
+        model: ar.model,
+        listing: null,
+        parseError: ar.parseError,
+        rawAssistantText: ar.rawAssistantText ?? null,
+        contentSummary: ar.contentSummary ?? null,
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

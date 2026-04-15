@@ -269,11 +269,18 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
             })
             const advisorPayload = parseListingAdvisorResponse(rawUnwrapped)
             if (!advisorPayload?.listing) {
+              const serverParse =
+                rawUnwrapped &&
+                typeof rawUnwrapped === 'object' &&
+                typeof rawUnwrapped.parseError === 'string'
+                  ? rawUnwrapped.parseError
+                  : null
               setAdvisorById((prev) => ({
                 ...prev,
                 [t.id]: {
                   status: 'error',
                   message:
+                    serverParse ||
                     'Advisor responded, but the payload could not be read as a listing (expected listing or title/description fields). Open the raw payload below.',
                   rawDebug: formatJsonForDebug(rawUnwrapped),
                 },
