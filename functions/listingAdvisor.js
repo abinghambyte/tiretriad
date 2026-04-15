@@ -107,9 +107,11 @@ async function callGeminiOnce(apiKey, userJson, model) {
 
 async function callGemini(apiKey, userJson) {
   try {
-    return await callGeminiOnce(apiKey, userJson, 'gemini-1.5-pro')
+    const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.5-pro')
+    return { listing, model: 'gemini-1.5-pro' }
   } catch {
-    return callGeminiOnce(apiKey, userJson, 'gemini-1.0-pro')
+    const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.0-pro')
+    return { listing, model: 'gemini-1.0-pro' }
   }
 }
 
@@ -136,7 +138,8 @@ async function callAnthropic(apiKey, userJson) {
   }
   const text = body?.content?.[0]?.text
   if (!text) throw new Error('Empty Anthropic response')
-  return parseModelJson(text)
+  const listing = parseModelJson(text)
+  return { listing, model: 'claude-3-5-haiku-20241022' }
 }
 
 /**
@@ -172,8 +175,8 @@ async function listingAdvisorHandler(request) {
 
   if (geminiKey) {
     try {
-      const out = await callGemini(geminiKey, userJson)
-      return { ok: true, provider: 'gemini', listing: out }
+      const { listing, model } = await callGemini(geminiKey, userJson)
+      return { ok: true, provider: 'gemini', model, listing }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (!anthropicKey) {
@@ -184,8 +187,13 @@ async function listingAdvisorHandler(request) {
 
   if (anthropicKey) {
     try {
-      const out = await callAnthropic(anthropicKey, userJson)
-      return { ok: true, provider: geminiKey ? 'anthropic_fallback' : 'anthropic', listing: out }
+      const { listing, model } = await callAnthropic(anthropicKey, userJson)
+      return {
+        ok: true,
+        provider: geminiKey ? 'anthropic_fallback' : 'anthropic',
+        model,
+        listing,
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       throw new HttpsError('internal', msg)

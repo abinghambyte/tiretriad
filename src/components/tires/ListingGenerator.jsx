@@ -17,6 +17,86 @@ const PLATFORMS = [
 
 const listingAdvisorFn = httpsCallable(functions, 'listingAdvisor')
 
+function coerceAdvisorListing(raw) {
+  if (raw == null) return null
+  if (typeof raw === 'string') {
+    try {
+      return coerceAdvisorListing(JSON.parse(raw))
+    } catch {
+      return null
+    }
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) return null
+  let p = raw
+  if (p.listing && typeof p.listing === 'object' && !Array.isArray(p.listing)) {
+    p = p.listing
+  }
+  const hasAny =
+    (p.title != null && String(p.title).trim() !== '') ||
+    (p.description != null && String(p.description).trim() !== '') ||
+    p.sellProbability != null ||
+    p.recommendedPrice != null ||
+    (p.platformNotes != null && String(p.platformNotes).trim() !== '')
+  if (!hasAny) return null
+  let sp = Math.round(Number(p.sellProbability))
+  if (!Number.isFinite(sp)) sp = 50
+  sp = Math.max(0, Math.min(100, sp))
+  let rp = Number(p.recommendedPrice)
+  if (!Number.isFinite(rp) || rp < 0) rp = 0
+  return {
+    title: String(p.title ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 200),
+    description: String(p.description ?? '').trim(),
+    sellProbability: sp,
+    recommendedPrice: rp,
+    platformNotes: String(p.platformNotes ?? '').trim().slice(0, 280),
+  }
+}
+
+/**
+ * Unwraps callable `data` from `listingAdvisor` (nested `data`/`result`, stringified `listing`, or flat fields).
+ * @param {unknown} data
+ * @returns {{ listing: object, provider?: string, model?: string } | null}
+ */
+function parseListingAdvisorResponse(data) {
+  if (data == null || typeof data !== 'object') return null
+  const layers = [data, data.data, data.result, data.payload].filter(
+    (x) => x && typeof x === 'object' && !Array.isArray(x),
+  )
+  for (const layer of layers) {
+    if ('listing' in layer && layer.listing != null) {
+      const listing = coerceAdvisorListing(layer.listing)
+      if (listing) {
+        return {
+          listing,
+          provider: typeof layer.provider === 'string' ? layer.provider : undefined,
+          model: typeof layer.model === 'string' ? layer.model : undefined,
+        }
+      }
+    }
+    const listing = coerceAdvisorListing(layer)
+    if (listing) {
+      return {
+        listing,
+        provider: typeof layer.provider === 'string' ? layer.provider : undefined,
+        model: typeof layer.model === 'string' ? layer.model : undefined,
+      }
+    }
+  }
+  return null
+}
+
+function advisorCallableErrorMessage(err) {
+  if (err?.code === 'functions/failed-precondition') {
+    return String(
+      err.message || 'Configure GEMINI_API_KEY or ANTHROPIC_API_KEY in Secret Manager.',
+    )
+  }
+  return err?.message || String(err)
+}
+
 async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text)
@@ -101,7 +181,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
   }
 
   async function runAdvisorForTire(t) {
-    const parsed = parseDescription(t.description)
+    const tireParsed = parseDescription(t.description)
     const input = {
       mspn: String(t.mspn || '').trim(),
       brand: String(t.brand || ''),
@@ -109,18 +189,30 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
       buyPrice: tireCatalogBuyNumber(t),
       ctsTotal: effectiveCts(t),
       parsed: {
-        width: parsed.width,
-        aspectRatio: parsed.aspectRatio,
-        construction: parsed.construction,
-        rimDiameter: parsed.rimDiameter,
-        loadIndex: parsed.loadIndex,
-        speedRating: parsed.speedRating,
-        extraLoad: parsed.extraLoad,
-        treadName: parsed.treadName,
+        width: tireParsed.width,
+        aspectRatio: tireParsed.aspectRatio,
+        construction: tireParsed.construction,
+        rimDiameter: tireParsed.rimDiameter,
+        loadIndex: tireParsed.loadIndex,
+        speedRating: tireParsed.speedRating,
+        extraLoad: tireParsed.extraLoad,
+        treadName: tireParsed.treadName,
       },
     }
-    const { data } = await listingAdvisorFn({ input })
-    return data
+    const callableResult = await listingAdvisorFn({ input })
+    // Trace payload shape vs UI (title, description, sellProbability, recommendedPrice, platformNotes).
+    console.log('[listingAdvisor] raw callable response', {
+      mspn: String(t.mspn || '').trim(),
+      tireId: t.id,
+      data: callableResult?.data,
+    })
+    const advisorPayload = parseListingAdvisorResponse(callableResult?.data)
+    if (!advisorPayload?.listing) {
+      throw new Error(
+        'Invalid advisor response (missing listing). See console for [listingAdvisor] raw payload.',
+      )
+    }
+    return advisorPayload
   }
 
   async function runAllAdvisors() {
@@ -133,20 +225,18 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
       await Promise.all(
         tires.map(async (t) => {
           try {
-            const data = await runAdvisorForTire(t)
-            const listing = data?.listing
-            if (!listing || typeof listing !== 'object') {
-              throw new Error('Invalid advisor response')
-            }
+            const advisorPayload = await runAdvisorForTire(t)
             setAdvisorById((prev) => ({
               ...prev,
-              [t.id]: { status: 'done', provider: data.provider, listing },
+              [t.id]: {
+                status: 'done',
+                provider: advisorPayload.provider,
+                model: advisorPayload.model,
+                listing: advisorPayload.listing,
+              },
             }))
           } catch (e) {
-            const msg =
-              e?.code === 'functions/failed-precondition'
-                ? String(e.message || 'Configure GEMINI_API_KEY or ANTHROPIC_API_KEY in Secret Manager.')
-                : e?.message || String(e)
+            const msg = advisorCallableErrorMessage(e)
             setAdvisorById((prev) => ({
               ...prev,
               [t.id]: { status: 'error', message: msg },
@@ -282,11 +372,21 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                   ) : null}
                   {adv?.status === 'done' && adv.listing ? (
                     <div className="mt-4 space-y-3 border-t border-zinc-800/80 pt-4">
-                      {adv.provider ? (
-                        <p className="text-[10px] uppercase tracking-wide text-zinc-600">
-                          via {String(adv.provider).replace(/_/g, ' ')}
-                        </p>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {adv.provider ? (
+                          <span className="rounded-md bg-zinc-800/90 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                            {String(adv.provider).replace(/_/g, ' ')}
+                          </span>
+                        ) : null}
+                        {adv.model ? (
+                          <span className="rounded-md bg-emerald-950/35 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-emerald-300/90 ring-1 ring-emerald-900/45">
+                            {adv.model}
+                          </span>
+                        ) : null}
+                        <span className="text-[10px] font-medium text-emerald-600/75">
+                          Advisor completed
+                        </span>
+                      </div>
                       <div className="flex flex-col gap-2 max-sm:items-start sm:flex-row sm:flex-wrap sm:items-center">
                         <SellProbabilityBadge value={adv.listing.sellProbability} />
                         <span className="text-sm text-zinc-300">

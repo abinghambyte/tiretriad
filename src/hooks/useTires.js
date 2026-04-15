@@ -12,7 +12,8 @@ export function useTires() {
       collection(db, 'tires'),
       (snap) => {
         const rows = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
+          // Document id must win over any `id` field stored on the tire doc.
+          .map((d) => ({ ...d.data(), id: d.id }))
           // Scrap-grade inventory is hidden from the margin tool (not sold).
           .filter((t) => String(t.grade || '').toLowerCase() !== 'scrap')
         setTires(rows)
