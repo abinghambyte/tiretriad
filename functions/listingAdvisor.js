@@ -60,9 +60,9 @@ function parseModelJson(text) {
   try {
     obj = JSON.parse(s)
   } catch {
-    throw new Error('Model did not return valid JSON')
+    throw new Error('Assistant output was not valid JSON')
   }
-  if (!obj || typeof obj !== 'object') throw new Error('Model JSON was not an object')
+  if (!obj || typeof obj !== 'object') throw new Error('Assistant JSON root was not an object')
   return normalizeListingJson(obj)
 }
 
@@ -105,7 +105,7 @@ function tryParseListingJsonObject(s) {
         }
       }
     }
-    return { ok: false, error: 'Model did not return valid JSON' }
+    return { ok: false, error: 'Assistant output was not valid JSON' }
   }
 }
 
@@ -133,21 +133,32 @@ function extractAnthropicAssistantText(body) {
  */
 async function callAnthropic(apiKey, userJson) {
   const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only (no markdown).`
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
+  let res
+  let body = {}
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_LISTING_MODEL,
+        max_tokens: 1200,
+        system: SYSTEM,
+        messages: [{ role: 'user', content: userText }],
+      }),
+    })
+    body = await res.json().catch(() => ({}))
+  } catch (net) {
+    const nm = net instanceof Error ? net.message : String(net)
+    return {
+      success: false,
       model: ANTHROPIC_LISTING_MODEL,
-      max_tokens: 1200,
-      system: SYSTEM,
-      messages: [{ role: 'user', content: userText }],
-    }),
-  })
-  const body = await res.json().catch(() => ({}))
+      parseError: `Network error calling Anthropic: ${nm}`,
+    }
+  }
 
   const logPayload = JSON.stringify(body, null, 2)
   console.log(
@@ -156,8 +167,13 @@ async function callAnthropic(apiKey, userJson) {
   )
 
   if (!res.ok) {
-    const msg = body?.error?.message || res.statusText || 'Anthropic request failed'
-    throw new Error(msg)
+    const detail = body?.error?.message || res.statusText || 'Anthropic request failed'
+    return {
+      success: false,
+      model: ANTHROPIC_LISTING_MODEL,
+      parseError: `Anthropic HTTP ${res.status}: ${detail}`,
+      contentSummary: JSON.stringify(body?.error ?? body).slice(0, 4000),
+    }
   }
 
   try {
@@ -235,13 +251,131 @@ async function callGeminiOnce(apiKey, userJson, model) {
   return parseModelJson(text)
 }
 
+/**
+ * @returns {Promise<{ ok: true, listing: object, model: string } | { ok: false, listing: null, model: null, error: string }>}
+ */
 async function callGemini(apiKey, userJson) {
+  let err15 = ''
   try {
     const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.5-pro')
-    return { listing, model: 'gemini-1.5-pro' }
-  } catch {
+    return { ok: true, listing, model: 'gemini-1.5-pro' }
+  } catch (e1) {
+    err15 = e1 instanceof Error ? e1.message : String(e1)
+  }
+  try {
     const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.0-pro')
-    return { listing, model: 'gemini-1.0-pro' }
+    return { ok: true, listing, model: 'gemini-1.0-pro' }
+  } catch (e2) {
+    const err10 = e2 instanceof Error ? e2.message : String(e2)
+    return {
+      ok: false,
+      listing: null,
+      model: null,
+      error: `Gemini 1.5-pro: ${err15}; Gemini 1.0-pro: ${err10}`,
+    }
+  }
+}
+
+/**
+ * Core listing advisor logic — returns plain objects only (no throws except programmer bugs).
+ * @param {import('firebase-functions/v2/https').CallableRequest} request
+ */
+async function runListingAdvisor(request) {
+  const db = admin.firestore()
+  const uSnap = await db.collection('users').doc(request.auth.uid).get()
+  const tiresPerm = uSnap.exists ? String(uSnap.data()?.permissions?.tires || 'none') : 'none'
+  if (!['view', 'edit'].includes(tiresPerm)) {
+    return {
+      ok: false,
+      listing: null,
+      model: 'unknown',
+      provider: 'error',
+      error: 'Tires catalog access required.',
+      errorCode: 'permission-denied',
+    }
+  }
+
+  const data = request.data || {}
+  const input = data.input && typeof data.input === 'object' ? data.input : null
+  if (!input) {
+    return {
+      ok: false,
+      listing: null,
+      model: 'unknown',
+      provider: 'error',
+      error: 'input object is required.',
+      errorCode: 'invalid-argument',
+    }
+  }
+
+  const mspn = String(input.mspn || '').trim()
+  if (!mspn) {
+    return {
+      ok: false,
+      listing: null,
+      model: 'unknown',
+      provider: 'error',
+      error: 'input.mspn is required.',
+      errorCode: 'invalid-argument',
+    }
+  }
+
+  const userJson = buildUserPayload(input)
+
+  let geminiKey = ''
+  let anthropicKey = ''
+  try {
+    geminiKey = pickSecretValue(GEMINI_API_KEY.value())
+  } catch {
+    geminiKey = ''
+  }
+  try {
+    anthropicKey = anthropicKeyResolved(ANTHROPIC_API_KEY.value())
+  } catch {
+    anthropicKey = ''
+  }
+
+  if (geminiKey) {
+    const g = await callGemini(geminiKey, userJson)
+    if (g.ok) {
+      return { ok: true, provider: 'gemini', model: g.model, listing: g.listing }
+    }
+    if (!anthropicKey) {
+      return {
+        ok: false,
+        provider: 'gemini',
+        model: g.model || 'gemini',
+        listing: null,
+        error: g.error || 'Gemini failed and no Anthropic key is configured.',
+      }
+    }
+  }
+
+  if (anthropicKey) {
+    const ar = await callAnthropic(anthropicKey, userJson)
+    const provider = geminiKey ? 'anthropic_fallback' : 'anthropic'
+    if (ar.success) {
+      return { ok: true, provider, model: ar.model, listing: ar.listing }
+    }
+    return {
+      ok: false,
+      provider,
+      model: ar.model,
+      listing: null,
+      parseError: ar.parseError,
+      rawAssistantText: ar.rawAssistantText ?? null,
+      contentSummary: ar.contentSummary ?? null,
+    }
+  }
+
+  return {
+    ok: false,
+    listing: null,
+    model: 'unknown',
+    provider: 'error',
+    error:
+      'Set GEMINI_API_KEY and ANTHROPIC_API_KEY in Secret Manager for listing advisor (use `-` to skip Gemini or Anthropic). For local only, ANTHROPIC may still be read from env if the secret is unset.',
+    errorCode: 'failed-precondition',
   }
 }
 
@@ -252,68 +386,19 @@ async function listingAdvisorHandler(request) {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
-
-  const db = admin.firestore()
-  const uSnap = await db.collection('users').doc(request.auth.uid).get()
-  const tiresPerm = uSnap.exists ? String(uSnap.data()?.permissions?.tires || 'none') : 'none'
-  if (!['view', 'edit'].includes(tiresPerm)) {
-    throw new HttpsError('permission-denied', 'Tires catalog access required.')
-  }
-
-  const data = request.data || {}
-  const input = data.input && typeof data.input === 'object' ? data.input : null
-  if (!input) {
-    throw new HttpsError('invalid-argument', 'input object is required.')
-  }
-
-  const mspn = String(input.mspn || '').trim()
-  if (!mspn) {
-    throw new HttpsError('invalid-argument', 'input.mspn is required.')
-  }
-
-  const userJson = buildUserPayload(input)
-
-  const geminiKey = pickSecretValue(GEMINI_API_KEY.value())
-  const anthropicKey = anthropicKeyResolved(ANTHROPIC_API_KEY.value())
-
-  if (geminiKey) {
-    try {
-      const { listing, model } = await callGemini(geminiKey, userJson)
-      return { ok: true, provider: 'gemini', model, listing }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (!anthropicKey) {
-        throw new HttpsError('internal', `Gemini failed and no Anthropic key: ${msg}`)
-      }
+  try {
+    return await runListingAdvisor(request)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[listingAdvisor] unhandled error (returning payload instead of throw)', err)
+    return {
+      ok: false,
+      listing: null,
+      error: msg,
+      model: 'unknown',
+      provider: 'error',
     }
   }
-
-  if (anthropicKey) {
-    try {
-      const ar = await callAnthropic(anthropicKey, userJson)
-      const provider = geminiKey ? 'anthropic_fallback' : 'anthropic'
-      if (ar.success) {
-        return { ok: true, provider, model: ar.model, listing: ar.listing }
-      }
-      return {
-        ok: false,
-        provider,
-        model: ar.model,
-        listing: null,
-        parseError: ar.parseError,
-        rawAssistantText: ar.rawAssistantText ?? null,
-        contentSummary: ar.contentSummary ?? null,
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      throw new HttpsError('internal', msg)
-    }
-  }
-
-  throw new HttpsError(
-    'failed-precondition',
-    'Set GEMINI_API_KEY and ANTHROPIC_API_KEY in Secret Manager for listing advisor (use `-` to skip Gemini or Anthropic). For local only, ANTHROPIC may still be read from env if the secret is unset.',
-  )
 }
 
 module.exports = { listingAdvisorHandler }
