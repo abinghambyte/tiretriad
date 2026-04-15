@@ -1,11 +1,11 @@
 /**
- * AI listing advisor — Gemini (preferred) or Anthropic Haiku for JSON listing suggestions.
+ * AI listing advisor — Gemini (1.5-pro → 1.0-pro fallback) or Anthropic Haiku for JSON listing suggestions.
  * @module
  */
 
 const { HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
-const { GEMINI_API_KEY, anthropicApiKeyFromEnv } = require('./slackSecrets')
+const { GEMINI_API_KEY, ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./slackSecrets')
 
 const SYSTEM = `You are a wholesale tire resale copywriter for Skedaddle Tires in northern Colorado.
 Return ONLY valid JSON (no markdown fences, no commentary) with exactly these keys:
@@ -107,9 +107,9 @@ async function callGeminiOnce(apiKey, userJson, model) {
 
 async function callGemini(apiKey, userJson) {
   try {
-    return await callGeminiOnce(apiKey, userJson, 'gemini-2.0-flash')
+    return await callGeminiOnce(apiKey, userJson, 'gemini-1.5-pro')
   } catch {
-    return callGeminiOnce(apiKey, userJson, 'gemini-1.5-flash')
+    return callGeminiOnce(apiKey, userJson, 'gemini-1.0-pro')
   }
 }
 
@@ -168,7 +168,7 @@ async function listingAdvisorHandler(request) {
   const userJson = buildUserPayload(input)
 
   const geminiKey = pickSecretValue(GEMINI_API_KEY.value())
-  const anthropicKey = pickSecretValue(anthropicApiKeyFromEnv())
+  const anthropicKey = anthropicKeyResolved(ANTHROPIC_API_KEY.value())
 
   if (geminiKey) {
     try {
@@ -194,7 +194,7 @@ async function listingAdvisorHandler(request) {
 
   throw new HttpsError(
     'failed-precondition',
-    'Set GEMINI_API_KEY in Secret Manager (use `-` to skip) and/or ANTHROPIC_API_KEY in functions/.env for the listing advisor.',
+    'Set GEMINI_API_KEY and ANTHROPIC_API_KEY in Secret Manager for listing advisor (use `-` to skip Gemini or Anthropic). For local only, ANTHROPIC may still be read from env if the secret is unset.',
   )
 }
 

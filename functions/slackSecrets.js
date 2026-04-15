@@ -10,20 +10,39 @@ const SLACK_CHANNEL_ID = defineSecret('SLACK_CHANNEL_ID')
 /** Slack user ID for `<@kyle>` mentions on `/reorder` (set via `firebase functions:secrets:set SLACK_KYLE_ID`). */
 const SLACK_KYLE_ID = defineSecret('SLACK_KYLE_ID')
 
-/** Google AI Studio / Gemini — Listing Generator advisor (`listingAdvisor` callable). Set to `-` if you only use Anthropic from env. */
+/** Google AI Studio / Gemini — Listing Generator advisor (`listingAdvisor` callable). Set to `-` to skip Gemini. */
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
+/** Anthropic — `listingAdvisor` fallback (and optional `/hype` env elsewhere). Do not duplicate this name in `functions/.env` for the same Cloud Run service. */
+const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
 const SLACK_SECRETS = [SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID]
 
-/** Gen2 `secrets` for `listingAdvisor` (Gemini only). Anthropic uses `ANTHROPIC_API_KEY` in functions env / `.env` via `anthropicApiKeyFromEnv()`. */
-const LISTING_ADVISOR_SECRETS = [GEMINI_API_KEY]
+/** Gen2 `secrets` for `listingAdvisor` — both bound on deploy; use `-` for a key you want to skip. */
+const LISTING_ADVISOR_SECRETS = [GEMINI_API_KEY, ANTHROPIC_API_KEY]
 
-/** `slackActions` only — includes Kyle mention secret so other callables are not blocked on it. */
-const SLACK_ACTIONS_SECRETS = [...SLACK_SECRETS, SLACK_KYLE_ID]
+/** `slackActions` only — includes Kyle mention + Anthropic for `/hype` (same secret as listing advisor). */
+const SLACK_ACTIONS_SECRETS = [...SLACK_SECRETS, SLACK_KYLE_ID, ANTHROPIC_API_KEY]
 
 /** Optional `/hype` — not a Slack credential; set in `functions/.env` or Cloud Run env. */
 function anthropicApiKeyFromEnv() {
   return String(process.env.ANTHROPIC_API_KEY || '').trim()
+}
+
+function pickSecretTrim(v) {
+  const s = String(v ?? '').trim()
+  if (!s || s === '-' || /^none$/i.test(s)) return ''
+  return s
+}
+
+/**
+ * Prefer Secret Manager value from a bound `defineSecret` (e.g. `ANTHROPIC_API_KEY.value()`),
+ * then fall back to env for local / migration.
+ * @param {unknown} secretValue
+ */
+function anthropicKeyResolved(secretValue) {
+  const a = pickSecretTrim(secretValue)
+  if (a) return a
+  return anthropicApiKeyFromEnv()
 }
 
 /** Comma/space-separated Slack user IDs for `/setlimit` and `/setquota` (not bot tokens). */
@@ -39,7 +58,9 @@ module.exports = {
   SLACK_SECRETS,
   SLACK_ACTIONS_SECRETS,
   GEMINI_API_KEY,
+  ANTHROPIC_API_KEY,
   LISTING_ADVISOR_SECRETS,
   anthropicApiKeyFromEnv,
+  anthropicKeyResolved,
   slackAdminUserIdsRawFromEnv,
 }

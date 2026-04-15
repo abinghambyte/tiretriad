@@ -4,7 +4,7 @@
  */
 const crypto = require('crypto')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
-const { SLACK_SECRETS } = require('./slackSecrets')
+const { SLACK_SECRETS, ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { crewTagFromRole, assertCanManagePeople, normalizeRole } = require('./peopleSystem')
@@ -120,10 +120,10 @@ exports.resolveInvite = onCall(async (request) => {
   }
 })
 
-async function fetchInviteGreetingLine(firstName, crewTag) {
+async function fetchInviteGreetingLine(firstName, crewTag, apiKey) {
   const fn = String(firstName || '').trim() || 'there'
   const tag = String(crewTag || '').trim() || 'Spotter'
-  const key = process.env.ANTHROPIC_API_KEY
+  const key = String(apiKey || '').trim()
   if (!key) {
     return `${fn}. We've been expecting this.`
   }
@@ -176,7 +176,7 @@ Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door 
   }
 }
 
-exports.getInviteGreeting = onCall(async (request) => {
+exports.getInviteGreeting = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   const token = String(request.data?.token || '').trim()
   const firstName = String(request.data?.firstName || '').trim() || 'there'
   const crewTag = String(request.data?.crewTag || '').trim() || 'Spotter'
@@ -188,12 +188,16 @@ exports.getInviteGreeting = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'Invite is not active.')
   }
 
-  const greeting = await fetchInviteGreetingLine(firstName, crewTag)
+  const greeting = await fetchInviteGreetingLine(
+    firstName,
+    crewTag,
+    anthropicKeyResolved(ANTHROPIC_API_KEY.value()),
+  )
   return { greeting }
 })
 
 /** People admins — preview greeting before sending an invite (no token). */
-exports.previewInviteGreeting = onCall(async (request) => {
+exports.previewInviteGreeting = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -202,7 +206,11 @@ exports.previewInviteGreeting = onCall(async (request) => {
   const firstName = String(request.data?.firstName || '').trim() || 'there'
   const role = normalizeRole(request.data?.role)
   const crewTag = crewTagFromRole(role)
-  const greeting = await fetchInviteGreetingLine(firstName, crewTag)
+  const greeting = await fetchInviteGreetingLine(
+    firstName,
+    crewTag,
+    anthropicKeyResolved(ANTHROPIC_API_KEY.value()),
+  )
   return { greeting }
 })
 

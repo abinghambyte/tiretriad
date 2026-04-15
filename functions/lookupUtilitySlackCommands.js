@@ -10,7 +10,8 @@ const {
   SLACK_SECRETS,
   SLACK_BOT_TOKEN,
   SLACK_CHANNEL_ID,
-  anthropicApiKeyFromEnv,
+  ANTHROPIC_API_KEY,
+  anthropicKeyResolved,
   slackAdminUserIdsRawFromEnv,
 } = require('./slackSecrets')
 const { e164DocIdFromContact } = require('./orderMetrics')
@@ -425,9 +426,12 @@ async function handleSlashQuota(db, token, fleetChannel, text) {
 }
 
 async function handleSlashHype(token, fleetChannel) {
-  const apiKey = anthropicApiKeyFromEnv()
+  const apiKey = anthropicKeyResolved(ANTHROPIC_API_KEY.value())
   if (!apiKey) {
-    return { response_type: 'ephemeral', text: 'ANTHROPIC_API_KEY is not set in the Functions environment.' }
+    return {
+      response_type: 'ephemeral',
+      text: 'ANTHROPIC_API_KEY is not set (Secret Manager or functions env).',
+    }
   }
   const system =
     'You are the voice of a scrappy northern Colorado tire operation. Return a single line of raw motivation — understated, slightly unhinged, never corporate. Always different. Max 12 words.'
