@@ -4,6 +4,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { CrmDispatchPage } from './pages/CrmDispatchPage'
 import { CrmPage } from './pages/CrmPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { GrowthLabPage } from './pages/GrowthLabPage'
 import { HandshakePage } from './pages/HandshakePage'
 import { InvitePage } from './pages/InvitePage'
 import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
@@ -34,6 +35,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/growth"
+          element={
+            <ProtectedRoute requireAdmin>
+              <GrowthLabPage />
             </ProtectedRoute>
           }
         />

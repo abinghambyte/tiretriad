@@ -18,6 +18,8 @@ const {
   LISTING_ADVISOR_SECRETS,
   TIRE_PRICE_INTEL_SECRETS,
   GEMINI_API_KEY,
+  ANTHROPIC_API_KEY,
+  EBAY_SECRETS,
 } = require('./slackSecrets')
 const { listingAdvisorHandler } = require('./listingAdvisor')
 const admin = require('firebase-admin')
@@ -57,6 +59,8 @@ const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
 const { submitMechanicIntake } = require('./mechanicIntake')
 const { runCompletionTransaction } = require('./financeStats')
+const { growthLabTaskDispatchHandler } = require('./growthLabTaskDispatch')
+const { ebayOrderWebhookHandler, ebayPublishListingHandler } = require('./ebayIntegration')
 
 admin.initializeApp()
 
@@ -311,6 +315,21 @@ exports.sendTireSaleSms = onCall({ secrets: SLACK_SECRETS }, async (request) => 
 /** AI listing copy + sell probability + recommended price (Gemini or Anthropic). */
 exports.listingAdvisor = onCall({ secrets: LISTING_ADVISOR_SECRETS }, async (request) => {
   return listingAdvisorHandler(request)
+})
+
+/** Growth Lab — Overwatch-only task routing (Anthropic Sonnet JSON). */
+exports.growthLabTaskDispatch = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
+  return growthLabTaskDispatchHandler(request)
+})
+
+/** eBay order notifications (scaffold). SLACK_SECRETS + EBAY_SECRETS (empty until defineSecret wired in slackSecrets). */
+exports.ebayOrderWebhook = onRequest({ secrets: [...SLACK_SECRETS, ...EBAY_SECRETS], cors: true }, (req, res) => {
+  ebayOrderWebhookHandler(req, res)
+})
+
+/** eBay listing publish (scaffold — returns not configured until env or mounted secrets + API). */
+exports.ebayPublishListing = onCall({ secrets: [...SLACK_SECRETS, ...EBAY_SECRETS] }, async (request) => {
+  return ebayPublishListingHandler(request)
 })
 
 exports.notifyTeamQuick = onCall({ secrets: SLACK_SECRETS }, async (request) => {

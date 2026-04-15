@@ -70,8 +70,9 @@ export function parseDescription(desc) {
     }
   }
 
-  // Flotation: optional LT/P prefix, NN x aspect R rim (LT)? remainder (load/speed may follow LT with no space)
-  const flotRe = /^(LT|P)?(\d{2})X(\d{1,2}\.\d{1,2})R(\d{2})(LT)?(.*)$/i
+  // Flotation: optional LT/P prefix, NN(N) x aspect R rim (LT)? remainder.
+  // Aspect is `\d+(?:\.\d+)?` so 10.50, 12.5, 12.50 all match (greedy numeric + optional decimal tail).
+  const flotRe = /^(LT|P)?(\d{2,3})X(\d+(?:\.\d+)?)R(\d{2})(LT)?(.*)$/i
 
   function tryFlotation(s) {
     return s.match(flotRe)

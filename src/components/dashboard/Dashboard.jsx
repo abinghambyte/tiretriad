@@ -3,7 +3,7 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
-import { formatCurrency, formatPercent } from '../../utils/format'
+import { formatCurrency, formatQty } from '../../utils/format'
 import { CreditTrackerCard } from './CreditTrackerCard.jsx'
 import { ProjectCard } from './ProjectCard'
 
@@ -116,17 +116,17 @@ function IconOpsCommand() {
 export function Dashboard() {
   const { permissionFor, profile, loading: profileGate } = useUserProfile()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { catalogSkuDisplay, tireSku, crm, people, completedOrders } = useDashboardSignals()
+  const { catalogSkuDisplay, tireSku, priceIntelResearched, crm, people, completedOrders } =
+    useDashboardSignals()
 
   const tireSignal = useMemo(() => {
-    if (tireSku.loading) return 'Syncing catalog…'
-    const { avgMarginPriced } = tireSku
-    const marginStr =
-      avgMarginPriced != null && !Number.isNaN(avgMarginPriced)
-        ? `${formatPercent(avgMarginPriced, 1)} avg margin (overhead basis)`
-        : 'margin pending — missing buy prices on some SKUs'
-    return `${catalogSkuDisplay} SKUs · ${marginStr}`
-  }, [tireSku, catalogSkuDisplay])
+    if (tireSku.loading || priceIntelResearched.loading) return 'Syncing catalog…'
+    const n = priceIntelResearched.count ?? 0
+    if (n === 0) {
+      return `${formatQty(catalogSkuDisplay)} SKUs · price intel active — researching nightly`
+    }
+    return `${formatQty(catalogSkuDisplay)} SKUs · ${formatQty(n)} prices researched · intel active`
+  }, [tireSku, priceIntelResearched, catalogSkuDisplay])
 
   const crmSignal = useMemo(() => {
     if (crm.loading) return 'Loading pipeline…'
@@ -212,13 +212,14 @@ export function Dashboard() {
     {
       title: 'Growth Lab',
       description:
-        'Automations, prototypes, and internal products before they earn a name. Nothing here ships without a deliberate pull.',
-      stat: 'No public builds — access restricted',
+        'Automations, prototypes, and internal products before they earn a name. Task dispatcher routes work to the right model.',
+      stat: 'Task routing · Overwatch workspace',
       statLabel: 'Status',
-      ctaLabel: 'Coming Soon',
-      status: 'Locked',
+      ctaLabel: 'Open Lab',
+      status: 'Live',
       accent: 'amber',
       icon: <IconGrowth />,
+      to: '/growth',
     },
     {
       title: 'Ops Command',

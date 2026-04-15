@@ -8,8 +8,9 @@ import { permissionMeets } from '../constants/peoplePermissions'
  * @param {import('react').ReactNode} props.children
  * @param {string} [props.module] Firestore permissions key: tires | orders | people | …
  * @param {'none'|'view'|'edit'|'act'|'manage'} [props.level] Required permission rank
+ * @param {boolean} [props.requireAdmin] Overwatch (admin role) only — others go to dashboard
  */
-export function ProtectedRoute({ children, module, level }) {
+export function ProtectedRoute({ children, module, level, requireAdmin }) {
   const { user, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading, error, permissionFor } = useUserProfile()
   const location = useLocation()
@@ -37,6 +38,10 @@ export function ProtectedRoute({ children, module, level }) {
         <p className="font-mono text-xs text-red-400/80">{String(error.message || error)}</p>
       </div>
     )
+  }
+
+  if (requireAdmin && String(profile?.role || '') !== 'admin') {
+    return <Navigate to="/dashboard" replace />
   }
 
   if (module && level) {

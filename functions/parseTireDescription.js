@@ -54,7 +54,7 @@ function parseDescription(desc) {
     }
   }
 
-  const flotRe = /^(LT|P)?(\d{2})X(\d{1,2}\.\d{1,2})R(\d{2})(LT)?(.*)$/i
+  const flotRe = /^(LT|P)?(\d{2,3})X(\d+(?:\.\d+)?)R(\d{2})(LT)?(.*)$/i
 
   function tryFlotation(s) {
     return s.match(flotRe)

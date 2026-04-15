@@ -51,6 +51,32 @@ export function useDashboardSignals() {
     loading: true,
   })
 
+  const [priceIntelResearched, setPriceIntelResearched] = useState({
+    count: null,
+    loading: true,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const q = query(collection(db, 'tires'), where('priceIntel.activeBuyPrice', '>', 0))
+        const snap = await getCountFromServer(q)
+        if (!cancelled) {
+          setPriceIntelResearched({ count: snap.data().count, loading: false })
+        }
+      } catch (e) {
+        console.error('dashboard priceIntel researched count', e)
+        if (!cancelled) {
+          setPriceIntelResearched({ count: 0, loading: false })
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -141,6 +167,7 @@ export function useDashboardSignals() {
   return {
     catalogSkuDisplay: CATALOG_SKU_DISPLAY,
     tireSku,
+    priceIntelResearched,
     crm,
     people,
     completedOrders,

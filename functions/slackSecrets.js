@@ -15,6 +15,18 @@ const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 /** Anthropic — `listingAdvisor` fallback (and optional `/hype` env elsewhere). Do not duplicate this name in `functions/.env` for the same Cloud Run service. */
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
+/**
+ * eBay Sell / Inventory — Secret Manager key names: `EBAY_APP_ID`, `EBAY_CERT_ID`, `EBAY_USER_TOKEN`.
+ * We intentionally do not call `defineSecret` until those secrets have at least one version; Firebase
+ * deploy fails in non-interactive mode otherwise. When ready, add:
+ *   const EBAY_APP_ID = defineSecret('EBAY_APP_ID')
+ *   const EBAY_CERT_ID = defineSecret('EBAY_CERT_ID')
+ *   const EBAY_USER_TOKEN = defineSecret('EBAY_USER_TOKEN')
+ *   const EBAY_SECRETS = [EBAY_APP_ID, EBAY_CERT_ID, EBAY_USER_TOKEN]
+ * export them below, mount `[...SLACK_SECRETS, ...EBAY_SECRETS]` on ebay functions, and use `.value()` in ebayIntegration.
+ */
+const EBAY_SECRETS = []
+
 const SLACK_SECRETS = [SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID]
 
 /** Gen2 `secrets` for `listingAdvisor` — both bound on deploy; use `-` for a key you want to skip. */
@@ -64,7 +76,9 @@ module.exports = {
   GEMINI_API_KEY,
   ANTHROPIC_API_KEY,
   LISTING_ADVISOR_SECRETS,
+  EBAY_SECRETS,
   anthropicApiKeyFromEnv,
   anthropicKeyResolved,
   slackAdminUserIdsRawFromEnv,
+  pickSecretTrim,
 }

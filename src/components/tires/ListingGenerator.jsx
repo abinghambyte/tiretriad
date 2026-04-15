@@ -16,6 +16,7 @@ const PLATFORMS = [
 ]
 
 const listingAdvisorFn = httpsCallable(functions, 'listingAdvisor')
+const ebayPublishFn = httpsCallable(functions, 'ebayPublishListing')
 
 function formatJsonForDebug(value) {
   try {
@@ -212,6 +213,9 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
   const [generated, setGenerated] = useState([])
   const [advisorById, setAdvisorById] = useState({})
   const [advisorRunning, setAdvisorRunning] = useState(false)
+  const [ebayConfigured, setEbayConfigured] = useState(false)
+  const [ebayPublishingId, setEbayPublishingId] = useState(/** @type {string | null} */ (null))
+  const [ebayFeedback, setEbayFeedback] = useState(/** @type {{ id: string, text: string } | null} */ (null))
 
   useEffect(() => {
     function onKey(e) {
@@ -220,6 +224,24 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await ebayPublishFn({ probe: true })
+        const d = res?.data
+        if (!cancelled && d && typeof d === 'object' && d.probe === true) {
+          setEbayConfigured(Boolean(d.configured))
+        }
+      } catch {
+        if (!cancelled) setEbayConfigured(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const canGenerate = tires.length > 0
 
@@ -326,6 +348,35 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
       )
     } finally {
       setAdvisorRunning(false)
+    }
+  }
+
+  async function publishToEbay(tire, listing) {
+    if (!ebayConfigured) return
+    const mspn = String(tire.mspn || '').trim()
+    if (!mspn) return
+    setEbayPublishingId(tire.id)
+    setEbayFeedback(null)
+    try {
+      const rp = Number(listing.recommendedPrice)
+      const base = Number.isFinite(rp) && rp > 0 ? rp : 0
+      const price = Math.round(base * 1.12 * 100) / 100
+      const res = await ebayPublishFn({
+        mspn,
+        title: listing.title,
+        description: listing.description,
+        price,
+        qty: 1,
+      })
+      const d = res?.data && typeof res.data === 'object' ? res.data : {}
+      setEbayFeedback({
+        id: tire.id,
+        text: d.success ? 'Queued for eBay.' : String(d.reason || 'eBay publish did not succeed.'),
+      })
+    } catch (e) {
+      setEbayFeedback({ id: tire.id, text: e?.message || String(e) })
+    } finally {
+      setEbayPublishingId(null)
     }
   }
 
@@ -547,7 +598,21 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                         >
                           Use recommended price in Sale Messenger
                         </button>
+                        <button
+                          type="button"
+                          disabled={!ebayConfigured || ebayPublishingId === t.id}
+                          title={
+                            ebayConfigured ? undefined : 'eBay credentials pending setup'
+                          }
+                          onClick={() => void publishToEbay(t, adv.listing)}
+                          className="rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-sm font-semibold text-amber-100 ring-1 ring-amber-600/30 hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-40 max-sm:w-full sm:min-w-0"
+                        >
+                          {ebayPublishingId === t.id ? 'Publishing…' : 'List on eBay'}
+                        </button>
                       </div>
+                      {ebayFeedback && ebayFeedback.id === t.id ? (
+                        <p className="text-xs text-amber-200/90">{ebayFeedback.text}</p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
