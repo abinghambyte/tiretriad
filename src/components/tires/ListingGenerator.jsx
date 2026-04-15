@@ -17,6 +17,42 @@ const PLATFORMS = [
 
 const listingAdvisorFn = httpsCallable(functions, 'listingAdvisor')
 
+function formatJsonForDebug(value) {
+  try {
+    if (value === undefined) return '(undefined)'
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+/** Callable occasionally delivers JSON as a string (or double-encoded). */
+function unwrapCallableData(data) {
+  let v = data
+  for (let i = 0; i < 6 && typeof v === 'string'; i += 1) {
+    const s = v.trim()
+    if (!s.startsWith('{') && !s.startsWith('[')) break
+    try {
+      v = JSON.parse(s)
+    } catch {
+      break
+    }
+  }
+  return v
+}
+
+function normalizeAdvisorFieldNames(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return p
+  return {
+    ...p,
+    title: p.title ?? p.Title,
+    description: p.description ?? p.Description,
+    sellProbability: p.sellProbability ?? p.sell_probability,
+    recommendedPrice: p.recommendedPrice ?? p.recommended_price,
+    platformNotes: p.platformNotes ?? p.platform_notes,
+  }
+}
+
 function coerceAdvisorListing(raw) {
   if (raw == null) return null
   if (typeof raw === 'string') {
@@ -26,11 +62,18 @@ function coerceAdvisorListing(raw) {
       return null
     }
   }
-  if (typeof raw !== 'object' || Array.isArray(raw)) return null
+  if (Array.isArray(raw)) {
+    if (raw.length === 1 && raw[0] && typeof raw[0] === 'object' && !Array.isArray(raw[0])) {
+      return coerceAdvisorListing(raw[0])
+    }
+    return null
+  }
+  if (typeof raw !== 'object') return null
   let p = raw
   if (p.listing && typeof p.listing === 'object' && !Array.isArray(p.listing)) {
     p = p.listing
   }
+  p = normalizeAdvisorFieldNames(p)
   const hasAny =
     (p.title != null && String(p.title).trim() !== '') ||
     (p.description != null && String(p.description).trim() !== '') ||
@@ -61,8 +104,10 @@ function coerceAdvisorListing(raw) {
  * @returns {{ listing: object, provider?: string, model?: string } | null}
  */
 function parseListingAdvisorResponse(data) {
-  if (data == null || typeof data !== 'object') return null
-  const layers = [data, data.data, data.result, data.payload].filter(
+  const root = unwrapCallableData(data)
+  if (root == null) return null
+  if (typeof root !== 'object' || Array.isArray(root)) return null
+  const layers = [root, root.data, root.result, root.payload].filter(
     (x) => x && typeof x === 'object' && !Array.isArray(x),
   )
   for (const layer of layers) {
@@ -95,6 +140,29 @@ function advisorCallableErrorMessage(err) {
     )
   }
   return err?.message || String(err)
+}
+
+function buildListingAdvisorRequestBody(t) {
+  const tireParsed = parseDescription(t.description)
+  return {
+    input: {
+      mspn: String(t.mspn || '').trim(),
+      brand: String(t.brand || ''),
+      description: String(t.description || ''),
+      buyPrice: tireCatalogBuyNumber(t),
+      ctsTotal: effectiveCts(t),
+      parsed: {
+        width: tireParsed.width,
+        aspectRatio: tireParsed.aspectRatio,
+        construction: tireParsed.construction,
+        rimDiameter: tireParsed.rimDiameter,
+        loadIndex: tireParsed.loadIndex,
+        speedRating: tireParsed.speedRating,
+        extraLoad: tireParsed.extraLoad,
+        treadName: tireParsed.treadName,
+      },
+    },
+  }
 }
 
 async function copyText(text) {
@@ -180,41 +248,6 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
     setGenerated(out)
   }
 
-  async function runAdvisorForTire(t) {
-    const tireParsed = parseDescription(t.description)
-    const input = {
-      mspn: String(t.mspn || '').trim(),
-      brand: String(t.brand || ''),
-      description: String(t.description || ''),
-      buyPrice: tireCatalogBuyNumber(t),
-      ctsTotal: effectiveCts(t),
-      parsed: {
-        width: tireParsed.width,
-        aspectRatio: tireParsed.aspectRatio,
-        construction: tireParsed.construction,
-        rimDiameter: tireParsed.rimDiameter,
-        loadIndex: tireParsed.loadIndex,
-        speedRating: tireParsed.speedRating,
-        extraLoad: tireParsed.extraLoad,
-        treadName: tireParsed.treadName,
-      },
-    }
-    const callableResult = await listingAdvisorFn({ input })
-    // Trace payload shape vs UI (title, description, sellProbability, recommendedPrice, platformNotes).
-    console.log('[listingAdvisor] raw callable response', {
-      mspn: String(t.mspn || '').trim(),
-      tireId: t.id,
-      data: callableResult?.data,
-    })
-    const advisorPayload = parseListingAdvisorResponse(callableResult?.data)
-    if (!advisorPayload?.listing) {
-      throw new Error(
-        'Invalid advisor response (missing listing). See console for [listingAdvisor] raw payload.',
-      )
-    }
-    return advisorPayload
-  }
-
   async function runAllAdvisors() {
     if (!canGenerate) return
     setAdvisorRunning(true)
@@ -224,8 +257,29 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
     try {
       await Promise.all(
         tires.map(async (t) => {
+          let rawUnwrapped = null
           try {
-            const advisorPayload = await runAdvisorForTire(t)
+            const callableResult = await listingAdvisorFn(buildListingAdvisorRequestBody(t))
+            rawUnwrapped = unwrapCallableData(callableResult?.data)
+            // Same object as below — copy from DevTools or expand "Raw callable payload" on errors.
+            console.log('[listingAdvisor] raw callable response', {
+              mspn: String(t.mspn || '').trim(),
+              tireId: t.id,
+              data: rawUnwrapped,
+            })
+            const advisorPayload = parseListingAdvisorResponse(rawUnwrapped)
+            if (!advisorPayload?.listing) {
+              setAdvisorById((prev) => ({
+                ...prev,
+                [t.id]: {
+                  status: 'error',
+                  message:
+                    'Advisor responded, but the payload could not be read as a listing (expected listing or title/description fields). Open the raw payload below.',
+                  rawDebug: formatJsonForDebug(rawUnwrapped),
+                },
+              }))
+              return
+            }
             setAdvisorById((prev) => ({
               ...prev,
               [t.id]: {
@@ -237,9 +291,21 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
             }))
           } catch (e) {
             const msg = advisorCallableErrorMessage(e)
+            const errMeta =
+              e && typeof e === 'object'
+                ? { code: e.code, message: e.message, details: e.details }
+                : { thrown: String(e) }
             setAdvisorById((prev) => ({
               ...prev,
-              [t.id]: { status: 'error', message: msg },
+              [t.id]: {
+                status: 'error',
+                message: msg,
+                rawDebug: formatJsonForDebug({
+                  note: rawUnwrapped == null ? 'Callable threw before data was assigned.' : 'Callable data at failure time.',
+                  callableData: rawUnwrapped,
+                  error: errMeta,
+                }),
+              },
             }))
           }
         }),
@@ -368,7 +434,26 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                     <p className="mt-3 text-xs text-zinc-500">AI advisor running…</p>
                   ) : null}
                   {adv?.status === 'error' ? (
-                    <p className="mt-3 text-xs text-red-300">{adv.message}</p>
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-red-300">{adv.message}</p>
+                      {adv.rawDebug ? (
+                        <details className="rounded-lg border border-zinc-700/80 bg-zinc-950/60 p-2">
+                          <summary className="cursor-pointer select-none text-[11px] text-zinc-400 hover:text-zinc-300">
+                            Raw callable payload (debug)
+                          </summary>
+                          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-relaxed text-zinc-500">
+                            {adv.rawDebug}
+                          </pre>
+                          <button
+                            type="button"
+                            onClick={() => void copyText(adv.rawDebug)}
+                            className="mt-2 text-[11px] text-amber-200/90 hover:underline"
+                          >
+                            Copy raw payload
+                          </button>
+                        </details>
+                      ) : null}
+                    </div>
                   ) : null}
                   {adv?.status === 'done' && adv.listing ? (
                     <div className="mt-4 space-y-3 border-t border-zinc-800/80 pt-4">
