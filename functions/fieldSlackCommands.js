@@ -23,7 +23,7 @@ const { sendSinchSms, normalizeToE164 } = require('./sinchSms')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
 const { denverYmd, parseWindowToHourRange } = require('./scheduleAvailability')
-const { slackViewsOpen, viewInputValue } = require('./slackModalShared')
+const { slackViewsOpen, viewInputValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_ONMYWAY_SUBMIT = 'onmyway_modal_submit'
 const MODAL_DONE_SUBMIT = 'done_modal_submit'
@@ -618,6 +618,11 @@ function fieldModalResultOk(r) {
   return true
 }
 
+function fieldViewErrorBlockId(callbackId) {
+  if (callbackId === MODAL_SMS_SUBMIT) return 'fld_sms_body'
+  return 'fld_ord_id'
+}
+
 /**
  * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
  */
@@ -708,10 +713,7 @@ async function tryHandleFieldViewSubmission(db, token, envChannel, payload) {
     return {
       handled: true,
       kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: { fld_ord_id: e instanceof Error ? e.message : String(e) },
-      },
+      body: viewSubmissionErrorsBody(fieldViewErrorBlockId(cb), e),
     }
   }
 

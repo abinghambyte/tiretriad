@@ -35,7 +35,7 @@ async function copyText(text) {
   }
 }
 
-function TaskDispatcher() {
+function GrowthLabRoutingForm() {
   const [notes, setNotes] = useState('')
   const [task, setTask] = useState('')
   const [busy, setBusy] = useState(false)
@@ -207,7 +207,7 @@ export function GrowthLabPage() {
         maxWidthClass="max-w-4xl"
       />
       <div className="mt-6">
-        <TaskDispatcher />
+        <GrowthLabRoutingForm />
       </div>
     </div>
   )

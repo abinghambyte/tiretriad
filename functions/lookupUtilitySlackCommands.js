@@ -16,14 +16,13 @@ const {
 } = require('./slackSecrets')
 const { e164DocIdFromContact } = require('./orderMetrics')
 const { CREW_KEYS, CREW_SPLIT, ctsPerTire, round2 } = require('./financeStats')
-const { slackViewsOpen, viewInputValue, viewStaticSelectValue } = require('./slackModalShared')
+const { slackViewsOpen, viewInputValue, viewStaticSelectValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_STOCK_SUBMIT = 'stock_modal_submit'
 const MODAL_MARGINS_SUBMIT = 'margins_modal_submit'
 const MODAL_PRICECHECK_SUBMIT = 'pricecheck_modal_submit'
 const MODAL_CUSTOMER_SUBMIT = 'customer_modal_submit'
 const MODAL_NOTE_SUBMIT = 'note_modal_submit'
-const MODAL_QUOTA_SUBMIT = 'quota_modal_submit'
 const MODAL_SETLIMIT_SUBMIT = 'setlimit_modal_submit'
 const MODAL_SETQUOTA_SUBMIT = 'setquota_modal_submit'
 const MODAL_DISPATCH_SUBMIT = 'dispatch_modal_submit'
@@ -166,17 +165,6 @@ function buildStockModalView() {
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
-      {
-        type: 'input',
-        block_id: 'stock_modal_sale',
-        optional: true,
-        label: { type: 'plain_text', text: 'Optional sale $ / tire' },
-        element: {
-          type: 'plain_text_input',
-          action_id: 'stock_modal_sale_field',
-          placeholder: { type: 'plain_text', text: 'Leave blank for qty + buy only' },
-        },
-      },
     ],
   }
 }
@@ -190,23 +178,21 @@ function buildMarginsModalView() {
     close: { type: 'plain_text', text: 'Cancel' },
     blocks: [
       {
-        type: 'input',
-        block_id: 'margins_modal_mspn',
-        label: { type: 'plain_text', text: 'MSPN' },
-        element: {
-          type: 'plain_text_input',
-          action_id: 'margins_modal_mspn_field',
-          placeholder: { type: 'plain_text', text: 'e.g. 03363' },
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'Leave MSPN blank for *top catalog* summary. If you enter an MSPN, we use the sale price that yields a *25%* gross margin for that tire (same CTS math as `/margins`).',
         },
       },
       {
         type: 'input',
-        block_id: 'margins_modal_price',
-        label: { type: 'plain_text', text: 'Sale price (USD / tire)' },
+        block_id: 'margins_modal_mspn',
+        optional: true,
+        label: { type: 'plain_text', text: 'MSPN (optional)' },
         element: {
           type: 'plain_text_input',
-          action_id: 'margins_modal_price_field',
-          placeholder: { type: 'plain_text', text: 'e.g. 199' },
+          action_id: 'margins_modal_mspn_field',
+          placeholder: { type: 'plain_text', text: 'Leave blank for top margins (catalog)' },
         },
       },
     ],
@@ -246,11 +232,11 @@ function buildCustomerModalView() {
       {
         type: 'input',
         block_id: 'customer_modal_phone',
-        label: { type: 'plain_text', text: 'Phone' },
+        label: { type: 'plain_text', text: 'Phone or Name' },
         element: {
           type: 'plain_text_input',
           action_id: 'customer_modal_phone_field',
-          placeholder: { type: 'plain_text', text: 'Any format you use in the portal' },
+          placeholder: { type: 'plain_text', text: 'Phone (any format) or exact contact name' },
         },
       },
     ],
@@ -290,32 +276,6 @@ function buildNoteModalView() {
   }
 }
 
-function buildQuotaModalView() {
-  return {
-    type: 'modal',
-    callback_id: MODAL_QUOTA_SUBMIT,
-    title: { type: 'plain_text', text: 'Quota' },
-    submit: { type: 'plain_text', text: 'Submit' },
-    close: { type: 'plain_text', text: 'Cancel' },
-    blocks: [
-      {
-        type: 'input',
-        block_id: 'quota_modal_period',
-        label: { type: 'plain_text', text: 'Period' },
-        element: {
-          type: 'static_select',
-          action_id: 'quota_modal_period_field',
-          placeholder: { type: 'plain_text', text: 'Select' },
-          options: [
-            { text: { type: 'plain_text', text: 'Weekly' }, value: 'weekly' },
-            { text: { type: 'plain_text', text: 'Monthly' }, value: 'monthly' },
-          ],
-        },
-      },
-    ],
-  }
-}
-
 function buildSetlimitModalView() {
   return {
     type: 'modal',
@@ -327,11 +287,11 @@ function buildSetlimitModalView() {
       {
         type: 'input',
         block_id: 'setlimit_modal_amt',
-        label: { type: 'plain_text', text: 'Limit (USD)' },
+        label: { type: 'plain_text', text: 'New Limit' },
         element: {
           type: 'plain_text_input',
           action_id: 'setlimit_modal_amt_field',
-          placeholder: { type: 'plain_text', text: 'e.g. 50000' },
+          placeholder: { type: 'plain_text', text: 'Dollar amount, e.g. 50000' },
         },
       },
     ],
@@ -342,31 +302,28 @@ function buildSetquotaModalView() {
   return {
     type: 'modal',
     callback_id: MODAL_SETQUOTA_SUBMIT,
-    title: { type: 'plain_text', text: 'Set quota target' },
+    title: { type: 'plain_text', text: 'Set quota targets' },
     submit: { type: 'plain_text', text: 'Submit' },
     close: { type: 'plain_text', text: 'Cancel' },
     blocks: [
       {
         type: 'input',
-        block_id: 'setquota_modal_period',
-        label: { type: 'plain_text', text: 'Period' },
+        block_id: 'setquota_modal_weekly',
+        label: { type: 'plain_text', text: 'Weekly Target' },
         element: {
-          type: 'static_select',
-          action_id: 'setquota_modal_period_field',
-          options: [
-            { text: { type: 'plain_text', text: 'Weekly' }, value: 'weekly' },
-            { text: { type: 'plain_text', text: 'Monthly' }, value: 'monthly' },
-          ],
+          type: 'plain_text_input',
+          action_id: 'setquota_modal_weekly_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 25000' },
         },
       },
       {
         type: 'input',
-        block_id: 'setquota_modal_amt',
-        label: { type: 'plain_text', text: 'Target amount (USD)' },
+        block_id: 'setquota_modal_monthly',
+        label: { type: 'plain_text', text: 'Monthly Target' },
         element: {
           type: 'plain_text_input',
-          action_id: 'setquota_modal_amt_field',
-          placeholder: { type: 'plain_text', text: 'e.g. 25000' },
+          action_id: 'setquota_modal_monthly_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 100000' },
         },
       },
     ],
@@ -516,6 +473,59 @@ async function handleSlashMargins(db, token, fleetChannel, text) {
   return { response_type: 'ephemeral', text: 'Posted /margins to channel.' }
 }
 
+/** Same CTS basis as /pricecheck: sale where gross margin fraction ≈ `targetMargin`. */
+function saleForTargetMarginFraction(tire, targetMargin) {
+  const buy = tireCatalogBuyNumber(tire)
+  const mount = Number(tire.mountCost) || 0
+  const delivery = Number(tire.deliveryCost) || 0
+  const other = Number(tire.otherCost) || 0
+  const costBasis = round2(buy + mount + delivery + other)
+  const t = Number(targetMargin)
+  if (!Number.isFinite(t) || t <= 0 || t >= 1) return null
+  const denom = 1 - t
+  if (!(denom > 0)) return null
+  const sp = round2(costBasis / denom)
+  return Number.isFinite(sp) && sp > 0 ? sp : null
+}
+
+async function handleSlashMarginsCatalogTop(db, token, fleetChannel) {
+  const snap = await db.collection('tires').limit(500).get()
+  const rows = []
+  for (const d of snap.docs) {
+    const tire = d.data() || {}
+    const buy = tireCatalogBuyNumber(tire)
+    if (!Number.isFinite(buy) || buy <= 0) continue
+    const sp = saleForTargetMarginFraction(tire, 0.25)
+    if (!sp) continue
+    const mount = Number(tire.mountCost) || 0
+    const delivery = Number(tire.deliveryCost) || 0
+    const other = Number(tire.otherCost) || 0
+    const profit = round2(sp - buy - mount - delivery - other)
+    if (!Number.isFinite(profit)) continue
+    rows.push({ id: d.id, profit, sp })
+  }
+  rows.sort((a, b) => b.profit - a.profit)
+  const top = rows.slice(0, 25)
+  const lines = [
+    '*📐 Margins · top catalog (profit pool)*',
+    '_Each row uses the per-tire sale price that yields a 25% gross margin (same CTS formula as `/margins`). Ranked by profit pool at that price._',
+    '',
+  ]
+  if (!top.length) {
+    lines.push('_No tires with computable targets in this scan._')
+  } else {
+    for (const r of top) {
+      lines.push(
+        `• \`${escapeSlackMrkdwn(r.id)}\` · pool ${formatCurrency(r.profit)} · ref. sale ${formatCurrency(r.sp)}`,
+      )
+    }
+  }
+  await postToFleet(token, fleetChannel, 'Margins catalog top', [
+    { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
+  ])
+  return { response_type: 'ephemeral', text: 'Posted /margins to channel.' }
+}
+
 async function handleSlashPricecheck(db, token, fleetChannel, text) {
   const parts = String(text || '')
     .trim()
@@ -564,14 +574,26 @@ async function handleSlashPricecheck(db, token, fleetChannel, text) {
 async function handleSlashCustomer(db, token, fleetChannel, text) {
   const raw = String(text || '').trim()
   if (!raw) {
-    return { response_type: 'ephemeral', text: 'Usage: `/customer [phone]`' }
+    return { response_type: 'ephemeral', text: 'Usage: `/customer [phone or name]`' }
   }
-  const phoneKey = e164DocIdFromContact(raw)
+  let phoneKey = e164DocIdFromContact(raw)
+  let snap = null
+  if (phoneKey) {
+    snap = await db.collection('contacts').doc(phoneKey).get()
+  } else {
+    const nameSnap = await db.collection('contacts').where('name', '==', raw.trim()).limit(5).get()
+    if (!nameSnap.empty) {
+      snap = nameSnap.docs[0]
+      phoneKey = snap.id
+    }
+  }
   if (!phoneKey) {
-    return { response_type: 'ephemeral', text: 'Could not normalize that phone number.' }
+    return {
+      response_type: 'ephemeral',
+      text: 'No contact found — use a phone we can normalize to E.164, or an exact match on `contacts.name`.',
+    }
   }
-  const snap = await db.collection('contacts').doc(phoneKey).get()
-  if (!snap.exists) {
+  if (!snap || !snap.exists) {
     return { response_type: 'ephemeral', text: `No contact doc \`${escapeSlackMrkdwn(phoneKey)}\`.` }
   }
   const c = snap.data() || {}
@@ -786,7 +808,7 @@ async function handleSlashSetlimit(db, token, fleetChannel, text, slackUserId) {
   return { response_type: 'ephemeral', text: 'Posted /setlimit to channel.' }
 }
 
-async function handleSlashSetquota(db, token, fleetChannel, text, slackUserId) {
+async function handleSlashSetquotaModal(db, token, fleetChannel, weeklyRaw, monthlyRaw, slackUserId) {
   if (!isSlackAdmin(slackUserId)) {
     if (slackAdminIdSet().size === 0) {
       return {
@@ -796,28 +818,28 @@ async function handleSlashSetquota(db, token, fleetChannel, text, slackUserId) {
     }
     return { response_type: 'ephemeral', text: 'Admin only.' }
   }
-  const parts = String(text || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  if (parts.length < 2) {
-    return { response_type: 'ephemeral', text: 'Usage: `/setquota weekly|monthly [amount]`' }
+  const w = Number(weeklyRaw)
+  const m = Number(monthlyRaw)
+  if (!Number.isFinite(w) || w < 0) {
+    return { response_type: 'ephemeral', text: 'Weekly target must be a valid non-negative number.' }
   }
-  const which = String(parts[0] || '').toLowerCase()
-  const amt = Number(parts[1])
-  if (!['weekly', 'monthly'].includes(which) || !Number.isFinite(amt) || amt < 0) {
-    return { response_type: 'ephemeral', text: 'Usage: `/setquota weekly|monthly [amount]`' }
+  if (!Number.isFinite(m) || m < 0) {
+    return { response_type: 'ephemeral', text: 'Monthly target must be a valid non-negative number.' }
   }
-  const field = which === 'weekly' ? 'weeklyTarget' : 'monthlyTarget'
   await QUOTA_TARGETS_REF(db).set(
-    { [field]: round2(amt), updatedAt: FieldValue.serverTimestamp() },
+    {
+      weeklyTarget: round2(w),
+      monthlyTarget: round2(m),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
     { merge: true },
   )
   const lines = [
-    '*🎯 Quota target updated*',
-    `*${which}:* ${formatCurrency(amt)}`,
+    '*🎯 Quota targets updated*',
+    `*Weekly:* ${formatCurrency(w)}`,
+    `*Monthly:* ${formatCurrency(m)}`,
   ]
-  await postToFleet(token, fleetChannel, 'Quota target updated', [
+  await postToFleet(token, fleetChannel, 'Quota targets updated', [
     { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
   ])
   return { response_type: 'ephemeral', text: 'Posted /setquota to channel.' }
@@ -881,9 +903,6 @@ async function tryHandleLookupUtilitySlash(db, token, fleetChannel, form) {
   }
 
   const command = String(form.command || '').trim()
-  const text = String(form.text || '')
-  const userName = String(form.user_name || form.user_id || 'slack')
-  const userId = String(form.user_id || '')
 
   try {
     const tid = String(form.trigger_id || '').trim()
@@ -904,7 +923,7 @@ async function tryHandleLookupUtilitySlash(db, token, fleetChannel, form) {
     }
     if (command === '/weather') return await handleSlashWeather(botToken, ch)
     if (command === '/quota') {
-      return await openLookupModal(botToken, tid, buildQuotaModalView(), 'Opening quota form…')
+      return await handleSlashQuota(db, botToken, ch, String(form.text || '').trim())
     }
     if (command === '/hype') return await handleSlashHype(botToken, ch)
     if (command === '/setlimit') {
@@ -937,6 +956,29 @@ function lookupViewClearIfPosted(r) {
   return null
 }
 
+function lookupUtilityViewErrorBlockId(callbackId) {
+  switch (callbackId) {
+    case MODAL_STOCK_SUBMIT:
+      return 'stock_modal_mspn'
+    case MODAL_MARGINS_SUBMIT:
+      return 'margins_modal_mspn'
+    case MODAL_PRICECHECK_SUBMIT:
+      return 'pricecheck_modal_mspn'
+    case MODAL_CUSTOMER_SUBMIT:
+      return 'customer_modal_phone'
+    case MODAL_NOTE_SUBMIT:
+      return 'note_modal_order'
+    case MODAL_SETLIMIT_SUBMIT:
+      return 'setlimit_modal_amt'
+    case MODAL_SETQUOTA_SUBMIT:
+      return 'setquota_modal_weekly'
+    case MODAL_DISPATCH_SUBMIT:
+      return 'dispatch_modal_order'
+    default:
+      return 'stock_modal_mspn'
+  }
+}
+
 /**
  * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
  */
@@ -956,7 +998,6 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
     MODAL_PRICECHECK_SUBMIT,
     MODAL_CUSTOMER_SUBMIT,
     MODAL_NOTE_SUBMIT,
-    MODAL_QUOTA_SUBMIT,
     MODAL_SETLIMIT_SUBMIT,
     MODAL_SETQUOTA_SUBMIT,
     MODAL_DISPATCH_SUBMIT,
@@ -966,27 +1007,42 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
   try {
     if (cb === MODAL_STOCK_SUBMIT) {
       const mspn = viewInputValue(view, 'stock_modal_mspn', 'stock_modal_mspn_field')
-      const sale = viewInputValue(view, 'stock_modal_sale', 'stock_modal_sale_field')
       const errors = {}
       if (!mspn) errors.stock_modal_mspn = 'Enter an MSPN.'
       if (Object.keys(errors).length) {
         return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
       }
-      const text = sale && Number.isFinite(Number(sale)) ? `${mspn} ${sale}` : mspn
-      const r = await handleSlashStock(db, botToken, ch, text)
+      const r = await handleSlashStock(db, botToken, ch, mspn)
       const ok = lookupViewClearIfPosted(r)
       return ok || lookupViewErrors(r, 'stock_modal_mspn')
     }
     if (cb === MODAL_MARGINS_SUBMIT) {
-      const mspn = viewInputValue(view, 'margins_modal_mspn', 'margins_modal_mspn_field')
-      const price = viewInputValue(view, 'margins_modal_price', 'margins_modal_price_field')
-      const errors = {}
-      if (!mspn) errors.margins_modal_mspn = 'Enter an MSPN.'
-      if (!price) errors.margins_modal_price = 'Enter a sale price.'
-      if (Object.keys(errors).length) {
-        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      const mspn = viewInputValue(view, 'margins_modal_mspn', 'margins_modal_mspn_field').trim()
+      if (!mspn) {
+        const r = await handleSlashMarginsCatalogTop(db, botToken, ch)
+        const ok = lookupViewClearIfPosted(r)
+        return ok || lookupViewErrors(r, 'margins_modal_mspn')
       }
-      const r = await handleSlashMargins(db, botToken, ch, `${mspn} ${price}`)
+      const tireSnap = await db.collection('tires').doc(mspn).get()
+      if (!tireSnap.exists) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: {
+            response_action: 'errors',
+            errors: { margins_modal_mspn: `No tire found for MSPN ${mspn}.` },
+          },
+        }
+      }
+      const sale = saleForTargetMarginFraction(tireSnap.data() || {}, 0.25)
+      if (!sale) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { margins_modal_mspn: 'Could not derive a sale price for margin math.' } },
+        }
+      }
+      const r = await handleSlashMargins(db, botToken, ch, `${mspn} ${sale}`)
       const ok = lookupViewClearIfPosted(r)
       return ok || lookupViewErrors(r, 'margins_modal_mspn')
     }
@@ -1009,7 +1065,7 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
         return {
           handled: true,
           kind: 'json',
-          body: { response_action: 'errors', errors: { customer_modal_phone: 'Enter a phone number.' } },
+          body: { response_action: 'errors', errors: { customer_modal_phone: 'Enter a phone or name.' } },
         }
       }
       const r = await handleSlashCustomer(db, botToken, ch, phone)
@@ -1029,19 +1085,6 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
       const ok = lookupViewClearIfPosted(r)
       return ok || lookupViewErrors(r, 'note_modal_order')
     }
-    if (cb === MODAL_QUOTA_SUBMIT) {
-      const period = viewStaticSelectValue(view, 'quota_modal_period', 'quota_modal_period_field')
-      if (!['weekly', 'monthly'].includes(period)) {
-        return {
-          handled: true,
-          kind: 'json',
-          body: { response_action: 'errors', errors: { quota_modal_period: 'Select weekly or monthly.' } },
-        }
-      }
-      const r = await handleSlashQuota(db, botToken, ch, period)
-      const ok = lookupViewClearIfPosted(r)
-      return ok || lookupViewErrors(r, 'quota_modal_period')
-    }
     if (cb === MODAL_SETLIMIT_SUBMIT) {
       const amt = viewInputValue(view, 'setlimit_modal_amt', 'setlimit_modal_amt_field')
       const r = await handleSlashSetlimit(db, botToken, ch, amt, userId)
@@ -1049,18 +1092,17 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
       return ok || lookupViewErrors(r, 'setlimit_modal_amt')
     }
     if (cb === MODAL_SETQUOTA_SUBMIT) {
-      const which = viewStaticSelectValue(view, 'setquota_modal_period', 'setquota_modal_period_field')
-      const amt = viewInputValue(view, 'setquota_modal_amt', 'setquota_modal_amt_field')
-      if (!['weekly', 'monthly'].includes(which)) {
-        return {
-          handled: true,
-          kind: 'json',
-          body: { response_action: 'errors', errors: { setquota_modal_period: 'Select weekly or monthly.' } },
-        }
+      const weeklyRaw = viewInputValue(view, 'setquota_modal_weekly', 'setquota_modal_weekly_field')
+      const monthlyRaw = viewInputValue(view, 'setquota_modal_monthly', 'setquota_modal_monthly_field')
+      const errors = {}
+      if (!weeklyRaw) errors.setquota_modal_weekly = 'Enter weekly target.'
+      if (!monthlyRaw) errors.setquota_modal_monthly = 'Enter monthly target.'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
       }
-      const r = await handleSlashSetquota(db, botToken, ch, `${which} ${amt}`, userId)
+      const r = await handleSlashSetquotaModal(db, botToken, ch, weeklyRaw, monthlyRaw, userId)
       const ok = lookupViewClearIfPosted(r)
-      return ok || lookupViewErrors(r, 'setquota_modal_amt')
+      return ok || lookupViewErrors(r, 'setquota_modal_weekly')
     }
     if (cb === MODAL_DISPATCH_SUBMIT) {
       const orderId = viewInputValue(view, 'dispatch_modal_order', 'dispatch_modal_order_field')
@@ -1076,9 +1118,12 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
       return ok || lookupViewErrors(r, 'dispatch_modal_order')
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
     console.error('lookupUtilityViewSubmission', cb, e)
-    return { handled: true, kind: 'json', body: { response_action: 'errors', errors: { stock_modal_mspn: msg } } }
+    return {
+      handled: true,
+      kind: 'json',
+      body: viewSubmissionErrorsBody(lookupUtilityViewErrorBlockId(cb), e),
+    }
   }
 
   return { handled: false }

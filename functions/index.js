@@ -32,6 +32,7 @@ const {
   formatFulfillmentMinutes,
   cancelOrderFromPortal: runPortalOrderCancellation,
 } = require('./orderWorkflow')
+const { tryHandleLookupUtilityViewSubmission } = require('./lookupUtilitySlackCommands')
 const {
   minutesBetweenTsAndMs,
   utcDayRangeMs,
@@ -60,6 +61,7 @@ const { crmJobTrigger } = require('./crmJobTrigger')
 const { submitMechanicIntake } = require('./mechanicIntake')
 const { runCompletionTransaction } = require('./financeStats')
 const { growthLabTaskDispatchHandler } = require('./growthLabTaskDispatch')
+const { taskDispatcher } = require('./taskDispatcher')
 const { ebayOrderWebhookHandler, ebayPublishListingHandler } = require('./ebayIntegration')
 
 admin.initializeApp()
@@ -321,6 +323,9 @@ exports.listingAdvisor = onCall({ secrets: LISTING_ADVISOR_SECRETS }, async (req
 exports.growthLabTaskDispatch = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   return growthLabTaskDispatchHandler(request)
 })
+
+/** AI Task Dispatcher — Overwatch-only workforce routing (Anthropic Sonnet JSON). */
+exports.taskDispatcher = taskDispatcher
 
 /** eBay order notifications (scaffold). SLACK_SECRETS + EBAY_SECRETS (empty until defineSecret wired in slackSecrets). */
 exports.ebayOrderWebhook = onRequest({ secrets: [...SLACK_SECRETS, ...EBAY_SECRETS], cors: true }, (req, res) => {
@@ -907,6 +912,18 @@ exports.slackActions = onRequest(
   }
 
   try {
+    if (payload.type === 'view_submission') {
+      const lu = await tryHandleLookupUtilityViewSubmission(db, token, envChannel, payload)
+      if (lu.handled) {
+        if (lu.kind === 'json') {
+          res.setHeader('Content-Type', 'application/json')
+          res.status(200).send(JSON.stringify(lu.body))
+          return
+        }
+        res.status(200).send('')
+        return
+      }
+    }
     const result = await handleSlackPayload(db, token, envChannel, payload)
     if (result.kind === 'json') {
       res.setHeader('Content-Type', 'application/json')

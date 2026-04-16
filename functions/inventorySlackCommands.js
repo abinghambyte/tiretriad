@@ -5,7 +5,7 @@ const crypto = require('crypto')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatPercent, formatQty } = require('./format')
 const { SLACK_SECRETS, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_KYLE_ID } = require('./slackSecrets')
-const { slackViewsOpen, viewInputValue } = require('./slackModalShared')
+const { slackViewsOpen, viewInputValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_INTAKE_SUBMIT = 'intake_modal_submit'
 const MODAL_REORDER_SUBMIT = 'reorder_modal_submit'
@@ -209,16 +209,6 @@ function formatDenverDate(ts) {
   }
 }
 
-async function handleIntake(db, token, fleetChannel, text) {
-  const parts = splitCommandText(text)
-  if (parts.length < 2) {
-    return { response_type: 'ephemeral', text: 'Usage: `/intake [mspn] [qty]`' }
-  }
-  const mspn = String(parts[0] || '').trim()
-  const delta = Number(parts[1])
-  return executeIntake(db, token, fleetChannel, mspn, delta)
-}
-
 async function executeIntake(db, token, fleetChannel, mspn, delta) {
   if (!mspn || !Number.isFinite(delta)) {
     return { response_type: 'ephemeral', text: 'Invalid MSPN or qty.' }
@@ -282,24 +272,6 @@ async function executeReorder(db, token, fleetChannel, mspn, qty, requestedBy, r
     { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
   ])
   return { response_type: 'ephemeral', text: 'Posted reorder to channel.' }
-}
-
-async function handleReorder(db, token, fleetChannel, text, form) {
-  const parts = splitCommandText(text)
-  if (parts.length < 2) {
-    return { response_type: 'ephemeral', text: 'Usage: `/reorder [mspn] [qty]`' }
-  }
-  const mspn = String(parts[0] || '').trim()
-  const qty = Number(parts[1])
-  return executeReorder(
-    db,
-    token,
-    fleetChannel,
-    mspn,
-    qty,
-    String(form.user_name || form.user_id || ''),
-    String(form.user_id || ''),
-  )
 }
 
 async function handleLowstock(db, token, fleetChannel) {
@@ -604,6 +576,13 @@ function invPostedOk(r) {
   return r?.response_type === 'ephemeral' && t.startsWith('Posted')
 }
 
+function inventoryViewErrorBlockId(callbackId) {
+  if (callbackId === MODAL_REORDER_SUBMIT) return 'reorder_modal_mspn'
+  if (callbackId === MODAL_VELOCITY_SUBMIT) return 'velocity_modal_mspn'
+  if (callbackId === MODAL_FORECAST_SUBMIT) return 'forecast_modal_mspn'
+  return 'intake_modal_mspn'
+}
+
 /**
  * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
  */
@@ -694,10 +673,7 @@ async function tryHandleInventoryViewSubmission(db, token, envChannel, payload) 
     return {
       handled: true,
       kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: { intake_modal_mspn: e instanceof Error ? e.message : String(e) },
-      },
+      body: viewSubmissionErrorsBody(inventoryViewErrorBlockId(cb), e),
     }
   }
 

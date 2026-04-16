@@ -157,11 +157,6 @@ function nextActionLine(data) {
  */
 async function tryHandleCrmSlash(db, botToken, fleetChannel, form) {
   const command = String(form.command || '').trim()
-  const text = String(form.text || '').trim()
-  const userDisplay =
-    String(form.user_name || '').trim() ||
-    String(form.user_id || '').trim() ||
-    'Slack user'
 
   if (command === '/crm') {
     const tid = String(form.trigger_id || '').trim()

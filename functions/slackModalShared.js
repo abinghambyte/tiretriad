@@ -44,6 +44,24 @@ function viewTimepickerValue(view, blockId, actionId) {
   return String(el?.selected_time || '').trim()
 }
 
+/**
+ * Build Slack `view_submission` error payload. Each key must match an input `block_id`
+ * on the submitted view or Slack will ignore the error.
+ * @param {string} blockId
+ * @param {unknown} err
+ */
+function viewSubmissionErrorsBody(blockId, err) {
+  const id = String(blockId || '').trim()
+  const msg = err instanceof Error ? err.message : String(err)
+  if (!id) {
+    console.error('viewSubmissionErrorsBody: empty blockId — use a callback-specific input block_id')
+  }
+  return {
+    response_action: 'errors',
+    errors: { [id]: msg.slice(0, 250) },
+  }
+}
+
 /** `YYYY-MM-DD` → `M/D` for parseMmDdToYmd-style slash text */
 function ymdToSlashMmDd(ymd) {
   const m = String(ymd || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -61,5 +79,6 @@ module.exports = {
   viewDatepickerValue,
   viewStaticSelectValue,
   viewTimepickerValue,
+  viewSubmissionErrorsBody,
   ymdToSlashMmDd,
 }
