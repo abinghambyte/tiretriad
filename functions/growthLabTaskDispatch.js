@@ -4,7 +4,7 @@ const { HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const { anthropicKeyResolved, ANTHROPIC_API_KEY } = require('./slackSecrets')
 
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 
 const SKEDADDLE_CONTEXT = `Skedaddle Portal — northern Colorado tire resale (Fort Collins area).
 Stack: React + Vite frontend, Firebase (Firestore, Auth, Cloud Functions Gen2), Slack Rubber Signal app, SMS.

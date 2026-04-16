@@ -71,8 +71,9 @@ function writeHandoff(state) {
 
 export function TaskDispatcherPage() {
   const { profile, loading } = useUserProfile()
-  const allowed =
-    profile?.role === 'admin' || String(profile?.crewTag || '').trim() === 'Overwatch'
+  // Match the backend gate exactly (taskDispatcher.js — role === 'admin').
+  // ProtectedRoute requireAdmin already keeps non-admins out; this is defense-in-depth.
+  const allowed = profile?.role === 'admin'
 
   const [task, setTask] = useState('')
   const [sessionNotes, setSessionNotes] = useState('')

@@ -31,6 +31,33 @@ Named AI workforce instances. Each entry is a specific role with owned task type
 - Context loaded: Persistent KB, live skedaddleinc.com access
 - Use when: Cursor finishes a deploy and you want verification without manual QA
 
+#### Antigravity handoff pattern
+A Site Verifier brief is structured differently from a Claude or Cursor prompt — Antigravity is autonomous, so the brief must be a self-contained mission, not a conversational request. The dispatcher renders Site Verifier results in this exact format. Do not mix freeform prose into these sections — Antigravity tightens compliance when the structure is rigid.
+
+```
+## Goal
+[One sentence — what state of the live system this brief is supposed to verify or produce.]
+
+## Verification steps
+1. [Concrete navigable action against the live URL — open page, click element, submit form, etc.]
+2. [Next step — observe specific element, value, or response.]
+3. [Continue until the brief's goal is testable.]
+Each step references the live URL (skedaddleinc.com) and a specific user role / login if relevant.
+
+## Success criteria
+- [Binary, observable condition #1 — e.g. "POST /taskDispatcher returns HTTP 200 with assignedWorker, modelVersion, generatedPrompt fields populated."]
+- [Binary condition #2.]
+- [Binary condition #3.]
+A run is "passed" only when every criterion is satisfied. No partial passes.
+
+## What NOT to touch
+- [Specific routes, functions, or data the agent must not modify or write to.]
+- [Always include: "/orders, Slack integration, Firestore rules, slackSecrets.js, any function not named in this brief".]
+- If a step requires modifying anything on this list, stop and report — do not proceed.
+```
+
+The dispatcher's `generatedPrompt` field uses this exact section ordering when `assignedWorker === "Site Verifier"`. Cursor and Portal Architect handoffs use freeform prose; Antigravity does not.
+
 ### Infrastructure Lead
 - Worker: Claude Opus 4.6
 - Platform: Claude.ai
