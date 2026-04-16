@@ -134,7 +134,7 @@ export function Dashboard() {
     const a = crm.accounts ?? 0
     const l = crm.leads ?? 0
     const j = crm.openJobs ?? 0
-    if (a === 0 && l === 0 && j === 0) return 'Pipeline empty — add your first fleet account'
+    if (a === 0 && l === 0 && j === 0) return 'Pipeline empty — add your first VIP client'
     return `${a} accounts · ${l} leads · ${j} open jobs`
   }, [crm])
 
@@ -171,7 +171,7 @@ export function Dashboard() {
     {
       title: 'Rubber CRM',
       description:
-        'Lead pipeline, fleet accounts, and DJ dispatch for northern Colorado tire operations.',
+        'Lead pipeline, VIP clients, and DJ dispatch for northern Colorado tire operations.',
       stat: crmSignal,
       statLabel: 'Pipeline',
       ctaLabel: 'View Pipeline',

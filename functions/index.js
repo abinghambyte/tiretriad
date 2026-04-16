@@ -803,7 +803,7 @@ exports.kyleScorecard = onSchedule(
   },
 )
 
-/** Daily 14:00 UTC ≈ 8:00 AM MT — stale CRM accounts. */
+/** Daily 14:00 UTC ≈ 8:00 AM MT — stale VIP clients (crmAccounts). */
 exports.crmStaleCheck = onSchedule(
   {
     schedule: '0 14 * * *',

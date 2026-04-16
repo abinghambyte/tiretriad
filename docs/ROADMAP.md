@@ -68,7 +68,7 @@
 
 ### Phase 9 — Rubber CRM ✅
 - Renamed from "Fleet CRM" to "Rubber CRM" everywhere — never revert
-- Kanban: Identified Fleet → Contact Made → Pain Confirmed → Proposal → Closed
+- Kanban: Spotted → Contacted → Qualified → Quoted → Closed (VIP clients)
 - Leads tab, DJ Dispatch tab
 
 ---

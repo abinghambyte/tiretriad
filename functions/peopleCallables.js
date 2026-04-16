@@ -15,6 +15,16 @@ const {
 } = require('./peopleSystem')
 const { deliverInvite } = require('./inviteFlow')
 
+/** E.164 — keep in sync with `normalizePhoneToE164` in `src/utils/formatPhone.js`. */
+function normalizePhoneToE164(raw) {
+  const d = String(raw || '').replace(/\D/g, '')
+  if (!d) return ''
+  if (d.length === 10) return `+1${d}`
+  if (d.length === 11 && d[0] === '1') return `+1${d.slice(1)}`
+  if (d.length >= 8 && d.length <= 15) return `+${d}`
+  return ''
+}
+
 const LEVEL_RANK = { none: 0, view: 1, edit: 2, act: 2, manage: 3 }
 
 function levelRank(lev) {
@@ -92,7 +102,7 @@ exports.createPortalUser = onCall(async (request) => {
   const firstName = String(data.firstName || '').trim()
   const lastName = String(data.lastName || '').trim()
   const email = String(data.email || '').trim().toLowerCase()
-  const phone = String(data.phone || '').trim()
+  const phone = normalizePhoneToE164(String(data.phone || '').trim())
   const role = normalizeRole(data.role)
   const inviteDelivery = ['sms', 'nfc', 'email'].includes(data.inviteDelivery)
     ? data.inviteDelivery

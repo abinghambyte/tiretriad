@@ -19,12 +19,12 @@ export const CRM_STAGE_LABELS = {
 
 /** Legacy UI / docs titles → same numbers were used with different names */
 const LEGACY_STAGE_TITLES = {
-  1: 'Identified Fleet',
+  1: 'Identified VIP client',
   2: 'Contact Made',
   3: 'Pain Confirmed',
   4: 'Pilot Offered',
   5: 'Trial Scheduled',
-  6: 'Active Fleet Client',
+  6: 'Active VIP client',
 }
 
 /** New accounts use v2: raw 1–5 and 7 map directly. v1 (default) remaps old 5→4, 6→5. */

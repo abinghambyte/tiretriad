@@ -41,9 +41,9 @@ export function TiresDashboard() {
 
   const [minMargin, setMinMargin] = useState(0)
   const [brand, setBrand] = useState('')
-  const [category, setCategory] = useState('')
-  const [useTag, setUseTag] = useState('')
-  const [lr, setLr] = useState('')
+  const [categoryFilters, setCategoryFilters] = useState([])
+  const [useTagFilters, setUseTagFilters] = useState([])
+  const [lrFilters, setLrFilters] = useState([])
   const [sortKey, setSortKey] = useState('margin')
   const [sortDir, setSortDir] = useState('desc')
   const [selectedIds, setSelectedIds] = useState(() => new Set())
@@ -60,33 +60,49 @@ export function TiresDashboard() {
 
   const applyFilterPreset = useCallback((p) => {
     setBrand(p.brand ?? '')
-    setCategory(p.category ?? '')
-    setUseTag(p.useTag ?? '')
-    setLr(p.lr ?? '')
+    const catArr = Array.isArray(p.categoryFilters)
+      ? p.categoryFilters
+      : p.category
+        ? [p.category]
+        : []
+    const lrArr = Array.isArray(p.lrFilters) ? p.lrFilters : p.lr ? [p.lr] : []
+    const tagArr = Array.isArray(p.useTagFilters)
+      ? p.useTagFilters
+      : p.useTag
+        ? [p.useTag]
+        : []
+    setCategoryFilters(catArr.map(String).filter(Boolean))
+    setLrFilters(lrArr.map(String).filter(Boolean))
+    setUseTagFilters(tagArr.map(String).filter(Boolean))
     setMinMargin(Number(p.minMargin) || 0)
     setDeadStockOnly(false)
   }, [])
 
   const hasActiveFilters =
-    minMargin > 0 || Boolean(brand || category || useTag || lr) || deadStockOnly
+    minMargin > 0 ||
+    Boolean(brand) ||
+    categoryFilters.length > 0 ||
+    useTagFilters.length > 0 ||
+    lrFilters.length > 0 ||
+    deadStockOnly
 
   const activeFilterCount = useMemo(() => {
     let n = 0
     if (minMargin > 0) n += 1
     if (brand) n += 1
-    if (category) n += 1
-    if (useTag) n += 1
-    if (lr) n += 1
+    if (categoryFilters.length > 0) n += 1
+    if (useTagFilters.length > 0) n += 1
+    if (lrFilters.length > 0) n += 1
     if (deadStockOnly) n += 1
     return n
-  }, [minMargin, brand, category, useTag, lr, deadStockOnly])
+  }, [minMargin, brand, categoryFilters, useTagFilters, lrFilters, deadStockOnly])
 
   function clearFilters() {
     setMinMargin(0)
     setBrand('')
-    setCategory('')
-    setUseTag('')
-    setLr('')
+    setCategoryFilters([])
+    setUseTagFilters([])
+    setLrFilters([])
     setDeadStockOnly(false)
   }
 
@@ -122,11 +138,18 @@ export function TiresDashboard() {
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
       if (brand && row.brand !== brand) return false
-      if (category && row.category !== category) return false
-      if (lr && row.lr !== lr) return false
-      if (useTag) {
-        const tags = Array.isArray(row.useTags) ? row.useTags : []
-        if (!tags.includes(useTag)) return false
+      if (categoryFilters.length > 0) {
+        const c = String(row.category || '')
+        if (!categoryFilters.includes(c)) return false
+      }
+      if (lrFilters.length > 0) {
+        const l = String(row.lr || '')
+        if (!lrFilters.includes(l)) return false
+      }
+      if (useTagFilters.length > 0) {
+        const tags = Array.isArray(row.useTags) ? row.useTags.map(String) : []
+        const hit = useTagFilters.some((t) => tags.includes(t))
+        if (!hit) return false
       }
       if (minMargin > 0) {
         if (row.margin == null || Number.isNaN(row.margin)) return false
@@ -135,7 +158,7 @@ export function TiresDashboard() {
       if (deadStockOnly && !row.deadStockFlag) return false
       return true
     })
-  }, [enriched, brand, category, lr, useTag, minMargin, deadStockOnly])
+  }, [enriched, brand, categoryFilters, lrFilters, useTagFilters, minMargin, deadStockOnly])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]
@@ -390,13 +413,13 @@ export function TiresDashboard() {
               useTags={useTags}
               lrs={lrs}
               brand={brand}
-              category={category}
-              useTag={useTag}
-              lr={lr}
+              categoryFilters={categoryFilters}
+              useTagFilters={useTagFilters}
+              lrFilters={lrFilters}
               onBrand={setBrand}
-              onCategory={setCategory}
-              onUseTag={setUseTag}
-              onLr={setLr}
+              onCategoryFilters={setCategoryFilters}
+              onUseTagFilters={setUseTagFilters}
+              onLrFilters={setLrFilters}
               minMargin={minMargin}
               onMinMargin={setMinMargin}
               deadStockOnly={deadStockOnly}
@@ -407,9 +430,9 @@ export function TiresDashboard() {
 
             <FilterPresetsBar
               brand={brand}
-              category={category}
-              useTag={useTag}
-              lr={lr}
+              categoryFilters={categoryFilters}
+              useTagFilters={useTagFilters}
+              lrFilters={lrFilters}
               minMargin={minMargin}
               onApplyPreset={applyFilterPreset}
             />

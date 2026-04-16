@@ -161,7 +161,7 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {!busy && q.trim().length < 2 ? (
             <p className="px-3 py-6 text-center text-sm text-zinc-500">
-              Search tires, orders, customers, or fleet accounts
+              Search tires, orders, customers, or VIP clients
             </p>
           ) : null}
           {!busy && q.trim().length >= 2 && totalHits === 0 ? (

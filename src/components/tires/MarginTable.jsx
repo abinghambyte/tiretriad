@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListRef } from 'react-window'
 import { useToast } from '../../context/ToastContext.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
+import { TireGradeModal } from './TireGradeModal.jsx'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
@@ -24,9 +25,9 @@ const LIST_MIN_H = 200
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 1120,
+  minWidth: 1220,
   gridTemplateColumns:
-    'minmax(104px,1.05fr) minmax(72px,1fr) minmax(100px,1.35fr) 88px 28px 52px 84px 44px 72px minmax(6.25rem,5.5rem) minmax(52px,1fr)',
+    '52px minmax(56px,6.5rem) minmax(100px,1.3fr) 5.25rem minmax(2.75rem,3.25rem) 3.25rem minmax(6.75rem,7.25rem) minmax(4.5rem,4.85rem) minmax(5.25rem,5.75rem) minmax(4.25rem,5.5rem) minmax(8.5rem,1.15fr)',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -61,7 +62,7 @@ function BuyPriceCell({ row }) {
           : 'bg-zinc-500'
   const flagReason = pi?.flagged ? String(pi.flagReason || 'flagged') : ''
   return (
-    <span className="inline-flex max-sm:min-w-0 max-sm:items-center max-sm:gap-0.5 sm:items-center sm:gap-1">
+    <span className="inline-flex max-w-full whitespace-nowrap max-sm:min-w-0 max-sm:items-center max-sm:gap-0.5 sm:items-center sm:gap-1">
       {pi?.flagged ? (
         <span className="max-sm:text-[11px] sm:text-xs" title={flagReason} aria-label={`Flagged: ${flagReason}`}>
           🔴
@@ -160,58 +161,43 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
     parsed.rimDiameter != null &&
     parsed.flotationMid != null
 
-  if (!hasMetric && !hasFlotation) {
-    return (
-      <span className="min-w-0 max-w-full overflow-hidden break-words text-sm leading-snug text-zinc-400 [overflow-wrap:anywhere] line-clamp-2">
-        {d}
-      </span>
-    )
-  }
-
   const loadParts = []
   if (parsed.loadIndex != null) loadParts.push(String(parsed.loadIndex))
   if (parsed.speedRating) loadParts.push(parsed.speedRating)
   if (parsed.extraLoad) loadParts.push('XL')
   const loadSpeed = loadParts.join(' ')
 
+  let primary = ''
+  let secondary = /** @type {string | null} */ (null)
+
   if (hasFlotation) {
     const ltSuffix = parsed.trailingLt ? 'LT' : ''
-    const sizeLine = `${parsed.width}X${parsed.flotationMid}R${parsed.rimDiameter}${ltSuffix}`
-    return (
-      <div className="min-w-0 max-w-full overflow-hidden text-sm leading-snug text-zinc-300">
-        <div className="line-clamp-2 break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">
-          {sizeLine}
-          {loadSpeed ? (
-            <>
-              {' '}
-              <span className="text-zinc-500">·</span> {loadSpeed}
-            </>
-          ) : null}
-        </div>
-        {parsed.treadName ? (
-          <div className="mt-0.5 line-clamp-2 max-w-full break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
-            {parsed.treadName}
-          </div>
-        ) : null}
-      </div>
-    )
+    primary = `${parsed.width}X${parsed.flotationMid}R${parsed.rimDiameter}${ltSuffix}`
+    if (loadSpeed) {
+      primary += ` · ${loadSpeed}`
+    }
+  } else if (hasMetric) {
+    primary = `${parsed.ltPrefixedMetric ? 'LT ' : ''}${parsed.width}/${parsed.aspectRatio}${String(parsed.construction || '').toUpperCase()}${parsed.rimDiameter}`
+    if (loadSpeed) {
+      primary += ` · ${loadSpeed}`
+    }
+  } else {
+    primary = d
   }
 
-  const sizeLine = `${parsed.ltPrefixedMetric ? 'LT ' : ''}${parsed.width}/${parsed.aspectRatio}${parsed.construction}${parsed.rimDiameter}`
+  if (hasFlotation || hasMetric) {
+    const t = String(parsed.treadName || '').trim()
+    if (t && t !== d && t !== primary && !primary.includes(t)) {
+      secondary = t
+    }
+  }
+
   return (
     <div className="min-w-0 max-w-full overflow-hidden text-sm leading-snug text-zinc-300">
-      <div className="line-clamp-2 break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">
-        {sizeLine}
-        {loadSpeed ? (
-          <>
-            {' '}
-            <span className="text-zinc-500">·</span> {loadSpeed}
-          </>
-        ) : null}
-      </div>
-      {parsed.treadName ? (
+      <div className="line-clamp-2 break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">{primary}</div>
+      {secondary ? (
         <div className="mt-0.5 line-clamp-2 max-w-full break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
-          {parsed.treadName}
+          {secondary}
         </div>
       ) : null}
     </div>
@@ -244,21 +230,15 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   rows,
   selectedIds,
   editingCostsId,
-  editingGradeId,
   overheadDraft,
   draftOverheadTotal,
-  gradeDraft,
-  gradeSaving,
   costSaving,
   openCostEdit,
   closeCostEdit,
   openGradeEdit,
-  closeGradeEdit,
   saveCosts,
-  saveGrade,
   onToggle,
   setOverheadDraft,
-  setGradeDraft,
   isMobile = false,
   selectMode = false,
 }) {
@@ -268,7 +248,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const m = computeMargin(row)
   const letter = gradeLetter(row)
   const showCostEditor = editingCostsId === row.id
-  const showGradeEditor = editingGradeId === row.id
   const previewMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : m
 
   const marginTitle =
@@ -369,7 +348,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
-            <div className="flex w-[104px] shrink-0 items-center justify-center px-1">
+            <div className="flex w-11 shrink-0 items-center justify-center px-0.5">
               <input
                 type="checkbox"
                 checked={selected}
@@ -409,8 +388,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
           <div className="flex shrink-0 items-stretch divide-x divide-zinc-800/60">
-            <div className="flex w-[88px] shrink-0 items-center justify-center truncate px-2 text-center font-medium text-zinc-200">
-              <span className="inline-flex min-w-0 items-center justify-center gap-1">
+            <div className="flex w-[76px] shrink-0 items-center justify-center truncate px-1 text-center font-medium text-zinc-200">
+              <span className="inline-flex min-w-0 items-center justify-center gap-0.5">
                 {isTireBeastMode(row) ? (
                   <span className="sk-beast-pulse inline-flex shrink-0" title="Sold within 24h of intake" aria-hidden>
                     🔥
@@ -419,39 +398,18 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 <span className="min-w-0 truncate">{row.brand || '—'}</span>
               </span>
             </div>
-            <div className="flex w-10 shrink-0 items-center justify-center truncate px-1 text-zinc-400">
+            <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-zinc-400">
               {row.lr || '—'}
             </div>
-            <div className="flex w-11 shrink-0 items-center justify-center px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
+            <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
               {formatCurrencyOrDash(Number(row.fet) || 0)}
             </div>
             <div className="flex w-[72px] shrink-0 items-center justify-center px-1">
-              {showGradeEditor ? (
-                <div className="flex flex-wrap items-center gap-1">
-                  <select
-                    value={gradeDraft}
-                    onChange={(e) => setGradeDraft(e.target.value)}
-                    className="max-w-[4rem] rounded border border-zinc-600 bg-zinc-900 px-1 py-0.5 text-xs text-zinc-100"
-                  >
-                    {GRADES.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={gradeSaving}
-                    onClick={() => saveGrade(row.id)}
-                    className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-900"
-                  >
-                    OK
-                  </button>
-                </div>
-              ) : letter ? (
+              {letter ? (
                 <button
                   type="button"
                   onClick={() => openGradeEdit(row)}
+                  title="Change grade"
                   className={`inline-flex min-w-[2rem] justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${gradePillClass(letter)}`}
                 >
                   {letter}
@@ -460,25 +418,26 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 <button
                   type="button"
                   onClick={() => openGradeEdit(row)}
-                  className="inline-flex min-h-[1.5rem] min-w-[2rem] items-center justify-center rounded-full border border-dashed border-zinc-700 px-2 text-[10px] text-zinc-600"
+                  title="Set grade"
+                  className="inline-flex min-h-[1.5rem] min-w-[2rem] items-center justify-center rounded-full border border-dashed border-zinc-700 px-2 text-[10px] text-zinc-600 hover:border-zinc-500 hover:text-zinc-400"
                   aria-label="Set grade"
                 >
                   {'\u00a0'}
                 </button>
               )}
             </div>
-            <div className="flex w-[88px] shrink-0 items-center px-2 text-sm font-semibold tabular-nums text-zinc-200">
+            <div className="flex min-w-[5.75rem] shrink-0 items-center px-2 text-sm font-semibold tabular-nums text-zinc-200">
               <button
                 type="button"
                 onClick={() => openCostEdit(row)}
-                className={`max-w-full truncate text-left underline-offset-2 hover:underline ${
+                className={`whitespace-nowrap text-left underline-offset-2 hover:underline ${
                   editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
                 }`}
               >
                 {formatCurrencyOrDash(effectiveCts(row))}
               </button>
             </div>
-            <div className="flex min-w-[100px] shrink-0 items-center truncate px-2 text-xs text-zinc-500">
+            <div className="flex min-w-[7.5rem] shrink-0 items-center break-words px-2 text-left text-xs leading-snug text-zinc-500">
               {row.category || '—'}
             </div>
           </div>
@@ -494,7 +453,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
       className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...GRID_STYLE, height: ROW_BASE_PX }}>
-        <div className="flex items-center px-3">
+        <div className="flex items-center justify-center px-0.5">
           <input
             type="checkbox"
             checked={selectedIds.has(row.id)}
@@ -503,8 +462,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             className="rounded border-zinc-600"
           />
         </div>
-        <div className="truncate px-3 text-center font-medium text-zinc-200">
-          <span className="inline-flex items-center justify-center gap-1">
+        <div className="truncate px-1.5 text-center font-medium text-zinc-200">
+          <span className="inline-flex min-w-0 items-center justify-center gap-0.5">
             {isTireBeastMode(row) ? (
               <span className="sk-beast-pulse inline-flex shrink-0" title="Sold within 24h of intake" aria-hidden>
                 🔥
@@ -528,42 +487,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
           {row.mspn || '—'}
         </div>
-        <div className="truncate px-3 text-zinc-400">{row.lr || '—'}</div>
+        <div className="whitespace-nowrap px-2 text-center text-zinc-400">{row.lr || '—'}</div>
         <div className="flex items-center px-3">
-          {showGradeEditor ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <select
-                value={gradeDraft}
-                onChange={(e) => setGradeDraft(e.target.value)}
-                className="rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-100"
-              >
-                {GRADES.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={gradeSaving}
-                onClick={() => saveGrade(row.id)}
-                className="rounded bg-zinc-200 px-2 py-0.5 text-[11px] font-semibold text-zinc-900 hover:bg-white disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                disabled={gradeSaving}
-                onClick={closeGradeEdit}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : letter ? (
+          {letter ? (
             <button
               type="button"
               onClick={() => openGradeEdit(row)}
+              title="Change grade — opens guide"
               className={`inline-flex min-w-[2rem] justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${gradePillClass(letter)}`}
             >
               {letter}
@@ -572,6 +502,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <button
               type="button"
               onClick={() => openGradeEdit(row)}
+              title="Set grade — opens guide"
               className="inline-flex min-h-[1.5rem] min-w-[2rem] items-center justify-center rounded-full border border-dashed border-zinc-700 px-2 text-[10px] text-zinc-600 hover:border-zinc-500 hover:text-zinc-400"
               aria-label="Set grade"
             >
@@ -580,30 +511,32 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           )}
         </div>
         <div
-          className="min-w-[6.25rem] whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
+          className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
           title="Buy price — catalog buy (includes FET component)"
         >
           <BuyPriceCell row={row} />
         </div>
         <div
-          className="truncate px-1 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
+          className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
           title="FET — shown for reference; already included in buy price"
         >
           {formatCurrencyOrDash(Number(row.fet) || 0)}
         </div>
-        <div className="flex items-center justify-end px-2">
+        <div className="flex min-w-0 items-center justify-end px-2">
           <button
             type="button"
             onClick={() => openCostEdit(row)}
-            className={`max-w-full truncate text-right font-mono text-sm font-semibold tabular-nums underline-offset-2 hover:underline ${
+            className={`whitespace-nowrap text-right font-mono text-sm font-semibold tabular-nums underline-offset-2 hover:underline ${
               editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
             }`}
           >
             {formatCurrencyOrDash(effectiveCts(row))}
           </button>
         </div>
-        <div className="flex items-center justify-end px-2">{marginCell}</div>
-        <div className="hidden truncate px-2 text-zinc-500 lg:block">{row.category || '—'}</div>
+        <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">{marginCell}</div>
+        <div className="hidden break-words px-2 text-left text-xs leading-snug text-zinc-500 lg:block">
+          {row.category || '—'}
+        </div>
       </div>
       {ctsEditorSection}
     </div>
@@ -727,26 +660,30 @@ export function MarginTable({
     return base
   }, [])
 
+  const gradeEditTire = useMemo(
+    () => (editingGradeId ? (rows.find((r) => r.id === editingGradeId) ?? null) : null),
+    [editingGradeId, rows],
+  )
+
+  const confirmGradeSave = useCallback(() => {
+    if (!editingGradeId) return
+    void saveGrade(editingGradeId)
+  }, [editingGradeId, saveGrade])
+
   const rowProps = useMemo(
     () => ({
       rows,
       selectedIds,
       editingCostsId,
-      editingGradeId,
       overheadDraft,
       draftOverheadTotal,
-      gradeDraft,
-      gradeSaving,
       costSaving,
       openCostEdit,
       closeCostEdit,
       openGradeEdit,
-      closeGradeEdit,
       saveCosts,
-      saveGrade,
       onToggle,
       setOverheadDraft,
-      setGradeDraft,
       isMobile: isMobileTable,
       selectMode,
       mobileRowBasePx,
@@ -755,21 +692,15 @@ export function MarginTable({
       rows,
       selectedIds,
       editingCostsId,
-      editingGradeId,
       overheadDraft,
       draftOverheadTotal,
-      gradeDraft,
-      gradeSaving,
       costSaving,
       openCostEdit,
       closeCostEdit,
       openGradeEdit,
-      closeGradeEdit,
       saveCosts,
-      saveGrade,
       onToggle,
       setOverheadDraft,
-      setGradeDraft,
       isMobileTable,
       selectMode,
       mobileRowBasePx,
@@ -806,30 +737,32 @@ export function MarginTable({
             ← Scroll for overhead, FET, grade, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1120px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1220px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
           >
-            <div className="flex flex-col items-stretch justify-center gap-1 px-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-1">
+            <div className="flex flex-col items-stretch justify-center gap-0.5 px-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-0.5">
               <button
                 type="button"
+                title="Select all rows in the current filtered view"
                 onClick={() => onSelectAllVisible(rows)}
                 disabled={loading || rows.length === 0 || allVisibleSelected}
-                className="rounded-md border border-zinc-700 bg-zinc-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Select all
+                All
               </button>
               <button
                 type="button"
+                title="Clear selection for rows in the current filtered view"
                 onClick={() => onDeselectAllVisible(rows)}
                 disabled={loading || rows.length === 0 || !anyVisibleSelected}
-                className="rounded-md border border-zinc-700 bg-zinc-950/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Deselect all
+                None
               </button>
             </div>
-            <div className="px-3 text-center">
+            <div className="px-1.5 text-center">
               <SortButton
                 label="Brand"
                 active={sortKey === 'brand'}
@@ -841,9 +774,9 @@ export function MarginTable({
             </div>
             <div className="px-3">Description</div>
             <div className="px-3">MSPN</div>
-            <div className="px-3">LR</div>
+            <div className="whitespace-nowrap px-2 text-center">LR</div>
             <div className="px-3">Grade</div>
-            <div className="px-2 text-right">
+            <div className="min-w-0 whitespace-nowrap px-2 text-right">
               <SortButton
                 label="Buy Price"
                 active={sortKey === 'buy'}
@@ -853,11 +786,11 @@ export function MarginTable({
                 touchWide={isMobileTable}
               />
             </div>
-            <div className="px-1 text-center" title="Already included in buy price; shown for reference">
+            <div className="whitespace-nowrap px-2 text-center" title="Already included in buy price; shown for reference">
               FET
             </div>
-            <div className="px-2 text-right">Overhead</div>
-            <div className="px-2 text-right">
+            <div className="whitespace-nowrap px-2 text-right">Overhead</div>
+            <div className="min-w-0 whitespace-nowrap px-2 text-right">
               <SortButton
                 label="Margin %"
                 active={sortKey === 'margin'}
@@ -867,25 +800,27 @@ export function MarginTable({
                 touchWide={isMobileTable}
               />
             </div>
-            <div className="hidden px-2 lg:block">Category</div>
+            <div className="hidden px-2 text-left lg:block">Category</div>
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
             <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
-                <div className="flex w-[104px] shrink-0 flex-col items-stretch justify-center gap-1 px-1.5 py-1">
+                <div className="flex w-11 shrink-0 flex-col items-stretch justify-center gap-0.5 px-0.5 py-0.5">
                   <button
                     type="button"
+                    title="Select all visible"
                     onClick={() => onSelectAllVisible(rows)}
                     disabled={loading || rows.length === 0 || allVisibleSelected}
-                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
+                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
                   >
                     All
                   </button>
                   <button
                     type="button"
+                    title="Deselect all visible"
                     onClick={() => onDeselectAllVisible(rows)}
                     disabled={loading || rows.length === 0 || !anyVisibleSelected}
-                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
+                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
                   >
                     None
                   </button>
@@ -919,7 +854,7 @@ export function MarginTable({
                 </div>
               </div>
               <div className="flex shrink-0 items-center divide-x divide-zinc-800/60 text-center">
-                <div className="w-[88px] shrink-0 px-2">
+                <div className="w-[76px] shrink-0 px-1">
                   <SortButton
                     label="Brand"
                     active={sortKey === 'brand'}
@@ -929,11 +864,17 @@ export function MarginTable({
                     touchWide
                   />
                 </div>
-                <div className="flex w-10 shrink-0 items-center justify-center px-1">LR</div>
-                <div className="flex w-11 shrink-0 items-center justify-center px-0.5">FET</div>
+                <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
+                  LR
+                </div>
+                <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                  FET
+                </div>
                 <div className="flex w-[72px] shrink-0 items-center justify-center">Gr</div>
-                <div className="flex w-[88px] shrink-0 items-center justify-center px-1">OH</div>
-                <div className="flex min-w-[100px] shrink-0 items-center justify-center px-2">Cat</div>
+                <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
+                  OH
+                </div>
+                <div className="flex min-w-[7.5rem] shrink-0 items-center justify-center px-2 text-center">Cat</div>
               </div>
             </div>
           ) : null}
@@ -977,6 +918,15 @@ export function MarginTable({
           )}
         </div>
       </div>
+      <TireGradeModal
+        open={editingGradeId != null}
+        tire={gradeEditTire}
+        draftGrade={gradeDraft === 'A' || gradeDraft === 'B' || gradeDraft === 'C' ? gradeDraft : 'B'}
+        onDraftChange={setGradeDraft}
+        onClose={closeGradeEdit}
+        onSave={confirmGradeSave}
+        saving={gradeSaving}
+      />
     </div>
   )
 }

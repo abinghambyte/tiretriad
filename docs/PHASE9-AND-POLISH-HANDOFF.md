@@ -1,10 +1,10 @@
 # Phase 9 + UI Polish Handoff
-> Drop this into Cursor as one session. Implements the Fleet CRM, UI polish, and UX improvements across the portal.
+> Drop this into Cursor as one session. Implements Rubber CRM (VIP clients), UI polish, and UX improvements across the portal.
 > Reference `docs/PHASE9-FLEET-CRM-HANDOFF.md` for full CRM data spec and `docs/SKEDADDLE-MASTER.md` for stack context.
 
 ---
 
-## Part 1 — Fleet CRM (Phase 9)
+## Part 1 — Rubber CRM / VIP clients (Phase 9)
 
 ### 1.1 Firestore schema, rules, indexes
 Create collections: `crmAccounts`, `crmLeads`, `crmJobs`, `crmInventory` per `docs/PHASE9-FLEET-CRM-HANDOFF.md`.
@@ -26,13 +26,13 @@ Add composite indexes for `crmAccounts` on `pipelineStage + lastContactedAt` and
 - Recalculate `score` on every update using 100-point formula from the CRM handoff doc
 
 ### 1.3 `crmStaleCheck` scheduled function
-Daily at 8am MT (`0 14 * * *` UTC). Query `crmAccounts` where `lastContactedAt < 30 days ago` and `pipelineStage < 6` and `pipelineStage !== 7`. Post to `#fleet-ops` per stale account.
+Daily at 8am MT (`0 14 * * *` UTC). Query `crmAccounts` where `lastContactedAt < 30 days ago` and `pipelineStage < 6` and `pipelineStage !== 7`. Post to `#fleet-ops` per stale VIP client.
 
 ### 1.4 `/crm` — Kanban board
 - 6 columns for stages 1–6, stage 7 collapsed as "Lost" count
-- Account cards: company name, fleet size, score badge (0–39 gray / 40–59 yellow / 60–79 blue / 80–100 green), pain score, decision maker, last contacted
+- Account cards: company name, vehicle count, score badge (0–39 gray / 40–59 yellow / 60–79 blue / 80–100 green), pain score, decision maker, last contacted
 - Drag card between columns to advance `pipelineStage` — writes on drop
-- Toolbar: Add account button, filter by segment/location/score, search by company name
+- Toolbar: Add VIP client button, filter by segment/location/score, search by company name
 - Protected route `module="crm" level="view"`
 
 ### 1.5 Account detail slide-in panel
@@ -44,9 +44,9 @@ Daily at 8am MT (`0 14 * * *` UTC). Query `crmAccounts` where `lastContactedAt <
 - Score badge updates in real time as fields change (recalculate client-side, confirm with trigger)
 
 ### 1.6 Leads view
-- Table: business name, source, segment, fleet size, urgency badge (Hot=red, Warm=amber, Cold=gray), follow-up date
+- Table: business name, source, segment, vehicle count, urgency badge (Hot=red, Warm=amber, Cold=gray), follow-up date
 - Add lead form
-- "Convert to account" button per row — creates `crmAccounts` from lead data, sets `convertedToAccountId` on lead
+- "Convert to VIP client" button per row — creates `crmAccounts` from lead data, sets `convertedToAccountId` on lead
 
 ### 1.7 `/crm/dispatch` — DJ-only job queue
 - Cards: job type, location, vehicle count, tire sizes, scheduled time
@@ -56,9 +56,9 @@ Daily at 8am MT (`0 14 * * *` UTC). Query `crmAccounts` where `lastContactedAt <
 - Accessible to `mechanic` role and `admin`
 - On complete: post to `#fleet-ops` "✅ Job complete — [location], [vehicleCount] vehicles"
 
-### 1.8 Fleet CRM dashboard card
-- Title: Fleet CRM
-- Description: "Lead pipeline, fleet accounts, and DJ dispatch for northern Colorado tire operations."
+### 1.8 Rubber CRM dashboard card
+- Title: Rubber CRM
+- Description: "Lead pipeline, VIP clients, and DJ dispatch for northern Colorado tire operations."
 - Status: LIVE
 - Link: `/crm`
 - Visible to users with `crm >= view`

@@ -151,12 +151,46 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Customer memory — Functions create/merge; portal reads + notes/tags only.
+    // Customer memory — Functions merge on order complete; portal reads + notes/tags;
+    // People managers may add stubs, edit display name, or remove a row (orders may still reference phone key).
     match /contacts/{phone} {
       allow read: if signedIn();
-      allow create, delete: if false;
+      allow delete: if canManagePeople();
+      allow create: if canManagePeople()
+        && phone.matches('^[0-9]{10,15}$')
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'phoneNumber',
+          'orderCount',
+          'totalSpend',
+          'notes',
+          'lastMspn',
+          'lastTireLabel',
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200
+        && request.resource.data.phoneNumber == phone
+        && request.resource.data.orderCount == 0
+        && request.resource.data.totalSpend == 0
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() <= 20000
+        && request.resource.data.lastMspn is string
+        && request.resource.data.lastMspn.size() <= 120
+        && request.resource.data.lastTireLabel is string
+        && request.resource.data.lastTireLabel.size() <= 400;
       allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'tags', 'repeatCustomerVote']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'notes',
+          'tags',
+          'repeatCustomerVote',
+          'name',
+        ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) || canManagePeople())
+        && (!request.resource.data.keys().hasAny(['name'])
+          || (request.resource.data.name is string
+            && request.resource.data.name.size() > 0
+            && request.resource.data.name.size() <= 200));
     }
 
     // Creates via Cloud Functions (Admin). Portal: limited field updates.

@@ -18,8 +18,18 @@
  *   ltPrefixedMetric: boolean,
  * }}
  */
+/** Collapse whitespace; fix common catalog typos so metric/flotation patterns match. */
+function normalizeCatalogDescription(s) {
+  let t = String(s ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+  // Lowercase "r" before rim (265/70r17 → 265/70R17)
+  t = t.replace(/(\d{2,3}\/\d{2})r(\d{2}(?:\.\d)?)(?=\s|$)/gi, '$1R$2')
+  return t
+}
+
 export function parseDescription(desc) {
-  const raw = String(desc ?? '').trim()
+  const raw = normalizeCatalogDescription(desc)
   const empty = {
     width: null,
     aspectRatio: null,
@@ -62,7 +72,7 @@ export function parseDescription(desc) {
       }
     }
 
-    const treadName = tail.replace(/^\s*XL\s+/i, '').trim() || raw
+    const treadName = tail.replace(/^\s*XL\s+/i, '').trim() || ''
     return {
       loadIndex: Number.isFinite(loadIndex) ? loadIndex : null,
       speedRating,
@@ -72,7 +82,7 @@ export function parseDescription(desc) {
 
   // Flotation: optional LT/P prefix, NN(N) x aspect R rim (LT)? remainder.
   // Aspect is `\d+(?:\.\d+)?` so 10.50, 12.5, 12.50 all match (greedy numeric + optional decimal tail).
-  const flotRe = /^(LT|P)?(\d{2,3})X(\d+(?:\.\d+)?)R(\d{2})(LT)?(.*)$/i
+  const flotRe = /^(LT|P)?(\d{2,3})[xX](\d+(?:\.\d+)?)[rR](\d{2})(LT)?(.*)$/i
 
   function tryFlotation(s) {
     return s.match(flotRe)
@@ -80,7 +90,7 @@ export function parseDescription(desc) {
 
   let fm = tryFlotation(raw)
   if (!fm) {
-    const stripped = raw.replace(/^(LT|P)(?=\d{2}X)/i, '')
+    const stripped = raw.replace(/^(LT|P)(?=\d{2}[xX])/i, '')
     if (stripped !== raw) fm = tryFlotation(stripped)
   }
 
@@ -115,7 +125,7 @@ export function parseDescription(desc) {
   }
 
   const sizeRe =
-    /^(\d{2,3})\/(\d{2})((?:ZR|RF|HR|R))(\d{2}(?:\.\d)?)\s+(.*)$/i
+    /^(\d{2,3})\/(\d{2})((?:ZR|RF|HR|R|r))(\d{2}(?:\.\d)?)\s*(.*)$/i
   const m = metricStr.match(sizeRe)
   if (!m) {
     return { ...empty, extraLoad, treadName: raw, parseKind: 'raw' }

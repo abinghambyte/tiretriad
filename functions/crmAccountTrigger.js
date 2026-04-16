@@ -1,5 +1,5 @@
 /**
- * Firestore onUpdate — Fleet CRM account automations (Phase 9).
+ * Firestore onUpdate — Rubber CRM VIP client automations (Phase 9).
  */
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore')
 const { SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_SECRETS } = require('./slackSecrets')

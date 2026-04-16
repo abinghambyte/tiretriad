@@ -1,5 +1,5 @@
 /**
- * Daily stale CRM accounts — 8am MT ≈ 14:00 UTC (MST).
+ * Daily stale VIP clients (crmAccounts) — 8am MT ≈ 14:00 UTC (MST).
  */
 const admin = require('firebase-admin')
 const { Timestamp } = require('firebase-admin/firestore')
@@ -42,7 +42,7 @@ async function crmStaleCheckRun() {
     if (st < 1 || st > 4) continue
     const name = d.companyName || doc.id
     await slackQuiet(
-      `💤 Stale CRM account — *${name}* (${st}). Last contact >30 days ago. ${portalBase}/crm`,
+      `💤 Stale VIP client — *${name}* (${st}). Last contact >30 days ago. ${portalBase}/crm`,
     )
   }
 }

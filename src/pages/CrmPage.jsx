@@ -32,6 +32,7 @@ import {
   lastActivityEntry,
   normalizePipelineStage,
 } from '../utils/crmPipeline'
+import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPicklists.js'
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
 
@@ -205,8 +206,13 @@ export function CrmPage() {
       activityLog: [],
       vehicleProfile: {
         vehicleCount: 0,
+        vehicleTypeCategory: '',
         vehicleTypes: '',
         tireSizeRange: '',
+        vin: '',
+        make: '',
+        model: '',
+        modelYear: 0,
         currentVendor: '',
         estimatedAnnualSpend: 0,
       },
@@ -230,7 +236,7 @@ export function CrmPage() {
   async function convertLead(lead) {
     if (!canEdit) return
     const ref = await addDoc(collection(db, 'crmAccounts'), {
-      companyName: lead.businessName || 'Account',
+      companyName: lead.businessName || 'VIP client',
       pipelineStage: 1,
       pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
       fleetSize: Number(lead.fleetSize) || 0,
@@ -244,8 +250,13 @@ export function CrmPage() {
       activityLog: [],
       vehicleProfile: {
         vehicleCount: Number(lead.fleetSize) || 0,
+        vehicleTypeCategory: '',
         vehicleTypes: '',
         tireSizeRange: '',
+        vin: '',
+        make: '',
+        model: '',
+        modelYear: 0,
         currentVendor: '',
         estimatedAnnualSpend: 0,
       },
@@ -298,7 +309,7 @@ export function CrmPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <ModuleSubheader
         title="Rubber CRM"
-        subtitle="Lead pipeline, fleet accounts, and DJ dispatch"
+        subtitle="Lead pipeline, VIP clients, and DJ dispatch"
         tabs={crmTabs}
         maxWidthClass="max-w-[1600px]"
       />
@@ -313,21 +324,33 @@ export function CrmPage() {
                   onClick={() => void addAccount()}
                   className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
                 >
-                  Add account
+                  Add VIP client
                 </button>
               ) : null}
-              <input
-                placeholder="Segment"
-                value={segment}
-                onChange={(e) => setSegment(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              />
-              <input
-                placeholder="Location contains"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              />
+              <label className="flex min-w-[10rem] flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Segment
+                <select
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                >
+                  <option value="">All segments</option>
+                  {CRM_ACCOUNT_SEGMENTS.filter((s) => s.value).map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex min-w-[11rem] flex-1 flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Location contains
+                <input
+                  placeholder="City, region, metro…"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                />
+              </label>
               <input
                 type="number"
                 placeholder="Min score"
@@ -402,7 +425,7 @@ export function CrmPage() {
                   </svg>
                 </div>
                 <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-400">
-                  Track your HVAC fleet prospects from first contact to closed account.
+                  Track VIP clients from first contact to closed — northern Colorado tire operations.
                 </p>
                 {canEdit ? (
                   <button
@@ -410,10 +433,10 @@ export function CrmPage() {
                     onClick={() => void addAccount()}
                     className="mt-6 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
                   >
-                    Add your first fleet account
+                    Add your first VIP client
                   </button>
                 ) : (
-                  <p className="mt-4 text-xs text-zinc-600">Ask Overwatch to add the first account.</p>
+                  <p className="mt-4 text-xs text-zinc-600">Ask Overwatch to add the first VIP client.</p>
                 )}
               </div>
             ) : (
@@ -588,14 +611,19 @@ export function CrmPage() {
                   onChange={(e) => setLeadForm((f) => ({ ...f, source: e.target.value }))}
                   className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
                 />
-                <input
-                  placeholder="Segment"
+                <select
                   value={leadForm.segment}
                   onChange={(e) => setLeadForm((f) => ({ ...f, segment: e.target.value }))}
-                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
-                />
+                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
+                >
+                  {CRM_ACCOUNT_SEGMENTS.map((s) => (
+                    <option key={s.value || 'unset'} value={s.value}>
+                      {s.label === 'Unassigned' ? 'Segment (optional)' : s.label}
+                    </option>
+                  ))}
+                </select>
                 <input
-                  placeholder="Fleet size"
+                  placeholder="Vehicle count"
                   value={leadForm.fleetSize}
                   onChange={(e) => setLeadForm((f) => ({ ...f, fleetSize: e.target.value }))}
                   className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
@@ -624,7 +652,7 @@ export function CrmPage() {
                     <th className="px-3 py-2">Business</th>
                     <th className="px-3 py-2">Source</th>
                     <th className="px-3 py-2">Segment</th>
-                    <th className="px-3 py-2">Fleet</th>
+                    <th className="px-3 py-2">Vehicles</th>
                     <th className="px-3 py-2">Urgency</th>
                     <th className="px-3 py-2">Follow-up</th>
                     <th className="px-3 py-2" />
@@ -635,7 +663,7 @@ export function CrmPage() {
                     <tr key={r.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2">{r.businessName}</td>
                       <td className="px-3 py-2 text-zinc-400">{r.source || '—'}</td>
-                      <td className="px-3 py-2 text-zinc-400">{r.segment || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-400">{crmSegmentLabel(r.segment)}</td>
                       <td className="px-3 py-2">{r.fleetSize ?? '—'}</td>
                       <td className="px-3 py-2">
                         <span
@@ -660,7 +688,7 @@ export function CrmPage() {
                             className="text-xs text-violet-300 hover:underline"
                             onClick={() => void convertLead(r)}
                           >
-                            Convert to account
+                            Convert to VIP client
                           </button>
                         ) : null}
                       </td>
@@ -670,18 +698,30 @@ export function CrmPage() {
               </table>
             </div>
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <input
-                placeholder="Segment"
-                value={segment}
-                onChange={(e) => setSegment(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              />
-              <input
-                placeholder="Location contains"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              />
+              <label className="flex min-w-[10rem] flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Segment
+                <select
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                >
+                  <option value="">All segments</option>
+                  {CRM_ACCOUNT_SEGMENTS.filter((s) => s.value).map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex min-w-[11rem] flex-1 flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Location contains
+                <input
+                  placeholder="City, region, metro…"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                />
+              </label>
               <input
                 type="number"
                 placeholder="Min score"
@@ -697,9 +737,9 @@ export function CrmPage() {
               />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-zinc-300">Accounts pipeline</h2>
+              <h2 className="text-sm font-semibold text-zinc-300">VIP clients pipeline</h2>
               <p className="mt-1 text-xs text-zinc-500">
-                Sortable accounts (filters above apply here and on the Board tab).
+                Sortable VIP clients (filters above apply here and on the Board tab).
               </p>
               <div className="mt-3">
                 <CrmAccountsPipelineTable

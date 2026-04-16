@@ -1,5 +1,5 @@
 /**
- * Link completed orders to CRM accounts when phone keys match linkedPhone.
+ * Link completed orders to VIP clients (crmAccounts) when phone keys match linkedPhone.
  */
 const { FieldValue } = require('firebase-admin/firestore')
 const { e164DocIdFromContact } = require('./orderMetrics')

@@ -24,6 +24,12 @@ import {
   isValidCrmOwner,
   sortActivityDescending,
 } from '../../utils/crmPipeline'
+import {
+  CRM_ACCOUNT_SEGMENTS,
+  CRM_VEHICLE_TYPE_CATEGORIES,
+  crmSegmentIsPreset,
+  normalizeCrmVin,
+} from '../../utils/crmAccountPicklists.js'
 import { computeCrmScore, scoreBadgeClass } from '../../utils/crmScore'
 
 // Tanner is a silent partner — no portal access, never assignable.
@@ -66,6 +72,8 @@ function fmtActivityAt(ts) {
  */
 export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onRefresh, avgBuyPerTire }) {
   const [draft, setDraft] = useState({ ...account })
+  /** Preset segment dropdown vs free-text custom label (not a Firestore field). */
+  const [segmentMode, setSegmentMode] = useState(() => (crmSegmentIsPreset(account.segment) ? 'preset' : 'custom'))
   const [vehLabel, setVehLabel] = useState('')
   const [activityNote, setActivityNote] = useState('')
   const [linkedOrdersRows, setLinkedOrdersRows] = useState([])
@@ -82,8 +90,19 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
   const est = useMemo(() => estimatedDealValue(vp, avgBuyPerTire), [vp, avgBuyPerTire])
 
   useEffect(() => {
-    queueMicrotask(() => setDraft({ ...account }))
+    queueMicrotask(() => {
+      setDraft({ ...account })
+      setSegmentMode(crmSegmentIsPreset(account.segment) ? 'preset' : 'custom')
+    })
   }, [account])
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const phoneKey = useMemo(() => {
     const lp = String(draft.linkedPhone || '').trim()
@@ -146,10 +165,16 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
   }
 
   async function saveVehicleProfile() {
+    const y = Number(vp.modelYear)
     const vehicleProfile = {
       vehicleCount: Math.max(0, Number(vp.vehicleCount) || 0),
+      vehicleTypeCategory: String(vp.vehicleTypeCategory || '').trim(),
       vehicleTypes: String(vp.vehicleTypes || '').trim(),
       tireSizeRange: String(vp.tireSizeRange || '').trim(),
+      vin: normalizeCrmVin(vp.vin),
+      make: String(vp.make || '').trim(),
+      model: String(vp.model || '').trim(),
+      modelYear: Number.isFinite(y) && y >= 1900 && y <= 2035 ? Math.floor(y) : 0,
       currentVendor: String(vp.currentVendor || '').trim(),
       estimatedAnnualSpend: Math.max(0, Number(vp.estimatedAnnualSpend) || 0),
     }
@@ -228,30 +253,112 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
         </label>
 
         <div className="mt-6 space-y-3 text-sm">
-          {[
-            ['companyName', 'Company'],
-            ['decisionMaker', 'Decision maker'],
-            ['segment', 'Segment'],
-            ['location', 'Location'],
-            ['fleetSize', 'Fleet size', 'number'],
-          ].map(([key, label, type]) => (
-            <label key={key} className="block text-xs text-zinc-500">
-              {label}
-              <input
-                type={type === 'number' ? 'number' : 'text'}
-                disabled={!canEdit}
-                value={draft[key] ?? ''}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    [key]: type === 'number' ? Number(e.target.value) : e.target.value,
-                  }))
-                }
-                onBlur={() => void saveField({ [key]: draft[key] })}
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
-              />
-            </label>
-          ))}
+          <label className="block text-xs text-zinc-500">
+            Company
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={draft.companyName ?? ''}
+              onChange={(e) => setDraft((d) => ({ ...d, companyName: e.target.value }))}
+              onBlur={() => void saveField({ companyName: draft.companyName })}
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
+            />
+          </label>
+          <label className="block text-xs text-zinc-500">
+            Decision maker
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={draft.decisionMaker ?? ''}
+              onChange={(e) => setDraft((d) => ({ ...d, decisionMaker: e.target.value }))}
+              onBlur={() => void saveField({ decisionMaker: draft.decisionMaker })}
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
+            />
+          </label>
+          <div className="block text-xs text-zinc-500">
+            <span className="block">Segment</span>
+            <p className="mb-1 mt-0.5 text-[11px] font-normal leading-snug text-zinc-600">
+              What kind of fleet or operation is this account? Use a preset lane, or switch to a custom label.
+            </p>
+            {segmentMode === 'preset' ? (
+              <>
+                <select
+                  disabled={!canEdit}
+                  value={String(draft.segment ?? '')}
+                  onChange={(e) => setDraft((d) => ({ ...d, segment: e.target.value }))}
+                  onBlur={() => void saveField({ segment: String(draft.segment || '').trim() })}
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-2 text-sm text-zinc-100 disabled:opacity-50"
+                >
+                  {CRM_ACCOUNT_SEGMENTS.map((s) => (
+                    <option key={s.value || 'unset'} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="mt-2 text-[11px] font-medium text-violet-300 hover:text-violet-200 hover:underline"
+                    onClick={() => setSegmentMode('custom')}
+                  >
+                    Use custom segment label instead
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  disabled={!canEdit}
+                  value={String(draft.segment ?? '')}
+                  onChange={(e) => setDraft((d) => ({ ...d, segment: e.target.value }))}
+                  onBlur={() => void saveField({ segment: String(draft.segment || '').trim() })}
+                  placeholder="e.g. Skedaddle Inc · regional distributor"
+                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
+                />
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="mt-2 text-[11px] font-medium text-violet-300 hover:text-violet-200 hover:underline"
+                    onClick={() => {
+                      setSegmentMode('preset')
+                      setDraft((d) => ({ ...d, segment: '' }))
+                      void saveField({ segment: '' })
+                    }}
+                  >
+                    Use preset segment instead
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
+          <label className="block text-xs text-zinc-500">
+            Primary location
+            <p className="mb-1 mt-0.5 text-[11px] font-normal leading-snug text-zinc-600">
+              City, metro, or region you use for routing and context (free text).
+            </p>
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={draft.location ?? ''}
+              onChange={(e) => setDraft((d) => ({ ...d, location: e.target.value }))}
+              onBlur={() => void saveField({ location: String(draft.location || '').trim() })}
+              placeholder="e.g. Fort Collins, CO · North Front Range"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
+            />
+          </label>
+          <label className="block text-xs text-zinc-500">
+            Vehicle count (fleet size)
+            <input
+              type="number"
+              min={0}
+              disabled={!canEdit}
+              value={draft.fleetSize ?? ''}
+              onChange={(e) => setDraft((d) => ({ ...d, fleetSize: Number(e.target.value) }))}
+              onBlur={() => void saveField({ fleetSize: Number(draft.fleetSize) || 0 })}
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
+            />
+          </label>
           <label className="block text-xs text-zinc-500">
             Linked phone (digits; matches orders & contacts)
             <input
@@ -390,33 +497,209 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
         ) : null}
 
         <h3 className="mt-8 text-sm font-semibold text-zinc-200">Vehicle profile</h3>
-        <div className="mt-2 space-y-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-          {[
-            ['vehicleCount', 'Vehicle count', 'number'],
-            ['vehicleTypes', 'Vehicle types (e.g. vans, box trucks)'],
-            ['tireSizeRange', 'Tire size range'],
-            ['currentVendor', 'Current vendor'],
-            ['estimatedAnnualSpend', 'Est. annual spend', 'number'],
-          ].map(([key, label, type]) => (
-            <label key={key} className="block text-xs text-zinc-500">
-              {label}
+        <p className="mt-1 text-[11px] leading-relaxed text-zinc-600">
+          Representative fleet vehicle for sizing and notes. Deal value below still uses vehicle count × tire math.
+        </p>
+        <div className="mt-2 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+          <label className="block text-xs text-zinc-500">
+            Vehicle count
+            <input
+              type="number"
+              min={0}
+              disabled={!canEdit}
+              value={vp.vehicleCount ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vehicleProfile: {
+                    ...(d.vehicleProfile || {}),
+                    vehicleCount: Number(e.target.value),
+                  },
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="block text-xs text-zinc-500">
+            Vehicle type category
+            <select
+              disabled={!canEdit}
+              value={String(vp.vehicleTypeCategory || '')}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vehicleProfile: {
+                    ...(d.vehicleProfile || {}),
+                    vehicleTypeCategory: e.target.value,
+                  },
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-2 text-sm text-zinc-100"
+            >
+              {CRM_VEHICLE_TYPE_CATEGORIES.map((s) => (
+                <option key={s.value || 'unset'} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block text-xs text-zinc-500">
+              VIN (up to 17)
               <input
-                type={type === 'number' ? 'number' : 'text'}
+                type="text"
                 disabled={!canEdit}
-                value={vp[key] ?? ''}
+                value={String(vp.vin ?? '')}
                 onChange={(e) =>
                   setDraft((d) => ({
                     ...d,
                     vehicleProfile: {
                       ...(d.vehicleProfile || {}),
-                      [key]: type === 'number' ? Number(e.target.value) : e.target.value,
+                      vin: normalizeCrmVin(e.target.value),
                     },
                   }))
                 }
+                maxLength={17}
+                autoComplete="off"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 font-mono text-sm uppercase"
+              />
+            </label>
+            <label className="block text-xs text-zinc-500">
+              Year
+              <input
+                type="number"
+                min={1900}
+                max={2035}
+                disabled={!canEdit}
+                value={Number(vp.modelYear) > 0 ? vp.modelYear : ''}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    vehicleProfile: {
+                      ...(d.vehicleProfile || {}),
+                      modelYear: Number(e.target.value) || 0,
+                    },
+                  }))
+                }
+                placeholder="e.g. 2019"
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
               />
             </label>
-          ))}
+            <label className="block text-xs text-zinc-500 sm:col-span-1">
+              Make
+              <input
+                type="text"
+                disabled={!canEdit}
+                value={String(vp.make ?? '')}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    vehicleProfile: {
+                      ...(d.vehicleProfile || {}),
+                      make: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="e.g. Ford"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+              />
+            </label>
+            <label className="block text-xs text-zinc-500 sm:col-span-1">
+              Model
+              <input
+                type="text"
+                disabled={!canEdit}
+                value={String(vp.model ?? '')}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    vehicleProfile: {
+                      ...(d.vehicleProfile || {}),
+                      model: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="e.g. F-250"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block text-xs text-zinc-500">
+            Tire size range
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={String(vp.tireSizeRange ?? '')}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vehicleProfile: {
+                    ...(d.vehicleProfile || {}),
+                    tireSizeRange: e.target.value,
+                  },
+                }))
+              }
+              placeholder="e.g. LT265/70R17 · 235/65R16"
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="block text-xs text-zinc-500">
+            Additional vehicle notes
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={String(vp.vehicleTypes ?? '')}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vehicleProfile: {
+                    ...(d.vehicleProfile || {}),
+                    vehicleTypes: e.target.value,
+                  },
+                }))
+              }
+              placeholder="Mix of vans and pickups, second yard, etc."
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="block text-xs text-zinc-500">
+            Current vendor
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={String(vp.currentVendor ?? '')}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vehicleProfile: {
+                    ...(d.vehicleProfile || {}),
+                    currentVendor: e.target.value,
+                  },
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="block text-xs text-zinc-500">
+            Est. annual spend
+            <input
+              type="number"
+              min={0}
+              step={100}
+              disabled={!canEdit}
+              value={vp.estimatedAnnualSpend ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  vehicleProfile: {
+                    ...(d.vehicleProfile || {}),
+                    estimatedAnnualSpend: Number(e.target.value),
+                  },
+                }))
+              }
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            />
+          </label>
           <p className="text-xs text-zinc-400">
             Est. deal value (computed):{' '}
             <span className="font-semibold text-amber-200/95">

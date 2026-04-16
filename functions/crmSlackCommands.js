@@ -93,7 +93,7 @@ function buildCrmLookupModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'crm_lookup_company_field',
-          placeholder: { type: 'plain_text', text: 'Match fuzzy against Rubber CRM accounts' },
+          placeholder: { type: 'plain_text', text: 'Match fuzzy against VIP clients (company names)' },
         },
       },
     ],
@@ -225,7 +225,7 @@ async function tryHandleCrmSlash(db, botToken, fleetChannel, form) {
       const rows = byNorm.get(st) || []
       rows.sort((a, b) => b.est - a.est)
       const topEst = rows[0]?.est || 0
-      const line = `*${labels[st]}* — ${rows.length} account(s) · top est. ${formatCurrency(topEst)}`
+      const line = `*${labels[st]}* — ${rows.length} VIP client(s) · top est. ${formatCurrency(topEst)}`
       const names = rows
         .slice(0, 5)
         .map((r) => `• ${escapeSlackMrkdwn(r.name || r.id)}`)
@@ -290,7 +290,7 @@ async function tryHandleCrmViewSubmission(db, token, envChannel, payload) {
         kind: 'json',
         body: {
           response_action: 'errors',
-          errors: { crm_lookup_company: `No CRM account matched “${text.slice(0, 80)}”.` },
+          errors: { crm_lookup_company: `No VIP client matched “${text.slice(0, 80)}”.` },
         },
       }
     }
@@ -308,7 +308,7 @@ async function tryHandleCrmViewSubmission(db, token, envChannel, payload) {
     try {
       await slackApiPost(botToken, 'chat.postMessage', {
         channel: fleetChannel,
-        text: `CRM: ${data.companyName || match.id}`,
+        text: `VIP client: ${data.companyName || match.id}`,
         blocks: [{ type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } }],
       })
     } catch (e) {
@@ -342,7 +342,7 @@ async function tryHandleCrmViewSubmission(db, token, envChannel, payload) {
         kind: 'json',
         body: {
           response_action: 'errors',
-          errors: { crm_log_company: `No CRM account matched “${company.slice(0, 80)}”.` },
+          errors: { crm_log_company: `No VIP client matched “${company.slice(0, 80)}”.` },
         },
       }
     }

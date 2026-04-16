@@ -1,10 +1,12 @@
 import { signOut } from 'firebase/auth'
 import {
   collection,
+  deleteDoc,
   getDocs,
   limit,
   onSnapshot,
   query,
+  setDoc,
   updateDoc,
   where,
   doc,
@@ -15,8 +17,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../context/ToastContext.jsx'
+import { useUserProfile } from '../hooks/useUserProfile'
+import { permissionMeets } from '../constants/peoplePermissions'
 
 import { formatCurrency, formatQty } from '../utils/format'
+import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../utils/formatPhone.js'
+import { phoneDocIdFromContact } from '../utils/phoneDocId'
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -42,6 +49,9 @@ function displayPhone(id) {
  */
 export function ContactsPage({ embedded = false }) {
   const { user } = useAuth()
+  const { toast } = useToast()
+  const { permissionFor } = useUserProfile()
+  const canManagePeople = permissionMeets(permissionFor('people'), 'manage')
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -54,6 +64,11 @@ export function ContactsPage({ embedded = false }) {
   const [ghostCount, setGhostCount] = useState(null)
   const [notesDraft, setNotesDraft] = useState('')
   const [notesSaving, setNotesSaving] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addPhone, setAddPhone] = useState('')
+  const [addBusy, setAddBusy] = useState(false)
 
   useEffect(() => {
     const q = query(collection(db, 'contacts'), limit(2000))
@@ -78,6 +93,7 @@ export function ContactsPage({ embedded = false }) {
 
   const openPanel = useCallback(async (c) => {
     setSelected(c)
+    setNameDraft(String(c.name || '').trim())
     setNotesDraft(String(c.notes || ''))
     setOrdersFor([])
     setGhostCount(null)
@@ -170,6 +186,7 @@ export function ContactsPage({ embedded = false }) {
     setNotesSaving(true)
     try {
       await updateDoc(doc(db, 'contacts', selected.id), { notes: notesDraft })
+      toast('Notes saved', 'success')
     } catch (e) {
       window.alert(e?.message || String(e))
     } finally {
@@ -177,10 +194,94 @@ export function ContactsPage({ embedded = false }) {
     }
   }
 
+  async function saveDisplayName() {
+    if (!selected || !canManagePeople) return
+    const name = String(nameDraft || '').trim()
+    if (!name) {
+      window.alert('Name is required.')
+      return
+    }
+    setNameSaving(true)
+    try {
+      await updateDoc(doc(db, 'contacts', selected.id), { name })
+      toast('Name updated', 'success')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setNameSaving(false)
+    }
+  }
+
+  async function addContactRow(e) {
+    e.preventDefault()
+    if (!canManagePeople) return
+    const name = String(addName || '').trim()
+    const e164 = normalizePhoneToE164(addPhone)
+    const id = phoneDocIdFromContact(e164 || addPhone)
+    if (!name) {
+      window.alert('Enter a display name.')
+      return
+    }
+    if (!id) {
+      window.alert('Enter a valid phone number (US or international).')
+      return
+    }
+    setAddBusy(true)
+    try {
+      const existing = await getDoc(doc(db, 'contacts', id))
+      if (existing.exists()) {
+        window.alert('A contact with this phone number already exists. Open it from the list.')
+        return
+      }
+      await setDoc(doc(db, 'contacts', id), {
+        name,
+        phoneNumber: id,
+        orderCount: 0,
+        totalSpend: 0,
+        notes: '',
+        lastMspn: '',
+        lastTireLabel: '',
+      })
+      toast('Contact added', 'success')
+      setAddName('')
+      setAddPhone('')
+    } catch (err) {
+      window.alert(err?.message || String(err))
+    } finally {
+      setAddBusy(false)
+    }
+  }
+
+  async function removeSelectedContact() {
+    if (!selected || !canManagePeople) return
+    const oc = Number(selected.orderCount) || 0
+    const msg =
+      oc > 0
+        ? `Remove this contact (${displayPhone(selected.id)})? They have ${oc} linked order(s) in history; orders are not deleted, but the contact row will disappear from Customers.`
+        : `Remove this contact (${displayPhone(selected.id)})?`
+    if (!window.confirm(msg)) return
+    try {
+      await deleteDoc(doc(db, 'contacts', selected.id))
+      toast('Contact removed', 'success')
+      setSelected(null)
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/', { replace: true })
   }
+
+  useEffect(() => {
+    if (!selected) return undefined
+    function onKey(e) {
+      if (e.key === 'Escape') setSelected(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected])
 
   const content = (
     <>
@@ -191,19 +292,59 @@ export function ContactsPage({ embedded = false }) {
           : 'mx-auto max-w-6xl space-y-4 px-6 py-8'
       }
     >
-        <div className="relative z-10 w-full max-w-2xl space-y-2 rounded-xl border border-zinc-700/90 bg-zinc-900/70 p-4 ring-1 ring-zinc-800/80">
-          <label htmlFor="contacts-search" className="text-sm font-medium text-zinc-300">
-            Search contacts
-          </label>
-          <input
-            id="contacts-search"
-            type="search"
-            placeholder="Search by name or phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoComplete="off"
-            className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500"
-          />
+        <div className="relative z-10 flex w-full flex-col gap-4 rounded-xl border border-zinc-700/90 bg-zinc-900/70 p-4 ring-1 ring-zinc-800/80 lg:max-w-5xl lg:flex-row lg:items-end">
+          <div className="min-w-0 flex-1 space-y-2">
+            <label htmlFor="contacts-search" className="text-sm font-medium text-zinc-300">
+              Search contacts
+            </label>
+            <input
+              id="contacts-search"
+              type="search"
+              placeholder="Search by name or phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500"
+            />
+          </div>
+          {canManagePeople ? (
+            <form
+              onSubmit={(e) => void addContactRow(e)}
+              className="w-full shrink-0 space-y-2 rounded-lg border border-zinc-800/90 bg-zinc-950/50 p-3 lg:max-w-md"
+            >
+              <p className="text-xs font-medium text-zinc-400">Add contact</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Display name"
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  autoComplete="name"
+                  className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+                />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={addPhone}
+                  onChange={(e) => setAddPhone(formatPhoneInputForDisplay(e.target.value))}
+                  className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={addBusy}
+                className="w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 sm:w-auto"
+              >
+                {addBusy ? 'Saving…' : 'Add to list'}
+              </button>
+              <p className="text-[11px] leading-snug text-zinc-600">
+                Phone is stored as the contact key (digits, US numbers as 1 + 10 digits). You can add someone
+                before their first completed order.
+              </p>
+            </form>
+          ) : null}
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-zinc-800">
@@ -322,15 +463,53 @@ export function ContactsPage({ embedded = false }) {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
-                  {selected.isVip ? (
-                    <span className="mr-1 text-amber-300" title="VIP customer">
-                      ⭐
+                {canManagePeople ? (
+                  <label className="mt-0 block text-xs font-medium text-zinc-500">
+                    <span className="inline-flex items-center gap-1">
+                      Display name
+                      {selected.isVip ? (
+                        <span className="text-amber-300" title="VIP customer" aria-hidden>
+                          ⭐
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                  {selected.name || '—'}
-                </h2>
+                    <input
+                      type="text"
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-base font-semibold text-zinc-50"
+                    />
+                  </label>
+                ) : (
+                  <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
+                    {selected.isVip ? (
+                      <span className="mr-1 text-amber-300" title="VIP customer">
+                        ⭐
+                      </span>
+                    ) : null}
+                    {selected.name || '—'}
+                  </h2>
+                )}
                 <p className="sk-figures mt-1 text-xs text-zinc-400">{displayPhone(selected.id)}</p>
+                {canManagePeople ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={nameSaving}
+                      onClick={() => void saveDisplayName()}
+                      className="rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-50"
+                    >
+                      {nameSaving ? 'Saving…' : 'Save name'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void removeSelectedContact()}
+                      className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-950/50"
+                    >
+                      Remove contact…
+                    </button>
+                  </div>
+                ) : null}
                 {ghostCount != null && ghostCount >= 2 ? (
                   <p className="mt-2 text-xs font-medium text-amber-300/90">
                     👻 Repeat ghost — flagged {ghostCount} times
