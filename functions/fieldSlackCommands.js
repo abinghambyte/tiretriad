@@ -23,6 +23,12 @@ const { sendSinchSms, normalizeToE164 } = require('./sinchSms')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
 const { denverYmd, parseWindowToHourRange } = require('./scheduleAvailability')
+const { slackViewsOpen, viewInputValue } = require('./slackModalShared')
+
+const MODAL_ONMYWAY_SUBMIT = 'onmyway_modal_submit'
+const MODAL_DONE_SUBMIT = 'done_modal_submit'
+const MODAL_SMS_SUBMIT = 'sms_modal_submit'
+const MODAL_CONFIRM_SUBMIT = 'confirm_modal_submit'
 
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -52,6 +58,75 @@ async function postToFleet(token, fleetChannel, text, blocks) {
     text,
     blocks,
   })
+}
+
+async function openFieldModal(botToken, triggerId, view, ackMsg) {
+  const tid = String(triggerId || '').trim()
+  if (!tid) return { response_type: 'ephemeral', text: 'Missing Slack trigger — try the command again.' }
+  try {
+    await slackViewsOpen(botToken, tid, view)
+    return { response_type: 'ephemeral', text: ackMsg }
+  } catch (e) {
+    return {
+      response_type: 'ephemeral',
+      text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+}
+
+function buildOrderIdModal(callbackId, title, hint) {
+  return {
+    type: 'modal',
+    callback_id: callbackId,
+    title: { type: 'plain_text', text: title },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'fld_ord_id',
+        label: { type: 'plain_text', text: 'Order ID' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'fld_ord_id_field',
+          placeholder: { type: 'plain_text', text: hint },
+        },
+      },
+    ],
+  }
+}
+
+function buildSmsModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_SMS_SUBMIT,
+    title: { type: 'plain_text', text: 'SMS customer' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'fld_sms_ord',
+        label: { type: 'plain_text', text: 'Order ID' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'fld_sms_ord_field',
+          placeholder: { type: 'plain_text', text: 'Firestore order id' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'fld_sms_body',
+        label: { type: 'plain_text', text: 'Message' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'fld_sms_body_field',
+          multiline: true,
+          placeholder: { type: 'plain_text', text: 'Text to send to the customer' },
+        },
+      },
+    ],
+  }
 }
 
 function splitCommandText(text) {
@@ -490,22 +565,38 @@ async function tryHandleFieldSlash(db, token, fleetChannel, form) {
   const command = String(form.command || '').trim()
   const text = String(form.text || '')
   const slackUserId = String(form.user_id || '')
+  const tid = String(form.trigger_id || '').trim()
 
   try {
     if (command === '/onmyway') {
-      return await handleOnMyWay(db, botToken, ch, text)
+      return await openFieldModal(
+        botToken,
+        tid,
+        buildOrderIdModal(MODAL_ONMYWAY_SUBMIT, 'On my way', 'Order id'),
+        'Opening on-my-way form…',
+      )
     }
     if (command === '/done') {
-      return await handleDone(db, botToken, ch, text)
+      return await openFieldModal(
+        botToken,
+        tid,
+        buildOrderIdModal(MODAL_DONE_SUBMIT, 'Complete order', 'Order id'),
+        'Opening complete-order form…',
+      )
     }
     if (command === '/myorders') {
       return await handleMyorders(db, botToken, ch, text, slackUserId)
     }
     if (command === '/sms') {
-      return await handleSms(db, botToken, ch, text, slackUserId)
+      return await openFieldModal(botToken, tid, buildSmsModalView(), 'Opening SMS form…')
     }
     if (command === '/confirm') {
-      return await handleConfirm(db, botToken, ch, text, slackUserId)
+      return await openFieldModal(
+        botToken,
+        tid,
+        buildOrderIdModal(MODAL_CONFIRM_SUBMIT, 'Confirm appointment', 'Order id'),
+        'Opening confirm form…',
+      )
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -515,4 +606,116 @@ async function tryHandleFieldSlash(db, token, fleetChannel, form) {
   return null
 }
 
-module.exports = { tryHandleFieldSlash }
+function fieldModalResultOk(r) {
+  if (!r || r.response_type !== 'ephemeral') return false
+  const t = String(r.text || '')
+  if (/^Usage:/i.test(t)) return false
+  if (/^(Error|Could not|Complete failed|SMS failed)/i.test(t)) return false
+  if (/^Order not found/i.test(t)) return false
+  if (/^Order must/i.test(t)) return false
+  if (/^Customer must/i.test(t)) return false
+  if (/^Invalid payment/i.test(t)) return false
+  return true
+}
+
+/**
+ * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
+ */
+async function tryHandleFieldViewSubmission(db, token, envChannel, payload) {
+  if (payload.type !== 'view_submission') return { handled: false }
+  const cb = payload.view?.callback_id
+  const ids = new Set([MODAL_ONMYWAY_SUBMIT, MODAL_DONE_SUBMIT, MODAL_SMS_SUBMIT, MODAL_CONFIRM_SUBMIT])
+  if (!ids.has(cb)) return { handled: false }
+
+  const botToken = SLACK_BOT_TOKEN.value() || String(token || '').trim()
+  const ch =
+    String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+  const view = payload.view
+  const slackUserId = String(payload.user?.id || '')
+
+  try {
+    if (cb === MODAL_ONMYWAY_SUBMIT) {
+      const orderId = viewInputValue(view, 'fld_ord_id', 'fld_ord_id_field')
+      if (!orderId) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { fld_ord_id: 'Enter an order id.' } },
+        }
+      }
+      const r = await handleOnMyWay(db, botToken, ch, orderId)
+      if (fieldModalResultOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { fld_ord_id: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_DONE_SUBMIT) {
+      const orderId = viewInputValue(view, 'fld_ord_id', 'fld_ord_id_field')
+      if (!orderId) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { fld_ord_id: 'Enter an order id.' } },
+        }
+      }
+      const r = await handleDone(db, botToken, ch, orderId)
+      if (fieldModalResultOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { fld_ord_id: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_SMS_SUBMIT) {
+      const orderId = viewInputValue(view, 'fld_sms_ord', 'fld_sms_ord_field')
+      const msg = viewInputValue(view, 'fld_sms_body', 'fld_sms_body_field')
+      const errors = {}
+      if (!orderId) errors.fld_sms_ord = 'Enter an order id.'
+      if (!msg) errors.fld_sms_body = 'Enter a message.'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const slashText = `${orderId} ${msg}`
+      const r = await handleSms(db, botToken, ch, slashText, slackUserId)
+      if (fieldModalResultOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { fld_sms_body: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_CONFIRM_SUBMIT) {
+      const orderId = viewInputValue(view, 'fld_ord_id', 'fld_ord_id_field')
+      if (!orderId) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { fld_ord_id: 'Enter an order id.' } },
+        }
+      }
+      const r = await handleConfirm(db, botToken, ch, orderId, slackUserId)
+      if (fieldModalResultOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { fld_ord_id: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+  } catch (e) {
+    console.error('fieldViewSubmission', cb, e)
+    return {
+      handled: true,
+      kind: 'json',
+      body: {
+        response_action: 'errors',
+        errors: { fld_ord_id: e instanceof Error ? e.message : String(e) },
+      },
+    }
+  }
+
+  return { handled: false }
+}
+
+module.exports = { tryHandleFieldSlash, tryHandleFieldViewSubmission }

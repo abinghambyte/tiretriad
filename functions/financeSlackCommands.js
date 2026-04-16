@@ -17,6 +17,10 @@ const {
   crewSlackSplitDisplayName,
   crewEarningsMetaDisplayName,
 } = require('./financeStats')
+const { slackViewsOpen, viewInputValue, viewStaticSelectValue } = require('./slackModalShared')
+
+/** @see slackSlashModalSubmissions.js */
+const MODAL_PAYOUT_SUBMIT = 'payout_modal_submit'
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -169,16 +173,46 @@ async function handleSlashOwed(db, token, channel) {
   return { response_type: 'ephemeral', text: 'Posted /owed to channel.' }
 }
 
-async function handleSlashPayout(db, token, channel, text, userName) {
-  const parts = String(text || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  if (parts.length < 2) {
-    return { response_type: 'ephemeral', text: 'Usage: `/payout [name] [amount]` — names: alex, dj, tanner, kyle' }
+function buildPayoutModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_PAYOUT_SUBMIT,
+    title: { type: 'plain_text', text: 'Record payout' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'payout_modal_crew',
+        label: { type: 'plain_text', text: 'Crew member' },
+        element: {
+          type: 'static_select',
+          action_id: 'payout_modal_crew_field',
+          placeholder: { type: 'plain_text', text: 'Select' },
+          options: CREW_KEYS.map((k) => ({
+            text: { type: 'plain_text', text: crewEarningsMetaDisplayName(k) },
+            value: k,
+          })),
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'payout_modal_amount',
+        label: { type: 'plain_text', text: 'Amount (USD)' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'payout_modal_amount_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 500' },
+        },
+      },
+    ],
   }
-  const name = String(parts[0] || '').toLowerCase()
-  const amt = Number(parts[1])
+}
+
+/**
+ * @param {string} name — alex | dj | tanner | kyle
+ */
+async function executePayoutFromModal(db, token, channel, name, amt, userName) {
   if (!CREW_KEYS.includes(name) || !Number.isFinite(amt) || amt <= 0) {
     return { response_type: 'ephemeral', text: 'Invalid crew name or amount.' }
   }
@@ -227,6 +261,20 @@ async function handleSlashPayout(db, token, channel, text, userName) {
     ],
   })
   return { response_type: 'ephemeral', text: 'Payout posted.' }
+}
+
+/** Legacy text path (e.g. tests); slash uses modal only. */
+async function handleSlashPayout(db, token, channel, text, userName) {
+  const parts = String(text || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length < 2) {
+    return { response_type: 'ephemeral', text: 'Usage: `/payout [name] [amount]` — names: alex, dj, tanner, kyle' }
+  }
+  const name = String(parts[0] || '').toLowerCase()
+  const amt = Number(parts[1])
+  return executePayoutFromModal(db, token, channel, name, amt, userName)
 }
 
 function marginPct(rev, margin) {
@@ -306,7 +354,20 @@ async function tryHandleFinanceSlash(db, token, channel, form) {
     return handleSlashOwed(db, token, ch)
   }
   if (command === '/payout') {
-    return handleSlashPayout(db, token, ch, text, userName)
+    const tid = String(form.trigger_id || '').trim()
+    if (tid) {
+      try {
+        await slackViewsOpen(token, tid, buildPayoutModalView())
+        return { response_type: 'ephemeral', text: 'Opening payout form…' }
+      } catch (e) {
+        console.error('payout views.open', e)
+        return {
+          response_type: 'ephemeral',
+          text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+        }
+      }
+    }
+    return { response_type: 'ephemeral', text: 'Missing Slack trigger — try the command again.' }
   }
   if (command === '/revenue') {
     return handleSlashRevenue(db, token, ch, text)
@@ -314,6 +375,37 @@ async function tryHandleFinanceSlash(db, token, channel, form) {
   return null
 }
 
+/**
+ * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
+ */
+async function tryHandleFinanceViewSubmission(db, token, envChannel, payload) {
+  if (payload.type !== 'view_submission') return { handled: false }
+  if (payload.view?.callback_id !== MODAL_PAYOUT_SUBMIT) return { handled: false }
+  const view = payload.view
+  const name = viewStaticSelectValue(view, 'payout_modal_crew', 'payout_modal_crew_field')
+  const amt = Number(viewInputValue(view, 'payout_modal_amount', 'payout_modal_amount_field'))
+  const ch = String(envChannel || '').trim()
+  const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
+  const errors = {}
+  if (!CREW_KEYS.includes(name)) errors.payout_modal_crew = 'Select a crew member.'
+  if (!Number.isFinite(amt) || amt <= 0) errors.payout_modal_amount = 'Enter a valid positive amount.'
+  if (Object.keys(errors).length) {
+    return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+  }
+  const res = await executePayoutFromModal(db, token, ch, name, amt, userName)
+  if (String(res?.text || '').toLowerCase().includes('invalid')) {
+    return {
+      handled: true,
+      kind: 'json',
+      body: { response_action: 'errors', errors: { payout_modal_amount: res.text } },
+    }
+  }
+  return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+}
+
 module.exports = {
   tryHandleFinanceSlash,
+  tryHandleFinanceViewSubmission,
+  MODAL_PAYOUT_SUBMIT,
+  executePayoutFromModal,
 }
