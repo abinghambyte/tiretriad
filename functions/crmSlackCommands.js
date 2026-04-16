@@ -5,6 +5,10 @@
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency } = require('./format')
 const { fuzzyMatchAccountDoc, normalizePipelineStage, crmStageLabel, CRM_LOST_STAGE } = require('./crmPipeline')
+const { slackViewsOpen, viewInputValue } = require('./slackModalShared')
+
+const MODAL_CRM_LOOKUP_SUBMIT = 'crm_lookup_modal_submit'
+const MODAL_CRM_LOG_SUBMIT = 'crm_log_modal_submit'
 
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -74,6 +78,61 @@ function lastLogLine(data) {
   return '—'
 }
 
+function buildCrmLookupModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_CRM_LOOKUP_SUBMIT,
+    title: { type: 'plain_text', text: 'CRM lookup' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'crm_lookup_company',
+        label: { type: 'plain_text', text: 'Company name' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'crm_lookup_company_field',
+          placeholder: { type: 'plain_text', text: 'Match fuzzy against Rubber CRM accounts' },
+        },
+      },
+    ],
+  }
+}
+
+function buildCrmLogModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_CRM_LOG_SUBMIT,
+    title: { type: 'plain_text', text: 'Log CRM activity' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'crm_log_company',
+        label: { type: 'plain_text', text: 'Company name' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'crm_log_company_field',
+          placeholder: { type: 'plain_text', text: 'Fuzzy match' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'crm_log_note',
+        label: { type: 'plain_text', text: 'Note' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'crm_log_note_field',
+          multiline: true,
+          placeholder: { type: 'plain_text', text: 'What happened?' },
+        },
+      },
+    ],
+  }
+}
+
 function nextActionLine(data) {
   const na = data.nextAction || {}
   const task = String(na.task || '—')
@@ -105,78 +164,32 @@ async function tryHandleCrmSlash(db, botToken, fleetChannel, form) {
     'Slack user'
 
   if (command === '/crm') {
-    if (!text) {
-      return { response_type: 'ephemeral', text: 'Usage: `/crm [company name]`' }
-    }
-    const docs = await loadCrmAccountDocs(db)
-    const match = fuzzyMatchAccountDoc(docs, text)
-    if (!match) {
-      return { response_type: 'ephemeral', text: `No CRM account matched “${escapeSlackMrkdwn(text)}”.` }
-    }
-    const data = match.data() || {}
-    const avgBuy = await avgTireBuyPrice(db)
-    const est = estimatedDealValueForAccount(data, avgBuy)
-    const stage = crmStageLabel(data.pipelineStage)
-    const lines = [
-      `*Rubber CRM — ${escapeSlackMrkdwn(data.companyName || match.id)}*`,
-      `*Stage:* ${escapeSlackMrkdwn(stage)}`,
-      `*Next action:* ${escapeSlackMrkdwn(nextActionLine(data))}`,
-      `*Last activity:* ${escapeSlackMrkdwn(lastLogLine(data))}`,
-      est != null ? `*Est. deal value:* ${formatCurrency(est)}` : `*Est. deal value:* _(add vehicle profile + catalog data)_`,
-    ]
+    const tid = String(form.trigger_id || '').trim()
+    if (!tid) return { response_type: 'ephemeral', text: 'Missing Slack trigger — try `/crm` again.' }
     try {
-      await slackApiPost(botToken, 'chat.postMessage', {
-        channel: fleetChannel,
-        text: `CRM: ${data.companyName || match.id}`,
-        blocks: [{ type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } }],
-      })
+      await slackViewsOpen(botToken, tid, buildCrmLookupModalView())
+      return { response_type: 'ephemeral', text: 'Opening CRM lookup…' }
     } catch (e) {
-      return { response_type: 'ephemeral', text: e?.message || 'Could not post to channel.' }
+      console.error('crm views.open', e)
+      return {
+        response_type: 'ephemeral',
+        text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+      }
     }
-    return { response_type: 'ephemeral', text: 'Posted CRM account to #fleet-ops.' }
   }
 
   if (command === '/log') {
-    if (!text) {
-      return { response_type: 'ephemeral', text: 'Usage: `/log [company name] [note]`' }
-    }
-    const words = text.split(/\s+/).filter(Boolean)
-    if (words.length < 2) {
-      return { response_type: 'ephemeral', text: 'Add a note after the company name.' }
-    }
-    const docs = await loadCrmAccountDocs(db)
-    let match = null
-    let note = ''
-    for (let i = words.length - 1; i >= 1; i -= 1) {
-      const nameCandidate = words.slice(0, i).join(' ')
-      const noteCandidate = words.slice(i).join(' ')
-      const m = fuzzyMatchAccountDoc(docs, nameCandidate)
-      if (m) {
-        match = m
-        note = noteCandidate
-        break
-      }
-    }
-    if (!match || !note.trim()) {
-      return { response_type: 'ephemeral', text: 'Could not match a company name or note was empty.' }
-    }
-    const entry = {
-      note: note.trim(),
-      addedBy: userDisplay,
-      addedAt: Timestamp.now(),
-    }
-    const prev = Array.isArray(match.data()?.activityLog) ? match.data().activityLog : []
+    const tid = String(form.trigger_id || '').trim()
+    if (!tid) return { response_type: 'ephemeral', text: 'Missing Slack trigger — try `/log` again.' }
     try {
-      await match.ref.update({
-        activityLog: [...prev, entry],
-        updatedAt: FieldValue.serverTimestamp(),
-      })
+      await slackViewsOpen(botToken, tid, buildCrmLogModalView())
+      return { response_type: 'ephemeral', text: 'Opening CRM log form…' }
     } catch (e) {
-      return { response_type: 'ephemeral', text: e?.message || 'Could not save activity.' }
-    }
-    return {
-      response_type: 'ephemeral',
-      text: `Logged on *${match.data()?.companyName || match.id}*: _${escapeSlackMrkdwn(note.trim().slice(0, 200))}_`,
+      console.error('crm log views.open', e)
+      return {
+        response_type: 'ephemeral',
+        text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+      }
     }
   }
 
@@ -252,4 +265,117 @@ async function tryHandleCrmSlash(db, botToken, fleetChannel, form) {
   return null
 }
 
-module.exports = { tryHandleCrmSlash }
+/**
+ * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
+ */
+async function tryHandleCrmViewSubmission(db, token, envChannel, payload) {
+  if (payload.type !== 'view_submission') return { handled: false }
+  const cb = payload.view?.callback_id
+  const botToken = String(token || '').trim()
+  const fleetChannel = String(envChannel || '').trim()
+  const userDisplay =
+    String(payload.user?.username || '').trim() ||
+    String(payload.user?.name || '').trim() ||
+    String(payload.user?.id || '').trim() ||
+    'Slack user'
+
+  if (cb === MODAL_CRM_LOOKUP_SUBMIT) {
+    const view = payload.view
+    const text = viewInputValue(view, 'crm_lookup_company', 'crm_lookup_company_field')
+    const errors = {}
+    if (!String(text || '').trim()) errors.crm_lookup_company = 'Enter a company name.'
+    if (Object.keys(errors).length) {
+      return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+    }
+    const docs = await loadCrmAccountDocs(db)
+    const match = fuzzyMatchAccountDoc(docs, text)
+    if (!match) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { crm_lookup_company: `No CRM account matched “${text.slice(0, 80)}”.` },
+        },
+      }
+    }
+    const data = match.data() || {}
+    const avgBuy = await avgTireBuyPrice(db)
+    const est = estimatedDealValueForAccount(data, avgBuy)
+    const stage = crmStageLabel(data.pipelineStage)
+    const lines = [
+      `*Rubber CRM — ${escapeSlackMrkdwn(data.companyName || match.id)}*`,
+      `*Stage:* ${escapeSlackMrkdwn(stage)}`,
+      `*Next action:* ${escapeSlackMrkdwn(nextActionLine(data))}`,
+      `*Last activity:* ${escapeSlackMrkdwn(lastLogLine(data))}`,
+      est != null ? `*Est. deal value:* ${formatCurrency(est)}` : `*Est. deal value:* _(add vehicle profile + catalog data)_`,
+    ]
+    try {
+      await slackApiPost(botToken, 'chat.postMessage', {
+        channel: fleetChannel,
+        text: `CRM: ${data.companyName || match.id}`,
+        blocks: [{ type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } }],
+      })
+    } catch (e) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { crm_lookup_company: e?.message || 'Could not post to channel.' },
+        },
+      }
+    }
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+  }
+
+  if (cb === MODAL_CRM_LOG_SUBMIT) {
+    const view = payload.view
+    const company = viewInputValue(view, 'crm_log_company', 'crm_log_company_field')
+    const note = viewInputValue(view, 'crm_log_note', 'crm_log_note_field')
+    const errors = {}
+    if (!String(company || '').trim()) errors.crm_log_company = 'Enter a company name.'
+    if (!String(note || '').trim()) errors.crm_log_note = 'Enter a note.'
+    if (Object.keys(errors).length) {
+      return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+    }
+    const docs = await loadCrmAccountDocs(db)
+    const match = fuzzyMatchAccountDoc(docs, company)
+    if (!match) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { crm_log_company: `No CRM account matched “${company.slice(0, 80)}”.` },
+        },
+      }
+    }
+    const entry = {
+      note: note.trim(),
+      addedBy: userDisplay,
+      addedAt: Timestamp.now(),
+    }
+    const prev = Array.isArray(match.data()?.activityLog) ? match.data().activityLog : []
+    try {
+      await match.ref.update({
+        activityLog: [...prev, entry],
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    } catch (e) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { crm_log_note: e?.message || 'Could not save activity.' },
+        },
+      }
+    }
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+  }
+
+  return { handled: false }
+}
+
+module.exports = { tryHandleCrmSlash, tryHandleCrmViewSubmission, MODAL_CRM_LOOKUP_SUBMIT, MODAL_CRM_LOG_SUBMIT }
