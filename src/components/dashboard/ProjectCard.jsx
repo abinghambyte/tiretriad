@@ -56,7 +56,7 @@ const ACCENT_CTA_RING = {
  * @param {import('react').ReactNode} props.icon
  * @param {string} [props.to]
  * @param {boolean} [props.locked] View-only or limited access (shows lock on card)
- * @param {{ to: string, label: string }} [props.secondaryFooter] Second CTA above primary (e.g. Launch Dispatcher)
+ * @param {{ to: string, label: string } | { href: string, label: string, external?: boolean }} [props.secondaryFooter] Second CTA above primary (e.g. Launch Dispatcher)
  */
 export function ProjectCard({
   title,
@@ -79,7 +79,14 @@ export function ProjectCard({
   const ctaRing = ACCENT_CTA_RING[accent] ?? ACCENT_CTA_RING.teal
 
   const primaryCta = clickable ? (ctaLabel ?? 'Open') : (ctaLabel ?? 'Unavailable · under construction')
-  const splitFooters = Boolean(clickable && to && secondaryFooter?.to && secondaryFooter?.label)
+  const secondaryHref =
+    secondaryFooter && typeof secondaryFooter.href === 'string' ? secondaryFooter.href.trim() : ''
+  const secondaryTo =
+    secondaryFooter && typeof secondaryFooter.to === 'string' ? secondaryFooter.to.trim() : ''
+  const secondaryLabel = secondaryFooter && typeof secondaryFooter.label === 'string' ? secondaryFooter.label : ''
+  const splitFooters = Boolean(
+    clickable && to && secondaryLabel && (secondaryHref.length > 0 || secondaryTo.length > 0),
+  )
 
   const headerBlock = (
     <div className="relative z-[2] mb-4 flex items-start justify-between gap-3 pl-2">
@@ -119,12 +126,23 @@ export function ProjectCard({
 
   const footerBlock = splitFooters ? (
     <div className="relative z-[2] mt-4 flex flex-col gap-2 pl-2">
-      <Link
-        to={secondaryFooter.to}
-        className="flex w-full items-center justify-center rounded-xl border border-green-600/70 bg-green-950/25 py-3 text-sm font-bold tracking-tight text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/35"
-      >
-        {secondaryFooter.label}
-      </Link>
+      {secondaryHref ? (
+        <a
+          href={secondaryHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full items-center justify-center rounded-xl border border-green-600/70 bg-green-950/25 py-3 text-sm font-bold tracking-tight text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/35"
+        >
+          {secondaryLabel}
+        </a>
+      ) : (
+        <Link
+          to={secondaryTo}
+          className="flex w-full items-center justify-center rounded-xl border border-green-600/70 bg-green-950/25 py-3 text-sm font-bold tracking-tight text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/35"
+        >
+          {secondaryLabel}
+        </Link>
+      )}
       <Link
         to={to}
         className={[

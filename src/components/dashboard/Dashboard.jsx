@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useUserProfile } from '../../hooks/useUserProfile'
+import { WORKFORCE_URL } from '../../constants/externalUrls'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { formatCurrency, formatQty } from '../../utils/format'
@@ -307,7 +308,9 @@ export function Dashboard() {
             const isOverwatch =
               profile?.role === 'admin' || String(profile?.crewTag || '').trim() === 'Overwatch'
             const secondaryFooter =
-              m.title === 'Growth Lab' && isOverwatch ? { to: '/dispatch', label: 'Launch Dispatcher' } : undefined
+              m.title === 'Growth Lab' && isOverwatch
+                ? { href: WORKFORCE_URL, label: 'Launch Dispatcher', external: true }
+                : undefined
             return (
               <ProjectCard
                 key={m.title}

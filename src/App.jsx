@@ -5,7 +5,7 @@ import { CrmDispatchPage } from './pages/CrmDispatchPage'
 import { CrmPage } from './pages/CrmPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { GrowthLabPage } from './pages/GrowthLabPage'
-import { TaskDispatcherPage } from './pages/TaskDispatcher'
+import { DispatchRedirect } from './components/DispatchRedirect.jsx'
 import { HandshakePage } from './pages/HandshakePage'
 import { InvitePage } from './pages/InvitePage'
 import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
@@ -51,7 +51,7 @@ export default function App() {
           path="/dispatch"
           element={
             <ProtectedRoute requireAdmin>
-              <TaskDispatcherPage />
+              <DispatchRedirect />
             </ProtectedRoute>
           }
         />
