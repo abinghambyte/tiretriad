@@ -12,6 +12,7 @@ const { tryHandleFieldSlash } = require('./fieldSlackCommands')
 const { tryHandleInventorySlash } = require('./inventorySlackCommands')
 const { tryHandleCrmSlash } = require('./crmSlackCommands')
 const { tryHandlePriceIntelSlash } = require('./priceIntelSlack')
+const { viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_CREDIT_CHARGE_EDIT = 'credit_modal_charge_edit'
 /** Initial /charge modal — submit opens same preview as `/charge [qty] [mspn]`. */
@@ -719,147 +720,163 @@ function inputValue(view, blockId, actionId) {
   return String(el?.value || '').trim()
 }
 
+/** Prefer exact callback ids — substring matching would mis-map `credit_modal_charge_edit` to charge. */
+function creditViewErrorBlockId(callbackId) {
+  if (callbackId === MODAL_PAYMENT_SUBMIT) return 'payment_modal_amount'
+  if (callbackId === MODAL_CHARGE_SUBMIT) return 'charge_modal_qty'
+  if (callbackId === MODAL_CREDIT_CHARGE_EDIT) return 'credit_edit_qty'
+  return ''
+}
+
 /**
  * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
  */
 async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
   if (payload.type !== 'view_submission') return { handled: false }
-
-  if (payload.view?.callback_id === MODAL_PAYMENT_SUBMIT) {
-    const view = payload.view
-    const amt = Number(inputValue(view, 'payment_modal_amount', 'payment_modal_amount_field'))
-    const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
-    const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
-    const res = await recordPaymentAmount(db, token, ch, amt, userName)
-    if (!res.ok) {
-      if (res.modalErrors && Object.keys(res.modalErrors).length) {
-        return { handled: true, kind: 'json', body: { response_action: 'errors', errors: res.modalErrors } }
-      }
-      return {
-        handled: true,
-        kind: 'json',
-        body: {
-          response_action: 'errors',
-          errors: { payment_modal_amount: res.ephemeral || 'Could not record payment.' },
-        },
-      }
-    }
-    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
-  }
-
-  if (payload.view?.callback_id === MODAL_CHARGE_SUBMIT) {
-    const view = payload.view
-    const mspn = inputValue(view, 'charge_modal_mspn', 'charge_modal_mspn_field')
-    const qtyRaw = inputValue(view, 'charge_modal_qty', 'charge_modal_qty_field')
-    const qty = Math.floor(Number(qtyRaw))
-    const errors = {}
-    if (!String(mspn || '').trim()) {
-      errors.charge_modal_mspn = 'Enter an MSPN.'
-    }
-    if (!Number.isFinite(qty) || qty < 1) {
-      errors.charge_modal_qty = 'Enter a valid quantity (1+).'
-    }
-    if (Object.keys(errors).length) {
-      return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
-    }
-    const result = await runChargePreviewFromQtyMspn(db, token, qty, mspn)
-    if (!result.ok && result.modalErrors && Object.keys(result.modalErrors).length) {
-      return { handled: true, kind: 'json', body: { response_action: 'errors', errors: result.modalErrors } }
-    }
-    if (!result.ok) {
-      return {
-        handled: true,
-        kind: 'json',
-        body: {
-          response_action: 'errors',
-          errors: { charge_modal_qty: result.ephemeral || 'Could not post charge preview.' },
-        },
-      }
-    }
-    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
-  }
-
-  if (payload.view?.callback_id !== MODAL_CREDIT_CHARGE_EDIT) return { handled: false }
-
   const view = payload.view
-  let encoded = ''
-  try {
-    encoded = String(view.private_metadata || '')
-  } catch {
-    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
-  }
-  const base = decodeChargeDraft(encoded)
-  if (!base) {
-    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
-  }
+  const cb = view?.callback_id
 
-  const qty = Math.floor(Number(inputValue(view, 'credit_edit_qty', 'credit_edit_qty_field')))
-  const pricePerTire = Number(inputValue(view, 'credit_edit_price', 'credit_edit_price_field'))
-  if (!Number.isFinite(qty) || qty < 1 || !Number.isFinite(pricePerTire) || pricePerTire < 0) {
-    return {
-      handled: true,
-      kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: {
-          credit_edit_qty: 'Enter a valid quantity.',
-          credit_edit_price: 'Enter a valid price per tire (before FET).',
+  try {
+    if (cb === MODAL_PAYMENT_SUBMIT) {
+      const amt = Number(inputValue(view, 'payment_modal_amount', 'payment_modal_amount_field'))
+      const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
+      const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+      const res = await recordPaymentAmount(db, token, ch, amt, userName)
+      if (!res.ok) {
+        if (res.modalErrors && Object.keys(res.modalErrors).length) {
+          return { handled: true, kind: 'json', body: { response_action: 'errors', errors: res.modalErrors } }
+        }
+        return {
+          handled: true,
+          kind: 'json',
+          body: {
+            response_action: 'errors',
+            errors: { payment_modal_amount: res.ephemeral || 'Could not record payment.' },
+          },
+        }
+      }
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+
+    if (cb === MODAL_CHARGE_SUBMIT) {
+      const mspn = inputValue(view, 'charge_modal_mspn', 'charge_modal_mspn_field')
+      const qtyRaw = inputValue(view, 'charge_modal_qty', 'charge_modal_qty_field')
+      const qty = Math.floor(Number(qtyRaw))
+      const errors = {}
+      if (!String(mspn || '').trim()) {
+        errors.charge_modal_mspn = 'Enter an MSPN.'
+      }
+      if (!Number.isFinite(qty) || qty < 1) {
+        errors.charge_modal_qty = 'Enter a valid quantity (1+).'
+      }
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const result = await runChargePreviewFromQtyMspn(db, token, qty, mspn)
+      if (!result.ok && result.modalErrors && Object.keys(result.modalErrors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors: result.modalErrors } }
+      }
+      if (!result.ok) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: {
+            response_action: 'errors',
+            errors: { charge_modal_qty: result.ephemeral || 'Could not post charge preview.' },
+          },
+        }
+      }
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+
+    if (cb !== MODAL_CREDIT_CHARGE_EDIT) return { handled: false }
+
+    let encoded = ''
+    try {
+      encoded = String(view.private_metadata || '')
+    } catch {
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+    const base = decodeChargeDraft(encoded)
+    if (!base) {
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+
+    const qty = Math.floor(Number(inputValue(view, 'credit_edit_qty', 'credit_edit_qty_field')))
+    const pricePerTire = Number(inputValue(view, 'credit_edit_price', 'credit_edit_price_field'))
+    if (!Number.isFinite(qty) || qty < 1 || !Number.isFinite(pricePerTire) || pricePerTire < 0) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: {
+            credit_edit_qty: 'Enter a valid quantity.',
+            credit_edit_price: 'Enter a valid price per tire (before FET).',
+          },
         },
-      },
+      }
     }
-  }
 
-  const tireSnap = await db.collection('tires').doc(base.mspn).get()
-  if (!tireSnap.exists) {
-    return {
-      handled: true,
-      kind: 'json',
-      body: { response_action: 'errors', errors: { credit_edit_qty: 'Tire not found.' } },
+    const tireSnap = await db.collection('tires').doc(base.mspn).get()
+    if (!tireSnap.exists) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { credit_edit_qty: 'Tire not found.' } },
+      }
     }
-  }
-  const tire = tireSnap.data() || {}
-  const catalogBuy = tireCatalogBuyNumber(tire)
-  const fet = Number(tire.fet) || 0
-  const total = qty * (pricePerTire + fet)
-  const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'
+    const tire = tireSnap.data() || {}
+    const catalogBuy = tireCatalogBuyNumber(tire)
+    const fet = Number(tire.fet) || 0
+    const total = qty * (pricePerTire + fet)
+    const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'
 
-  const credit = await loadCredit(db)
-  if (!credit) {
-    return {
-      handled: true,
-      kind: 'json',
-      body: { response_action: 'errors', errors: { credit_edit_qty: 'Credit tracker not configured.' } },
+    const credit = await loadCredit(db)
+    if (!credit) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { credit_edit_qty: 'Credit tracker not configured.' } },
+      }
     }
-  }
-  const availBefore = availableBuyingPower(credit)
-  const afterAvailable = availBefore - total
+    const availBefore = availableBuyingPower(credit)
+    const afterAvailable = availBefore - total
 
-  const draft = {
-    qty,
-    mspn: base.mspn,
-    catalogBuy,
-    pricePerTire,
-    fet,
-    total,
-    description,
-  }
-
-  const blocks = buildChargeConfirmationBlocks(draft, afterAvailable)
-
-  try {
-    const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
-    if (token && ch) {
-      await slackApiPost(token, 'chat.postMessage', {
-        channel: ch,
-        text: `Updated charge preview · ${formatQty(qty)}×${base.mspn}`,
-        blocks,
-      })
+    const draft = {
+      qty,
+      mspn: base.mspn,
+      catalogBuy,
+      pricePerTire,
+      fet,
+      total,
+      description,
     }
+
+    const blocks = buildChargeConfirmationBlocks(draft, afterAvailable)
+
+    try {
+      const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+      if (token && ch) {
+        await slackApiPost(token, 'chat.postMessage', {
+          channel: ch,
+          text: `Updated charge preview · ${formatQty(qty)}×${base.mspn}`,
+          blocks,
+        })
+      }
+    } catch (e) {
+      console.error('credit edit postMessage', e)
+    }
+
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
   } catch (e) {
-    console.error('credit edit postMessage', e)
+    console.error('creditViewSubmission', cb, e)
+    return {
+      handled: true,
+      kind: 'json',
+      body: viewSubmissionErrorsBody(creditViewErrorBlockId(cb), e, view),
+    }
   }
-
-  return { handled: true, kind: 'json', body: { response_action: 'clear' } }
 }
 
 module.exports = {

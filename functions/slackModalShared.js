@@ -44,17 +44,39 @@ function viewTimepickerValue(view, blockId, actionId) {
   return String(el?.selected_time || '').trim()
 }
 
+function firstInputBlockIdFromView(view) {
+  const blocks = view?.blocks
+  if (Array.isArray(blocks)) {
+    for (const b of blocks) {
+      if (b && b.type === 'input' && String(b.block_id || '').trim()) {
+        return String(b.block_id).trim()
+      }
+    }
+  }
+  const vals = view?.state?.values
+  if (vals && typeof vals === 'object') {
+    const keys = Object.keys(vals)
+    if (keys.length) return String(keys[0]).trim()
+  }
+  return ''
+}
+
 /**
  * Build Slack `view_submission` error payload. Each key must match an input `block_id`
  * on the submitted view or Slack will ignore the error.
  * @param {string} blockId
  * @param {unknown} err
+ * @param {object} [view] optional — if blockId is empty, uses first input block on the view
  */
-function viewSubmissionErrorsBody(blockId, err) {
-  const id = String(blockId || '').trim()
+function viewSubmissionErrorsBody(blockId, err, view) {
+  let id = String(blockId || '').trim()
+  if (!id && view) {
+    id = firstInputBlockIdFromView(view)
+  }
   const msg = err instanceof Error ? err.message : String(err)
   if (!id) {
-    console.error('viewSubmissionErrorsBody: empty blockId — use a callback-specific input block_id')
+    console.error('viewSubmissionErrorsBody: no input block_id on view', err)
+    return { response_action: 'clear' }
   }
   return {
     response_action: 'errors',
@@ -79,6 +101,7 @@ module.exports = {
   viewDatepickerValue,
   viewStaticSelectValue,
   viewTimepickerValue,
+  firstInputBlockIdFromView,
   viewSubmissionErrorsBody,
   ymdToSlashMmDd,
 }

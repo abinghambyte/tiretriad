@@ -4,6 +4,7 @@
  */
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { sendSinchSms } = require('./sinchSms')
+const { viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_SMS_REPLY = 'modal_sms_reply_customer'
 const ACTION_SMS_REPLY = 'sms_reply_open'
@@ -89,86 +90,91 @@ async function tryHandleSmsReplyViewSubmission(db, token, envChannel, payload) {
     return { handled: true, kind: 'json', body: { response_action: 'clear' } }
   }
 
-  const text = inputValue(view, 'sms_body_block', 'sms_body_field')
-  if (!text) {
-    return {
-      handled: true,
-      kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: { sms_body_block: 'Enter a message to send.' },
-      },
-    }
-  }
-
-  const ref = db.collection('orders').doc(orderId)
-  const snap = await ref.get()
-  if (!snap.exists) {
-    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
-  }
-  const to = String(snap.get('customerContact') || '').trim()
-  if (!to) {
-    return {
-      handled: true,
-      kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: { sms_body_block: 'Order has no customer phone on file.' },
-      },
-    }
-  }
-
   try {
-    await sendSinchSms({ to, body: text })
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return {
-      handled: true,
-      kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: { sms_body_block: msg.slice(0, 250) },
-      },
+    const text = inputValue(view, 'sms_body_block', 'sms_body_field')
+    if (!text) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { sms_body_block: 'Enter a message to send.' },
+        },
+      }
     }
-  }
 
-  await ref.update({
-    commsLog: FieldValue.arrayUnion({
-      at: Timestamp.now(),
-      kind: 'sms_reply_slack',
-      text,
-      slackUserId: String(payload.user?.id || ''),
-    }),
-    updatedAt: FieldValue.serverTimestamp(),
-  })
+    const ref = db.collection('orders').doc(orderId)
+    const snap = await ref.get()
+    if (!snap.exists) {
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+    const to = String(snap.get('customerContact') || '').trim()
+    if (!to) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { sms_body_block: 'Order has no customer phone on file.' },
+        },
+      }
+    }
 
-  const ch = String(envChannel || '').trim()
-  if (ch && token) {
     try {
-      await slackApiPost(token, 'chat.postMessage', {
-        channel: ch,
-        text: `SMS sent for order ${orderId}`,
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: [
-                '*📱 SMS reply sent*',
-                `*Order:* \`${escapeSlackMrkdwn(orderId)}\``,
-                `*By:* ${escapeSlackMrkdwn(payload.user?.name || payload.user?.id || '—')}`,
-                `*Message:* ${escapeSlackMrkdwn(text.slice(0, 500))}`,
-              ].join('\n'),
-            },
-          },
-        ],
-      })
+      await sendSinchSms({ to, body: text })
     } catch (e) {
-      console.error('smsReplySlack follow-up post', e)
+      const msg = e instanceof Error ? e.message : String(e)
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { sms_body_block: msg.slice(0, 250) },
+        },
+      }
     }
-  }
 
-  return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    await ref.update({
+      commsLog: FieldValue.arrayUnion({
+        at: Timestamp.now(),
+        kind: 'sms_reply_slack',
+        text,
+        slackUserId: String(payload.user?.id || ''),
+      }),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+
+    const ch = String(envChannel || '').trim()
+    if (ch && token) {
+      try {
+        await slackApiPost(token, 'chat.postMessage', {
+          channel: ch,
+          text: `SMS sent for order ${orderId}`,
+          blocks: [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: [
+                  '*📱 SMS reply sent*',
+                  `*Order:* \`${escapeSlackMrkdwn(orderId)}\``,
+                  `*By:* ${escapeSlackMrkdwn(payload.user?.name || payload.user?.id || '—')}`,
+                  `*Message:* ${escapeSlackMrkdwn(text.slice(0, 500))}`,
+                ].join('\n'),
+              },
+            },
+          ],
+        })
+      } catch (e) {
+        console.error('smsReplySlack follow-up post', e)
+      }
+    }
+
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+  } catch (e) {
+    console.error('smsReplyViewSubmission', e)
+    return { handled: true, kind: 'json', body: viewSubmissionErrorsBody('sms_body_block', e, view) }
+  }
 }
 
 /**
