@@ -21,7 +21,13 @@ const {
   OP_START,
   OP_END,
 } = require('./scheduleAvailability')
-const { slackViewsOpen, viewInputValue, viewDatepickerValue, viewTimepickerValue } = require('./slackModalShared')
+const {
+  slackViewsOpen,
+  viewInputValue,
+  viewDatepickerValue,
+  viewTimepickerValue,
+  viewSubmissionErrorsBody,
+} = require('./slackModalShared')
 
 const MODAL_DELIVERY_SUBMIT = 'delivery_modal_submit'
 const MODAL_PICKUP_SUBMIT = 'pickup_modal_submit'
@@ -665,8 +671,6 @@ async function tryHandleScheduleSlash(db, token, fleetChannel, form) {
   }
 
   const command = String(form.command || '').trim()
-  const text = String(form.text || '')
-  const slackUserId = String(form.user_id || '')
   const tid = String(form.trigger_id || '').trim()
 
   try {
@@ -754,6 +758,14 @@ function hourToAmPmToken(h) {
 function schPostedOk(r) {
   const t = String(r?.text || '')
   return r?.response_type === 'ephemeral' && t.startsWith('Posted')
+}
+
+/** Input `block_id` on the modal being submitted — for uncaught errors only. */
+function scheduleViewErrorBlockId(callbackId) {
+  if (callbackId === MODAL_OPENSLOTS_SUBMIT) return 'sch_open_date'
+  if (callbackId === MODAL_MYAVAIL_SUBMIT) return 'sch_avail_date'
+  if (callbackId === MODAL_BLOCK_SUBMIT || callbackId === MODAL_UNBLOCK_SUBMIT) return 'sch_blk_date'
+  return 'sch_ord_id'
 }
 
 /**
@@ -882,10 +894,7 @@ async function tryHandleScheduleViewSubmission(db, token, envChannel, payload) {
     return {
       handled: true,
       kind: 'json',
-      body: {
-        response_action: 'errors',
-        errors: { sch_ord_id: e instanceof Error ? e.message : String(e) },
-      },
+      body: viewSubmissionErrorsBody(scheduleViewErrorBlockId(cb), e),
     }
   }
 

@@ -304,6 +304,10 @@ export function Dashboard() {
               m.to &&
               permissionMeets(perm, 'view') &&
               !permissionMeets(perm, 'edit')
+            const isOverwatch =
+              profile?.role === 'admin' || String(profile?.crewTag || '').trim() === 'Overwatch'
+            const secondaryFooter =
+              m.title === 'Growth Lab' && isOverwatch ? { to: '/dispatch', label: 'Launch Dispatcher' } : undefined
             return (
               <ProjectCard
                 key={m.title}
@@ -317,6 +321,7 @@ export function Dashboard() {
                 icon={m.icon}
                 to={m.to}
                 locked={Boolean(lockedTires)}
+                secondaryFooter={secondaryFooter}
               />
             )
           })}

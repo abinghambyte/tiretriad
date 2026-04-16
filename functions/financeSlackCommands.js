@@ -263,20 +263,6 @@ async function executePayoutFromModal(db, token, channel, name, amt, userName) {
   return { response_type: 'ephemeral', text: 'Payout posted.' }
 }
 
-/** Legacy text path (e.g. tests); slash uses modal only. */
-async function handleSlashPayout(db, token, channel, text, userName) {
-  const parts = String(text || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  if (parts.length < 2) {
-    return { response_type: 'ephemeral', text: 'Usage: `/payout [name] [amount]` — names: alex, dj, tanner, kyle' }
-  }
-  const name = String(parts[0] || '').toLowerCase()
-  const amt = Number(parts[1])
-  return executePayoutFromModal(db, token, channel, name, amt, userName)
-}
-
 function marginPct(rev, margin) {
   const r = Number(rev) || 0
   if (r <= 0) return null
@@ -341,7 +327,6 @@ async function tryHandleFinanceSlash(db, token, channel, form) {
   }
   const command = String(form.command || '').trim()
   const text = String(form.text || '')
-  const userName = String(form.user_name || form.user_id || 'slack')
   const ch = String(channel || '').trim()
   if (!token || !ch) {
     return { response_type: 'ephemeral', text: 'Slack token or channel missing.' }

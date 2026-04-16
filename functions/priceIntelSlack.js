@@ -2,8 +2,14 @@
 
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatQty } = require('./format')
-const { slackAdminUserIdsRawFromEnv, GEMINI_API_KEY } = require('./slackSecrets')
+const { slackAdminUserIdsRawFromEnv, GEMINI_API_KEY, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID } = require('./slackSecrets')
 const { refreshSingleTirePrice, slackApiPost, escapeSlackMrkdwn } = require('./tirePriceResearch')
+const { slackViewsOpen, viewInputValue, viewSubmissionErrorsBody } = require('./slackModalShared')
+
+const MODAL_REFRESH_PRICE_SUBMIT = 'refreshprice_modal_submit'
+const MODAL_PRICE_HISTORY_SUBMIT = 'pricehistory_modal_submit'
+const MODAL_CONFIRM_PRICING_SUBMIT = 'confirmpricing_modal_submit'
+const MODAL_UNCONFIRM_PRICING_SUBMIT = 'unconfirmpricing_modal_submit'
 
 function slackAdminIdSet() {
   const raw = slackAdminUserIdsRawFromEnv()
@@ -71,6 +77,214 @@ function sourceEntry(price, source) {
   }
 }
 
+async function openPiModal(botToken, triggerId, view, ackMsg) {
+  const tid = String(triggerId || '').trim()
+  if (!tid) return { response_type: 'ephemeral', text: 'Missing Slack trigger — try the command again.' }
+  try {
+    await slackViewsOpen(botToken, tid, view)
+    return { response_type: 'ephemeral', text: ackMsg }
+  } catch (e) {
+    return {
+      response_type: 'ephemeral',
+      text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+}
+
+function buildPiMspnModal(callbackId, title) {
+  const t = String(title || 'MSPN').slice(0, 24)
+  return {
+    type: 'modal',
+    callback_id: callbackId,
+    title: { type: 'plain_text', text: t },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'pi_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'pi_mspn_field',
+          placeholder: { type: 'plain_text', text: 'Tire MSPN' },
+        },
+      },
+    ],
+  }
+}
+
+function buildConfirmPricingModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_CONFIRM_PRICING_SUBMIT,
+    title: { type: 'plain_text', text: 'Confirm tire price' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'pi_conf_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'pi_conf_mspn_field',
+          placeholder: { type: 'plain_text', text: 'Tire MSPN' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'pi_conf_price',
+        label: { type: 'plain_text', text: 'Buy price (per tire)' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'pi_conf_price_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 142.50' },
+        },
+      },
+    ],
+  }
+}
+
+/** @returns {string | null} error message, or null if started */
+function validateAndStartRefreshPrice(db, botToken, postChannel, mspn) {
+  const trimmed = String(mspn || '').trim()
+  if (!trimmed) return 'MSPN required.'
+  const geminiKey = GEMINI_API_KEY.value()
+  if (!geminiKey || geminiKey === '-') {
+    return 'GEMINI_API_KEY is not configured.'
+  }
+  ;(async () => {
+    try {
+      await refreshSingleTirePrice(db, geminiKey, { token: botToken, channel: postChannel }, trimmed)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      await slackApiPost(botToken, 'chat.postMessage', {
+        channel: postChannel,
+        text: `❌ /refreshprice failed for \`${escapeSlackMrkdwn(trimmed)}\`: ${escapeSlackMrkdwn(msg)}`,
+      }).catch(() => {})
+    }
+  })()
+  return null
+}
+
+/** @returns {Promise<string | null>} error message, or null on success */
+async function executePriceHistoryPost(db, botToken, postChannel, mspn) {
+  const trimmed = String(mspn || '').trim()
+  if (!trimmed) return 'MSPN required.'
+  const doc = await db.collection('tires').doc(trimmed).get()
+  if (!doc.exists) return 'Tire not found.'
+  const tire = doc.data() || {}
+  const pi = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
+  const sources = Array.isArray(pi.sources) ? pi.sources : []
+  const blocks = []
+  blocks.push({
+    type: 'header',
+    text: { type: 'plain_text', text: `Price history · ${trimmed}`, emoji: true },
+  })
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: [
+        `*Active buy:* ${formatCurrency(Number(pi.activeBuyPrice) || 0)}`,
+        `*Rolling avg:* ${formatCurrency(Number(pi.runningAverage) || 0)}`,
+        `*Historic low:* ${formatCurrency(Number(pi.historicLow) || 0)}`,
+        `*Confidence:* ${escapeSlackMrkdwn(String(pi.confidence || '—'))}`,
+        `*Kyle confirmed:* ${pi.kyleConfirmed === true ? 'yes' : 'no'}`,
+      ].join('\n'),
+    },
+  })
+  if (!sources.length) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: '_No source rows yet._' } })
+  } else {
+    for (const s of sources.slice(-30)) {
+      const p = Number(s.price)
+      const px = Number.isFinite(p) && p > 0 ? formatCurrency(p) : '—'
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `• ${px} · _${escapeSlackMrkdwn(String(s.source || '—'))}_ · ${formatTsDenver(s.recordedAt)}`,
+        },
+      })
+    }
+  }
+  if (botToken && postChannel) {
+    await slackApiPost(botToken, 'chat.postMessage', {
+      channel: postChannel,
+      text: `Price history for ${trimmed}`,
+      blocks,
+    })
+  }
+  return null
+}
+
+/** @returns {Promise<string | null>} error message, or null on success */
+async function executeConfirmPricing(db, botToken, postChannel, userId, mspn, priceRaw) {
+  const gate = await resolveSlackUserAdminOrSupplier(db, userId)
+  if (!gate.allowed) return 'Admin or Source (supplier) role required.'
+  const trimmed = String(mspn || '').trim()
+  if (!trimmed) return 'MSPN required.'
+  const price = Number(priceRaw)
+  if (!Number.isFinite(price) || price <= 0) return 'Enter a valid positive price.'
+  const ref = db.collection('tires').doc(trimmed)
+  const snap = await ref.get()
+  if (!snap.exists) return 'Tire not found.'
+  await db.runTransaction(async (tx) => {
+    const s = await tx.get(ref)
+    const t = s.data() || {}
+    const pi = t.priceIntel && typeof t.priceIntel === 'object' ? { ...t.priceIntel } : {}
+    const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
+    sources.push(sourceEntry(price, 'kyle_confirmed'))
+    const runningAverage = runningAverageFromSources(sources)
+    const historicLow = historicLowFromSources(sources, price)
+    tx.update(ref, {
+      priceIntel: {
+        ...pi,
+        activeBuyPrice: price,
+        runningAverage,
+        historicLow,
+        kyleConfirmed: true,
+        kyleConfirmedAt: FieldValue.serverTimestamp(),
+        sources,
+        flagged: false,
+        flagReason: null,
+        lastUpdated: FieldValue.serverTimestamp(),
+        lastResearched: FieldValue.serverTimestamp(),
+      },
+    })
+  })
+  if (botToken && postChannel) {
+    await slackApiPost(botToken, 'chat.postMessage', {
+      channel: postChannel,
+      text: `✅ Kyle confirmed pricing: \`${escapeSlackMrkdwn(trimmed)}\` → ${formatCurrency(price)}`,
+    })
+  }
+  return null
+}
+
+/** @returns {Promise<string | null>} error message, or null on success */
+async function executeUnconfirmPricing(db, botToken, postChannel, userId, mspn) {
+  if (!isSlackAdmin(userId)) return 'Admin only.'
+  const trimmed = String(mspn || '').trim()
+  if (!trimmed) return 'MSPN required.'
+  const ref = db.collection('tires').doc(trimmed)
+  const snap = await ref.get()
+  if (!snap.exists) return 'Tire not found.'
+  await ref.update({
+    'priceIntel.kyleConfirmed': false,
+    'priceIntel.kyleConfirmedAt': null,
+  })
+  if (botToken && postChannel) {
+    await slackApiPost(botToken, 'chat.postMessage', {
+      channel: postChannel,
+      text: `🔓 Kyle confirmation cleared for \`${escapeSlackMrkdwn(trimmed)}\` — automated research may update buy price again.`,
+    })
+  }
+  return null
+}
+
 /**
  * @param {import('firebase-admin/firestore').Firestore} db
  * @param {string} token
@@ -79,8 +293,6 @@ function sourceEntry(price, source) {
  */
 async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
   const command = String(form.command || '').trim()
-  const text = String(form.text || '').trim()
-  const userId = String(form.user_id || '')
   const postChannel = String(fleetChannel || '').trim() || String(form.channel_id || '').trim()
 
   if (
@@ -93,7 +305,8 @@ async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
     return null
   }
 
-  const botToken = String(token || '').trim()
+  const botToken = SLACK_BOT_TOKEN.value() || String(token || '').trim()
+  const tid = String(form.trigger_id || '').trim()
 
   if (command === '/flaggedprices') {
     const snap = await db.collection('tires').where('priceIntel.flagged', '==', true).limit(200).get().catch(() => ({
@@ -152,163 +365,157 @@ async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
   }
 
   if (command === '/refreshprice') {
-    const mspn = text.split(/\s+/)[0]
-    if (!mspn) {
-      return { response_type: 'ephemeral', text: 'Usage: `/refreshprice MSPN`' }
-    }
-    const geminiKey = GEMINI_API_KEY.value()
-    if (!geminiKey || geminiKey === '-') {
-      return { response_type: 'ephemeral', text: 'GEMINI_API_KEY is not configured.' }
-    }
-    ;(async () => {
-      try {
-        await refreshSingleTirePrice(db, geminiKey, { token: botToken, channel: postChannel }, mspn)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        await slackApiPost(botToken, 'chat.postMessage', {
-          channel: postChannel,
-          text: `❌ /refreshprice failed for \`${escapeSlackMrkdwn(mspn)}\`: ${escapeSlackMrkdwn(msg)}`,
-        }).catch(() => {})
-      }
-    })()
-    return { response_type: 'ephemeral', text: `Running price research for \`${mspn}\` — watch #fleet-ops.` }
+    return await openPiModal(
+      botToken,
+      tid,
+      buildPiMspnModal(MODAL_REFRESH_PRICE_SUBMIT, 'Refresh tire price'),
+      'Opening refresh-price form…',
+    )
   }
 
   if (command === '/pricehistory') {
-    const mspn = text.split(/\s+/)[0]
-    if (!mspn) {
-      return { response_type: 'ephemeral', text: 'Usage: `/pricehistory MSPN`' }
-    }
-    const doc = await db.collection('tires').doc(mspn).get()
-    if (!doc.exists) {
-      return { response_type: 'ephemeral', text: 'Tire not found.' }
-    }
-    const tire = doc.data() || {}
-    const pi = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
-    const sources = Array.isArray(pi.sources) ? pi.sources : []
-    const blocks = []
-    blocks.push({
-      type: 'header',
-      text: { type: 'plain_text', text: `Price history · ${mspn}`, emoji: true },
-    })
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: [
-          `*Active buy:* ${formatCurrency(Number(pi.activeBuyPrice) || 0)}`,
-          `*Rolling avg:* ${formatCurrency(Number(pi.runningAverage) || 0)}`,
-          `*Historic low:* ${formatCurrency(Number(pi.historicLow) || 0)}`,
-          `*Confidence:* ${escapeSlackMrkdwn(String(pi.confidence || '—'))}`,
-          `*Kyle confirmed:* ${pi.kyleConfirmed === true ? 'yes' : 'no'}`,
-        ].join('\n'),
-      },
-    })
-    if (!sources.length) {
-      blocks.push({ type: 'section', text: { type: 'mrkdwn', text: '_No source rows yet._' } })
-    } else {
-      for (const s of sources.slice(-30)) {
-        const p = Number(s.price)
-        const px = Number.isFinite(p) && p > 0 ? formatCurrency(p) : '—'
-        blocks.push({
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `• ${px} · _${escapeSlackMrkdwn(String(s.source || '—'))}_ · ${formatTsDenver(s.recordedAt)}`,
-          },
-        })
-      }
-    }
-    if (botToken && postChannel) {
-      await slackApiPost(botToken, 'chat.postMessage', {
-        channel: postChannel,
-        text: `Price history for ${mspn}`,
-        blocks,
-      })
-    }
-    return { response_type: 'ephemeral', text: 'Posted price history to #fleet-ops.' }
+    return await openPiModal(
+      botToken,
+      tid,
+      buildPiMspnModal(MODAL_PRICE_HISTORY_SUBMIT, 'Price history'),
+      'Opening price history form…',
+    )
   }
 
   if (command === '/confirmpricing') {
-    const parts = text.split(/\s+/).filter(Boolean)
-    const mspn = parts[0]
-    const priceRaw = parts[1]
-    if (!mspn || priceRaw == null) {
-      return { response_type: 'ephemeral', text: 'Usage: `/confirmpricing MSPN price`' }
-    }
-    const gate = await resolveSlackUserAdminOrSupplier(db, userId)
-    if (!gate.allowed) {
-      return { response_type: 'ephemeral', text: 'Admin or Source (supplier) role required.' }
-    }
-    const price = Number(priceRaw)
-    if (!Number.isFinite(price) || price <= 0) {
-      return { response_type: 'ephemeral', text: 'Enter a valid positive price.' }
-    }
-    const ref = db.collection('tires').doc(mspn)
-    const snap = await ref.get()
-    if (!snap.exists) {
-      return { response_type: 'ephemeral', text: 'Tire not found.' }
-    }
-    await db.runTransaction(async (tx) => {
-      const s = await tx.get(ref)
-      const t = s.data() || {}
-      const pi = t.priceIntel && typeof t.priceIntel === 'object' ? { ...t.priceIntel } : {}
-      const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
-      sources.push(sourceEntry(price, 'kyle_confirmed'))
-      const runningAverage = runningAverageFromSources(sources)
-      const historicLow = historicLowFromSources(sources, price)
-      tx.update(ref, {
-        priceIntel: {
-          ...pi,
-          activeBuyPrice: price,
-          runningAverage,
-          historicLow,
-          kyleConfirmed: true,
-          kyleConfirmedAt: FieldValue.serverTimestamp(),
-          sources,
-          flagged: false,
-          flagReason: null,
-          lastUpdated: FieldValue.serverTimestamp(),
-          lastResearched: FieldValue.serverTimestamp(),
-        },
-      })
-    })
-    if (botToken && postChannel) {
-      await slackApiPost(botToken, 'chat.postMessage', {
-        channel: postChannel,
-        text: `✅ Kyle confirmed pricing: \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(price)}`,
-      })
-    }
-    return { response_type: 'ephemeral', text: `Confirmed ${formatCurrency(price)} for ${mspn}.` }
+    return await openPiModal(
+      botToken,
+      tid,
+      buildConfirmPricingModalView(),
+      'Opening confirm-pricing form…',
+    )
   }
 
   if (command === '/unconfirmpricing') {
-    const mspn = text.split(/\s+/)[0]
-    if (!mspn) {
-      return { response_type: 'ephemeral', text: 'Usage: `/unconfirmpricing MSPN`' }
-    }
-    if (!isSlackAdmin(userId)) {
-      return { response_type: 'ephemeral', text: 'Admin only.' }
-    }
-    const ref = db.collection('tires').doc(mspn)
-    const snap = await ref.get()
-    if (!snap.exists) {
-      return { response_type: 'ephemeral', text: 'Tire not found.' }
-    }
-    await ref.update({
-      'priceIntel.kyleConfirmed': false,
-      'priceIntel.kyleConfirmedAt': null,
-    })
-    if (botToken && postChannel) {
-      await slackApiPost(botToken, 'chat.postMessage', {
-        channel: postChannel,
-        text: `🔓 Kyle confirmation cleared for \`${escapeSlackMrkdwn(mspn)}\` — automated research may update buy price again.`,
-      })
-    }
-    return { response_type: 'ephemeral', text: `Unfroze pricing for ${mspn}.` }
+    return await openPiModal(
+      botToken,
+      tid,
+      buildPiMspnModal(MODAL_UNCONFIRM_PRICING_SUBMIT, 'Unconfirm pricing'),
+      'Opening unconfirm form…',
+    )
   }
 
   return null
+}
+
+/**
+ * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
+ */
+function priceIntelViewErrorBlockId(callbackId) {
+  if (callbackId === MODAL_CONFIRM_PRICING_SUBMIT) return 'pi_conf_mspn'
+  return 'pi_mspn'
+}
+
+async function tryHandlePriceIntelViewSubmission(db, token, envChannel, payload) {
+  if (payload.type !== 'view_submission') return { handled: false }
+  const cb = payload.view?.callback_id
+  const cbs = new Set([
+    MODAL_REFRESH_PRICE_SUBMIT,
+    MODAL_PRICE_HISTORY_SUBMIT,
+    MODAL_CONFIRM_PRICING_SUBMIT,
+    MODAL_UNCONFIRM_PRICING_SUBMIT,
+  ])
+  if (!cbs.has(cb)) return { handled: false }
+
+  const botToken = SLACK_BOT_TOKEN.value() || String(token || '').trim()
+  const postChannel =
+    String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+  const view = payload.view
+  const userId = String(payload.user?.id || '')
+
+  try {
+    if (cb === MODAL_REFRESH_PRICE_SUBMIT) {
+      const mspn = viewInputValue(view, 'pi_mspn', 'pi_mspn_field')
+      if (!mspn) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: 'Enter MSPN.' } },
+        }
+      }
+      const err = validateAndStartRefreshPrice(db, botToken, postChannel, mspn)
+      if (err) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: err.slice(0, 250) } },
+        }
+      }
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+    if (cb === MODAL_PRICE_HISTORY_SUBMIT) {
+      const mspn = viewInputValue(view, 'pi_mspn', 'pi_mspn_field')
+      if (!mspn) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: 'Enter MSPN.' } },
+        }
+      }
+      const err = await executePriceHistoryPost(db, botToken, postChannel, mspn)
+      if (err) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: err.slice(0, 250) } },
+        }
+      }
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+    if (cb === MODAL_CONFIRM_PRICING_SUBMIT) {
+      const mspn = viewInputValue(view, 'pi_conf_mspn', 'pi_conf_mspn_field')
+      const priceRaw = viewInputValue(view, 'pi_conf_price', 'pi_conf_price_field')
+      const errors = {}
+      if (!mspn) errors.pi_conf_mspn = 'Enter MSPN.'
+      if (!priceRaw) errors.pi_conf_price = 'Enter price.'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const err = await executeConfirmPricing(db, botToken, postChannel, userId, mspn, priceRaw)
+      if (err) {
+        const key = /price|positive/i.test(err) ? 'pi_conf_price' : 'pi_conf_mspn'
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { [key]: err.slice(0, 250) } },
+        }
+      }
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+    if (cb === MODAL_UNCONFIRM_PRICING_SUBMIT) {
+      const mspn = viewInputValue(view, 'pi_mspn', 'pi_mspn_field')
+      if (!mspn) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: 'Enter MSPN.' } },
+        }
+      }
+      const err = await executeUnconfirmPricing(db, botToken, postChannel, userId, mspn)
+      if (err) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: err.slice(0, 250) } },
+        }
+      }
+      return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+    }
+  } catch (e) {
+    console.error('priceIntelViewSubmission', cb, e)
+    return {
+      handled: true,
+      kind: 'json',
+      body: viewSubmissionErrorsBody(priceIntelViewErrorBlockId(cb), e),
+    }
+  }
+
+  return { handled: false }
 }
 
 /**
@@ -414,4 +621,5 @@ async function tryHandlePriceIntelBlockActions(db, token, envChannel, payload) {
 module.exports = {
   tryHandlePriceIntelSlash,
   tryHandlePriceIntelBlockActions,
+  tryHandlePriceIntelViewSubmission,
 }
