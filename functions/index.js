@@ -33,6 +33,8 @@ const {
   cancelOrderFromPortal: runPortalOrderCancellation,
 } = require('./orderWorkflow')
 const { tryHandleLookupUtilityViewSubmission } = require('./lookupUtilitySlackCommands')
+const { tryHandleFieldViewSubmission } = require('./fieldSlackCommands')
+const { tryHandleFinanceViewSubmission } = require('./financeSlackCommands')
 const {
   minutesBetweenTsAndMs,
   utcDayRangeMs,
@@ -918,6 +920,26 @@ exports.slackActions = onRequest(
         if (lu.kind === 'json') {
           res.setHeader('Content-Type', 'application/json')
           res.status(200).send(JSON.stringify(lu.body))
+          return
+        }
+        res.status(200).send('')
+        return
+      }
+      const fi = await tryHandleFinanceViewSubmission(db, token, envChannel, payload)
+      if (fi.handled) {
+        if (fi.kind === 'json') {
+          res.setHeader('Content-Type', 'application/json')
+          res.status(200).send(JSON.stringify(fi.body))
+          return
+        }
+        res.status(200).send('')
+        return
+      }
+      const fld = await tryHandleFieldViewSubmission(db, token, envChannel, payload)
+      if (fld.handled) {
+        if (fld.kind === 'json') {
+          res.setHeader('Content-Type', 'application/json')
+          res.status(200).send(JSON.stringify(fld.body))
           return
         }
         res.status(200).send('')
