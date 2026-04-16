@@ -1,0 +1,276 @@
+# Rubber Signal — Slack app manifest (generated from functions/index.js + *Slack*.js routers)
+# All slash commands POST to the same Cloud Function URL as Slack interactivity.
+# Request URL pattern: POST https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+#   Body: application/x-www-form-urlencoded (slash) or payload=... (interactivity)
+
+_metadata:
+  major_version: 2
+  minor_version: 0
+
+display_information:
+  name: Rubber Signal
+  description: Skedaddle fleet ops — finance, inventory, schedule, field, CRM, price intel, credit
+  background_color: "#0f172a"
+
+features:
+  bot_user:
+    display_name: Rubber Signal
+    always_online: true
+  slash_commands:
+    # Credit (creditTrackerSlack.js)
+    - command: balance
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Post credit card balance snapshot to fleet channel
+      should_escape: false
+    - command: charge
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Start a card charge draft (Block Kit confirm)
+      should_escape: false
+    - command: payment
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Record a payment against the credit tracker
+      should_escape: false
+    # Rubber CRM (crmSlackCommands.js)
+    - command: crm
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: CRM account lookup and actions
+      should_escape: false
+    - command: log
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Log CRM activity on an account
+      should_escape: false
+    - command: pipeline
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: CRM pipeline summary
+      should_escape: false
+    # Field (fieldSlackCommands.js)
+    - command: confirm
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Confirm order / availability from Slack
+      should_escape: false
+    - command: done
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Mark field work done and refresh order Slack
+      should_escape: false
+    - command: myorders
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: List my assigned active orders
+      should_escape: false
+    - command: onmyway
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Mark in transit / on the way
+      should_escape: false
+    - command: sms
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: SMS helper for customer contact
+      should_escape: false
+    # Finance (financeSlackCommands.js)
+    - command: owed
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Crew balances owed
+      should_escape: false
+    - command: payout
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Record or view payouts
+      should_escape: false
+    - command: revenue
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Revenue stats digest
+      should_escape: false
+    - command: spoils
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Crew spoils / pool summary
+      should_escape: false
+    # Inventory (inventorySlackCommands.js)
+    - command: bestsellers
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Top sellers by completed orders
+      should_escape: false
+    - command: dead
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Dead stock flagged tires
+      should_escape: false
+    - command: forecast
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Weeks of stock forecast for an MSPN
+      should_escape: false
+    - command: intake
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Tire intake flow
+      should_escape: false
+    - command: lowstock
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Low stock tires
+      should_escape: false
+    - command: reorder
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Reorder queue for Kyle
+      should_escape: false
+    - command: slowmovers
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Slow-moving inventory
+      should_escape: false
+    - command: velocity
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Velocity intel for a tire or list
+      should_escape: false
+    # Lookup & utilities (lookupUtilitySlackCommands.js)
+    - command: customer
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Customer / contact lookup
+      should_escape: false
+    - command: dispatch
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Post dispatch context for an order to fleet
+      should_escape: false
+    - command: hype
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: One-line crew hype (Anthropic)
+      should_escape: false
+    - command: margins
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Margin table / intel
+      should_escape: false
+    - command: note
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Append a note (e.g. to an order)
+      should_escape: false
+    - command: pricecheck
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Quick price check for an MSPN
+      should_escape: false
+    - command: quota
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Sales quota progress
+      should_escape: false
+    - command: setlimit
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Admin — set credit card limit on meta doc
+      should_escape: false
+    - command: setquota
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Admin — set weekly/monthly quota targets
+      should_escape: false
+    - command: stock
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Tire stock / catalog line for MSPN
+      should_escape: false
+    - command: weather
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Quick weather line for ops
+      should_escape: false
+    # Price intelligence (priceIntelSlack.js)
+    - command: confirmpricing
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Confirm Kyle price for price intel (freeze active buy)
+      should_escape: false
+    - command: flaggedprices
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: List tires flagged for price review
+      should_escape: false
+    - command: pricehistory
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Price intel source history for an MSPN
+      should_escape: false
+    - command: refreshprice
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Run Gemini wholesale research for one MSPN
+      should_escape: false
+    - command: unconfirmpricing
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Clear Kyle-confirmed freeze on price intel
+      should_escape: false
+    # Schedule & availability (scheduleSlackCommands.js)
+    - command: block
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Block DJ availability window
+      should_escape: false
+    - command: delivery
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Schedule a delivery window
+      should_escape: false
+    - command: myavailability
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Show my blocked slots
+      should_escape: false
+    - command: openslots
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Open scheduling slots
+      should_escape: false
+    - command: pickup
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Schedule a pickup window
+      should_escape: false
+    - command: reschedule
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Reschedule an order
+      should_escape: false
+    - command: schedule
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Schedule helper
+      should_escape: false
+    - command: tomorrow
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Tomorrow schedule digest
+      should_escape: false
+    - command: unblock
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Remove a blocked availability window
+      should_escape: false
+    - command: unscheduled
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Orders needing a schedule
+      should_escape: false
+    - command: week
+      url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+      description: Week view for schedule
+      should_escape: false
+
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - chat:write.public
+      - commands
+
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+  interactivity:
+    is_enabled: true
+    request_url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
+
+# =============================================================================
+# SCAN NOTES (index.js + slash routers — 2026-04-15)
+# =============================================================================
+# Exported onRequest handlers that parse Slack slash commands:
+#   - slackActions — reads application/x-www-form-urlencoded body; if `payload`
+#     is absent but `command` is present, builds `form` from entries and calls
+#     handleCreditSlashCommand (functions/creditTrackerSlack.js), which chains
+#     tryHandleFinanceSlash, tryHandleLookupUtilitySlash, tryHandleScheduleSlash,
+#     tryHandleFieldSlash, tryHandleInventorySlash, tryHandleCrmSlash,
+#     tryHandlePriceIntelSlash, then /charge /payment /balance.
+#   - inboundSms — Sinch MO webhook; NOT a slash command.
+#   - ebayOrderWebhook — eBay notifications; NOT a slash command.
+#
+# No slack-manifest.yml, slack-manifest.json, or other .yml/.yaml Slack manifest
+# existed in repo root or docs/ before this file.
+#
+# -----------------------------------------------------------------------------
+# "Stubs" / wiring gaps (commands in code with no separate deploy OR not implemented)
+# -----------------------------------------------------------------------------
+# - No unimplemented slash-command stubs were found: every command string routed
+#   in the modules above has a concrete handler (no TODO/placeholder return paths
+#   for slash dispatch).
+# - Architecture: ALL slash commands share ONE HTTPS function (`slackActions`).
+#   There are NO per-command Cloud Function names for slash in this codebase.
+#   Slack must be configured so every command’s Request URL is that single URL.
+# - Optional runtime deps (handlers exist; may return ephemeral errors if unset):
+#   GEMINI_API_KEY — /refreshprice and price-intel flows; ANTHROPIC_API_KEY — /hype;
+#   SLACK_ADMIN_USER_IDS — /setlimit, /setquota; meta/creditTracker — /charge,
+#   /payment, /balance; credit tracker + channel for /balance fleet post.
+# - docs/AI-CONTEXT.md “Slack slash commands” list omits CRM (/crm, /log, /pipeline)
+#   and price intel (/flaggedprices, /refreshprice, /pricehistory, /confirmpricing,
+#   /unconfirmpricing); they are implemented and included in this manifest.
+# =============================================================================

@@ -21,6 +21,15 @@ const {
   OP_START,
   OP_END,
 } = require('./scheduleAvailability')
+const { slackViewsOpen, viewInputValue, viewDatepickerValue, viewTimepickerValue } = require('./slackModalShared')
+
+const MODAL_DELIVERY_SUBMIT = 'delivery_modal_submit'
+const MODAL_PICKUP_SUBMIT = 'pickup_modal_submit'
+const MODAL_RESCHEDULE_SUBMIT = 'reschedule_modal_submit'
+const MODAL_OPENSLOTS_SUBMIT = 'openslots_modal_submit'
+const MODAL_BLOCK_SUBMIT = 'block_modal_submit'
+const MODAL_UNBLOCK_SUBMIT = 'unblock_modal_submit'
+const MODAL_MYAVAIL_SUBMIT = 'myavailability_modal_submit'
 
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -50,6 +59,179 @@ async function postToFleet(token, fleetChannel, text, blocks) {
     text,
     blocks,
   })
+}
+
+async function openScheduleModal(botToken, triggerId, view, msg) {
+  const tid = String(triggerId || '').trim()
+  if (!tid) return { response_type: 'ephemeral', text: 'Missing Slack trigger — try the command again.' }
+  try {
+    await slackViewsOpen(botToken, tid, view)
+    return { response_type: 'ephemeral', text: msg }
+  } catch (e) {
+    return {
+      response_type: 'ephemeral',
+      text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+}
+
+function ymdIsoToMmDdSlash(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '').trim())
+  if (!m) return ''
+  return `${Number(m[2])}/${Number(m[3])}`
+}
+
+function hourFromTimepickerHm(hm) {
+  const x = /^(\d{1,2}):(\d{2})$/.exec(String(hm || '').trim())
+  if (!x) return null
+  let hh = Number(x[1])
+  const mm = Number(x[2]) || 0
+  if (!Number.isFinite(hh) || hh < 0 || hh > 23) return null
+  if (mm >= 30) hh = Math.min(23, hh + 1)
+  return hh
+}
+
+function buildScheduleOrderDateWindowModal(callbackId, title) {
+  const today = denverYmd()
+  return {
+    type: 'modal',
+    callback_id: callbackId,
+    title: { type: 'plain_text', text: title },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'sch_ord_id',
+        label: { type: 'plain_text', text: 'Order ID' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'sch_ord_id_field',
+          placeholder: { type: 'plain_text', text: 'Firestore order id' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'sch_ord_date',
+        label: { type: 'plain_text', text: 'Date (Denver)' },
+        element: {
+          type: 'datepicker',
+          action_id: 'sch_ord_date_field',
+          initial_date: today,
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'sch_ord_window',
+        label: { type: 'plain_text', text: 'Window' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'sch_ord_window_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 2pm-4pm' },
+        },
+      },
+    ],
+  }
+}
+
+function buildOpenslotsModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_OPENSLOTS_SUBMIT,
+    title: { type: 'plain_text', text: 'Open slots' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'sch_open_date',
+        label: { type: 'plain_text', text: 'Date (Denver)' },
+        element: {
+          type: 'datepicker',
+          action_id: 'sch_open_date_field',
+          initial_date: denverYmd(),
+        },
+      },
+    ],
+  }
+}
+
+function buildMyavailabilityModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_MYAVAIL_SUBMIT,
+    title: { type: 'plain_text', text: 'My availability' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'sch_avail_date',
+        label: { type: 'plain_text', text: 'Date (Denver)' },
+        element: {
+          type: 'datepicker',
+          action_id: 'sch_avail_date_field',
+          initial_date: denverYmd(),
+        },
+      },
+    ],
+  }
+}
+
+function buildBlockModalView(callbackId, title) {
+  const base = [
+    {
+      type: 'input',
+      block_id: 'sch_blk_date',
+      label: { type: 'plain_text', text: 'Date (Denver)' },
+      element: {
+        type: 'datepicker',
+        action_id: 'sch_blk_date_field',
+        initial_date: denverYmd(),
+      },
+    },
+    {
+      type: 'input',
+      block_id: 'sch_blk_start',
+      label: { type: 'plain_text', text: 'Start (local)' },
+      element: {
+        type: 'timepicker',
+        action_id: 'sch_blk_start_field',
+        initial_time: '09:00',
+      },
+    },
+    {
+      type: 'input',
+      block_id: 'sch_blk_end',
+      label: { type: 'plain_text', text: 'End (local)' },
+      element: {
+        type: 'timepicker',
+        action_id: 'sch_blk_end_field',
+        initial_time: '11:00',
+      },
+    },
+  ]
+  if (callbackId === MODAL_BLOCK_SUBMIT) {
+    base.push({
+      type: 'input',
+      block_id: 'sch_blk_reason',
+      optional: true,
+      label: { type: 'plain_text', text: 'Reason (optional)' },
+      element: {
+        type: 'plain_text_input',
+        action_id: 'sch_blk_reason_field',
+        placeholder: { type: 'plain_text', text: 'PTO, appointment, …' },
+      },
+    })
+  }
+  return {
+    type: 'modal',
+    callback_id: callbackId,
+    title: { type: 'plain_text', text: title },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: base,
+  }
 }
 
 function formatHourAmpm(h) {
@@ -485,16 +667,32 @@ async function tryHandleScheduleSlash(db, token, fleetChannel, form) {
   const command = String(form.command || '').trim()
   const text = String(form.text || '')
   const slackUserId = String(form.user_id || '')
+  const tid = String(form.trigger_id || '').trim()
 
   try {
     if (command === '/delivery') {
-      return await handleDeliveryPickup(db, botToken, ch, text, 'delivery')
+      return await openScheduleModal(
+        botToken,
+        tid,
+        buildScheduleOrderDateWindowModal(MODAL_DELIVERY_SUBMIT, 'Schedule delivery'),
+        'Opening delivery form…',
+      )
     }
     if (command === '/pickup') {
-      return await handleDeliveryPickup(db, botToken, ch, text, 'pickup')
+      return await openScheduleModal(
+        botToken,
+        tid,
+        buildScheduleOrderDateWindowModal(MODAL_PICKUP_SUBMIT, 'Schedule pickup'),
+        'Opening pickup form…',
+      )
     }
     if (command === '/reschedule') {
-      return await handleReschedule(db, botToken, ch, text)
+      return await openScheduleModal(
+        botToken,
+        tid,
+        buildScheduleOrderDateWindowModal(MODAL_RESCHEDULE_SUBMIT, 'Reschedule'),
+        'Opening reschedule form…',
+      )
     }
     if (command === '/schedule') {
       const ymd = denverYmd()
@@ -510,16 +708,31 @@ async function tryHandleScheduleSlash(db, token, fleetChannel, form) {
       return await handleUnscheduled(db, botToken, ch)
     }
     if (command === '/openslots') {
-      return await handleOpenslots(db, botToken, ch, text)
+      return await openScheduleModal(botToken, tid, buildOpenslotsModalView(), 'Opening open-slots form…')
     }
     if (command === '/block') {
-      return await handleBlock(db, botToken, ch, text, slackUserId)
+      return await openScheduleModal(
+        botToken,
+        tid,
+        buildBlockModalView(MODAL_BLOCK_SUBMIT, 'Block time'),
+        'Opening block form…',
+      )
     }
     if (command === '/unblock') {
-      return await handleUnblock(db, botToken, ch, text)
+      return await openScheduleModal(
+        botToken,
+        tid,
+        buildBlockModalView(MODAL_UNBLOCK_SUBMIT, 'Unblock time'),
+        'Opening unblock form…',
+      )
     }
     if (command === '/myavailability') {
-      return await handleMyavailability(db, botToken, ch, text)
+      return await openScheduleModal(
+        botToken,
+        tid,
+        buildMyavailabilityModalView(),
+        'Opening availability form…',
+      )
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -529,4 +742,154 @@ async function tryHandleScheduleSlash(db, token, fleetChannel, form) {
   return null
 }
 
-module.exports = { tryHandleScheduleSlash }
+function hourToAmPmToken(h) {
+  const n = Number(h)
+  if (!Number.isFinite(n) || n < 0 || n > 23) return '9am'
+  if (n === 0) return '12am'
+  if (n < 12) return `${n}am`
+  if (n === 12) return '12pm'
+  return `${n - 12}pm`
+}
+
+function schPostedOk(r) {
+  const t = String(r?.text || '')
+  return r?.response_type === 'ephemeral' && t.startsWith('Posted')
+}
+
+/**
+ * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
+ */
+async function tryHandleScheduleViewSubmission(db, token, envChannel, payload) {
+  if (payload.type !== 'view_submission') return { handled: false }
+  const cb = payload.view?.callback_id
+  const sched = new Set([
+    MODAL_DELIVERY_SUBMIT,
+    MODAL_PICKUP_SUBMIT,
+    MODAL_RESCHEDULE_SUBMIT,
+    MODAL_OPENSLOTS_SUBMIT,
+    MODAL_BLOCK_SUBMIT,
+    MODAL_UNBLOCK_SUBMIT,
+    MODAL_MYAVAIL_SUBMIT,
+  ])
+  if (!sched.has(cb)) return { handled: false }
+
+  const botToken = SLACK_BOT_TOKEN.value() || String(token || '').trim()
+  const ch =
+    String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+  const view = payload.view
+  const slackUserId = String(payload.user?.id || '')
+
+  try {
+    if (cb === MODAL_DELIVERY_SUBMIT || cb === MODAL_PICKUP_SUBMIT || cb === MODAL_RESCHEDULE_SUBMIT) {
+      const orderId = viewInputValue(view, 'sch_ord_id', 'sch_ord_id_field')
+      const dateIso = viewDatepickerValue(view, 'sch_ord_date', 'sch_ord_date_field')
+      const windowStr = viewInputValue(view, 'sch_ord_window', 'sch_ord_window_field')
+      const errors = {}
+      if (!orderId) errors.sch_ord_id = 'Enter an order id.'
+      if (!dateIso) errors.sch_ord_date = 'Pick a date.'
+      if (!windowStr) errors.sch_ord_window = 'Enter a window (e.g. 2pm-4pm).'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const mmdd = ymdIsoToMmDdSlash(dateIso)
+      const slashText = `${orderId} ${mmdd} ${windowStr}`
+      let r
+      if (cb === MODAL_RESCHEDULE_SUBMIT) r = await handleReschedule(db, botToken, ch, slashText)
+      else if (cb === MODAL_DELIVERY_SUBMIT) r = await handleDeliveryPickup(db, botToken, ch, slashText, 'delivery')
+      else r = await handleDeliveryPickup(db, botToken, ch, slashText, 'pickup')
+      if (schPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { sch_ord_window: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_OPENSLOTS_SUBMIT) {
+      const dateIso = viewDatepickerValue(view, 'sch_open_date', 'sch_open_date_field')
+      if (!dateIso) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { sch_open_date: 'Pick a date.' } },
+        }
+      }
+      const mmdd = ymdIsoToMmDdSlash(dateIso)
+      const r = await handleOpenslots(db, botToken, ch, mmdd)
+      if (schPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { sch_open_date: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_MYAVAIL_SUBMIT) {
+      const dateIso = viewDatepickerValue(view, 'sch_avail_date', 'sch_avail_date_field')
+      if (!dateIso) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { sch_avail_date: 'Pick a date.' } },
+        }
+      }
+      const mmdd = ymdIsoToMmDdSlash(dateIso)
+      const r = await handleMyavailability(db, botToken, ch, mmdd)
+      if (schPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { sch_avail_date: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_BLOCK_SUBMIT || cb === MODAL_UNBLOCK_SUBMIT) {
+      const dateIso = viewDatepickerValue(view, 'sch_blk_date', 'sch_blk_date_field')
+      const startHm = viewTimepickerValue(view, 'sch_blk_start', 'sch_blk_start_field')
+      const endHm = viewTimepickerValue(view, 'sch_blk_end', 'sch_blk_end_field')
+      const reason =
+        cb === MODAL_BLOCK_SUBMIT
+          ? viewInputValue(view, 'sch_blk_reason', 'sch_blk_reason_field')
+          : ''
+      const errors = {}
+      if (!dateIso) errors.sch_blk_date = 'Pick a date.'
+      if (!startHm) errors.sch_blk_start = 'Pick a start time.'
+      if (!endHm) errors.sch_blk_end = 'Pick an end time.'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const mmdd = ymdIsoToMmDdSlash(dateIso)
+      const sh = hourFromTimepickerHm(startHm)
+      const eh = hourFromTimepickerHm(endHm)
+      if (sh == null || eh == null) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { sch_blk_start: 'Invalid time selection.' } },
+        }
+      }
+      const slashText = [mmdd, hourToAmPmToken(sh), hourToAmPmToken(eh), reason].filter(Boolean).join(' ')
+      const r =
+        cb === MODAL_BLOCK_SUBMIT
+          ? await handleBlock(db, botToken, ch, slashText, slackUserId)
+          : await handleUnblock(db, botToken, ch, slashText)
+      if (schPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { sch_blk_date: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+  } catch (e) {
+    console.error('scheduleViewSubmission', cb, e)
+    return {
+      handled: true,
+      kind: 'json',
+      body: {
+        response_action: 'errors',
+        errors: { sch_ord_id: e instanceof Error ? e.message : String(e) },
+      },
+    }
+  }
+
+  return { handled: false }
+}
+
+module.exports = { tryHandleScheduleSlash, tryHandleScheduleViewSubmission }

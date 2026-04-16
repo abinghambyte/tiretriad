@@ -14,6 +14,9 @@ const { tryHandleCrmSlash } = require('./crmSlackCommands')
 const { tryHandlePriceIntelSlash } = require('./priceIntelSlack')
 
 const MODAL_CREDIT_CHARGE_EDIT = 'credit_modal_charge_edit'
+/** Initial /charge modal — submit opens same preview as `/charge [qty] [mspn]`. */
+const MODAL_CHARGE_SUBMIT = 'charge_modal_submit'
+const MODAL_PAYMENT_SUBMIT = 'payment_modal_submit'
 
 const CREDIT_REF = (db) => db.collection('meta').doc('creditTracker')
 
@@ -179,6 +182,60 @@ function buildChargeConfirmationBlocks(draft, afterAvailable) {
   ]
 }
 
+function buildPaymentModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_PAYMENT_SUBMIT,
+    title: { type: 'plain_text', text: 'Record payment' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'payment_modal_amount',
+        label: { type: 'plain_text', text: 'Amount (USD)' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'payment_modal_amount_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 2000' },
+        },
+      },
+    ],
+  }
+}
+
+function buildChargeInitialModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_CHARGE_SUBMIT,
+    title: { type: 'plain_text', text: 'New charge' },
+    submit: { type: 'plain_text', text: 'Preview' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'charge_modal_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'charge_modal_mspn_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 03363' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'charge_modal_qty',
+        label: { type: 'plain_text', text: 'Quantity' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'charge_modal_qty_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 4' },
+        },
+      },
+    ],
+  }
+}
+
 function chargeEditModalView(encodedDraft) {
   const d = decodeChargeDraft(encodedDraft)
   const ppt = d ? Number(d.pricePerTire) || 0 : 0
@@ -223,33 +280,38 @@ function chargeEditModalView(encodedDraft) {
   }
 }
 
-async function handleSlashCharge(db, token, text) {
-  const parts = String(text || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  if (parts.length < 2) {
+/**
+ * Build charge preview + post to fleet channel. Used by `/charge` and charge modal submit.
+ * @returns {Promise<{ ok: true, ephemeral: string } | { ok: false, ephemeral: string, modalErrors?: Record<string, string> }>}
+ */
+async function runChargePreviewFromQtyMspn(db, token, qty, mspn) {
+  const id = String(mspn || '').trim()
+  if (!Number.isFinite(qty) || qty < 1 || !id) {
+    const modalErrors = {}
+    if (!id) modalErrors.charge_modal_mspn = 'Enter an MSPN.'
+    if (!Number.isFinite(qty) || qty < 1) modalErrors.charge_modal_qty = 'Enter a valid quantity (1+).'
     return {
-      response_type: 'ephemeral',
-      text: 'Usage: `/charge [qty] [mspn]` — example: `/charge 4 03363`',
+      ok: false,
+      ephemeral: 'Invalid quantity or MSPN.',
+      modalErrors,
     }
   }
-  const qty = Math.floor(Number(parts[0]))
-  const mspn = String(parts[1] || '').trim()
-  if (!Number.isFinite(qty) || qty < 1 || !mspn) {
-    return { response_type: 'ephemeral', text: 'Invalid quantity or MSPN.' }
-  }
 
-  const tireSnap = await db.collection('tires').doc(mspn).get()
+  const tireSnap = await db.collection('tires').doc(id).get()
   if (!tireSnap.exists) {
-    return { response_type: 'ephemeral', text: `No tire found for MSPN \`${mspn}\`.` }
+    const msg = `No tire found for MSPN \`${id}\`.`
+    return {
+      ok: false,
+      ephemeral: msg,
+      modalErrors: { charge_modal_mspn: `No tire found for MSPN \`${id}\`.` },
+    }
   }
   const tire = tireSnap.data() || {}
   const catalogBuy = tireCatalogBuyNumber(tire)
   const fet = Number(tire.fet) || 0
   const description = String(tire.description || tire.tread || 'Tire').trim() || 'Tire'
 
-  const lastOrder = await latestOrderForMspn(db, mspn)
+  const lastOrder = await latestOrderForMspn(db, id)
   let pricePerTire = catalogBuy
   if (
     lastOrder &&
@@ -262,9 +324,12 @@ async function handleSlashCharge(db, token, text) {
 
   const credit = await loadCredit(db)
   if (!credit || credit.cardLimit == null) {
+    const msg =
+      'Credit tracker is not configured. Create `meta/creditTracker` in Firestore (see repo script).'
     return {
-      response_type: 'ephemeral',
-      text: 'Credit tracker is not configured. Create `meta/creditTracker` in Firestore (see repo script).',
+      ok: false,
+      ephemeral: msg,
+      modalErrors: { charge_modal_mspn: msg },
     }
   }
 
@@ -273,15 +338,18 @@ async function handleSlashCharge(db, token, text) {
 
   const fleetCh = String(SLACK_CHANNEL_ID.value() || '').trim()
   if (!token || !fleetCh) {
+    const msg =
+      'Set Secret Manager `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` so charge previews can be posted.'
     return {
-      response_type: 'ephemeral',
-      text: 'Set Secret Manager `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` so charge previews can be posted.',
+      ok: false,
+      ephemeral: msg,
+      modalErrors: { charge_modal_mspn: msg },
     }
   }
 
   const draft = {
     qty,
-    mspn,
+    mspn: id,
     catalogBuy,
     pricePerTire,
     fet,
@@ -292,23 +360,56 @@ async function handleSlashCharge(db, token, text) {
   try {
     await slackApiPost(token, 'chat.postMessage', {
       channel: fleetCh,
-      text: `Charge preview · ${formatQty(qty)}×${mspn} · ${formatCurrency(total)}`,
+      text: `Charge preview · ${formatQty(qty)}×${id} · ${formatCurrency(total)}`,
       blocks,
     })
   } catch (e) {
     console.error('credit charge postMessage', e)
+    const msg = `Could not post to #fleet-ops: ${e?.message || 'Slack API error'}`
     return {
-      response_type: 'ephemeral',
-      text: `Could not post to #fleet-ops: ${e?.message || 'Slack API error'}`,
+      ok: false,
+      ephemeral: msg,
+      modalErrors: { charge_modal_qty: msg },
     }
   }
-  return { response_type: 'ephemeral', text: 'Posted charge preview to #fleet-ops.' }
+  return { ok: true, ephemeral: 'Posted charge preview to #fleet-ops.' }
 }
 
-async function handleSlashPayment(db, token, channel, text, userName) {
-  const amt = Number(String(text || '').trim().split(/\s+/)[0])
+/**
+ * @param {import('firebase-admin/firestore').Firestore} db
+ * @param {string} token
+ * @param {Record<string, string>} form — slash body (needs trigger_id for modal)
+ */
+async function handleSlashCharge(db, token, _text, form) {
+  const triggerId = String(form?.trigger_id || '').trim()
+  if (!triggerId) {
+    return { response_type: 'ephemeral', text: 'Missing Slack trigger — try `/charge` again from Slack.' }
+  }
+  try {
+    await slackViewsOpen(token, triggerId, buildChargeInitialModalView())
+    return {
+      response_type: 'ephemeral',
+      text: 'Opening charge form — enter MSPN and quantity, then submit to preview.',
+    }
+  } catch (e) {
+    console.error('charge views.open', e)
+    return {
+      response_type: 'ephemeral',
+      text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+}
+
+/**
+ * @returns {Promise<{ ok: true } | { ok: false, ephemeral: string, modalErrors?: Record<string, string> }>}
+ */
+async function recordPaymentAmount(db, token, channel, amt, userName) {
   if (!Number.isFinite(amt) || amt <= 0) {
-    return { response_type: 'ephemeral', text: 'Usage: `/payment [amount]` — example: `/payment 2000`' }
+    return {
+      ok: false,
+      ephemeral: 'Invalid amount.',
+      modalErrors: { payment_modal_amount: 'Enter a valid positive amount.' },
+    }
   }
 
   const ref = CREDIT_REF(db)
@@ -321,7 +422,8 @@ async function handleSlashPayment(db, token, channel, text, userName) {
 
   const pre = await ref.get()
   if (!pre.exists) {
-    return { response_type: 'ephemeral', text: 'Credit tracker doc missing (`meta/creditTracker`).' }
+    const msg = 'Credit tracker doc missing (`meta/creditTracker`).'
+    return { ok: false, ephemeral: msg, modalErrors: { payment_modal_amount: msg } }
   }
 
   let newBal = 0
@@ -344,11 +446,13 @@ async function handleSlashPayment(db, token, channel, text, userName) {
     })
   } catch (e) {
     console.error('credit payment tx', e)
-    return { response_type: 'ephemeral', text: 'Could not record payment — try again.' }
+    const msg = 'Could not record payment — try again.'
+    return { ok: false, ephemeral: msg, modalErrors: { payment_modal_amount: msg } }
   }
 
+  const postCh = channel || String(SLACK_CHANNEL_ID.value() || '').trim()
   await slackApiPost(token, 'chat.postMessage', {
-    channel: channel || String(SLACK_CHANNEL_ID.value() || '').trim(),
+    channel: postCh,
     text: `Payment ${formatCurrency(amt)} recorded`,
     blocks: [
       {
@@ -361,7 +465,24 @@ async function handleSlashPayment(db, token, channel, text, userName) {
     ],
   })
 
-  return { response_type: 'ephemeral', text: 'Payment recorded in #fleet-ops.' }
+  return { ok: true }
+}
+
+async function handleSlashPayment(db, token, channel, _text, userName, form) {
+  const triggerId = String(form?.trigger_id || '').trim()
+  if (!triggerId) {
+    return { response_type: 'ephemeral', text: 'Missing Slack trigger — try `/payment` again from Slack.' }
+  }
+  try {
+    await slackViewsOpen(token, triggerId, buildPaymentModalView())
+    return { response_type: 'ephemeral', text: 'Opening payment form…' }
+  } catch (e) {
+    console.error('payment views.open', e)
+    return {
+      response_type: 'ephemeral',
+      text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
 }
 
 async function handleSlashBalance(db, token, envChannel) {
@@ -464,10 +585,10 @@ async function handleCreditSlashCommand(db, token, envChannel, form) {
   if (priceIntelResp) return priceIntelResp
 
   if (command === '/charge') {
-    return handleSlashCharge(db, botToken, text)
+    return handleSlashCharge(db, botToken, text, form)
   }
   if (command === '/payment') {
-    return handleSlashPayment(db, botToken, channel, text, userName)
+    return handleSlashPayment(db, botToken, channel, text, userName, form)
   }
   if (command === '/balance') {
     return handleSlashBalance(db, botToken, envChannel)
@@ -603,6 +724,61 @@ function inputValue(view, blockId, actionId) {
  */
 async function tryHandleCreditViewSubmission(db, token, envChannel, payload) {
   if (payload.type !== 'view_submission') return { handled: false }
+
+  if (payload.view?.callback_id === MODAL_PAYMENT_SUBMIT) {
+    const view = payload.view
+    const amt = Number(inputValue(view, 'payment_modal_amount', 'payment_modal_amount_field'))
+    const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
+    const ch = String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+    const res = await recordPaymentAmount(db, token, ch, amt, userName)
+    if (!res.ok) {
+      if (res.modalErrors && Object.keys(res.modalErrors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors: res.modalErrors } }
+      }
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { payment_modal_amount: res.ephemeral || 'Could not record payment.' },
+        },
+      }
+    }
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+  }
+
+  if (payload.view?.callback_id === MODAL_CHARGE_SUBMIT) {
+    const view = payload.view
+    const mspn = inputValue(view, 'charge_modal_mspn', 'charge_modal_mspn_field')
+    const qtyRaw = inputValue(view, 'charge_modal_qty', 'charge_modal_qty_field')
+    const qty = Math.floor(Number(qtyRaw))
+    const errors = {}
+    if (!String(mspn || '').trim()) {
+      errors.charge_modal_mspn = 'Enter an MSPN.'
+    }
+    if (!Number.isFinite(qty) || qty < 1) {
+      errors.charge_modal_qty = 'Enter a valid quantity (1+).'
+    }
+    if (Object.keys(errors).length) {
+      return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+    }
+    const result = await runChargePreviewFromQtyMspn(db, token, qty, mspn)
+    if (!result.ok && result.modalErrors && Object.keys(result.modalErrors).length) {
+      return { handled: true, kind: 'json', body: { response_action: 'errors', errors: result.modalErrors } }
+    }
+    if (!result.ok) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: {
+          response_action: 'errors',
+          errors: { charge_modal_qty: result.ephemeral || 'Could not post charge preview.' },
+        },
+      }
+    }
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+  }
+
   if (payload.view?.callback_id !== MODAL_CREDIT_CHARGE_EDIT) return { handled: false }
 
   const view = payload.view
@@ -691,6 +867,8 @@ module.exports = {
   tryHandleCreditBlockActions,
   tryHandleCreditViewSubmission,
   MODAL_CREDIT_CHARGE_EDIT,
+  MODAL_CHARGE_SUBMIT,
+  MODAL_PAYMENT_SUBMIT,
   availableBuyingPower,
   sumPendingTotals,
   sumRefundPipeline,

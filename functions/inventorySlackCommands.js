@@ -5,6 +5,12 @@ const crypto = require('crypto')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatPercent, formatQty } = require('./format')
 const { SLACK_SECRETS, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_KYLE_ID } = require('./slackSecrets')
+const { slackViewsOpen, viewInputValue } = require('./slackModalShared')
+
+const MODAL_INTAKE_SUBMIT = 'intake_modal_submit'
+const MODAL_REORDER_SUBMIT = 'reorder_modal_submit'
+const MODAL_VELOCITY_SUBMIT = 'velocity_modal_submit'
+const MODAL_FORECAST_SUBMIT = 'forecast_modal_submit'
 
 const INVENTORY_COMMANDS = new Set([
   '/intake',
@@ -45,6 +51,128 @@ async function postToFleet(token, fleetChannel, text, blocks) {
     text,
     blocks,
   })
+}
+
+async function openInventoryModal(botToken, triggerId, view, msg) {
+  const tid = String(triggerId || '').trim()
+  if (!tid) return { response_type: 'ephemeral', text: 'Missing Slack trigger — try the command again.' }
+  try {
+    await slackViewsOpen(botToken, tid, view)
+    return { response_type: 'ephemeral', text: msg }
+  } catch (e) {
+    return {
+      response_type: 'ephemeral',
+      text: `Could not open form: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+}
+
+function buildIntakeModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_INTAKE_SUBMIT,
+    title: { type: 'plain_text', text: 'Intake' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'intake_modal_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'intake_modal_mspn_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 03363' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'intake_modal_delta',
+        label: { type: 'plain_text', text: 'Qty delta (+ / −)' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'intake_modal_delta_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 4 or -2' },
+        },
+      },
+    ],
+  }
+}
+
+function buildReorderModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_REORDER_SUBMIT,
+    title: { type: 'plain_text', text: 'Reorder' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'reorder_modal_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'reorder_modal_mspn_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 03363' },
+        },
+      },
+      {
+        type: 'input',
+        block_id: 'reorder_modal_qty',
+        label: { type: 'plain_text', text: 'Quantity' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'reorder_modal_qty_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 8' },
+        },
+      },
+    ],
+  }
+}
+
+function buildVelocityModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_VELOCITY_SUBMIT,
+    title: { type: 'plain_text', text: 'Velocity' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'velocity_modal_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'velocity_modal_mspn_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 03363' },
+        },
+      },
+    ],
+  }
+}
+
+function buildForecastModalView() {
+  return {
+    type: 'modal',
+    callback_id: MODAL_FORECAST_SUBMIT,
+    title: { type: 'plain_text', text: 'Forecast' },
+    submit: { type: 'plain_text', text: 'Submit' },
+    close: { type: 'plain_text', text: 'Cancel' },
+    blocks: [
+      {
+        type: 'input',
+        block_id: 'forecast_modal_mspn',
+        label: { type: 'plain_text', text: 'MSPN' },
+        element: {
+          type: 'plain_text_input',
+          action_id: 'forecast_modal_mspn_field',
+          placeholder: { type: 'plain_text', text: 'e.g. 03363' },
+        },
+      },
+    ],
+  }
 }
 
 function splitCommandText(text) {
@@ -88,6 +216,10 @@ async function handleIntake(db, token, fleetChannel, text) {
   }
   const mspn = String(parts[0] || '').trim()
   const delta = Number(parts[1])
+  return executeIntake(db, token, fleetChannel, mspn, delta)
+}
+
+async function executeIntake(db, token, fleetChannel, mspn, delta) {
   if (!mspn || !Number.isFinite(delta)) {
     return { response_type: 'ephemeral', text: 'Invalid MSPN or qty.' }
   }
@@ -118,13 +250,7 @@ async function handleIntake(db, token, fleetChannel, text) {
   return { response_type: 'ephemeral', text: 'Posted intake to channel.' }
 }
 
-async function handleReorder(db, token, fleetChannel, text, form) {
-  const parts = splitCommandText(text)
-  if (parts.length < 2) {
-    return { response_type: 'ephemeral', text: 'Usage: `/reorder [mspn] [qty]`' }
-  }
-  const mspn = String(parts[0] || '').trim()
-  const qty = Number(parts[1])
+async function executeReorder(db, token, fleetChannel, mspn, qty, requestedBy, requestedBySlackId) {
   if (!mspn || !Number.isFinite(qty) || qty <= 0) {
     return { response_type: 'ephemeral', text: 'Invalid MSPN or qty.' }
   }
@@ -134,8 +260,8 @@ async function handleReorder(db, token, fleetChannel, text, form) {
     mspn,
     qty,
     requestedAt: Timestamp.now(),
-    requestedBy: String(form.user_name || form.user_id || '').slice(0, 120),
-    requestedBySlackId: String(form.user_id || '').slice(0, 32),
+    requestedBy: String(requestedBy || '').slice(0, 120),
+    requestedBySlackId: String(requestedBySlackId || '').slice(0, 32),
   }
   await ref.set(
     {
@@ -156,6 +282,24 @@ async function handleReorder(db, token, fleetChannel, text, form) {
     { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
   ])
   return { response_type: 'ephemeral', text: 'Posted reorder to channel.' }
+}
+
+async function handleReorder(db, token, fleetChannel, text, form) {
+  const parts = splitCommandText(text)
+  if (parts.length < 2) {
+    return { response_type: 'ephemeral', text: 'Usage: `/reorder [mspn] [qty]`' }
+  }
+  const mspn = String(parts[0] || '').trim()
+  const qty = Number(parts[1])
+  return executeReorder(
+    db,
+    token,
+    fleetChannel,
+    mspn,
+    qty,
+    String(form.user_name || form.user_id || ''),
+    String(form.user_id || ''),
+  )
 }
 
 async function handleLowstock(db, token, fleetChannel) {
@@ -420,13 +564,14 @@ async function tryHandleInventorySlash(db, token, fleetChannel, form) {
   }
 
   const text = String(form.text || '')
+  const tid = String(form.trigger_id || '').trim()
 
   try {
     if (command === '/intake') {
-      return await handleIntake(db, botToken, ch, text)
+      return await openInventoryModal(botToken, tid, buildIntakeModalView(), 'Opening intake form…')
     }
     if (command === '/reorder') {
-      return await handleReorder(db, botToken, ch, text, form)
+      return await openInventoryModal(botToken, tid, buildReorderModalView(), 'Opening reorder form…')
     }
     if (command === '/lowstock') {
       return await handleLowstock(db, botToken, ch)
@@ -438,13 +583,13 @@ async function tryHandleInventorySlash(db, token, fleetChannel, form) {
       return await handleSlowmovers(db, botToken, ch)
     }
     if (command === '/velocity') {
-      return await handleVelocity(db, botToken, ch, text)
+      return await openInventoryModal(botToken, tid, buildVelocityModalView(), 'Opening velocity form…')
     }
     if (command === '/bestsellers') {
       return await handleBestsellers(db, botToken, ch, text)
     }
     if (command === '/forecast') {
-      return await handleForecast(db, botToken, ch, text)
+      return await openInventoryModal(botToken, tid, buildForecastModalView(), 'Opening forecast form…')
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -454,4 +599,109 @@ async function tryHandleInventorySlash(db, token, fleetChannel, form) {
   return null
 }
 
-module.exports = { tryHandleInventorySlash }
+function invPostedOk(r) {
+  const t = String(r?.text || '')
+  return r?.response_type === 'ephemeral' && t.startsWith('Posted')
+}
+
+/**
+ * @returns {Promise<{ handled: boolean, kind?: string, body?: object }>}
+ */
+async function tryHandleInventoryViewSubmission(db, token, envChannel, payload) {
+  if (payload.type !== 'view_submission') return { handled: false }
+  const cb = payload.view?.callback_id
+  const inv = new Set([MODAL_INTAKE_SUBMIT, MODAL_REORDER_SUBMIT, MODAL_VELOCITY_SUBMIT, MODAL_FORECAST_SUBMIT])
+  if (!inv.has(cb)) return { handled: false }
+
+  const botToken = SLACK_BOT_TOKEN.value() || String(token || '').trim()
+  const ch =
+    String(envChannel || '').trim() || String(SLACK_CHANNEL_ID.value() || '').trim()
+  const view = payload.view
+  const userName = String(payload.user?.username || payload.user?.name || 'slack')
+  const userId = String(payload.user?.id || '')
+
+  try {
+    if (cb === MODAL_INTAKE_SUBMIT) {
+      const mspn = viewInputValue(view, 'intake_modal_mspn', 'intake_modal_mspn_field')
+      const delta = Number(viewInputValue(view, 'intake_modal_delta', 'intake_modal_delta_field'))
+      const errors = {}
+      if (!mspn) errors.intake_modal_mspn = 'Enter an MSPN.'
+      if (!Number.isFinite(delta)) errors.intake_modal_delta = 'Enter a numeric qty delta.'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const r = await executeIntake(db, botToken, ch, mspn, delta)
+      if (invPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { intake_modal_mspn: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_REORDER_SUBMIT) {
+      const mspn = viewInputValue(view, 'reorder_modal_mspn', 'reorder_modal_mspn_field')
+      const qty = Number(viewInputValue(view, 'reorder_modal_qty', 'reorder_modal_qty_field'))
+      const errors = {}
+      if (!mspn) errors.reorder_modal_mspn = 'Enter an MSPN.'
+      if (!Number.isFinite(qty) || qty <= 0) errors.reorder_modal_qty = 'Enter a positive quantity.'
+      if (Object.keys(errors).length) {
+        return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+      }
+      const r = await executeReorder(db, botToken, ch, mspn, qty, userName, userId)
+      if (invPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { reorder_modal_mspn: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_VELOCITY_SUBMIT) {
+      const mspn = viewInputValue(view, 'velocity_modal_mspn', 'velocity_modal_mspn_field')
+      if (!mspn) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { velocity_modal_mspn: 'Enter an MSPN.' } },
+        }
+      }
+      const r = await handleVelocity(db, botToken, ch, mspn)
+      if (invPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { velocity_modal_mspn: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+    if (cb === MODAL_FORECAST_SUBMIT) {
+      const mspn = viewInputValue(view, 'forecast_modal_mspn', 'forecast_modal_mspn_field')
+      if (!mspn) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { forecast_modal_mspn: 'Enter an MSPN.' } },
+        }
+      }
+      const r = await handleForecast(db, botToken, ch, mspn)
+      if (invPostedOk(r)) return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { forecast_modal_mspn: String(r?.text || 'Error').slice(0, 250) } },
+      }
+    }
+  } catch (e) {
+    console.error('inventoryViewSubmission', cb, e)
+    return {
+      handled: true,
+      kind: 'json',
+      body: {
+        response_action: 'errors',
+        errors: { intake_modal_mspn: e instanceof Error ? e.message : String(e) },
+      },
+    }
+  }
+
+  return { handled: false }
+}
+
+module.exports = { tryHandleInventorySlash, tryHandleInventoryViewSubmission }

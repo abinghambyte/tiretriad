@@ -14,7 +14,13 @@ const {
   tryHandleCreditBlockActions,
   tryHandleCreditViewSubmission,
 } = require('./creditTrackerSlack')
-const { tryHandlePriceIntelBlockActions } = require('./priceIntelSlack')
+const { tryHandleFinanceViewSubmission } = require('./financeSlackCommands')
+const { tryHandleCrmViewSubmission } = require('./crmSlackCommands')
+const { tryHandleLookupUtilityViewSubmission } = require('./lookupUtilitySlackCommands')
+const { tryHandleScheduleViewSubmission } = require('./scheduleSlackCommands')
+const { tryHandleFieldViewSubmission } = require('./fieldSlackCommands')
+const { tryHandleInventoryViewSubmission } = require('./inventorySlackCommands')
+const { tryHandlePriceIntelBlockActions, tryHandlePriceIntelViewSubmission } = require('./priceIntelSlack')
 const {
   tryHandleSmsReplyBlockActions,
   tryHandleSmsReplyViewSubmission,
@@ -653,6 +659,20 @@ async function handleSlackPayload(db, token, envChannel, payload) {
   if (payload.type === 'view_submission') {
     const sms = await tryHandleSmsReplyViewSubmission(db, token, envChannel, payload)
     if (sms.handled) return sms
+    const fin = await tryHandleFinanceViewSubmission(db, token, envChannel, payload)
+    if (fin.handled) return fin
+    const crm = await tryHandleCrmViewSubmission(db, token, envChannel, payload)
+    if (crm.handled) return crm
+    const lu = await tryHandleLookupUtilityViewSubmission(db, token, envChannel, payload)
+    if (lu.handled) return lu
+    const sch = await tryHandleScheduleViewSubmission(db, token, envChannel, payload)
+    if (sch.handled) return sch
+    const fld = await tryHandleFieldViewSubmission(db, token, envChannel, payload)
+    if (fld.handled) return fld
+    const inv = await tryHandleInventoryViewSubmission(db, token, envChannel, payload)
+    if (inv.handled) return inv
+    const pir = await tryHandlePriceIntelViewSubmission(db, token, envChannel, payload)
+    if (pir.handled) return pir
     const cr = await tryHandleCreditViewSubmission(db, token, envChannel, payload)
     if (cr.handled) return cr
     return handleViewSubmission(db, token, envChannel, payload)
