@@ -1,3 +1,7 @@
+# UI audit — local Playwright artifacts (never commit)
+docs/audit-screenshots/
+docs/audit-storage/
+
 # Logs
 logs
 *.log
