@@ -927,17 +927,17 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
       {selected ? (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-md sk-modal-backdrop-enter"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-md sk-modal-backdrop-enter p-4"
           role="dialog"
           aria-modal
           onClick={closeEditor}
         >
           <div
-            className="sk-panel-slide-in flex h-full w-full max-w-2xl flex-col border-l border-zinc-800/90 bg-zinc-950 shadow-2xl shadow-black/40"
+            className="flex w-full max-w-5xl flex-col rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60 max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* ── Scrollable body ─────────────────────────── */}
-            <div className="flex-1 overflow-y-auto p-5 pb-2">
+            <div className="flex-1 overflow-y-auto p-6 pb-2">
 
               {/* Header — full width */}
               <div className="flex items-start justify-between gap-3">
@@ -957,18 +957,17 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 </button>
               </div>
 
-              {/* ── Two-column body on md+ ────────────────── */}
-              <div className="mt-4 md:grid md:grid-cols-[1fr_1.5fr] md:gap-6">
+              {/* ── Three-column body on lg+, two on md ─── */}
+              <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
 
-                {/* Left column: invite + role */}
-                <div className="space-y-4">
-
-                  {/* Invite link */}
+                {/* Col 1: invite link */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Invite</p>
                   {panelInviteUrl ? (
                     <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
-                          Active invite link
+                          Active link
                         </p>
                         <button
                           type="button"
@@ -996,38 +995,37 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                       ) : null}
                     </div>
                   )}
-
-                  {/* Role row */}
-                  <div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <label className="mb-1.5 block text-xs text-zinc-500">Role</label>
-                        <select
-                          value={roleDraft}
-                          onChange={(e) => setRoleDraft(e.target.value)}
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-                        >
-                          <option value="admin">{crewTagFromRole('admin')}</option>
-                          <option value="supplier">{crewTagFromRole('supplier')}</option>
-                          <option value="mechanic">{crewTagFromRole('mechanic')}</option>
-                          <option value="viewer">{crewTagFromRole('viewer')}</option>
-                        </select>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={applyRoleDefaults}
-                        disabled={saving}
-                        className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
-                      >
-                        Apply defaults
-                      </button>
-                    </div>
-                  </div>
-
                 </div>
 
-                {/* Right column: permission matrix */}
-                <div className="mt-5 md:mt-0">
+                {/* Col 2: role */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Role</p>
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <select
+                        value={roleDraft}
+                        onChange={(e) => setRoleDraft(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                      >
+                        <option value="admin">{crewTagFromRole('admin')}</option>
+                        <option value="supplier">{crewTagFromRole('supplier')}</option>
+                        <option value="mechanic">{crewTagFromRole('mechanic')}</option>
+                        <option value="viewer">{crewTagFromRole('viewer')}</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={applyRoleDefaults}
+                      disabled={saving}
+                      className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
+                    >
+                      Apply defaults
+                    </button>
+                  </div>
+                </div>
+
+                {/* Col 3: permission matrix (spans full width on md, own col on lg) */}
+                <div className="md:col-span-2 lg:col-span-1">
                   <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
                 </div>
 
