@@ -89,6 +89,7 @@ function buildOrderIdModal(callbackId, title, hint) {
         element: {
           type: 'plain_text_input',
           action_id: 'fld_ord_id_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: hint },
         },
       },
@@ -111,6 +112,7 @@ function buildSmsModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'fld_sms_ord_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Firestore order id' },
         },
       },
@@ -713,7 +715,7 @@ async function tryHandleFieldViewSubmission(db, token, envChannel, payload) {
     return {
       handled: true,
       kind: 'json',
-      body: viewSubmissionErrorsBody(fieldViewErrorBlockId(cb), e),
+      body: viewSubmissionErrorsBody(fieldViewErrorBlockId(cb), e, view),
     }
   }
 

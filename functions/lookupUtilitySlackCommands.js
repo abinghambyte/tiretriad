@@ -162,6 +162,7 @@ function buildStockModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'stock_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
@@ -192,6 +193,7 @@ function buildMarginsModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'margins_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Leave blank for top margins (catalog)' },
         },
       },
@@ -214,6 +216,7 @@ function buildPricecheckModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'pricecheck_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
@@ -236,6 +239,7 @@ function buildCustomerModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'customer_modal_phone_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Phone (any format) or exact contact name' },
         },
       },
@@ -258,6 +262,7 @@ function buildNoteModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'note_modal_order_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Firestore order doc id' },
         },
       },
@@ -291,6 +296,7 @@ function buildSetlimitModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'setlimit_modal_amt_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Dollar amount, e.g. 50000' },
         },
       },
@@ -313,6 +319,7 @@ function buildSetquotaModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'setquota_modal_weekly_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 25000' },
         },
       },
@@ -323,6 +330,7 @@ function buildSetquotaModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'setquota_modal_monthly_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 100000' },
         },
       },
@@ -345,6 +353,7 @@ function buildDispatchModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'dispatch_modal_order_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Firestore order id' },
         },
       },

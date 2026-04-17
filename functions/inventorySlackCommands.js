@@ -82,6 +82,7 @@ function buildIntakeModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'intake_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
@@ -92,6 +93,7 @@ function buildIntakeModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'intake_modal_delta_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 4 or -2' },
         },
       },
@@ -114,6 +116,7 @@ function buildReorderModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'reorder_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
@@ -124,6 +127,7 @@ function buildReorderModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'reorder_modal_qty_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 8' },
         },
       },
@@ -146,6 +150,7 @@ function buildVelocityModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'velocity_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
@@ -168,6 +173,7 @@ function buildForecastModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'forecast_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },

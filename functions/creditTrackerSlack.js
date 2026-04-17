@@ -198,6 +198,7 @@ function buildPaymentModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'payment_modal_amount_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 2000' },
         },
       },
@@ -220,6 +221,7 @@ function buildChargeInitialModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'charge_modal_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 03363' },
         },
       },
@@ -230,6 +232,7 @@ function buildChargeInitialModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'charge_modal_qty_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 4' },
         },
       },
@@ -264,6 +267,7 @@ function chargeEditModalView(encodedDraft) {
         element: {
           type: 'plain_text_input',
           action_id: 'credit_edit_qty_field',
+          multiline: false,
           initial_value: d ? String(d.qty) : '1',
         },
       },
@@ -274,6 +278,7 @@ function chargeEditModalView(encodedDraft) {
         element: {
           type: 'plain_text_input',
           action_id: 'credit_edit_price_field',
+          multiline: false,
           initial_value: d ? ppt.toFixed(2) : '0',
         },
       },

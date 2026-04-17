@@ -174,7 +174,7 @@ features:
       should_escape: false
     - command: refreshprice
       url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
-      description: Run Gemini wholesale research for one MSPN
+      description: Gemini price research (modal MSPN, or text "all" for bulk catalog)
       should_escape: false
     - command: unconfirmpricing
       url: https://us-central1-skedaddle-inventory.cloudfunctions.net/slackActions
@@ -267,7 +267,7 @@ settings:
 #   There are NO per-command Cloud Function names for slash in this codebase.
 #   Slack must be configured so every command’s Request URL is that single URL.
 # - Optional runtime deps (handlers exist; may return ephemeral errors if unset):
-#   GEMINI_API_KEY — /refreshprice and price-intel flows; ANTHROPIC_API_KEY — /hype;
+#   GEMINI_API_KEY — /refreshprice (incl. "all" bulk) and price-intel flows; ANTHROPIC_API_KEY — /hype;
 #   SLACK_ADMIN_USER_IDS — /setlimit, /setquota; meta/creditTracker — /charge,
 #   /payment, /balance; credit tracker + channel for /balance fleet post.
 # - docs/AI-CONTEXT.md “Slack slash commands” list omits CRM (/crm, /log, /pipeline)

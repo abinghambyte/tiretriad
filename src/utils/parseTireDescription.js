@@ -9,6 +9,7 @@
  *   construction: string | null,
  *   rimDiameter: number | null,
  *   loadIndex: number | null,
+ *   loadIndexSecondary: number | null,
  *   speedRating: string | null,
  *   extraLoad: boolean,
  *   treadName: string,
@@ -36,6 +37,7 @@ export function parseDescription(desc) {
     construction: null,
     rimDiameter: null,
     loadIndex: null,
+    loadIndexSecondary: null,
     speedRating: null,
     extraLoad: false,
     treadName: raw,
@@ -105,6 +107,7 @@ export function parseDescription(desc) {
       construction: trailingLt ? 'LT' : null,
       rimDiameter: Number.isFinite(rim) ? rim : null,
       loadIndex: ls.loadIndex,
+      loadIndexSecondary: null,
       speedRating: ls.speedRating,
       extraLoad,
       treadName: ls.treadName,
@@ -112,6 +115,48 @@ export function parseDescription(desc) {
       flotationMid: String(fm[3]),
       trailingLt,
       ltPrefixedMetric: false,
+    }
+  }
+
+  // Compressed catalog metric: LT265/70R17/C112/109SATT/AKO3 (optional /C load range, dual load index + speed).
+  const compressedRe =
+    /^(LT|P)?(\d{2,3})\/(\d{2})(ZR|RF|HR|R|D|B)(\d{2}(?:\.\d)?)(?:\/([A-F]))?(\d{2,3}(?:\/\d{2,3})?)([A-Z]{1,3})(.*)$/i
+  const cm = raw.match(compressedRe)
+  if (cm) {
+    const ltPrefixedMetric = Boolean(cm[1] && /^LT$/i.test(cm[1]))
+    const width = Number(cm[2])
+    const aspectRatio = Number(cm[3])
+    const construction = String(cm[4] || '').toUpperCase()
+    const rim = Number(cm[5])
+    const loadStr = String(cm[7] || '')
+    const dual = loadStr
+      .split('/')
+      .map((x) => Number(String(x).trim()))
+      .filter((n) => Number.isFinite(n) && n > 0)
+    const loadIndex = dual.length ? dual[0] : null
+    const loadIndexSecondary = dual.length >= 2 ? dual[1] : null
+    const speedRating = String(cm[8] || '')
+      .toUpperCase()
+      .slice(0, 3)
+      .replace(/\s+/g, '') || null
+    const treadName = String(cm[9] || '')
+      .trim()
+      .replace(/^\s*XL\s+/i, '')
+      .trim()
+    return {
+      width: Number.isFinite(width) ? width : null,
+      aspectRatio: Number.isFinite(aspectRatio) ? aspectRatio : null,
+      construction: construction || null,
+      rimDiameter: Number.isFinite(rim) ? rim : null,
+      loadIndex,
+      loadIndexSecondary,
+      speedRating,
+      extraLoad,
+      treadName,
+      parseKind: 'metric',
+      flotationMid: null,
+      trailingLt: false,
+      ltPrefixedMetric,
     }
   }
 
@@ -141,6 +186,7 @@ export function parseDescription(desc) {
     construction: String(m[3] || '').toUpperCase(),
     rimDiameter: Number.isFinite(rim) ? rim : null,
     loadIndex: ls.loadIndex,
+    loadIndexSecondary: null,
     speedRating: ls.speedRating,
     extraLoad,
     treadName: ls.treadName,

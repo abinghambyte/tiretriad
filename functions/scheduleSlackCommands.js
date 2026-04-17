@@ -113,6 +113,7 @@ function buildScheduleOrderDateWindowModal(callbackId, title) {
         element: {
           type: 'plain_text_input',
           action_id: 'sch_ord_id_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Firestore order id' },
         },
       },
@@ -133,6 +134,7 @@ function buildScheduleOrderDateWindowModal(callbackId, title) {
         element: {
           type: 'plain_text_input',
           action_id: 'sch_ord_window_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 2pm-4pm' },
         },
       },
@@ -226,6 +228,7 @@ function buildBlockModalView(callbackId, title) {
       element: {
         type: 'plain_text_input',
         action_id: 'sch_blk_reason_field',
+        multiline: false,
         placeholder: { type: 'plain_text', text: 'PTO, appointment, …' },
       },
     })

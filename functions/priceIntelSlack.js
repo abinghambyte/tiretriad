@@ -3,7 +3,7 @@
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatQty } = require('./format')
 const { slackAdminUserIdsRawFromEnv, GEMINI_API_KEY, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID } = require('./slackSecrets')
-const { refreshSingleTirePrice, slackApiPost, escapeSlackMrkdwn } = require('./tirePriceResearch')
+const { refreshSingleTirePrice, runBulkPriceRefresh, slackApiPost, escapeSlackMrkdwn } = require('./tirePriceResearch')
 const { slackViewsOpen, viewInputValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_REFRESH_PRICE_SUBMIT = 'refreshprice_modal_submit'
@@ -91,26 +91,44 @@ async function openPiModal(botToken, triggerId, view, ackMsg) {
   }
 }
 
-function buildPiMspnModal(callbackId, title) {
+/**
+ * @param {string} callbackId
+ * @param {string} title
+ * @param {{ bulkCatalogTip?: boolean }} [opts]
+ */
+function buildPiMspnModal(callbackId, title, opts = {}) {
   const t = String(title || 'MSPN').slice(0, 24)
+  const blocks = [
+    {
+      type: 'input',
+      block_id: 'pi_mspn',
+      label: { type: 'plain_text', text: 'MSPN' },
+      element: {
+        type: 'plain_text_input',
+        action_id: 'pi_mspn_field',
+        multiline: false,
+        placeholder: { type: 'plain_text', text: 'Tire MSPN' },
+      },
+    },
+  ]
+  if (opts.bulkCatalogTip) {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: 'Tip: use `/refreshprice all` in this channel to refresh the entire catalog.',
+        },
+      ],
+    })
+  }
   return {
     type: 'modal',
     callback_id: callbackId,
     title: { type: 'plain_text', text: t },
     submit: { type: 'plain_text', text: 'Submit' },
     close: { type: 'plain_text', text: 'Cancel' },
-    blocks: [
-      {
-        type: 'input',
-        block_id: 'pi_mspn',
-        label: { type: 'plain_text', text: 'MSPN' },
-        element: {
-          type: 'plain_text_input',
-          action_id: 'pi_mspn_field',
-          placeholder: { type: 'plain_text', text: 'Tire MSPN' },
-        },
-      },
-    ],
+    blocks,
   }
 }
 
@@ -129,6 +147,7 @@ function buildConfirmPricingModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'pi_conf_mspn_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Tire MSPN' },
         },
       },
@@ -139,6 +158,7 @@ function buildConfirmPricingModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'pi_conf_price_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 142.50' },
         },
       },
@@ -365,10 +385,42 @@ async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
   }
 
   if (command === '/refreshprice') {
+    const slashText = String(form.text || '').trim().toLowerCase()
+    if (slashText === 'all') {
+      const authCheck = await resolveSlackUserAdminOrSupplier(db, String(form.user_id || ''))
+      if (!authCheck.allowed) {
+        return { response_type: 'ephemeral', text: '🔒 Admin or supplier access required.' }
+      }
+      const geminiKey = GEMINI_API_KEY.value()
+      if (!geminiKey || geminiKey === '-') {
+        return { response_type: 'ephemeral', text: '❌ GEMINI_API_KEY not configured.' }
+      }
+      const slack = { token: botToken, channel: postChannel }
+      if (botToken && postChannel) {
+        await slackApiPost(botToken, 'chat.postMessage', {
+          channel: postChannel,
+          text: '🔄 Bulk price refresh started across all ~1,160 tires. Results will post when complete.',
+        })
+      }
+      runBulkPriceRefresh(db, geminiKey, slack).catch((e) => {
+        console.error('runBulkPriceRefresh error', e)
+        const msg = e instanceof Error ? e.message : String(e)
+        if (botToken && postChannel) {
+          slackApiPost(botToken, 'chat.postMessage', {
+            channel: postChannel,
+            text: `❌ Bulk price refresh failed: ${escapeSlackMrkdwn(msg)}`,
+          }).catch(() => {})
+        }
+      })
+      return {
+        response_type: 'ephemeral',
+        text: 'Bulk catalog refresh running — watch the channel for progress and final counts.',
+      }
+    }
     return await openPiModal(
       botToken,
       tid,
-      buildPiMspnModal(MODAL_REFRESH_PRICE_SUBMIT, 'Refresh tire price'),
+      buildPiMspnModal(MODAL_REFRESH_PRICE_SUBMIT, 'Refresh tire price', { bulkCatalogTip: true }),
       'Opening refresh-price form…',
     )
   }

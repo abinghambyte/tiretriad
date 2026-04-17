@@ -13,9 +13,9 @@ import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 
 /** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
-const ROW_BASE_PX = 48
+const ROW_BASE_PX = 56
 /** Taller rows on narrow viewports for touch targets. */
-const ROW_MOBILE_BASE_PX = 52
+const ROW_MOBILE_BASE_PX = 60
 /** Extra height when CTS inline editor is open (preview line + grid + actions). */
 const ROW_CTS_EDITOR_EXTRA_PX = 220
 /** Max list viewport height (px). */
@@ -143,6 +143,22 @@ function marginPctTone(pct) {
   return t + 'text-emerald-300'
 }
 
+/** Best-effort two-line split when parseKind is still raw (catalog edge cases). */
+function splitRawDescription(raw) {
+  const r = String(raw || '').trim()
+  const m = r.match(
+    /^((?:LT|P)?\d{2,3}(?:[/X]\d{1,3}(?:\.\d+)?)?[A-Z]{1,2}\d{2}(?:LT)?(?:\/[A-F])?)\s*([0-9/]+[A-Z]{1,2})?\s*(.*)$/i,
+  )
+  if (m) {
+    const size = (m[1] || '').trim()
+    const loadSpeed = (m[2] || '').trim()
+    const tread = (m[3] || '').trim()
+    const primary = [size, loadSpeed].filter(Boolean).join(' · ')
+    return { primary: primary || r, secondary: tread || null }
+  }
+  return { primary: r, secondary: null }
+}
+
 const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
   const d = String(description ?? '').trim()
   const parsed = useMemo(() => parseDescription(d), [d])
@@ -162,7 +178,14 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
     parsed.flotationMid != null
 
   const loadParts = []
-  if (parsed.loadIndex != null) loadParts.push(String(parsed.loadIndex))
+  if (parsed.loadIndex != null) {
+    const li2 = parsed.loadIndexSecondary
+    if (li2 != null && Number.isFinite(li2)) {
+      loadParts.push(`${parsed.loadIndex}/${li2}`)
+    } else {
+      loadParts.push(String(parsed.loadIndex))
+    }
+  }
   if (parsed.speedRating) loadParts.push(parsed.speedRating)
   if (parsed.extraLoad) loadParts.push('XL')
   const loadSpeed = loadParts.join(' ')
@@ -182,7 +205,9 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
       primary += ` · ${loadSpeed}`
     }
   } else {
-    primary = d
+    const split = splitRawDescription(d)
+    primary = split.primary
+    secondary = split.secondary
   }
 
   if (hasFlotation || hasMetric) {
@@ -194,9 +219,9 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden text-sm leading-snug text-zinc-300">
-      <div className="line-clamp-2 break-words font-mono text-zinc-200 [overflow-wrap:anywhere]">{primary}</div>
+      <div className="break-words font-mono font-semibold text-zinc-200 [overflow-wrap:anywhere]">{primary}</div>
       {secondary ? (
-        <div className="mt-0.5 line-clamp-2 max-w-full break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
+        <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
           {secondary}
         </div>
       ) : null}

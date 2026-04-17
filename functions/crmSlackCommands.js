@@ -93,6 +93,7 @@ function buildCrmLookupModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'crm_lookup_company_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Match fuzzy against VIP clients (company names)' },
         },
       },
@@ -115,6 +116,7 @@ function buildCrmLogModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'crm_log_company_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'Fuzzy match' },
         },
       },

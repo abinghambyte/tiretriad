@@ -17,7 +17,7 @@ const {
   crewSlackSplitDisplayName,
   crewEarningsMetaDisplayName,
 } = require('./financeStats')
-const { slackViewsOpen, viewInputValue, viewStaticSelectValue } = require('./slackModalShared')
+const { slackViewsOpen, viewInputValue, viewStaticSelectValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
 /** @see slackSlashModalSubmissions.js */
 const MODAL_PAYOUT_SUBMIT = 'payout_modal_submit'
@@ -202,6 +202,7 @@ function buildPayoutModalView() {
         element: {
           type: 'plain_text_input',
           action_id: 'payout_modal_amount_field',
+          multiline: false,
           placeholder: { type: 'plain_text', text: 'e.g. 500' },
         },
       },
@@ -367,25 +368,34 @@ async function tryHandleFinanceViewSubmission(db, token, envChannel, payload) {
   if (payload.type !== 'view_submission') return { handled: false }
   if (payload.view?.callback_id !== MODAL_PAYOUT_SUBMIT) return { handled: false }
   const view = payload.view
-  const name = viewStaticSelectValue(view, 'payout_modal_crew', 'payout_modal_crew_field')
-  const amt = Number(viewInputValue(view, 'payout_modal_amount', 'payout_modal_amount_field'))
-  const ch = String(envChannel || '').trim()
-  const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
-  const errors = {}
-  if (!CREW_KEYS.includes(name)) errors.payout_modal_crew = 'Select a crew member.'
-  if (!Number.isFinite(amt) || amt <= 0) errors.payout_modal_amount = 'Enter a valid positive amount.'
-  if (Object.keys(errors).length) {
-    return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
-  }
-  const res = await executePayoutFromModal(db, token, ch, name, amt, userName)
-  if (String(res?.text || '').toLowerCase().includes('invalid')) {
+  try {
+    const name = viewStaticSelectValue(view, 'payout_modal_crew', 'payout_modal_crew_field')
+    const amt = Number(viewInputValue(view, 'payout_modal_amount', 'payout_modal_amount_field'))
+    const ch = String(envChannel || '').trim()
+    const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
+    const errors = {}
+    if (!CREW_KEYS.includes(name)) errors.payout_modal_crew = 'Select a crew member.'
+    if (!Number.isFinite(amt) || amt <= 0) errors.payout_modal_amount = 'Enter a valid positive amount.'
+    if (Object.keys(errors).length) {
+      return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
+    }
+    const res = await executePayoutFromModal(db, token, ch, name, amt, userName)
+    if (String(res?.text || '').toLowerCase().includes('invalid')) {
+      return {
+        handled: true,
+        kind: 'json',
+        body: { response_action: 'errors', errors: { payout_modal_amount: res.text } },
+      }
+    }
+    return { handled: true, kind: 'json', body: { response_action: 'clear' } }
+  } catch (e) {
+    console.error('financeViewSubmission', e)
     return {
       handled: true,
       kind: 'json',
-      body: { response_action: 'errors', errors: { payout_modal_amount: res.text } },
+      body: viewSubmissionErrorsBody('payout_modal_amount', e, view),
     }
   }
-  return { handled: true, kind: 'json', body: { response_action: 'clear' } }
 }
 
 module.exports = {

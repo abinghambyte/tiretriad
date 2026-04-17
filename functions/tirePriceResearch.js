@@ -154,14 +154,19 @@ function buildResearchUserPrompt(tire, mspn) {
     .join('\n')
 
   return [
-    `You are researching US wholesale / dealer FLOOR (dealer cost, not MSRP or retail) for one catalog tire.`,
+    `You are researching the US dealer or wholesale BUY price for one catalog tire.`,
     `Catalog MSPN: ${mspn}.`,
     bits ? `Parsed / catalog fields:\n${bits}` : `Raw catalog description: ${desc || '—'}`,
     '',
-    `What is the current US dealer or wholesale BUY price (dealer cost per tire) for this SKU?`,
+    `Priority order for your price estimate:`,
+    `1. Dealer/wholesale cost if findable (e.g. from tire distributor sites, dealer forums, wholesale listings).`,
+    `2. If dealer cost is not findable, use: (current US retail price) × 0.72 as a proxy for dealer cost. Standard dealer margin on tires is ~28%.`,
+    `3. Use TireRack, DiscountTire, SimpleTire, Walmart, or similar for retail reference if needed.`,
+    '',
     `Return ONLY a JSON object (no markdown fences): { "price": number, "confidence": "high"|"medium"|"low", "notes": string }.`,
-    `If you cannot find a defensible dealer wholesale figure, set price to null and confidence to "low".`,
-    `Do not include retail or consumer prices — dealer cost only.`,
+    `Set confidence to "high" if you found actual wholesale/dealer cost, "medium" if using retail-minus-margin proxy, "low" if very uncertain.`,
+    `If you truly cannot find any price signal at all, set price to null and confidence to "low".`,
+    `price should be per single tire (not a set).`,
   ].join('\n')
 }
 
@@ -229,6 +234,27 @@ function tireNeedsFirstResearch(data) {
   const lr = pi.lastResearched
   if (lr == null) return true
   return false
+}
+
+const BULK_RESEARCH_MS = 30 * 86400000
+
+/**
+ * Tires never researched, or last researched 30+ days ago (bulk `/refreshprice all`).
+ * @param {Record<string, unknown>} data
+ */
+function tireNeedsBulkRefresh(data) {
+  if (tireNeedsFirstResearch(data)) return true
+  const pi = data?.priceIntel
+  if (!pi || typeof pi !== 'object') return true
+  const lr = pi.lastResearched
+  if (lr == null) return true
+  try {
+    const ms = typeof lr.toMillis === 'function' ? lr.toMillis() : new Date(lr).getTime()
+    if (!Number.isFinite(ms) || ms <= 0) return true
+    return ms < Date.now() - BULK_RESEARCH_MS
+  } catch {
+    return true
+  }
 }
 
 /**
@@ -343,11 +369,12 @@ async function pickTiresForResearch(db, limit) {
  * @param {string} geminiKey
  * @param {{ token: string, channel: string }} slack
  * @param {FirebaseFirestore.QueryDocumentSnapshot} docSnap
- * @param {{ slackMode?: 'batch' | 'single' }} [opts]
+ * @param {{ slackMode?: 'batch' | 'single', silent?: boolean }} [opts]
  * @returns {Promise<ResearchOutcome>}
  */
 async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) {
   const slackMode = opts.slackMode === 'single' ? 'single' : 'batch'
+  const silent = opts.silent === true
   const mspn = docSnap.id
   const tire = docSnap.data() || {}
   const ref = docSnap.ref
@@ -449,7 +476,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   })
 
   if (outcome === 'not_found') {
-    if (token && channel) {
+    if (!silent && token && channel) {
       const line = tireDisplayLine(tire)
       await slackApiPost(token, 'chat.postMessage', {
         channel,
@@ -460,7 +487,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   }
 
   if (outcome === 'skipped_kyle') {
-    if (token && channel) {
+    if (!silent && token && channel) {
       await slackApiPost(token, 'chat.postMessage', {
         channel,
         text: `🔒 Research recorded for \`${escapeSlackMrkdwn(mspn)}\` — Kyle-confirmed price unchanged (${formatCurrency(Number(curActiveForSlack) || 0)}).`,
@@ -472,7 +499,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   if (outcome === 'flagged_delta') {
     const cur = Number.isFinite(Number(curActiveForSlack)) && Number(curActiveForSlack) > 0 ? Number(curActiveForSlack) : 0
     const found = Number(foundPrice)
-    if (token && channel && cur > 0) {
+    if (!silent && token && channel && cur > 0) {
       const line = tireDisplayLine(tire)
       const sign = found >= cur ? '+' : ''
       const pctDisp = formatPercent(((found - cur) / cur) * 100, 1)
@@ -511,7 +538,15 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
     return 'flagged_delta'
   }
 
-  if (slackMode === 'single' && token && channel && foundPrice != null && Number.isFinite(foundPrice) && foundPrice > 0) {
+  if (
+    !silent &&
+    slackMode === 'single' &&
+    token &&
+    channel &&
+    foundPrice != null &&
+    Number.isFinite(foundPrice) &&
+    foundPrice > 0
+  ) {
     await slackApiPost(token, 'chat.postMessage', {
       channel,
       text: `✅ Price research \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(foundPrice)} (_${escapeSlackMrkdwn(gemConf)}_ confidence)`,
@@ -583,6 +618,66 @@ async function refreshSingleTirePrice(db, geminiKey, slack, mspnRaw) {
   return processTireResearchDoc(db, geminiKey, slack, snap, { slackMode: 'single' })
 }
 
+/**
+ * Full-catalog bulk refresh: never researched or last researched 30+ days ago.
+ * @param {import('firebase-admin/firestore').Firestore} db
+ * @param {string} geminiKey
+ * @param {{ token: string, channel: string }} slack
+ */
+async function runBulkPriceRefresh(db, geminiKey, slack) {
+  const token = String(slack?.token || '').trim()
+  const channel = String(slack?.channel || '').trim()
+  const PAGE = 400
+  const docs = []
+  let last = null
+  while (true) {
+    let q = db.collection('tires').select('priceIntel').orderBy(FieldPath.documentId()).limit(PAGE)
+    if (last) q = q.startAfter(last)
+    const snap = await q.get()
+    if (snap.empty) break
+    for (const d of snap.docs) {
+      if (tireNeedsBulkRefresh(d.data() || {})) docs.push(d)
+    }
+    if (snap.docs.length < PAGE) break
+    last = snap.docs[snap.docs.length - 1]
+  }
+
+  let attempted = 0
+  let updated = 0
+  let flagged = 0
+  let notFound = 0
+  let skippedKyle = 0
+  let errors = 0
+  const BATCH = 20
+  for (let i = 0; i < docs.length; i += BATCH) {
+    const chunk = docs.slice(i, i + BATCH)
+    for (const d of chunk) {
+      attempted += 1
+      try {
+        const out = await processTireResearchDoc(db, geminiKey, slack, d, { silent: true })
+        if (out === 'updated') updated += 1
+        else if (out === 'flagged_delta') flagged += 1
+        else if (out === 'not_found') notFound += 1
+        else if (out === 'skipped_kyle') skippedKyle += 1
+      } catch (e) {
+        errors += 1
+        console.error('runBulkPriceRefresh tire', d.id, e)
+      }
+    }
+    if (i + BATCH < docs.length) {
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+  }
+
+  if (token && channel) {
+    const errPart = errors > 0 ? `, errors ${formatQty(errors)}` : ''
+    await slackApiPost(token, 'chat.postMessage', {
+      channel,
+      text: `✅ *Bulk price refresh* (\`/refreshprice all\`) complete — attempted ${formatQty(attempted)}, updated ${formatQty(updated)}, flagged ${formatQty(flagged)}, not found ${formatQty(notFound)}, skipped ${formatQty(skippedKyle)}${errPart}`,
+    })
+  }
+}
+
 module.exports = {
   tirePriceResearchRun,
   processTireResearchDoc,
@@ -590,6 +685,7 @@ module.exports = {
   buildResearchUserPrompt,
   geminiDealerBuyWithSearch,
   refreshSingleTirePrice,
+  runBulkPriceRefresh,
   slackApiPost,
   escapeSlackMrkdwn,
 }

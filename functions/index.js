@@ -62,7 +62,6 @@ const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
 const { submitMechanicIntake } = require('./mechanicIntake')
 const { runCompletionTransaction } = require('./financeStats')
-const { growthLabTaskDispatchHandler } = require('./growthLabTaskDispatch')
 const { taskDispatcher } = require('./taskDispatcher')
 const { ebayOrderWebhookHandler, ebayPublishListingHandler } = require('./ebayIntegration')
 
@@ -319,11 +318,6 @@ exports.sendTireSaleSms = onCall({ secrets: SLACK_SECRETS }, async (request) => 
 /** AI listing copy + sell probability + recommended price (Gemini or Anthropic). */
 exports.listingAdvisor = onCall({ secrets: LISTING_ADVISOR_SECRETS }, async (request) => {
   return listingAdvisorHandler(request)
-})
-
-/** Growth Lab — Overwatch-only task routing (Anthropic Sonnet JSON). */
-exports.growthLabTaskDispatch = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
-  return growthLabTaskDispatchHandler(request)
 })
 
 /** AI Task Dispatcher — Overwatch-only workforce routing (Anthropic Sonnet JSON). */
