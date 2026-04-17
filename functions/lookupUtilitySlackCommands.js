@@ -942,7 +942,11 @@ async function tryHandleLookupUtilitySlash(db, token, fleetChannel, form) {
       return await openLookupModal(botToken, tid, buildSetquotaModalView(), 'Opening set-quota form…')
     }
     if (command === '/dispatch') {
-      return await openLookupModal(botToken, tid, buildDispatchModalView(), 'Opening dispatch form…')
+      const dt = String(form.text || '').trim()
+      const ack = dt
+        ? 'Opening dispatch form…'
+        : 'Usage: `/dispatch [dj|kyle|alex|tanner]` — crew names for assignment. Opening dispatch form…'
+      return await openLookupModal(botToken, tid, buildDispatchModalView(), ack)
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

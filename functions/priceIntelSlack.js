@@ -94,10 +94,11 @@ async function openPiModal(botToken, triggerId, view, ackMsg) {
 /**
  * @param {string} callbackId
  * @param {string} title
- * @param {{ bulkCatalogTip?: boolean }} [opts]
+ * @param {{ placeholder?: string }} [opts]
  */
 function buildPiMspnModal(callbackId, title, opts = {}) {
   const t = String(title || 'MSPN').slice(0, 24)
+  const ph = String(opts.placeholder || 'Tire MSPN').slice(0, 150)
   const blocks = [
     {
       type: 'input',
@@ -107,21 +108,10 @@ function buildPiMspnModal(callbackId, title, opts = {}) {
         type: 'plain_text_input',
         action_id: 'pi_mspn_field',
         multiline: false,
-        placeholder: { type: 'plain_text', text: 'Tire MSPN' },
+        placeholder: { type: 'plain_text', text: ph },
       },
     },
   ]
-  if (opts.bulkCatalogTip) {
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: 'Tip: use `/refreshprice all` in this channel to refresh the entire catalog.',
-        },
-      ],
-    })
-  }
   return {
     type: 'modal',
     callback_id: callbackId,
@@ -385,43 +375,13 @@ async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
   }
 
   if (command === '/refreshprice') {
-    const slashText = String(form.text || '').trim().toLowerCase()
-    if (slashText === 'all') {
-      const authCheck = await resolveSlackUserAdminOrSupplier(db, String(form.user_id || ''))
-      if (!authCheck.allowed) {
-        return { response_type: 'ephemeral', text: '🔒 Admin or supplier access required.' }
-      }
-      const geminiKey = GEMINI_API_KEY.value()
-      if (!geminiKey || geminiKey === '-') {
-        return { response_type: 'ephemeral', text: '❌ GEMINI_API_KEY not configured.' }
-      }
-      const slack = { token: botToken, channel: postChannel }
-      if (botToken && postChannel) {
-        await slackApiPost(botToken, 'chat.postMessage', {
-          channel: postChannel,
-          text: '🔄 Bulk price refresh started across all ~1,160 tires. Results will post when complete.',
-        })
-      }
-      runBulkPriceRefresh(db, geminiKey, slack).catch((e) => {
-        console.error('runBulkPriceRefresh error', e)
-        const msg = e instanceof Error ? e.message : String(e)
-        if (botToken && postChannel) {
-          slackApiPost(botToken, 'chat.postMessage', {
-            channel: postChannel,
-            text: `❌ Bulk price refresh failed: ${escapeSlackMrkdwn(msg)}`,
-          }).catch(() => {})
-        }
-      })
-      return {
-        response_type: 'ephemeral',
-        text: 'Bulk catalog refresh running — watch the channel for progress and final counts.',
-      }
-    }
     return await openPiModal(
       botToken,
       tid,
-      buildPiMspnModal(MODAL_REFRESH_PRICE_SUBMIT, 'Refresh tire price', { bulkCatalogTip: true }),
-      'Opening refresh-price form…',
+      buildPiMspnModal(MODAL_REFRESH_PRICE_SUBMIT, 'Refresh tire price', {
+        placeholder: 'Tire MSPN — or "all" to refresh catalog',
+      }),
+      'Opening price refresh… Enter an MSPN in the form, or type *all* for a full-catalog refresh.',
     )
   }
 
@@ -489,6 +449,47 @@ async function tryHandlePriceIntelViewSubmission(db, token, envChannel, payload)
           kind: 'json',
           body: { response_action: 'errors', errors: { pi_mspn: 'Enter MSPN.' } },
         }
+      }
+      if (mspn.toLowerCase() === 'all') {
+        const authCheck = await resolveSlackUserAdminOrSupplier(db, userId)
+        if (!authCheck.allowed) {
+          return {
+            handled: true,
+            kind: 'json',
+            body: {
+              response_action: 'errors',
+              errors: { pi_mspn: '🔒 Admin or supplier access required.' },
+            },
+          }
+        }
+        const geminiKey = GEMINI_API_KEY.value()
+        if (!geminiKey || geminiKey === '-') {
+          return {
+            handled: true,
+            kind: 'json',
+            body: {
+              response_action: 'errors',
+              errors: { pi_mspn: '❌ GEMINI_API_KEY not configured.' },
+            },
+          }
+        }
+        const slack = { token: botToken, channel: postChannel }
+        if (botToken && postChannel) {
+          await slackApiPost(botToken, 'chat.postMessage', {
+            channel: postChannel,
+            text: '🔄 Bulk price refresh started across all ~1,160 tires. Results will post when complete.',
+          })
+        }
+        runBulkPriceRefresh(db, geminiKey, slack).catch((e) => {
+          console.error('runBulkPriceRefresh error', e)
+          if (botToken && postChannel) {
+            slackApiPost(botToken, 'chat.postMessage', {
+              channel: postChannel,
+              text: `❌ Bulk price refresh failed: ${escapeSlackMrkdwn(e instanceof Error ? e.message : String(e))}`,
+            }).catch(() => {})
+          }
+        })
+        return { handled: true, kind: 'json', body: { response_action: 'clear' } }
       }
       const err = validateAndStartRefreshPrice(db, botToken, postChannel, mspn)
       if (err) {

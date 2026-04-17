@@ -100,8 +100,24 @@ async function tireMapForOrders(db, rows) {
   return tireByMspn
 }
 
+const SPOILS_REVENUE_WINDOWS = new Set(['daily', 'weekly', 'ytd', 'total'])
+
 async function handleSlashSpoils(db, token, channel, text) {
-  const window = parseWindow(String(text || '').trim().split(/\s+/)[0])
+  const raw = String(text || '').trim()
+  const first = raw.split(/\s+/)[0]?.toLowerCase() || ''
+  if (!raw) {
+    return {
+      response_type: 'ephemeral',
+      text: 'Usage: `/spoils [daily|weekly|ytd|total]`\nDefaults to daily if omitted.',
+    }
+  }
+  if (!SPOILS_REVENUE_WINDOWS.has(first)) {
+    return {
+      response_type: 'ephemeral',
+      text: `Usage: \`/spoils [daily|weekly|ytd|total]\` — unknown window \`${escapeSlackMrkdwn(first)}\`.`,
+    }
+  }
+  const window = parseWindow(first)
   const rows = await fetchCompletedOrdersInWindow(db, window)
   const tires = await tireMapForOrders(db, rows)
   let poolSum = 0
@@ -145,7 +161,10 @@ async function handleSlashSpoils(db, token, channel, text) {
     text: `Spoils ${window}: ${formatCurrency(poolSum)}`,
     blocks,
   })
-  return { response_type: 'ephemeral', text: `Posted spoils (${window}) to channel.` }
+  return {
+    response_type: 'ephemeral',
+    text: `Posted spoils (${window}) to channel.\nTip: \`/spoils [daily|weekly|ytd|total]\``,
+  }
 }
 
 async function handleSlashOwed(db, token, channel) {
@@ -271,7 +290,21 @@ function marginPct(rev, margin) {
 }
 
 async function handleSlashRevenue(db, token, channel, text) {
-  const window = parseWindow(String(text || '').trim().split(/\s+/)[0])
+  const raw = String(text || '').trim()
+  const first = raw.split(/\s+/)[0]?.toLowerCase() || ''
+  if (!raw) {
+    return {
+      response_type: 'ephemeral',
+      text: 'Usage: `/revenue [daily|weekly|ytd|total]`\nDefaults to daily if omitted.',
+    }
+  }
+  if (!SPOILS_REVENUE_WINDOWS.has(first)) {
+    return {
+      response_type: 'ephemeral',
+      text: `Usage: \`/revenue [daily|weekly|ytd|total]\` — unknown window \`${escapeSlackMrkdwn(first)}\`.`,
+    }
+  }
+  const window = parseWindow(first)
   const snap = await REVENUE_REF(db).get()
   const d = snap.exists ? snap.data() || {} : {}
   let rev = 0
@@ -316,7 +349,10 @@ async function handleSlashRevenue(db, token, channel, text) {
     text: `Revenue ${window}`,
     blocks,
   })
-  return { response_type: 'ephemeral', text: 'Posted /revenue.' }
+  return {
+    response_type: 'ephemeral',
+    text: `Posted /revenue (${window}).\nTip: \`/revenue [daily|weekly|ytd|total]\``,
+  }
 }
 
 /**

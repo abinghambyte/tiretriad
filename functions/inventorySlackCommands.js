@@ -440,6 +440,9 @@ async function fetchCompletedOrdersSince(db, startTs) {
 }
 
 async function handleBestsellers(db, token, fleetChannel, text) {
+  if (!String(text || '').trim()) {
+    return { response_type: 'ephemeral', text: 'Usage: `/bestsellers [weekly|monthly]`' }
+  }
   const parts = splitCommandText(text)
   const win = String(parts[0] || 'weekly').toLowerCase()
   const days = win === 'monthly' ? 30 : 7
