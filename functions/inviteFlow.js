@@ -342,7 +342,8 @@ exports.completeInviteRegistration = onCall(async (request) => {
     regCodeExpires: FieldValue.delete(),
   })
 
-  return { ok: true, uid }
+  const slackInviteUrl = String(process.env.SLACK_INVITE_URL || '').trim()
+  return { ok: true, uid, slackInviteUrl: slackInviteUrl || null }
 })
 
 exports.recordLogin = onCall({ secrets: SLACK_SECRETS }, async (request) => {

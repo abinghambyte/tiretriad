@@ -42,3 +42,14 @@ A run is "passed" only when every criterion is satisfied. No partial passes.
 
 ## Report format
 Return findings as: `PASS` or `FAIL` per success criterion, with screenshots for any FAIL and the exact JSON response body from step 7 verbatim.
+
+---
+
+## Verifier / Field Executor — completion notes (2026-04-17)
+
+**Not executed in repo by Cursor** — brief is **verification-only** (no code changes, no deploy). When someone runs the checklist against `https://skedaddleinc.com`, append below:
+
+- Date:
+- Overall PASS / FAIL:
+- Step 7 JSON snippet (redact if needed):
+- Any regressions observed:

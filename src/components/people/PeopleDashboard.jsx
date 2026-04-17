@@ -279,6 +279,20 @@ function InviteUrlToolkit({ url }) {
           </>
         ) : null}
       </div>
+      {!showHardware && safeUrl ? (
+        <div className="flex flex-col items-center gap-2 pt-1 sm:pt-2">
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(safeUrl)}&size=180x180&margin=2&color=e4e4e7&bgcolor=09090b`}
+            alt="Scan to open invite on phone"
+            width={180}
+            height={180}
+            className="rounded-xl"
+          />
+          <p className="text-center text-xs text-zinc-500">
+            Scan to open on phone — or write to NFC card
+          </p>
+        </div>
+      ) : null}
       {nfcHint ? <p className="text-sm text-amber-100/90">{nfcHint}</p> : null}
       {nfcSuccess ? <p className="text-sm text-emerald-200">{nfcSuccess}</p> : null}
       {nfcErr ? <p className="text-sm text-amber-200">{nfcErr}</p> : null}

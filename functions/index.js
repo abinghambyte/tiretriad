@@ -51,7 +51,7 @@ const {
   processElevationRevertsRun,
 } = require('./peopleScheduled')
 const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
-const { tirePriceResearchRun } = require('./tirePriceResearch')
+const { tirePriceResearchRun, escapeSlackMrkdwn } = require('./tirePriceResearch')
 const { kyleScorecardRun } = require('./kyleScorecard')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
@@ -775,10 +775,27 @@ exports.tirePriceResearch = onSchedule(
     memory: '1GiB',
   },
   async () => {
-    const token = SLACK_BOT_TOKEN.value()
-    const channel = slackChannelWithSecretFallback()
-    const geminiKey = GEMINI_API_KEY.value()
-    await tirePriceResearchRun({ token, channel, geminiKey })
+    const token = String(SLACK_BOT_TOKEN.value() || '').trim()
+    const channel = String(slackChannelWithSecretFallback() || '').trim()
+    const geminiKey = String(GEMINI_API_KEY.value() || '').trim()
+    try {
+      await tirePriceResearchRun({ token, channel, geminiKey })
+    } catch (err) {
+      console.error('tirePriceResearch scheduled run failed', err)
+      const msg = escapeSlackMrkdwn(
+        String(err instanceof Error ? err.message : err).slice(0, 300),
+      )
+      if (token && channel) {
+        try {
+          await slackApiPost(token, 'chat.postMessage', {
+            channel,
+            text: `:warning: *Nightly tire price research failed*\n${msg}\n_Buy prices may be stale — check Firebase logs._`,
+          })
+        } catch (slackErr) {
+          console.error('tirePriceResearch failure Slack alert failed', slackErr)
+        }
+      }
+    }
   },
 )
 

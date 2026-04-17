@@ -44,6 +44,18 @@ Confirm deploy succeeds. Test the specific thing that changed.
 
 ---
 
+## Completion log (optional — append when done)
+
+After implementation or verification, add a dated subsection to the bottom of **this** handoff file (or to `_handoffs/README.md` index if you prefer one global log):
+
+- **Who:** Field Executor (Cursor) / Site Verifier / human
+- **Date:** YYYY-MM-DD
+- **What changed:** files + one-line summary
+- **Deploy:** e.g. functions pushed / Vercel pushed / not applicable
+- **Follow-ups:** anything left for ops or a later handoff
+
+---
+
 ## Commit style guide (permanent — follow every time)
 
 Write commits the way a developer would at the end of a long day. Short, lowercase, no buzzwords, no "feat:" or "chore:" prefixes unless already established in the repo.

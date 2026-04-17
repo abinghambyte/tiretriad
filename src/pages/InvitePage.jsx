@@ -63,6 +63,8 @@ export function InvitePage() {
   const [regLast, setRegLast] = useState('')
   const [regPhone, setRegPhone] = useState('')
   const [regPassword, setRegPassword] = useState('')
+  const [slackInviteUrl, setSlackInviteUrl] = useState('')
+  const [slackJoined, setSlackJoined] = useState(false)
   const [regError, setRegError] = useState('')
   const [regBusy, setRegBusy] = useState(false)
   const [codeSentNote, setCodeSentNote] = useState('')
@@ -177,7 +179,7 @@ export function InvitePage() {
     setRegError('')
     setRegBusy(true)
     try {
-      await completeInviteRegistrationFn({
+      const { data } = await completeInviteRegistrationFn({
         token,
         email: regEmail.trim().toLowerCase(),
         code: regCode.trim(),
@@ -188,7 +190,9 @@ export function InvitePage() {
       })
       await signInWithEmailAndPassword(auth, regEmail.trim(), regPassword)
       await callRecordLogin()
-      navigate('/handshake', { replace: true })
+      setSlackInviteUrl(String(data?.slackInviteUrl || '').trim())
+      setSlackJoined(false)
+      setRegStep(5)
     } catch (e) {
       setRegError(e?.message || 'Registration failed.')
     } finally {
@@ -255,12 +259,14 @@ export function InvitePage() {
                   return
                 }
                 setRegStep(4)
-              } else {
+              } else if (regStep === 4) {
                 if (regPassword.length < 8) {
                   setRegError('Password must be at least 8 characters.')
                   return
                 }
                 void completeRegistration()
+              } else if (regStep === 5) {
+                navigate('/handshake', { replace: true })
               }
             }}
           >
@@ -337,13 +343,44 @@ export function InvitePage() {
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
               />
             ) : null}
+            {regStep === 5 ? (
+              <div className="space-y-4 text-center">
+                <p className="text-sm leading-relaxed text-zinc-400">
+                  Last step — join the crew on Slack. That&apos;s where jobs, updates, and schedules live.
+                </p>
+                {slackInviteUrl ? (
+                  <a
+                    href={slackInviteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setSlackJoined(true)}
+                    className="block w-full rounded-xl bg-[#4A154B] py-3 text-sm font-medium text-white transition hover:bg-[#611f64]"
+                  >
+                    Join Slack workspace →
+                  </a>
+                ) : (
+                  <p className="text-xs text-zinc-600">
+                    Ask Alex for the Slack invite link — you can join after setup.
+                  </p>
+                )}
+                {slackJoined ? (
+                  <p className="text-xs text-zinc-500">✓ Nice. Hit &quot;I&apos;m in&quot; to open the portal.</p>
+                ) : null}
+              </div>
+            ) : null}
 
             <button
               type="submit"
               disabled={regBusy}
               className="w-full rounded-xl bg-zinc-100 py-3 text-sm font-medium text-black transition hover:bg-white disabled:opacity-50"
             >
-              {regBusy ? 'Working…' : regStep === 4 ? 'Finish' : 'Continue'}
+              {regBusy
+                ? 'Working…'
+                : regStep === 4
+                  ? 'Finish'
+                  : regStep === 5
+                    ? "I'm in"
+                    : 'Continue'}
             </button>
           </form>
         </div>
