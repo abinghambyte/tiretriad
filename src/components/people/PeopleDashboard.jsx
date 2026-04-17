@@ -34,6 +34,8 @@ const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
 const scheduleElevationRevert = httpsCallable(functions, 'scheduleElevationRevert')
 const previewInviteGreeting = httpsCallable(functions, 'previewInviteGreeting')
+const revokeInviteFn = httpsCallable(functions, 'revokeInvite')
+const reissueInviteFn = httpsCallable(functions, 'reissueInvite')
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -362,6 +364,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [eleDuration, setEleDuration] = useState('24h')
   const [eleSaving, setEleSaving] = useState(false)
   const [showElevation, setShowElevation] = useState(false)
+  const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | ''
   const [lockAwaitUid, setLockAwaitUid] = useState(null)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
@@ -625,6 +628,33 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       window.alert(e?.message || String(e))
     } finally {
       setEleSaving(false)
+    }
+  }
+
+  async function revokeInvite() {
+    if (!selected) return
+    if (!window.confirm(`Revoke the invite for ${selected.firstName} ${selected.lastName}? They will not be able to use the current link.`)) return
+    setInvokeBusy('revoke')
+    try {
+      await revokeInviteFn({ targetUid: selected.id })
+      setPanelInviteUrl('')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setInvokeBusy('')
+    }
+  }
+
+  async function reissueInvite() {
+    if (!selected) return
+    setInvokeBusy('reissue')
+    try {
+      const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: 'email' })
+      setPanelInviteUrl(data.inviteUrl || '')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setInvokeBusy('')
     }
   }
 
@@ -930,16 +960,36 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
               {/* Invite link */}
               {panelInviteUrl ? (
-                <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3 max-sm:p-4">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90 max-sm:text-xs">
-                    Active invite link
-                  </p>
-                  <div className="mt-2 max-sm:mt-3">
-                    <InviteUrlToolkit url={panelInviteUrl} />
+                <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
+                      Active invite link
+                    </p>
+                    <button
+                      type="button"
+                      disabled={invokeBusy !== ''}
+                      onClick={() => void revokeInvite()}
+                      className="rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+                    >
+                      {invokeBusy === 'revoke' ? 'Revoking…' : 'Revoke'}
+                    </button>
                   </div>
+                  <InviteUrlToolkit url={panelInviteUrl} />
                 </div>
               ) : (
-                <p className="mt-3 text-[11px] text-zinc-600">No active invite token for this user.</p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-zinc-600">No active invite for this user.</p>
+                  {selected && !selected.inviteAccepted ? (
+                    <button
+                      type="button"
+                      disabled={invokeBusy !== ''}
+                      onClick={() => void reissueInvite()}
+                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+                    >
+                      {invokeBusy === 'reissue' ? 'Sending…' : 'New invite'}
+                    </button>
+                  ) : null}
+                </div>
               )}
 
               {/* Availability */}

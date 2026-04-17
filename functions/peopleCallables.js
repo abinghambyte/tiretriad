@@ -379,3 +379,148 @@ exports.scheduleElevationRevert = onCall(async (request) => {
 
   return { ok: true, elevationId, expiresAtMillis: expiresAt.toMillis() }
 })
+
+/**
+ * Revoke the active invite for a user.
+ * Marks every active inviteTokens doc for that uid as 'revoked',
+ * then clears inviteToken + sets inviteStatus = 'expired' on the user doc.
+ */
+exports.revokeInvite = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = admin.firestore()
+  await assertCanManagePeople(db, request.auth.uid)
+
+  const targetUid = String(request.data?.targetUid || '').trim()
+  if (!targetUid) {
+    throw new HttpsError('invalid-argument', 'targetUid is required.')
+  }
+
+  const userRef = db.collection('users').doc(targetUid)
+  const userSnap = await userRef.get()
+  if (!userSnap.exists) {
+    throw new HttpsError('not-found', 'User not found.')
+  }
+
+  // Mark all active invite tokens for this uid as revoked
+  const tokensSnap = await db
+    .collection('inviteTokens')
+    .where('uid', '==', targetUid)
+    .where('status', '==', 'active')
+    .get()
+
+  const batch = db.batch()
+  tokensSnap.docs.forEach((doc) => {
+    batch.update(doc.ref, { status: 'revoked', revokedAt: FieldValue.serverTimestamp() })
+  })
+
+  batch.update(userRef, {
+    inviteToken: '',
+    inviteStatus: 'expired',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await batch.commit()
+
+  await db.collection('accessLog').doc().set({
+    uid: targetUid,
+    changedBy: request.auth.uid,
+    changedAt: FieldValue.serverTimestamp(),
+    field: 'inviteRevoked',
+    before: { inviteStatus: userSnap.data()?.inviteStatus },
+    after: { inviteStatus: 'expired', tokensRevoked: tokensSnap.size },
+    reason: 'Invite manually revoked',
+  })
+
+  return { ok: true, tokensRevoked: tokensSnap.size }
+})
+
+/**
+ * Issue a new invite token for an existing (pre-registration) user.
+ * Revokes any prior active token, generates a fresh one, and delivers it.
+ */
+exports.reissueInvite = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = admin.firestore()
+  await assertCanManagePeople(db, request.auth.uid)
+
+  const data = request.data || {}
+  const targetUid = String(data.targetUid || '').trim()
+  if (!targetUid) {
+    throw new HttpsError('invalid-argument', 'targetUid is required.')
+  }
+
+  const inviteDelivery = ['sms', 'nfc', 'email'].includes(data.inviteDelivery)
+    ? data.inviteDelivery
+    : 'email'
+
+  const userRef = db.collection('users').doc(targetUid)
+  const userSnap = await userRef.get()
+  if (!userSnap.exists) {
+    throw new HttpsError('not-found', 'User not found.')
+  }
+  const user = userSnap.data()
+  if (user.inviteAccepted) {
+    throw new HttpsError('failed-precondition', 'User has already completed registration.')
+  }
+
+  // Revoke existing active tokens
+  const oldTokensSnap = await db
+    .collection('inviteTokens')
+    .where('uid', '==', targetUid)
+    .where('status', '==', 'active')
+    .get()
+
+  const token = crypto.randomBytes(24).toString('hex')
+  const inviteExpiry = Timestamp.fromMillis(Date.now() + 48 * 3600000)
+  const inviteUrl = `https://www.skedaddleinc.com/i/${token}`
+
+  const batch = db.batch()
+
+  // Revoke old tokens
+  oldTokensSnap.docs.forEach((doc) => {
+    batch.update(doc.ref, { status: 'revoked', revokedAt: FieldValue.serverTimestamp() })
+  })
+
+  // Write new token
+  const invRef = db.collection('inviteTokens').doc(token)
+  batch.set(invRef, {
+    token,
+    uid: targetUid,
+    status: 'active',
+    expiry: inviteExpiry,
+    createdAt: FieldValue.serverTimestamp(),
+    usedAt: null,
+    deliveryMethod: inviteDelivery,
+  })
+
+  // Update user doc
+  batch.update(userRef, {
+    inviteToken: token,
+    inviteStatus: 'active',
+    inviteExpiry,
+    inviteDelivery,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  await batch.commit()
+
+  // Deliver (best-effort — don't fail the whole request if email/SMS is down)
+  try {
+    const { deliverInvite } = require('./inviteFlow')
+    await deliverInvite({
+      firstName: user.firstName || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      inviteUrl,
+      deliveryMethod: inviteDelivery,
+    })
+  } catch (e) {
+    console.error('reissueInvite: deliverInvite failed', e)
+  }
+
+  return { ok: true, token, inviteUrl }
+})

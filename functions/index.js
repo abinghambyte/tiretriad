@@ -694,12 +694,16 @@ const {
   createPortalUser,
   updatePortalUser,
   scheduleElevationRevert,
+  revokeInvite,
+  reissueInvite,
 } = require('./peopleCallables')
 
 exports.ensureUserDocument = ensureUserDocument
 exports.createPortalUser = createPortalUser
 exports.updatePortalUser = updatePortalUser
 exports.scheduleElevationRevert = scheduleElevationRevert
+exports.revokeInvite = revokeInvite
+exports.reissueInvite = reissueInvite
 
 const inviteFlow = require('./inviteFlow')
 exports.resolveInvite = inviteFlow.resolveInvite
