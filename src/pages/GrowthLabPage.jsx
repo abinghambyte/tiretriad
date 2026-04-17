@@ -5,7 +5,41 @@ import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { formatPercent } from '../utils/format'
 
 const NOTES_STORAGE_KEY = 'sk-dispatch-notes'
-const dispatchFn = httpsCallable(functions, 'growthLabTaskDispatch')
+const dispatchFn = httpsCallable(functions, 'taskDispatcher')
+
+/** Map taskDispatcher assignedWorker label to Growth Lab badge routing. */
+function workerToRouting(worker) {
+  const s = String(worker || '').toLowerCase()
+  if (s.includes('infrastructure') || s.includes('opus')) return 'opus'
+  if (s.includes('antigravity') || s.includes('site verifier')) return 'antigravity'
+  if (s.includes('haiku')) return 'haiku'
+  if (s.includes('gemini') || s.includes('market intel') || s.includes('listing advisor')) return 'gemini'
+  return 'sonnet'
+}
+
+/** Normalize taskDispatcher JSON into the shape GrowthLabRoutingForm already renders. */
+function adaptTaskDispatcherResult(raw) {
+  const o = raw && typeof raw === 'object' ? raw : {}
+  if (o.error && typeof o.error === 'string' && !o.assignedWorker) {
+    return { ok: false, error: o.error }
+  }
+  const worker = String(o.assignedWorker || '')
+  const credit = [o.costCheckResult, o.costCheckNote].filter(Boolean).join(' — ')
+  return {
+    ok: true,
+    model: String(o.modelVersion || o.platform || ''),
+    dispatch: {
+      routing: workerToRouting(worker),
+      confidence: 0.75,
+      rationale: String(o.rationale || ''),
+      creditWarning: String(credit || ''),
+      contextToLoad: Array.isArray(o.contextToLoad) ? o.contextToLoad.map((x) => String(x || '').trim()).filter(Boolean) : [],
+      sessionStarter: String(o.generatedPrompt || ''),
+      taskType: worker || '—',
+      estimatedComplexity: String(o.platform || '—'),
+    },
+  }
+}
 
 function routingBadgeClass(routing) {
   const r = String(routing || '').toLowerCase()
@@ -69,8 +103,8 @@ function GrowthLabRoutingForm() {
     setError('')
     setResult(null)
     try {
-      const res = await dispatchFn({ task: t, continuityNotes: notes.slice(0, 2000) })
-      const data = res.data && typeof res.data === 'object' ? res.data : {}
+      const res = await dispatchFn({ task: t, sessionNotes: notes.slice(0, 12000) })
+      const data = adaptTaskDispatcherResult(res.data)
       if (!data.ok) {
         setError(String(data.error || 'Dispatch failed'))
         return

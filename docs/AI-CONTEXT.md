@@ -95,7 +95,7 @@ Credit: /charge, /payment, /balance
 
 ## Key files
 - functions/slackSecrets.js — all secret definitions; `SLACK_SECRETS`, `SLACK_ACTIONS_SECRETS`, `EBAY_SECRETS` (eBay `defineSecret` lines commented until Secret Manager has versions — see file header)
-- functions/growthLabTaskDispatch.js — Overwatch task routing callable
+- functions/taskDispatcher.js — Overwatch task routing callable (Growth Lab)
 - functions/ebayIntegration.js — eBay webhook + publish scaffold
 - functions/tirePriceResearch.js — nightly Gemini wholesale research + Slack
 - functions/format.js — formatCurrency, formatNumber, formatPercent, formatQty, formatCurrencyOrDash

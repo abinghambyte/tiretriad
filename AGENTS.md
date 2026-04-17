@@ -119,7 +119,7 @@ Consequence: there is no inventory-leak bug on cancel or reject. Do NOT add logi
 
 ## Growth Lab
 - Route `/growth` — Overwatch (admin) only; matches `ProtectedRoute requireAdmin` and dashboard card `adminOnly`
-- Callable `growthLabTaskDispatch` — Anthropic Sonnet JSON routing; secrets via `slackSecrets` patterns
+- Callable `taskDispatcher` — Overwatch workforce routing (Anthropic Sonnet JSON); secrets via `slackSecrets` patterns
 
 ## Price Intelligence
 - tirePriceResearch runs nightly at 2am Denver — never modify schedule without approval
