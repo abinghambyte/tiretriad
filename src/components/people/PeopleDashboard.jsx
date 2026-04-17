@@ -1256,4 +1256,19 @@ function Field({ label, value, onChange, type = 'text', required, inputMode, aut
   return (
     <div>
       <label className="mb-1.5 block text-xs font-medium text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
-        {l
+        {label}
+        {required ? ' *' : ''}
+      </label>
+      <input
+        type={type}
+        required={required}
+        value={value}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-shadow duration-200 placeholder:text-zinc-600 focus:border-amber-600/45 focus:ring-2 focus:ring-amber-500/25 max-sm:min-h-[44px] max-sm:py-3"
+      />
+    </div>
+  )
+}
