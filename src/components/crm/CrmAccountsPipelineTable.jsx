@@ -88,7 +88,7 @@ export function CrmAccountsPipelineTable({ accounts, avgBuyPerTire, onOpen }) {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-800">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full max-sm:min-w-0 text-left text-sm sm:min-w-[720px]">
         <thead>
           <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs">
             {th('company', 'Company')}

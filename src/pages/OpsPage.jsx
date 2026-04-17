@@ -329,11 +329,11 @@ export function OpsPage() {
           </form>
 
           <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-800">
-            <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+            <table className="w-full max-sm:min-w-0 border-collapse text-left text-sm sm:min-w-[720px]">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
                   <th className="px-3 py-2">Amount</th>
-                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2 max-sm:hidden">Category</th>
                   <th className="px-3 py-2">Note</th>
                   <th className="px-3 py-2">Date</th>
                   <th className="px-3 py-2">Logged by</th>
@@ -357,7 +357,7 @@ export function OpsPage() {
                   expenses.map((r) => (
                     <tr key={r.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2 font-medium text-zinc-200">{formatCurrency(r.amount)}</td>
-                      <td className="px-3 py-2 text-zinc-400">{r.category}</td>
+                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{r.category}</td>
                       <td className="px-3 py-2 text-zinc-300">{r.note || '—'}</td>
                       <td className="px-3 py-2 text-zinc-400">{r.date || '—'}</td>
                       <td className="px-3 py-2 font-mono text-xs text-zinc-500">{r.loggedBy || '—'}</td>
@@ -409,14 +409,14 @@ export function OpsPage() {
           <h2 className="text-lg font-semibold text-white">Reorder queue</h2>
           <p className="mt-1 text-sm text-zinc-500">From Slack `/reorder` — fulfilled or dismiss to clear.</p>
           <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
-            <table className="min-w-[800px] w-full border-collapse text-left text-sm">
+            <table className="w-full max-sm:min-w-0 border-collapse text-left text-sm sm:min-w-[800px]">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
                   <th className="px-3 py-2">MSPN</th>
                   <th className="px-3 py-2">Description</th>
                   <th className="px-3 py-2">Qty</th>
-                  <th className="px-3 py-2">Requested by</th>
-                  <th className="px-3 py-2">Requested at</th>
+                  <th className="px-3 py-2 max-sm:hidden">Requested by</th>
+                  <th className="px-3 py-2 max-sm:hidden">Requested at</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
@@ -435,8 +435,8 @@ export function OpsPage() {
                         {reorderDesc.get(String(row.mspn || '')) || '—'}
                       </td>
                       <td className="px-3 py-2 text-zinc-300">{formatQty(row.qty)}</td>
-                      <td className="px-3 py-2 text-zinc-400">{row.requestedBy || '—'}</td>
-                      <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(row.requestedAt)}</td>
+                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{row.requestedBy || '—'}</td>
+                      <td className="px-3 py-2 text-xs text-zinc-500 max-sm:hidden">{formatTs(row.requestedAt)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           <button

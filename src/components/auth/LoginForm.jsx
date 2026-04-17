@@ -36,7 +36,7 @@ export function LoginForm({ onSuccess }) {
         </p>
       ) : null}
       <div className="space-y-1.5 text-left">
-        <label htmlFor="email" className="text-xs font-medium text-zinc-500">
+        <label htmlFor="email" className="text-sm font-medium text-zinc-500">
           Email
         </label>
         <input
@@ -51,7 +51,7 @@ export function LoginForm({ onSuccess }) {
         />
       </div>
       <div className="space-y-1.5 text-left">
-        <label htmlFor="password" className="text-xs font-medium text-zinc-500">
+        <label htmlFor="password" className="text-sm font-medium text-zinc-500">
           Password
         </label>
         <input

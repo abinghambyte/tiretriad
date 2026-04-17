@@ -646,24 +646,24 @@ export function CrmPage() {
               </form>
             ) : null}
             <div className="overflow-x-auto rounded-xl border border-zinc-800">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full max-sm:min-w-0 text-left text-sm sm:min-w-[640px]">
                 <thead>
                   <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase text-zinc-500">
                     <th className="px-3 py-2">Business</th>
-                    <th className="px-3 py-2">Source</th>
-                    <th className="px-3 py-2">Segment</th>
+                    <th className="px-3 py-2 max-sm:hidden">Source</th>
+                    <th className="px-3 py-2 max-sm:hidden">Segment</th>
                     <th className="px-3 py-2">Vehicles</th>
                     <th className="px-3 py-2">Urgency</th>
                     <th className="px-3 py-2">Follow-up</th>
-                    <th className="px-3 py-2" />
+                    <th className="px-3 py-2 max-sm:hidden" />
                   </tr>
                 </thead>
                 <tbody>
                   {leads.map((r) => (
                     <tr key={r.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2">{r.businessName}</td>
-                      <td className="px-3 py-2 text-zinc-400">{r.source || '—'}</td>
-                      <td className="px-3 py-2 text-zinc-400">{crmSegmentLabel(r.segment)}</td>
+                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{r.source || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{crmSegmentLabel(r.segment)}</td>
                       <td className="px-3 py-2">{r.fleetSize ?? '—'}</td>
                       <td className="px-3 py-2">
                         <span
@@ -679,7 +679,7 @@ export function CrmPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(r.followUpAt)}</td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right max-sm:hidden">
                         {r.convertedToAccountId ? (
                           <span className="text-xs text-zinc-600">Converted</span>
                         ) : canEdit ? (
