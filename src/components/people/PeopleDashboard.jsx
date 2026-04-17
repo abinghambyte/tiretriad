@@ -933,13 +933,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           onClick={closeEditor}
         >
           <div
-            className="sk-panel-slide-in flex h-full w-full max-w-md flex-col border-l border-zinc-800/90 bg-zinc-950 shadow-2xl shadow-black/40"
+            className="sk-panel-slide-in flex h-full w-full max-w-2xl flex-col border-l border-zinc-800/90 bg-zinc-950 shadow-2xl shadow-black/40"
             onClick={(e) => e.stopPropagation()}
           >
             {/* ── Scrollable body ─────────────────────────── */}
             <div className="flex-1 overflow-y-auto p-5 pb-2">
 
-              {/* Header */}
+              {/* Header — full width */}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
@@ -953,76 +953,84 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                   onClick={closeEditor}
                   aria-label="Close panel"
                 >
-                  <span className="text-xl leading-none" aria-hidden>
-                    ×
-                  </span>
+                  <span className="text-xl leading-none" aria-hidden>×</span>
                 </button>
               </div>
 
-              {/* Invite link */}
-              {panelInviteUrl ? (
-                <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
-                      Active invite link
-                    </p>
-                    <button
-                      type="button"
-                      disabled={invokeBusy !== ''}
-                      onClick={() => void revokeInvite()}
-                      className="rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
-                    >
-                      {invokeBusy === 'revoke' ? 'Revoking…' : 'Revoke'}
-                    </button>
-                  </div>
-                  <InviteUrlToolkit url={panelInviteUrl} />
-                </div>
-              ) : (
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-zinc-600">No active invite for this user.</p>
-                  {selected && !selected.inviteAccepted ? (
-                    <button
-                      type="button"
-                      disabled={invokeBusy !== ''}
-                      onClick={() => void reissueInvite()}
-                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
-                    >
-                      {invokeBusy === 'reissue' ? 'Sending…' : 'New invite'}
-                    </button>
-                  ) : null}
-                </div>
-              )}
+              {/* ── Two-column body on md+ ────────────────── */}
+              <div className="mt-4 md:grid md:grid-cols-[1fr_1.5fr] md:gap-6">
 
-              {/* Role row — inline with Apply defaults button */}
-              <div className="mt-5">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className="mb-1.5 block text-xs text-zinc-500">Role</label>
-                    <select
-                      value={roleDraft}
-                      onChange={(e) => setRoleDraft(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-                    >
-                      <option value="admin">{crewTagFromRole('admin')}</option>
-                      <option value="supplier">{crewTagFromRole('supplier')}</option>
-                      <option value="mechanic">{crewTagFromRole('mechanic')}</option>
-                      <option value="viewer">{crewTagFromRole('viewer')}</option>
-                    </select>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={applyRoleDefaults}
-                    disabled={saving}
-                    className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
-                  >
-                    Apply defaults
-                  </button>
-                </div>
-              </div>
+                {/* Left column: invite + role */}
+                <div className="space-y-4">
 
-              {/* Permission matrix */}
-              <div className="mt-5">
-                <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
+                  {/* Invite link */}
+                  {panelInviteUrl ? (
+                    <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
+                          Active invite link
+                        </p>
+                        <button
+                          type="button"
+                          disabled={invokeBusy !== ''}
+                          onClick={() => void revokeInvite()}
+                          className="rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+                        >
+                          {invokeBusy === 'revoke' ? 'Revoking…' : 'Revoke'}
+                        </button>
+                      </div>
+                      <InviteUrlToolkit url={panelInviteUrl} />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2.5">
+                      <p className="text-xs text-zinc-500">No active invite.</p>
+                      {selected && !selected.inviteAccepted ? (
+                        <button
+                          type="button"
+                          disabled={invokeBusy !== ''}
+                          onClick={() => void reissueInvite()}
+                          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+                        >
+                          {invokeBusy === 'reissue' ? 'Sending…' : 'New invite'}
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* Role row */}
+                  <div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="mb-1.5 block text-xs text-zinc-500">Role</label>
+                        <select
+                          value={roleDraft}
+                          onChange={(e) => setRoleDraft(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                        >
+                          <option value="admin">{crewTagFromRole('admin')}</option>
+                          <option value="supplier">{crewTagFromRole('supplier')}</option>
+                          <option value="mechanic">{crewTagFromRole('mechanic')}</option>
+                          <option value="viewer">{crewTagFromRole('viewer')}</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={applyRoleDefaults}
+                        disabled={saving}
+                        className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
+                      >
+                        Apply defaults
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Right column: permission matrix */}
+                <div className="mt-5 md:mt-0">
+                  <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
+                </div>
+
               </div>
 
               {/* Availability — collapsible */}
