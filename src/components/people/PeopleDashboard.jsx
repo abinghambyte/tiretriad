@@ -364,6 +364,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [eleDuration, setEleDuration] = useState('24h')
   const [eleSaving, setEleSaving] = useState(false)
   const [showElevation, setShowElevation] = useState(false)
+  const [showAvailability, setShowAvailability] = useState(false)
   const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | ''
   const [lockAwaitUid, setLockAwaitUid] = useState(null)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
@@ -992,19 +993,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 </div>
               )}
 
-              {/* Availability */}
-              {profile &&
-              selected &&
-              (permissionMeets(profile.permissions?.people, 'manage') ||
-                selected.id === auth.currentUser?.uid) ? (
-                <AvailabilityBlocker
-                  key={selected.id}
-                  profile={profile}
-                  initialSubjectUid={selected.id}
-                  crewUsers={users}
-                />
-              ) : null}
-
               {/* Role row — inline with Apply defaults button */}
               <div className="mt-5">
                 <div className="flex items-end gap-2">
@@ -1037,8 +1025,40 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
               </div>
 
+              {/* Availability — collapsible */}
+              {profile &&
+              selected &&
+              (permissionMeets(profile.permissions?.people, 'manage') ||
+                selected.id === auth.currentUser?.uid) ? (
+                <div className="mt-4 border-t border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowAvailability((v) => !v)}
+                    className="flex w-full items-center justify-between py-3 text-xs font-medium uppercase tracking-wide text-zinc-500 transition-colors hover:text-zinc-300"
+                  >
+                    <span>Availability</span>
+                    <span
+                      className="text-base leading-none transition-transform duration-200"
+                      style={{ transform: showAvailability ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      ▾
+                    </span>
+                  </button>
+                  {showAvailability ? (
+                    <div className="pb-4">
+                      <AvailabilityBlocker
+                        key={selected.id}
+                        profile={profile}
+                        initialSubjectUid={selected.id}
+                        crewUsers={users}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               {/* Temporary elevation — collapsible */}
-              <div className="mt-4 border-t border-zinc-800">
+              <div className="mt-0 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setShowElevation((v) => !v)}
