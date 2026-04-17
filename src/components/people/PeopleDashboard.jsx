@@ -36,6 +36,7 @@ const scheduleElevationRevert = httpsCallable(functions, 'scheduleElevationRever
 const previewInviteGreeting = httpsCallable(functions, 'previewInviteGreeting')
 const revokeInviteFn = httpsCallable(functions, 'revokeInvite')
 const reissueInviteFn = httpsCallable(functions, 'reissueInvite')
+const deletePortalUserFn = httpsCallable(functions, 'deletePortalUser')
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -365,7 +366,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [eleSaving, setEleSaving] = useState(false)
   const [showElevation, setShowElevation] = useState(false)
   const [showAvailability, setShowAvailability] = useState(false)
-  const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | ''
+  const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | 'delete' | ''
   const [lockAwaitUid, setLockAwaitUid] = useState(null)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
@@ -483,7 +484,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function renewInvite(u) {
     try {
-      await updatePortalUser({ targetUid: u.id, renewInvite: true })
+      await reissueInviteFn({ targetUid: u.id, inviteDelivery: 'email' })
     } catch (e) {
       window.alert(e?.message || String(e))
     }
@@ -652,6 +653,26 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     try {
       const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: 'email' })
       setPanelInviteUrl(data.inviteUrl || '')
+    } catch (e) {
+      window.alert(e?.message || String(e))
+    } finally {
+      setInvokeBusy('')
+    }
+  }
+
+  async function deleteUser() {
+    if (!selected) return
+    const name = `${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.email
+    if (
+      !window.confirm(
+        `Permanently delete ${name}? This removes their account, invite tokens, and Firestore record. This cannot be undone.`,
+      )
+    )
+      return
+    setInvokeBusy('delete')
+    try {
+      await deletePortalUserFn({ targetUid: selected.id })
+      closeEditor()
     } catch (e) {
       window.alert(e?.message || String(e))
     } finally {
@@ -1172,6 +1193,16 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               >
                 {saving ? 'Saving…' : 'Save permissions'}
               </button>
+              {selected && selected.id !== auth.currentUser?.uid ? (
+                <button
+                  type="button"
+                  disabled={invokeBusy !== ''}
+                  onClick={() => void deleteUser()}
+                  className="rounded-lg border border-red-900/50 px-4 py-2.5 text-sm font-medium text-red-400/80 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+                >
+                  {invokeBusy === 'delete' ? 'Deleting…' : 'Delete'}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

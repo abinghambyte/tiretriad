@@ -524,3 +524,65 @@ exports.reissueInvite = onCall(async (request) => {
 
   return { ok: true, token, inviteUrl }
 })
+
+/**
+ * Permanently delete a portal user.
+ * Removes the Firebase Auth account, all inviteTokens docs, and the user Firestore doc.
+ * Admins cannot delete themselves.
+ */
+exports.deletePortalUser = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in required.')
+  }
+  const db = admin.firestore()
+  await assertCanManagePeople(db, request.auth.uid)
+
+  const targetUid = String(request.data?.targetUid || '').trim()
+  if (!targetUid) {
+    throw new HttpsError('invalid-argument', 'targetUid is required.')
+  }
+  if (targetUid === request.auth.uid) {
+    throw new HttpsError('failed-precondition', 'You cannot delete your own account.')
+  }
+
+  const userRef = db.collection('users').doc(targetUid)
+  const userSnap = await userRef.get()
+  if (!userSnap.exists) {
+    throw new HttpsError('not-found', 'User not found.')
+  }
+
+  const userData = userSnap.data() || {}
+
+  // Delete all inviteTokens for this user
+  const tokensSnap = await db
+    .collection('inviteTokens')
+    .where('uid', '==', targetUid)
+    .get()
+
+  const batch = db.batch()
+  tokensSnap.docs.forEach((doc) => batch.delete(doc.ref))
+  batch.delete(userRef)
+  await batch.commit()
+
+  // Delete Firebase Auth account (best-effort — don't fail if already deleted)
+  try {
+    await admin.auth().deleteUser(targetUid)
+  } catch (e) {
+    if (e?.errorInfo?.code !== 'auth/user-not-found') {
+      console.error('deletePortalUser: auth.deleteUser failed', e)
+    }
+  }
+
+  // Log the deletion
+  await db.collection('accessLog').doc().set({
+    uid: targetUid,
+    changedBy: request.auth.uid,
+    changedAt: FieldValue.serverTimestamp(),
+    field: 'userDeleted',
+    before: { email: userData.email, firstName: userData.firstName, lastName: userData.lastName, role: userData.role },
+    after: null,
+    reason: 'User permanently deleted',
+  })
+
+  return { ok: true }
+})
