@@ -687,9 +687,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               placeholder="+1 (555) 123-4567"
               value={phone}
               onChange={(v) => {
-                const raw = String(v || '').replace(/\D/g, '')
-                const digits = raw.startsWith('1') && raw.length > 10 ? raw.slice(1) : raw
-                setPhone(formatPhoneInputForDisplay(digits.slice(0, 10)))
+                const all = String(v || '').replace(/\D/g, '')
+                // NANP area codes never start with 1 — the leading 1 is always country code
+                const national = all.startsWith('1') ? all.slice(1) : all
+                setPhone(formatPhoneInputForDisplay(national.slice(0, 10)))
               }}
             />
             <div>
