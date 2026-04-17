@@ -361,6 +361,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [eleLevel, setEleLevel] = useState('edit')
   const [eleDuration, setEleDuration] = useState('24h')
   const [eleSaving, setEleSaving] = useState(false)
+  const [showElevation, setShowElevation] = useState(false)
   const [lockAwaitUid, setLockAwaitUid] = useState(null)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
@@ -901,153 +902,189 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           onClick={closeEditor}
         >
           <div
-            className="sk-panel-slide-in h-full w-full max-w-md overflow-y-auto border-l border-zinc-800/90 bg-zinc-950 p-6 shadow-2xl shadow-black/40"
+            className="sk-panel-slide-in flex h-full w-full max-w-md flex-col border-l border-zinc-800/90 bg-zinc-950 shadow-2xl shadow-black/40"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
-                  {selected.firstName} {selected.lastName}
-                </h2>
-                <p className="mt-1 text-xs text-zinc-400">{selected.email}</p>
-              </div>
-              <button
-                type="button"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-zinc-400 transition-colors duration-200 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100"
-                onClick={closeEditor}
-                aria-label="Close panel"
-              >
-                <span className="text-xl leading-none" aria-hidden>
-                  ×
-                </span>
-              </button>
-            </div>
-            {panelInviteUrl ? (
-              <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3 max-sm:p-4">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90 max-sm:text-xs">
-                  Active invite link
-                </p>
-                <div className="mt-2 max-sm:mt-3">
-                  <InviteUrlToolkit url={panelInviteUrl} />
+            {/* ── Scrollable body ─────────────────────────── */}
+            <div className="flex-1 overflow-y-auto p-5 pb-2">
+
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
+                    {selected.firstName} {selected.lastName}
+                  </h2>
+                  <p className="mt-1 text-xs text-zinc-400">{selected.email}</p>
                 </div>
-              </div>
-            ) : (
-              <p className="mt-3 text-[11px] text-zinc-600">No active invite token for this user.</p>
-            )}
-
-            {profile &&
-            selected &&
-            (permissionMeets(profile.permissions?.people, 'manage') ||
-              selected.id === auth.currentUser?.uid) ? (
-              <AvailabilityBlocker
-                key={selected.id}
-                profile={profile}
-                initialSubjectUid={selected.id}
-                crewUsers={users}
-              />
-            ) : null}
-
-            <div className="mt-6 space-y-3">
-              <label className="block text-xs text-zinc-500">Role</label>
-              <select
-                value={roleDraft}
-                onChange={(e) => setRoleDraft(e.target.value)}
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-              >
-                <option value="admin">{crewTagFromRole('admin')}</option>
-                <option value="supplier">{crewTagFromRole('supplier')}</option>
-                <option value="mechanic">{crewTagFromRole('mechanic')}</option>
-                <option value="viewer">{crewTagFromRole('viewer')}</option>
-              </select>
-              <button
-                type="button"
-                onClick={applyRoleDefaults}
-                disabled={saving}
-                className="text-xs text-amber-300/90 underline-offset-2 hover:underline"
-              >
-                Apply role defaults…
-              </button>
-            </div>
-
-            <div className="mt-8">
-              <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
-            </div>
-
-            <div className="mt-8 border-t border-zinc-800 pt-6">
-              <h3 className="text-sm font-semibold text-zinc-200">Temporary elevation</h3>
-              <p className="mt-1 text-xs text-zinc-500">
-                Raise one module for 24h, 48h, or 7 days. Reverts automatically (hourly job).
-              </p>
-              <div className="mt-4 space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-500">Module</label>
-                  <select
-                    value={eleModule}
-                    onChange={(e) => {
-                      const key = e.target.value
-                      setEleModule(key)
-                      const row = MODULE_MATRIX.find((m) => m.key === key) || MODULE_MATRIX[0]
-                      setEleLevel((cur) =>
-                        row.levels.includes(cur) ? cur : row.levels[row.levels.length - 1],
-                      )
-                    }}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-                  >
-                    {MODULE_MATRIX.map((m) => (
-                      <option key={m.key} value={m.key}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-500">Elevated level</label>
-                  <select
-                    value={eleLevel}
-                    onChange={(e) => setEleLevel(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
-                  >
-                    {eleModuleRow.levels.map((lvl) => (
-                      <option key={lvl} value={lvl}>
-                        {lvl}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <fieldset className="space-y-2">
-                  <legend className="mb-1 text-xs text-zinc-500">Duration</legend>
-                  {[
-                    { id: '24h', label: '24 hours' },
-                    { id: '48h', label: '48 hours' },
-                    { id: '7d', label: '7 days' },
-                  ].map((d) => (
-                    <label key={d.id} className="flex items-center gap-2 text-sm text-zinc-300">
-                      <input
-                        type="radio"
-                        name="ele-dur"
-                        checked={eleDuration === d.id}
-                        onChange={() => setEleDuration(d.id)}
-                      />
-                      {d.label}
-                    </label>
-                  ))}
-                </fieldset>
                 <button
                   type="button"
-                  disabled={eleSaving}
-                  onClick={() => void saveTimedElevation()}
-                  className="w-full rounded-lg bg-amber-900/40 px-3 py-2 text-sm font-semibold text-amber-100 ring-1 ring-amber-800/50 hover:bg-amber-900/60 disabled:opacity-50"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-zinc-400 transition-colors duration-200 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100"
+                  onClick={closeEditor}
+                  aria-label="Close panel"
                 >
-                  {eleSaving ? 'Saving…' : 'Apply temporary elevation'}
+                  <span className="text-xl leading-none" aria-hidden>
+                    ×
+                  </span>
                 </button>
               </div>
+
+              {/* Invite link */}
+              {panelInviteUrl ? (
+                <div className="mt-3 rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3 max-sm:p-4">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90 max-sm:text-xs">
+                    Active invite link
+                  </p>
+                  <div className="mt-2 max-sm:mt-3">
+                    <InviteUrlToolkit url={panelInviteUrl} />
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-[11px] text-zinc-600">No active invite token for this user.</p>
+              )}
+
+              {/* Availability */}
+              {profile &&
+              selected &&
+              (permissionMeets(profile.permissions?.people, 'manage') ||
+                selected.id === auth.currentUser?.uid) ? (
+                <AvailabilityBlocker
+                  key={selected.id}
+                  profile={profile}
+                  initialSubjectUid={selected.id}
+                  crewUsers={users}
+                />
+              ) : null}
+
+              {/* Role row — inline with Apply defaults button */}
+              <div className="mt-5">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1.5 block text-xs text-zinc-500">Role</label>
+                    <select
+                      value={roleDraft}
+                      onChange={(e) => setRoleDraft(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                    >
+                      <option value="admin">{crewTagFromRole('admin')}</option>
+                      <option value="supplier">{crewTagFromRole('supplier')}</option>
+                      <option value="mechanic">{crewTagFromRole('mechanic')}</option>
+                      <option value="viewer">{crewTagFromRole('viewer')}</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={applyRoleDefaults}
+                    disabled={saving}
+                    className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
+                  >
+                    Apply defaults
+                  </button>
+                </div>
+              </div>
+
+              {/* Permission matrix */}
+              <div className="mt-5">
+                <PermissionMatrix value={permDraft} onChange={setPermDraft} disabled={saving} />
+              </div>
+
+              {/* Temporary elevation — collapsible */}
+              <div className="mt-4 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowElevation((v) => !v)}
+                  className="flex w-full items-center justify-between py-3 text-xs font-medium uppercase tracking-wide text-zinc-500 transition-colors hover:text-zinc-300"
+                >
+                  <span>Temporary elevation</span>
+                  <span
+                    className="text-base leading-none transition-transform duration-200"
+                    style={{ transform: showElevation ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  >
+                    ▾
+                  </span>
+                </button>
+
+                {showElevation ? (
+                  <div className="space-y-3 pb-4">
+                    <p className="text-xs text-zinc-500">
+                      Raise one module for 24h, 48h, or 7 days. Reverts automatically (hourly job).
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs text-zinc-500">Module</label>
+                        <select
+                          value={eleModule}
+                          onChange={(e) => {
+                            const key = e.target.value
+                            setEleModule(key)
+                            const row = MODULE_MATRIX.find((m) => m.key === key) || MODULE_MATRIX[0]
+                            setEleLevel((cur) =>
+                              row.levels.includes(cur) ? cur : row.levels[row.levels.length - 1],
+                            )
+                          }}
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                        >
+                          {MODULE_MATRIX.map((m) => (
+                            <option key={m.key} value={m.key}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-zinc-500">Elevated level</label>
+                        <select
+                          value={eleLevel}
+                          onChange={(e) => setEleLevel(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
+                        >
+                          {eleModuleRow.levels.map((lvl) => (
+                            <option key={lvl} value={lvl}>
+                              {lvl}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <fieldset>
+                      <legend className="mb-2 text-xs text-zinc-500">Duration</legend>
+                      <div className="flex gap-4">
+                        {[
+                          { id: '24h', label: '24h' },
+                          { id: '48h', label: '48h' },
+                          { id: '7d', label: '7 days' },
+                        ].map((d) => (
+                          <label key={d.id} className="flex items-center gap-1.5 text-sm text-zinc-300">
+                            <input
+                              type="radio"
+                              name="ele-dur"
+                              checked={eleDuration === d.id}
+                              onChange={() => setEleDuration(d.id)}
+                            />
+                            {d.label}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                    <button
+                      type="button"
+                      disabled={eleSaving}
+                      onClick={() => void saveTimedElevation()}
+                      className="w-full rounded-lg bg-amber-900/40 px-3 py-2 text-sm font-semibold text-amber-100 ring-1 ring-amber-800/50 hover:bg-amber-900/60 disabled:opacity-50"
+                    >
+                      {eleSaving ? 'Saving…' : 'Apply temporary elevation'}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
             </div>
 
-            <div className="mt-8 flex gap-2">
+            {/* ── Sticky footer ───────────────────────────── */}
+            <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-5 py-4 flex items-center gap-2">
               <button
                 type="button"
                 onClick={closeEditor}
-                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300"
+                className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
               >
                 Cancel
               </button>
@@ -1055,7 +1092,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 type="button"
                 disabled={saving}
                 onClick={savePermissions}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save permissions'}
               </button>
@@ -1127,6 +1164,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <li>First and last name</li>
                     <li>Phone</li>
                     <li>Password — then sign in and first-login handshake</li>
+                    <li>Join Slack workspace</li>
                   </ol>
                 </div>
                 <div className="mt-6 flex flex-col gap-2 max-sm:gap-3 sm:flex-row sm:flex-wrap sm:justify-end">

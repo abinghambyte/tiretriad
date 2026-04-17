@@ -149,7 +149,7 @@ export function InvitePage() {
   }, [phase, fxStep])
 
   const regTitles = useMemo(
-    () => ['Email', 'Code', 'Name', 'Phone', 'Password'],
+    () => ['Email', 'Code', 'Name', 'Phone', 'Password', 'Slack'],
     [],
   )
 
