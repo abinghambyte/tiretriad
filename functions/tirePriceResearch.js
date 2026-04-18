@@ -305,20 +305,20 @@ function buildResearchUserPrompt(tire) {
     tread && tread !== desc ? `- Tread model: ${tread}` : '',
     lr ? `- Load range: ${lr}` : '',
     '',
-    `Use consumer retail sellers that display an exact MSPN match in their product title. Examples of sellers that list by MSPN: Autoplicity, THMotorsports, Tire Agent, SimpleTire, PriorityTire, TireRack, DiscountTire, BB Wheels, Budget Truck Tires, Walmart, Amazon, Costco. Any of these are acceptable; do not skip a tire just because the only matches are on sellers outside a preferred list.`,
+    `Use CONSUMER RETAIL sellers that display an exact MSPN match in their product title. Examples: Autoplicity, THMotorsports, Tire Agent, SimpleTire, PriorityTire, TireRack, DiscountTire, BB Wheels, Budget Truck Tires, Walmart, Amazon, Costco, and the manufacturer's own retail site (michelintruck.com, michelinman.com, bfgoodrichtires.com, etc.). Any of these are acceptable; do not skip a tire just because the only matches are on sellers outside a preferred list.`,
     '',
-    `When three or more sellers list the same MSPN, compute the median of the LOWEST THREE prices. This reflects real street price rather than artificially-inflated "buy N get N% off" stickers that some truck-supply sellers advertise. With one or two sellers, use the single lowest price. Price is for one (1) tire, not a set of four.`,
+    `Explicitly EXCLUDE: wholesale-only sites, fleet/B2B portals, bulk-quantity discount listings (e.g. "price per tire when buying 4+"), and any listing where the headline price is gated on buying multiple tires or opening a commercial account. We want the single-tire retail sticker that a walk-in consumer would pay.`,
     '',
-    `If a manufacturer retail/commercial store (michelintruck.com, michelinman.com, bfgoodrichtires.com, etc.) also lists the MSPN, include it in the pool like any other seller.`,
+    `Price computation: when three or more sellers list the exact MSPN at retail, report the PLAIN MEDIAN (50th percentile) across 3 to 5 of them. No low-end trimming, no high-end trimming. With one or two sellers, use the single price. Price is for one (1) tire, not a set of four.`,
     '',
     `Respond with a JSON object only, no prose before or after:`,
     `{"price": <number or null>, "confidence": "high"|"medium"|"low", "notes": "<short source summary>"}`,
     '',
-    `- Keep "notes" under 160 characters. Name the two cheapest sellers used, nothing more.`,
-    `- "high" confidence: three or more sellers listed the exact MSPN and their lowest-three median is tight.`,
-    `- "medium": one or two sellers, or prices varied noticeably.`,
-    `- "low": very uncertain or extrapolated.`,
-    `- Only set price to null if NO seller anywhere lists this MSPN or brand + size + tread combination.`,
+    `- "notes" MUST list the per-seller prices you used, under 220 chars. Format: "Seller1 $NNN; Seller2 $NNN; Seller3 $NNN".`,
+    `- "high" confidence: three or more consumer-retail sellers listed the exact MSPN and their prices cluster within 15% of each other.`,
+    `- "medium": one or two sellers, or prices varied by more than 15%.`,
+    `- "low": very uncertain, extrapolated, or only partial MSPN matches.`,
+    `- Only set price to null if NO consumer-retail seller anywhere lists this MSPN or exact brand + size + tread combination.`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -654,6 +654,24 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
     })
     outcome = 'updated'
   })
+
+  // Log every successful write with the notes Gemini returned, so we can
+  // audit which sellers it picked without re-running the tire. Costs one
+  // log line per tire and lets us diagnose pricing bias later without
+  // shipping another round of deploy-and-wait.
+  if (outcome === 'updated' || outcome === 'skipped_kyle') {
+    console.log('[tirePriceResearch] price_found', {
+      mspn,
+      modelUsed,
+      foundPrice,
+      confidence: gemConf,
+      anchorKind: anchor?.kind || null,
+      anchorValue: anchor?.value || null,
+      ratio: anchor ? Number((foundPrice / anchor.value).toFixed(2)) : null,
+      notes: String(parsed.notes || '').slice(0, 300),
+      outcome,
+    })
+  }
 
   if (outcome === 'not_found' && slackMode === 'single' && !silent && token && channel) {
     const line = tireDisplayLine(tire)
