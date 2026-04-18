@@ -35,6 +35,15 @@ export default defineConfig([
     },
   },
   {
+    files: ['scripts/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.node },
+      sourceType: 'module',
+    },
+  },
+  {
     files: ['**/*.{js,jsx}'],
     ignores: ['functions/**', 'vite.config.js'],
     extends: [
