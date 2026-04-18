@@ -152,11 +152,14 @@ Shared `<Spinner />` component at `src/components/ui/Spinner.jsx` (animate-spin 
 
 All state resets in `finally`. Disabled + `cursor-not-allowed` + 50% opacity is the consistent pattern.
 
+### Handoff 15: Command Palette Mobile Trigger ✅
+Top-bar search button and theme toggle bumped from `h-9 w-9` (36px) to `min-h-[44px] min-w-[44px]` on mobile (preserves `sm:h-8 sm:w-8` on desktop). Matches the portal's standard 44px touch target. Command palette itself already renders correctly on mobile (`fixed inset-0`, 44px input), no changes needed there.
+
 ---
 
 ## Active / Upcoming Handoffs
 
-None currently active. Next candidates from `_handoffs/ROADMAP.md` Phase 9+: command palette mobile trigger, analytics chart readability on small screens, Growth Lab routing accuracy review.
+None currently active. Next candidates from `_handoffs/ROADMAP.md` Phase 9+: analytics chart readability on small screens, Growth Lab routing accuracy review, mechanic intake form end-to-end verification.
 
 **Note:** `scripts/gen-next-handoff.js` produces hallucinated file paths. Handoffs 11+ are hand-written from actual file reads. Do NOT run the gen script and use its output as a handoff — always hand-write from real file reads.
 

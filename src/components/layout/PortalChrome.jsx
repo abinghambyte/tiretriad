@@ -100,7 +100,7 @@ function ThemeToggle() {
       type="button"
       title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
       onClick={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 sm:h-8 sm:w-8"
+      className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 sm:h-8 sm:min-h-0 sm:w-8 sm:min-w-0"
       aria-label="Toggle color theme"
     >
       {mode === 'dark' ? (
