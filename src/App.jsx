@@ -1,21 +1,44 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ErrorBoundary } from './components/ui/ErrorBoundary.jsx'
 import { PortalChrome } from './components/layout/PortalChrome.jsx'
-import { AnalyticsPage } from './pages/AnalyticsPage'
-import { CrmDispatchPage } from './pages/CrmDispatchPage'
-import { CrmPage } from './pages/CrmPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { GrowthLabPage } from './pages/GrowthLabPage'
-import { DispatchRedirect } from './components/DispatchRedirect.jsx'
-import { HandshakePage } from './pages/HandshakePage'
+import Spinner from './components/ui/Spinner.jsx'
+import { LandingPage } from './pages/LandingPage'
 import { InvitePage } from './pages/InvitePage'
 import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
-import { LandingPage } from './pages/LandingPage'
-import { OrdersPage } from './pages/OrdersPage'
-import { OpsPage } from './pages/OpsPage'
-import { PeoplePage } from './pages/PeoplePage'
-import { TiresPage } from './pages/TiresPage'
+import { DispatchRedirect } from './components/DispatchRedirect.jsx'
 import { ProtectedRoute } from './routes/ProtectedRoute'
+
+// Lazy-load everything behind the portal chrome. Pages use named exports,
+// so each import() is mapped to a default for React.lazy.
+const AnalyticsPage = lazy(() =>
+  import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })),
+)
+const CrmDispatchPage = lazy(() =>
+  import('./pages/CrmDispatchPage').then((m) => ({ default: m.CrmDispatchPage })),
+)
+const CrmPage = lazy(() => import('./pages/CrmPage').then((m) => ({ default: m.CrmPage })))
+const DashboardPage = lazy(() =>
+  import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+)
+const GrowthLabPage = lazy(() =>
+  import('./pages/GrowthLabPage').then((m) => ({ default: m.GrowthLabPage })),
+)
+const HandshakePage = lazy(() =>
+  import('./pages/HandshakePage').then((m) => ({ default: m.HandshakePage })),
+)
+const OrdersPage = lazy(() => import('./pages/OrdersPage').then((m) => ({ default: m.OrdersPage })))
+const OpsPage = lazy(() => import('./pages/OpsPage').then((m) => ({ default: m.OpsPage })))
+const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
+const TiresPage = lazy(() => import('./pages/TiresPage').then((m) => ({ default: m.TiresPage })))
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <Spinner className="h-8 w-8 text-zinc-500" />
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -34,7 +57,9 @@ export default function App() {
           path="/handshake"
           element={
             <ProtectedRoute>
-              <HandshakePage />
+              <Suspense fallback={<RouteFallback />}>
+                <HandshakePage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -42,7 +67,9 @@ export default function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <Suspense fallback={<RouteFallback />}>
+                <DashboardPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -50,7 +77,9 @@ export default function App() {
           path="/growth"
           element={
             <ProtectedRoute requireAdmin>
-              <GrowthLabPage />
+              <Suspense fallback={<RouteFallback />}>
+                <GrowthLabPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -66,7 +95,9 @@ export default function App() {
           path="/tires"
           element={
             <ProtectedRoute module="tires" level="view">
-              <TiresPage />
+              <Suspense fallback={<RouteFallback />}>
+                <TiresPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -74,7 +105,9 @@ export default function App() {
           path="/orders"
           element={
             <ProtectedRoute module="orders" level="view">
-              <OrdersPage />
+              <Suspense fallback={<RouteFallback />}>
+                <OrdersPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -84,7 +117,9 @@ export default function App() {
           path="/analytics"
           element={
             <ProtectedRoute module="analytics" level="view">
-              <AnalyticsPage />
+              <Suspense fallback={<RouteFallback />}>
+                <AnalyticsPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -92,7 +127,9 @@ export default function App() {
           path="/people"
           element={
             <ProtectedRoute module="people" level="manage">
-              <PeoplePage />
+              <Suspense fallback={<RouteFallback />}>
+                <PeoplePage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -100,7 +137,9 @@ export default function App() {
           path="/ops"
           element={
             <ProtectedRoute>
-              <OpsPage />
+              <Suspense fallback={<RouteFallback />}>
+                <OpsPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -108,7 +147,9 @@ export default function App() {
           path="/crm"
           element={
             <ProtectedRoute module="crm" level="view">
-              <CrmPage />
+              <Suspense fallback={<RouteFallback />}>
+                <CrmPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
@@ -116,7 +157,9 @@ export default function App() {
           path="/crm/dispatch"
           element={
             <ProtectedRoute module="crm" level="view">
-              <CrmDispatchPage />
+              <Suspense fallback={<RouteFallback />}>
+                <CrmDispatchPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />
