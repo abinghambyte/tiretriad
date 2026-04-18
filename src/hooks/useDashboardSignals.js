@@ -12,6 +12,7 @@ import { db } from '../firebase/config'
 import { useTires } from './useTires'
 import { computeMargin } from '../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
+import { listingStatus } from '../utils/listingStatus'
 
 const CATALOG_SKU_DISPLAY = 1160
 
@@ -20,6 +21,18 @@ const CATALOG_SKU_DISPLAY = 1160
  */
 export function useDashboardSignals() {
   const { tires, loading: tiresLoading } = useTires()
+
+  const needsRepostingCount = useMemo(() => {
+    if (tiresLoading) return null
+    let n = 0
+    for (const t of tires) {
+      const allInactive = ['facebook', 'offerup', 'craigslist'].every(
+        (p) => listingStatus(t, p) !== 'active',
+      )
+      if (allInactive) n += 1
+    }
+    return n
+  }, [tires, tiresLoading])
 
   const tireSku = useMemo(() => {
     if (tiresLoading) return { pricedCount: null, avgMarginPriced: null, loading: true }
@@ -83,7 +96,6 @@ export function useDashboardSignals() {
 
   const [signalBar, setSignalBar] = useState({
     pendingOrders: null,
-    deadStock: null,
     catalogSize: null,
     crewAlerts: null,
     loading: true,
@@ -216,9 +228,8 @@ export function useDashboardSignals() {
           collection(db, 'orders'),
           where('status', 'not-in', ['completed', 'cancelled']),
         )
-        const [pendingSnap, deadSnap, tiresSnap, lockedSnap] = await Promise.all([
+        const [pendingSnap, tiresSnap, lockedSnap] = await Promise.all([
           getCountFromServer(pendingQ),
-          getCountFromServer(query(collection(db, 'tires'), where('deadStockFlag', '==', true))),
           getCountFromServer(collection(db, 'tires')),
           getCountFromServer(query(collection(db, 'users'), where('inviteStatus', '==', 'locked'))),
         ])
@@ -238,7 +249,6 @@ export function useDashboardSignals() {
         if (cancelled) return
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
-          deadStock: deadSnap.data().count,
           catalogSize: tiresSnap.data().count,
           crewAlerts: pendingInvites + lockedSnap.data().count,
           loading: false,
@@ -248,7 +258,6 @@ export function useDashboardSignals() {
         if (!cancelled) {
           setSignalBar({
             pendingOrders: 0,
-            deadStock: 0,
             catalogSize: 0,
             crewAlerts: 0,
             loading: false,
@@ -320,6 +329,7 @@ export function useDashboardSignals() {
 
   return {
     catalogSkuDisplay: CATALOG_SKU_DISPLAY,
+    needsRepostingCount,
     tireSku,
     priceIntelResearched,
     crm,

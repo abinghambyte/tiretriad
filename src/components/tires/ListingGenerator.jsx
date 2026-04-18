@@ -1,14 +1,56 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { functions } from '../../firebase/config'
+import { db, functions } from '../../firebase/config'
 import { buildListingScript } from '../../utils/listingGenerator'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { parseDescription } from '../../utils/parseTireDescription'
 import { formatCurrency } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
+import { timeAgo } from '../../utils/timeAgo'
+import { listingStatus } from '../../utils/listingStatus'
 
 const PLATFORMS = ['Facebook Marketplace', 'OfferUp', 'Craigslist']
+
+const MARK_POSTED_PLATFORMS = [
+  { key: 'facebook', short: 'FB', action: 'Mark FB posted' },
+  { key: 'offerup', short: 'OU', action: 'Mark OU posted' },
+  { key: 'craigslist', short: 'CL', action: 'Mark CL posted' },
+]
+
+/**
+ * @param {object} props
+ * @param {Record<string, unknown>} props.tire
+ * @param {'idle' | 'saving' | 'done'} props.phase
+ * @param {() => void} props.onMark
+ */
+function MarkPostedControl({ tire, platformKey, shortLabel, actionLabel, phase, onMark }) {
+  const st = listingStatus(tire, platformKey)
+  const ts = tire?.platformListings?.[platformKey]?.lastPostedAt
+
+  if (phase === 'saving') {
+    return <span className="text-xs text-zinc-500">Saving…</span>
+  }
+  if (phase === 'done') {
+    return <span className="text-xs font-medium text-emerald-400">Posted ✓</span>
+  }
+
+  const recent = st === 'active'
+  return (
+    <button
+      type="button"
+      onClick={onMark}
+      className={
+        recent
+          ? 'rounded-lg border border-transparent px-2 py-1.5 text-left text-xs text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+          : 'rounded-lg border border-zinc-600 bg-zinc-900/50 px-2 py-1.5 text-xs font-medium text-zinc-200 hover:border-zinc-500'
+      }
+    >
+      {recent ? `${shortLabel} — posted ${timeAgo(ts) || '—'}` : `✓ ${actionLabel}`}
+    </button>
+  )
+}
 
 const listingAdvisorFn = httpsCallable(functions, 'listingAdvisor')
 
@@ -207,6 +249,36 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
   const [generated, setGenerated] = useState([])
   const [advisorById, setAdvisorById] = useState({})
   const [advisorRunning, setAdvisorRunning] = useState(false)
+  const [markPostedUi, setMarkPostedUi] = useState({})
+
+  const markPosted = useCallback(async (tireId, platform) => {
+    setMarkPostedUi((prev) => ({
+      ...prev,
+      [tireId]: { ...prev[tireId], [platform]: 'saving' },
+    }))
+    try {
+      await updateDoc(doc(db, 'tires', tireId), {
+        [`platformListings.${platform}.lastPostedAt`]: serverTimestamp(),
+      })
+      setMarkPostedUi((prev) => ({
+        ...prev,
+        [tireId]: { ...prev[tireId], [platform]: 'done' },
+      }))
+      window.setTimeout(() => {
+        setMarkPostedUi((prev) => ({
+          ...prev,
+          [tireId]: { ...prev[tireId], [platform]: 'idle' },
+        }))
+      }, 2000)
+    } catch (e) {
+      console.error(e)
+      window.alert(e instanceof Error ? e.message : 'Could not update listing timestamp.')
+      setMarkPostedUi((prev) => ({
+        ...prev,
+        [tireId]: { ...prev[tireId], [platform]: 'idle' },
+      }))
+    }
+  }, [])
 
   useEffect(() => {
     function onKey(e) {
@@ -561,45 +633,68 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
 
           {generated.length > 0 ? (
             <div className="space-y-6 border-t border-zinc-800 pt-6">
-              {generated.map((g, i) => (
-                <div key={i} className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-zinc-300">
-                      Block {i + 1}
-                    </h3>
-                  </div>
-                  <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-xs text-zinc-500">Title</span>
-                      <button
-                        type="button"
-                        onClick={() => copyText(g.title)}
-                        className="text-xs text-amber-200/90 hover:underline"
-                      >
-                        Copy
-                      </button>
+              {generated.map((g, i) => {
+                const tire = tires[i]
+                return (
+                  <div key={tire?.id ?? i} className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-zinc-300">
+                        Block {i + 1}
+                      </h3>
                     </div>
-                    <pre className="whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-200">
-                      {g.title}
-                    </pre>
-                  </div>
-                  <div>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-xs text-zinc-500">Description</span>
-                      <button
-                        type="button"
-                        onClick={() => copyText(g.description)}
-                        className="text-xs text-amber-200/90 hover:underline"
-                      >
-                        Copy
-                      </button>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Title</span>
+                        <button
+                          type="button"
+                          onClick={() => copyText(g.title)}
+                          className="text-xs text-amber-200/90 hover:underline"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-200">
+                        {g.title}
+                      </pre>
                     </div>
-                    <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-300">
-                      {g.description}
-                    </pre>
+                    <div>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Description</span>
+                        <button
+                          type="button"
+                          onClick={() => copyText(g.description)}
+                          className="text-xs text-amber-200/90 hover:underline"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-300">
+                        {g.description}
+                      </pre>
+                    </div>
+                    {tire?.id ? (
+                      <div className="border-t border-zinc-800/80 pt-3">
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                          Listing activity
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {MARK_POSTED_PLATFORMS.map(({ key, short, action }) => (
+                            <MarkPostedControl
+                              key={key}
+                              tire={tire}
+                              platformKey={key}
+                              shortLabel={short}
+                              actionLabel={action}
+                              phase={markPostedUi[tire.id]?.[key] ?? 'idle'}
+                              onMark={() => void markPosted(tire.id, key)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : null}
         </div>

@@ -34,6 +34,7 @@ export function FilterPresetsBar({
   useTagFilters,
   lrFilters,
   minMargin,
+  needsReposting,
   onApplyPreset,
 }) {
   const [presets, setPresets] = useState(() => readPresets())
@@ -50,13 +51,14 @@ export function FilterPresetsBar({
       lrFilters: [...lrFilters],
       useTagFilters: [...useTagFilters],
       minMargin: Number(minMargin) || 0,
+      needsReposting: Boolean(needsReposting),
     }
     setPresets((prev) => {
       const next = [...prev, snapshot]
       writePresets(next)
       return next
     })
-  }, [brand, useTagFilters, lrFilters, minMargin])
+  }, [brand, useTagFilters, lrFilters, minMargin, needsReposting])
 
   const apply = useCallback(
     (p) => {

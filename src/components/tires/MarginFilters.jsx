@@ -12,8 +12,8 @@ export function MarginFilters({
   onLrFilters,
   minMargin,
   onMinMargin,
-  deadStockOnly,
-  onDeadStockOnly,
+  needsReposting,
+  onNeedsReposting,
   hasActiveFilters,
   onClearAll,
 }) {
@@ -73,19 +73,19 @@ export function MarginFilters({
           />
         </div>
       </div>
-      {onDeadStockOnly != null ? (
+      {onNeedsReposting != null ? (
         <div className="mt-1 border-t border-zinc-800/80 pt-3">
           <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
             <input
               type="checkbox"
-              checked={Boolean(deadStockOnly)}
-              onChange={(e) => onDeadStockOnly(e.target.checked)}
+              checked={Boolean(needsReposting)}
+              onChange={(e) => onNeedsReposting(e.target.checked)}
               className="rounded border-zinc-600"
             />
             <span>
-              <span className="font-medium text-zinc-200">Dead stock only</span>
+              <span className="font-medium text-zinc-200">Needs reposting</span>
               <span className="mt-0.5 block text-xs font-normal text-zinc-500">
-                Show tires with no orders in 90+ days (separate from brand / LR / tags filters).
+                All platforms stale or never posted
               </span>
             </span>
           </label>

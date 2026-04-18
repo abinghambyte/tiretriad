@@ -200,6 +200,7 @@ export function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const {
     catalogSkuDisplay,
+    needsRepostingCount,
     tireSku,
     priceIntelResearched,
     crm,
@@ -394,11 +395,11 @@ export function Dashboard() {
               loading={sigLoading}
             />
             <SignalCard
-              label="Dead stock"
-              value={signalBar.deadStock}
+              label="Needs Reposting"
+              value={needsRepostingCount}
               warn
-              to="/tires?deadStockOnly=true"
-              loading={sigLoading}
+              to="/tires?needsReposting=true"
+              loading={tireSku.loading}
             />
             <SignalCard
               label="Catalog size"

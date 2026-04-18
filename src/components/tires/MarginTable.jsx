@@ -10,6 +10,8 @@ import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { parseDescription } from '../../utils/parseTireDescription.js'
+import { timeAgo } from '../../utils/timeAgo'
+import { listingStatus } from '../../utils/listingStatus'
 
 /** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
 const ROW_BASE_PX = 56
@@ -21,11 +23,41 @@ const ROW_CTS_EDITOR_EXTRA_PX = 220
 const LIST_MAX_H = 560
 const LIST_MIN_H = 200
 
+const LISTING_PLATFORM_META = [
+  { key: 'facebook', short: 'FB', name: 'Facebook' },
+  { key: 'offerup', short: 'OU', name: 'OfferUp' },
+  { key: 'craigslist', short: 'CL', name: 'Craigslist' },
+]
+
+function ListedPlatformsCell({ row }) {
+  return (
+    <span className="inline-flex gap-1.5 font-mono text-[11px] font-semibold tracking-tight">
+      {LISTING_PLATFORM_META.map(({ key, short, name }) => {
+        const st = listingStatus(row, key)
+        const ts = row?.platformListings?.[key]?.lastPostedAt
+        const cls =
+          st === 'active'
+            ? 'text-emerald-400'
+            : st === 'stale'
+              ? 'text-amber-500/70'
+              : 'text-zinc-700'
+        const title =
+          st === 'never' ? `${name} — never posted` : `${name} — posted ${timeAgo(ts) || '—'}`
+        return (
+          <span key={key} className={cls} title={title}>
+            {short}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 980,
-  gridTemplateColumns: '52px 7rem 2fr 5.5rem 3rem 7rem 5rem 6rem 6rem',
+  minWidth: 1068,
+  gridTemplateColumns: '52px 7rem 2fr 5.5rem 3rem 6rem 7rem 5rem 6rem 6rem',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -59,7 +91,7 @@ function TableSkeleton() {
       className="box-border grid border-b border-zinc-800/40 px-0 py-2"
       style={{ ...GRID_STYLE, minHeight: ROW_BASE_PX }}
     >
-      {[...Array(9)].map((__, j) => (
+      {[...Array(10)].map((__, j) => (
         <div key={j} className="px-3">
           <div className="h-3.5 animate-pulse rounded-md bg-zinc-800/65" />
         </div>
@@ -229,10 +261,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const row = rows[index]
   if (!row) return null
 
-  const deadStockRowTint = row.deadStockFlag
-    ? 'border-l-2 border-l-amber-700/40 bg-amber-950/10'
-    : ''
-
   const m = computeMargin(row)
   const showCostEditor = editingCostsId === row.id
   const previewMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : m
@@ -331,7 +359,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
     return (
       <div
         style={style}
-        className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${deadStockRowTint}`}
+        className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
@@ -347,13 +375,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             </div>
             <div className="flex w-[200px] shrink-0 items-center border-r border-zinc-800/60 px-2">
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                {row.deadStockFlag ? (
-                  <span
-                    className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]"
-                    title="No orders in 90+ days."
-                    aria-label="Dead stock"
-                  />
-                ) : null}
                 <TireDescriptionCell description={row.description} />
               </span>
             </div>
@@ -379,6 +400,9 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-zinc-400">
               {row.lr || '—'}
             </div>
+            <div className="flex min-w-[5.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+              <ListedPlatformsCell row={row} />
+            </div>
             <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
               {formatCurrencyOrDash(Number(row.fet) || 0)}
             </div>
@@ -403,7 +427,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   return (
     <div
       style={style}
-      className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${deadStockRowTint}`}
+      className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...GRID_STYLE, height: ROW_BASE_PX }}>
         <div className="flex items-center justify-center px-0.5">
@@ -427,13 +451,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         </div>
         <div className="min-w-0 px-3">
           <span className="inline-flex min-w-0 items-start gap-1.5">
-            {row.deadStockFlag ? (
-              <span
-                className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]"
-                title="No orders in 90+ days."
-                aria-label="Dead stock"
-              />
-            ) : null}
             <TireDescriptionCell description={row.description} />
           </span>
         </div>
@@ -441,6 +458,9 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           {row.mspn || '—'}
         </div>
         <div className="whitespace-nowrap px-2 text-center text-zinc-400">{row.lr || '—'}</div>
+        <div className="flex min-w-0 items-center justify-center px-1">
+          <ListedPlatformsCell row={row} />
+        </div>
         <div
           className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
           title="Buy price — catalog buy (includes FET component)"
@@ -615,7 +635,7 @@ export function MarginTable({
             ← Scroll for overhead, FET, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[980px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1068px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
@@ -653,6 +673,7 @@ export function MarginTable({
             <div className="px-3">Description</div>
             <div className="px-3">MSPN</div>
             <div className="whitespace-nowrap px-2 text-center">LR</div>
+            <div className="w-[6rem] whitespace-nowrap px-1 text-center">Listed</div>
             <div className="min-w-0 whitespace-nowrap px-2 text-right">
               <SortButton
                 label="Buy Price"
@@ -741,6 +762,9 @@ export function MarginTable({
                 </div>
                 <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
                   LR
+                </div>
+                <div className="flex min-w-[5.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 text-[10px]">
+                  Listed
                 </div>
                 <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
                   FET

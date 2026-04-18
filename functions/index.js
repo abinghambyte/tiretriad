@@ -49,7 +49,7 @@ const {
   checkAccessExpiryRun,
   processElevationRevertsRun,
 } = require('./peopleScheduled')
-const { deadStockRadarRun, morningBriefRun } = require('./phase5Scheduled')
+const { morningBriefRun } = require('./phase5Scheduled')
 const { tirePriceResearchRun, escapeSlackMrkdwn } = require('./tirePriceResearch')
 const { kyleScorecardRun } = require('./kyleScorecard')
 const { lastTireLabelForMspn } = require('./contactTireLabel')
@@ -727,20 +727,21 @@ exports.processElevationReverts = onSchedule(
   },
 )
 
-/** Monday 13:00 UTC ≈ 6:00 AM MT — dead stock flags on tires (90-day order activity). */
-exports.deadStockRadar = onSchedule(
-  {
-    schedule: '0 13 * * 1',
-    timeZone: 'Etc/UTC',
-    region: 'us-central1',
-    secrets: SLACK_SECRETS,
-  },
-  async () => {
-    const token = SLACK_BOT_TOKEN.value()
-    const channel = slackChannelWithSecretFallback()
-    await deadStockRadarRun({ token, channel })
-  },
-)
+// Dead stock radar disabled — Skedaddle is just-in-time, no held inventory.
+// Replaced by manual listing tracking (platformListings on tire docs).
+// exports.deadStockRadar = onSchedule(
+//   {
+//     schedule: '0 13 * * 1',
+//     timeZone: 'Etc/UTC',
+//     region: 'us-central1',
+//     secrets: SLACK_SECRETS,
+//   },
+//   async () => {
+//     const token = SLACK_BOT_TOKEN.value()
+//     const channel = slackChannelWithSecretFallback()
+//     await deadStockRadarRun({ token, channel })
+//   },
+// )
 
 /** Weekdays 14:00 UTC ≈ 7:00 AM MT — morning digest to #fleet-ops. */
 exports.morningBrief = onSchedule(

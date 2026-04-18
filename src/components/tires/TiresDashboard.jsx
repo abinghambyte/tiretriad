@@ -9,6 +9,7 @@ import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
 import { computeMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { listingStatus } from '../../utils/listingStatus'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
@@ -50,8 +51,8 @@ export function TiresDashboard() {
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
-  const [deadStockOnly, setDeadStockOnly] = useState(() => {
-    const v = searchParams.get('deadStockOnly')
+  const [needsReposting, setNeedsReposting] = useState(() => {
+    const v = searchParams.get('needsReposting')
     return v === '1' || v === 'true'
   })
   const [filtersManualOpen, setFiltersManualOpen] = useState(false)
@@ -70,7 +71,7 @@ export function TiresDashboard() {
     setLrFilters(lrArr.map(String).filter(Boolean))
     setUseTagFilters(tagArr.map(String).filter(Boolean))
     setMinMargin(Number(p.minMargin) || 0)
-    setDeadStockOnly(false)
+    setNeedsReposting(Boolean(p.needsReposting))
   }, [])
 
   const hasActiveFilters =
@@ -78,7 +79,7 @@ export function TiresDashboard() {
     Boolean(brand) ||
     useTagFilters.length > 0 ||
     lrFilters.length > 0 ||
-    deadStockOnly
+    needsReposting
 
   const activeFilterCount = useMemo(() => {
     let n = 0
@@ -86,16 +87,16 @@ export function TiresDashboard() {
     if (brand) n += 1
     if (useTagFilters.length > 0) n += 1
     if (lrFilters.length > 0) n += 1
-    if (deadStockOnly) n += 1
+    if (needsReposting) n += 1
     return n
-  }, [minMargin, brand, useTagFilters, lrFilters, deadStockOnly])
+  }, [minMargin, brand, useTagFilters, lrFilters, needsReposting])
 
   const clearFilters = useCallback(() => {
     setMinMargin(0)
     setBrand('')
     setUseTagFilters([])
     setLrFilters([])
-    setDeadStockOnly(false)
+    setNeedsReposting(false)
   }, [])
 
   function clearSelection() {
@@ -139,10 +140,15 @@ export function TiresDashboard() {
         if (row.margin == null || Number.isNaN(row.margin)) return false
         if (row.margin < minMargin) return false
       }
-      if (deadStockOnly && !row.deadStockFlag) return false
+      if (needsReposting) {
+        const allInactive = ['facebook', 'offerup', 'craigslist'].every(
+          (p) => listingStatus(row, p) !== 'active',
+        )
+        if (!allInactive) return false
+      }
       return true
     })
-  }, [enriched, brand, lrFilters, useTagFilters, minMargin, deadStockOnly])
+  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]
@@ -403,8 +409,8 @@ export function TiresDashboard() {
               onLrFilters={setLrFilters}
               minMargin={minMargin}
               onMinMargin={setMinMargin}
-              deadStockOnly={deadStockOnly}
-              onDeadStockOnly={setDeadStockOnly}
+              needsReposting={needsReposting}
+              onNeedsReposting={setNeedsReposting}
               hasActiveFilters={hasActiveFilters}
               onClearAll={clearFilters}
             />
@@ -414,6 +420,7 @@ export function TiresDashboard() {
               useTagFilters={useTagFilters}
               lrFilters={lrFilters}
               minMargin={minMargin}
+              needsReposting={needsReposting}
               onApplyPreset={applyFilterPreset}
             />
           </>

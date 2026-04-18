@@ -15,6 +15,12 @@ function csvMoney(n) {
   return x.toFixed(2)
 }
 
+function fmtPosted(ts) {
+  if (!ts) return 'Never'
+  const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts)
+  return d.toLocaleDateString('en-US')
+}
+
 /**
  * @param {Array<Record<string, unknown>>} rows Filtered / visible tire rows (enriched ok)
  */
@@ -24,6 +30,9 @@ export function exportMarginCsv(rows) {
     'Description',
     'MSPN',
     'LR',
+    'FB Last Posted',
+    'OU Last Posted',
+    'CL Last Posted',
     'Buy Price',
     'FET',
     'Mount Cost',
@@ -50,6 +59,9 @@ export function exportMarginCsv(rows) {
         csvEscape(row.description),
         csvEscape(row.mspn),
         csvEscape(row.lr),
+        csvEscape(fmtPosted(row.platformListings?.facebook?.lastPostedAt)),
+        csvEscape(fmtPosted(row.platformListings?.offerup?.lastPostedAt)),
+        csvEscape(fmtPosted(row.platformListings?.craigslist?.lastPostedAt)),
         csvEscape(csvMoney(buyPrice)),
         csvEscape(csvMoney(fet)),
         csvEscape(csvMoney(mountCost)),
