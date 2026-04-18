@@ -85,6 +85,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Admin-sensitive action audit trail. Written exclusively by Cloud
+    // Functions (Admin SDK bypasses rules); client writes denied. Only
+    // Overwatch (admin role) can read the trail.
+    match /adminAuditLog/{logId} {
+      allow read: if signedIn() && userRole() == 'admin';
+      allow write: if false;
+    }
+
     // Timed permission elevation reverts — Cloud Functions (Admin) only.
     match /scheduledReverts/{id} {
       allow read, write: if false;
