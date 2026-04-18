@@ -137,22 +137,49 @@ function buildConfirmPricingModalView() {
   }
 }
 
-/** @returns {string | null} error message, or null if started */
-function validateAndStartRefreshPrice(db, botToken, postChannel, mspn) {
-  const trimmed = String(mspn || '').trim()
-  if (!trimmed) return 'MSPN required.'
+/**
+ * Split the modal input into a list of MSPNs. Accepts comma- or
+ * whitespace-separated input so users can spot-check a batch of tires in a
+ * single submit, e.g. `32390, 48221, 99912`.
+ * @param {string} raw
+ * @returns {string[]}
+ */
+function parseMspnList(raw) {
+  return String(raw || '')
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Kick off `refreshSingleTirePrice` for each MSPN, one at a time, so a
+ * 10-tire spot check doesn't spike Gemini concurrency past the per-minute
+ * limit. Per-tire success/not-found/suspicious Slack messages come from
+ * `processTireResearchDoc` inside each call.
+ * @returns {string | null} error message, or null if started
+ */
+function startRefreshPriceBatch(db, botToken, postChannel, mspns) {
+  if (!Array.isArray(mspns) || mspns.length === 0) return 'MSPN required.'
   const geminiKey = GEMINI_API_KEY.value()
   if (!geminiKey || geminiKey === '-') {
     return 'GEMINI_API_KEY is not configured.'
   }
   ;(async () => {
-    try {
-      await refreshSingleTirePrice(db, geminiKey, { token: botToken, channel: postChannel }, trimmed)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
+    for (const mspn of mspns) {
+      try {
+        await refreshSingleTirePrice(db, geminiKey, { token: botToken, channel: postChannel }, mspn)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        await slackApiPost(botToken, 'chat.postMessage', {
+          channel: postChannel,
+          text: `❌ /refreshprice failed for \`${escapeSlackMrkdwn(mspn)}\`: ${escapeSlackMrkdwn(msg)}`,
+        }).catch(() => {})
+      }
+    }
+    if (mspns.length > 1 && botToken && postChannel) {
       await slackApiPost(botToken, 'chat.postMessage', {
         channel: postChannel,
-        text: `❌ /refreshprice failed for \`${escapeSlackMrkdwn(trimmed)}\`: ${escapeSlackMrkdwn(msg)}`,
+        text: `🏁 Batch refresh complete for ${formatQty(mspns.length)} MSPNs.`,
       }).catch(() => {})
     }
   })()
@@ -354,9 +381,9 @@ async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
       botToken,
       tid,
       buildPiMspnModal(MODAL_REFRESH_PRICE_SUBMIT, 'Refresh tire price', {
-        placeholder: 'Tire MSPN — or "all" to refresh catalog',
+        placeholder: 'MSPN, several MSPNs separated by commas, or "all"',
       }),
-      'Opening price refresh… Enter an MSPN in the form, or type *all* for a full-catalog refresh.',
+      'Opening price refresh… Enter an MSPN (or a comma-separated list of MSPNs) in the form, or type *all* for a full-catalog refresh.',
     )
   }
 
@@ -425,7 +452,7 @@ async function tryHandlePriceIntelViewSubmission(db, token, envChannel, payload)
           body: { response_action: 'errors', errors: { pi_mspn: 'Enter MSPN.' } },
         }
       }
-      if (mspn.toLowerCase() === 'all') {
+      if (mspn.trim().toLowerCase() === 'all') {
         const authCheck = await resolveSlackUserAdminOrSupplier(db, userId)
         if (!authCheck.allowed) {
           return {
@@ -466,7 +493,15 @@ async function tryHandlePriceIntelViewSubmission(db, token, envChannel, payload)
         })
         return { handled: true, kind: 'json', body: { response_action: 'clear' } }
       }
-      const err = validateAndStartRefreshPrice(db, botToken, postChannel, mspn)
+      const mspns = parseMspnList(mspn)
+      if (mspns.length === 0) {
+        return {
+          handled: true,
+          kind: 'json',
+          body: { response_action: 'errors', errors: { pi_mspn: 'Enter MSPN.' } },
+        }
+      }
+      const err = startRefreshPriceBatch(db, botToken, postChannel, mspns)
       if (err) {
         return {
           handled: true,
