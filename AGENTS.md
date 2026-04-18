@@ -99,7 +99,7 @@ Consequence: there is no inventory-leak bug on cancel or reject. Do NOT add logi
 - src/utils/isoWeekDenver.js — Denver ISO week helpers
 - src/utils/crewEarningsLabels.js — crew display labels
 - src/utils/tireBeastMode.js — beast mode badge logic
-- functions/slackSecrets.js — all secret definitions (`SLACK_SECRETS`, `SLACK_ACTIONS_SECRETS`, `EBAY_SECRETS`; eBay `defineSecret` wired when GCP secrets exist — see comments in file)
+- functions/slackSecrets.js — all secret definitions (`SLACK_SECRETS`, `SLACK_ACTIONS_SECRETS`, `LISTING_ADVISOR_SECRETS`, etc.)
 - functions/format.js — server-side formatters
 - functions/financeStats.js — runCompletionTransaction, revenue stats, crew earnings
 - functions/tireCatalogBuy.js — buy price resolution (prefers priceIntel.activeBuyPrice)
@@ -109,13 +109,6 @@ Consequence: there is no inventory-leak bug on cancel or reject. Do NOT add logi
 - functions/fieldSlackCommands.js — field slash commands
 - functions/contactVip.js — VIP flag logic (3+ orders = isVip: true)
 - functions/contactTireLabel.js — lastTireLabel written on completion
-
-## eBay
-- eBay seller account: front-range-rubber
-- eBay functions: `functions/ebayIntegration.js` (webhook logs + publish stub until Inventory API is wired)
-- `EBAY_SECRETS` in `slackSecrets.js` — separate from `SLACK_SECRETS`; mount when Secret Manager has `EBAY_*` versions
-- Publish price = AI recommended price + 12% markup for eBay fees (portal Listing Generator)
-- Inventory sync: when live, `completeOrder` (or dedicated job) should decrement eBay qty — confirm before relying on it
 
 ## Growth Lab
 - Route `/growth` — Overwatch (admin) only; matches `ProtectedRoute requireAdmin` and dashboard card `adminOnly`

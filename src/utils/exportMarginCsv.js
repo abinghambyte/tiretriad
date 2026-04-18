@@ -31,7 +31,6 @@ export function exportMarginCsv(rows) {
     'Other',
     'Overhead Total',
     'Margin %',
-    'Category',
   ]
   const lines = [headers.join(',')]
 
@@ -58,7 +57,6 @@ export function exportMarginCsv(rows) {
         csvEscape(csvMoney(otherCost)),
         csvEscape(csvMoney(overheadTotal)),
         csvEscape(marginStr),
-        csvEscape(row.category),
       ].join(','),
     )
   }

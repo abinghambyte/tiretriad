@@ -68,7 +68,6 @@ const PLATFORM_HINTS = {
   'Facebook Marketplace': 'Friendly, local-community tone.',
   OfferUp: 'Short, direct mobile marketplace tone.',
   Craigslist: 'Straightforward classifieds tone.',
-  eBay: 'Professional resale tone with clear specs.',
 }
 
 function tireUseCaseLine(tire) {
@@ -104,10 +103,7 @@ export function buildListingScript({ tire, qty, pricePer, platform }) {
     .trim()
 
   const platformNote = PLATFORM_HINTS[platform] || ''
-  const opener =
-    platform === 'eBay'
-      ? `${formatQty(qty)}x ${brand} ${desc} tires, stored properly and ready to mount.`
-      : `${formatQty(qty)}x ${brand} ${desc} tires in great condition.`
+  const opener = `${formatQty(qty)}x ${brand} ${desc} tires in great condition.`
 
   const description = [
     opener,

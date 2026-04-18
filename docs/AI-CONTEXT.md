@@ -94,9 +94,8 @@ Credit: /charge, /payment, /balance
 - meta/quotaTargets — weeklyTarget, monthlyTarget for /quota command
 
 ## Key files
-- functions/slackSecrets.js — all secret definitions; `SLACK_SECRETS`, `SLACK_ACTIONS_SECRETS`, `EBAY_SECRETS` (eBay `defineSecret` lines commented until Secret Manager has versions — see file header)
+- functions/slackSecrets.js — all secret definitions; `SLACK_SECRETS`, `SLACK_ACTIONS_SECRETS`, `LISTING_ADVISOR_SECRETS`, etc.
 - functions/taskDispatcher.js — Overwatch task routing callable (Growth Lab)
-- functions/ebayIntegration.js — eBay webhook + publish scaffold
 - functions/tirePriceResearch.js — nightly Gemini wholesale research + Slack
 - functions/format.js — formatCurrency, formatNumber, formatPercent, formatQty, formatCurrencyOrDash
 - src/utils/format.js — same formatters for frontend
@@ -118,7 +117,6 @@ Credit: /charge, /payment, /balance
 
 ## Active work (as of April 13 2026)
 - **AI listing advisor** — shipped (`listingAdvisor` callable; Gemini + Anthropic fallback; Listing Generator)
-- **eBay** — scaffold only (`functions/ebayIntegration.js`, `ebayPublishListing` / `ebayOrderWebhook`; `EBAY_*` Secret Manager names documented in `slackSecrets.js` until versions exist; portal “List on eBay” gated on probe)
 - **Price intelligence** — `tirePriceResearch` nightly; preflight counts + `#fleet-ops` start message in logs/Slack; `priceIntel.kyleConfirmed` freezes buy
 - **GitHub Actions CI** (lint + build on PRs) — decision pending
 

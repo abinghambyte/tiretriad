@@ -24,9 +24,9 @@ const LIST_MIN_H = 200
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 1168,
+  minWidth: 1038,
   gridTemplateColumns:
-    '52px minmax(56px,6.5rem) minmax(100px,1.3fr) 5.25rem minmax(2.75rem,3.25rem) minmax(6.75rem,7.25rem) minmax(4.5rem,4.85rem) minmax(5.25rem,5.75rem) minmax(4.25rem,5.5rem) minmax(8.5rem,1.15fr)',
+    '52px minmax(56px,6.5rem) minmax(100px,1.3fr) 5.25rem minmax(2.75rem,3.25rem) minmax(6.75rem,7.25rem) minmax(4.5rem,4.85rem) minmax(5.25rem,5.75rem) minmax(4.25rem,5.5rem)',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -96,7 +96,7 @@ function TableSkeleton() {
       className="box-border grid border-b border-zinc-800/40 px-0 py-2"
       style={{ ...GRID_STYLE, minHeight: ROW_BASE_PX }}
     >
-      {[...Array(10)].map((__, j) => (
+      {[...Array(9)].map((__, j) => (
         <div key={j} className="px-3">
           <div className="h-3.5 animate-pulse rounded-md bg-zinc-800/65" />
         </div>
@@ -435,9 +435,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 {formatCurrencyOrDash(effectiveCts(row))}
               </button>
             </div>
-            <div className="flex min-w-[7.5rem] shrink-0 items-center break-words px-2 text-left text-xs leading-snug text-zinc-500">
-              {row.category || '—'}
-            </div>
           </div>
         </div>
         {ctsEditorSection}
@@ -510,9 +507,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </button>
         </div>
         <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">{marginCell}</div>
-        <div className="hidden break-words px-2 text-left text-xs leading-snug text-zinc-500 lg:block">
-          {row.category || '—'}
-        </div>
       </div>
       {ctsEditorSection}
     </div>
@@ -666,7 +660,7 @@ export function MarginTable({
             ← Scroll for overhead, FET, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1168px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1038px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
@@ -728,7 +722,6 @@ export function MarginTable({
                 touchWide={isMobileTable}
               />
             </div>
-            <div className="hidden px-2 text-left lg:block">Category</div>
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
             <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 md:hidden">
@@ -801,7 +794,6 @@ export function MarginTable({
                 <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
                   OH
                 </div>
-                <div className="flex min-w-[7.5rem] shrink-0 items-center justify-center px-2 text-center">Cat</div>
               </div>
             </div>
           ) : null}

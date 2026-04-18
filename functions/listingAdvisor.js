@@ -13,7 +13,7 @@ Return ONLY valid JSON (no markdown fences, no commentary) with exactly these ke
 - description: string, 3-4 sentences, highlight key specs, mention fitment for Fort Collins / Loveland / Greeley area (HVAC fleets, pickups, SUVs, mountain and highway driving) where natural
 - sellProbability: integer 0-100, estimated sell-through likelihood in that regional market for this SKU
 - recommendedPrice: number, suggested USD sale price PER TIRE (not set total), grounded in regional comps and healthy margin over buy price and overhead
-- platformNotes: short string naming which resale channel fits best among: eBay, Facebook Marketplace, OfferUp, fleet direct (pick one primary + optional secondary in one short phrase)`
+- platformNotes: short string naming which resale channel fits best among: Facebook Marketplace, OfferUp, Craigslist, fleet direct (pick one primary + optional secondary in one short phrase)`
 
 function pickSecretValue(secretValue) {
   const s = String(secretValue || '').trim()

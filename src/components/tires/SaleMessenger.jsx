@@ -204,9 +204,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
               Log sale / notify team
             </h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Posts the sale summary to Slack via an incoming webhook (Discord
-              supported too if you set NOTIFY_WEBHOOK_STYLE=discord on the
-              function). Interactive confirmations are a later Slack-app build.
+              Posts the sale summary to Slack via incoming webhook.
             </p>
           </div>
           <button

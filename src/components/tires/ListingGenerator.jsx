@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../../firebase/config'
-import { useUserProfile } from '../../hooks/useUserProfile'
 import { buildListingScript } from '../../utils/listingGenerator'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { effectiveCts } from '../../utils/ctsCalc'
@@ -9,12 +8,7 @@ import { parseDescription } from '../../utils/parseTireDescription'
 import { formatCurrency } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 
-const PLATFORMS = [
-  'Facebook Marketplace',
-  'OfferUp',
-  'Craigslist',
-  'eBay',
-]
+const PLATFORMS = ['Facebook Marketplace', 'OfferUp', 'Craigslist']
 
 const listingAdvisorFn = httpsCallable(functions, 'listingAdvisor')
 
@@ -208,8 +202,6 @@ function SellProbabilityBadge({ value }) {
  * @param {(p: { mspn: string, quantity: number, pricePerTire: number }) => void} [props.onUseRecommendedPrice]
  */
 export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
-  const { profile } = useUserProfile()
-  const isAdmin = profile?.role === 'admin'
   const [platform, setPlatform] = useState(PLATFORMS[0])
   const [lines, setLines] = useState(() => initLines(tires))
   const [generated, setGenerated] = useState([])
@@ -550,16 +542,6 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                         >
                           Use recommended price in Sale Messenger
                         </button>
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            disabled
-                            title="eBay integration pending approval"
-                            className="cursor-not-allowed rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-100/70 ring-1 ring-amber-700/25 opacity-50 max-sm:w-full sm:min-w-0"
-                          >
-                            List on eBay — coming soon
-                          </button>
-                        ) : null}
                       </div>
                     </div>
                   ) : null}

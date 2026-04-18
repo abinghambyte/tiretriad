@@ -252,7 +252,6 @@ settings:
 #     tryHandleFieldSlash, tryHandleInventorySlash, tryHandleCrmSlash,
 #     tryHandlePriceIntelSlash, then /charge /payment /balance.
 #   - inboundSms — Sinch MO webhook; NOT a slash command.
-#   - ebayOrderWebhook — eBay notifications; NOT a slash command.
 #
 # No slack-manifest.yml, slack-manifest.json, or other .yml/.yaml Slack manifest
 # existed in repo root or docs/ before this file.
