@@ -74,7 +74,12 @@ function rowToTire(m) {
     description: m.description != null ? String(m.description).trim() : '',
     lr: m.lr != null ? String(m.lr).trim() : '',
     fet: parseMoney(m.fet),
-    retailPrice: parseMoney(m.price),
+    // CSV column "Price" is Kyle's buy cost per tire, not retail. Per
+    // AGENTS.md: `price` is the canonical buy-cost field; `retailPrice` must
+    // not exist. Earlier versions of this importer wrote to `retailPrice` by
+    // mistake; `scripts/migrate-tire-price-field.mjs` cleans that up on
+    // existing docs.
+    price: parseMoney(m.price),
     cost: 0,
     cts: 0,
     category: '',

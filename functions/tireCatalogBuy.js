@@ -1,8 +1,10 @@
 'use strict'
 
 /**
- * Kyle's catalog buy from a tire Firestore doc: `priceIntel.activeBuyPrice` when present and > 0,
- * else `price`, then `cost`, then legacy `retailPrice`.
+ * Kyle's catalog buy from a tire Firestore doc: `priceIntel.activeBuyPrice`
+ * when present and > 0, else `price` (canonical buy-cost per AGENTS.md),
+ * then `cost`. `retailPrice` is never consulted; per project convention that
+ * field does not exist on tire docs.
  * @param {Record<string, unknown> | null | undefined} td
  */
 function tireCatalogBuyNumber(td) {
@@ -14,7 +16,7 @@ function tireCatalogBuyNumber(td) {
   if (Number.isFinite(price) && price > 0) return price
   const cost = Number(t.cost)
   if (Number.isFinite(cost) && cost > 0) return cost
-  return Number(t.retailPrice) || 0
+  return 0
 }
 
 module.exports = { tireCatalogBuyNumber }

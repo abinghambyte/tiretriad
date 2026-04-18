@@ -34,20 +34,14 @@ const BULK_RESEARCH_MS = 30 * 86400000
 /** Cap retries for tires that Gemini keeps coming back empty on, so obscure SKUs don't spin forever. */
 const MAX_FAILED_ATTEMPTS = 3
 /**
- * Retail prices more than 50% below or above Kyle's base cost are almost
- * always a wrong match (wrong size, 4-pack total, hallucination). Reject
- * them the same way we reject not-found so the retry cycle keeps trying.
+ * Typical consumer retail should never land below Kyle's buy cost (nobody
+ * sells below their own cost) and rarely above ~2.5x cost for tires in the
+ * portal's catalog. Gemini results outside this envelope are almost always
+ * wrong-tire-matched, 4-pack-total, or hallucinated. Reject them the same
+ * way we reject not-found so the retry cycle keeps trying.
  */
-const SUSPICIOUS_RATIO_LOW = 0.5
-const SUSPICIOUS_RATIO_HIGH = 1.5
-/**
- * Looser envelope when we're anchoring to the legacy CSV retail instead of a
- * confirmed base cost. The CSV retail may be years stale; we only want to
- * reject clearly-wrong matches (wrong size, 4-pack total, hallucination),
- * not price drift within a reasonable factor of the printed retail.
- */
-const CSV_RETAIL_RATIO_LOW = 0.4
-const CSV_RETAIL_RATIO_HIGH = 2.5
+const BUY_COST_RATIO_LOW = 1.0
+const BUY_COST_RATIO_HIGH = 2.5
 
 function normalizeConfidence(c) {
   const s = String(c || '').toLowerCase().trim()
@@ -456,41 +450,32 @@ function sourceEntry(price, source) {
 }
 
 /**
- * Pick an anchor value for ratio-checking Gemini retail suggestions. Returns
- * `null` when the tire has no usable reference price. Two tiers:
+ * Pick an anchor value for ratio-checking Gemini retail suggestions. The
+ * anchor is always Kyle's buy cost (from `priceIntel.activeBuyPrice`, then
+ * `price` per AGENTS.md convention, then `cost`). Retail must land inside
+ * the `[BUY_COST_RATIO_LOW, BUY_COST_RATIO_HIGH]` envelope; anything below
+ * `1.0x` of cost is a wrong match by definition (can't sell below cost), and
+ * anything above ~2.5x is almost always a mismatched size, 4-pack total, or
+ * hallucination.
  *
- *   1. Kyle's confirmed buy cost (`priceIntel.activeBuyPrice`, then legacy
- *      `price` / `cost` fields). Tight `[0.5x, 1.5x]` envelope per the
- *      "retail should stay within 50% of base cost" heuristic.
- *   2. CSV-sourced legacy retail (`retailPrice`). Wider `[0.4x, 2.5x]`
- *      envelope since that number may be stale and the whole point of the
- *      research run is to replace it with something current; we only want
- *      to catch clearly-wrong matches (wrong size, 4-pack totals,
- *      hallucinations).
- *
- * `kind` is recorded on the failure log + Slack message so we can tell at a
- * glance which anchor triggered the rejection.
+ * `kind` is logged alongside rejections for future debugging.
  * @param {Record<string, unknown>} tire
- * @returns {{ value: number, kind: 'base_cost' | 'csv_retail', low: number, high: number } | null}
+ * @returns {{ value: number, kind: 'buy_cost', low: number, high: number } | null}
  */
 function tireRatioAnchor(tire) {
   if (tire == null || typeof tire !== 'object') return null
   const pi = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
   const active = Number(pi.activeBuyPrice)
   if (Number.isFinite(active) && active > 0) {
-    return { value: active, kind: 'base_cost', low: SUSPICIOUS_RATIO_LOW, high: SUSPICIOUS_RATIO_HIGH }
+    return { value: active, kind: 'buy_cost', low: BUY_COST_RATIO_LOW, high: BUY_COST_RATIO_HIGH }
   }
   const price = Number(tire.price)
   if (Number.isFinite(price) && price > 0) {
-    return { value: price, kind: 'base_cost', low: SUSPICIOUS_RATIO_LOW, high: SUSPICIOUS_RATIO_HIGH }
+    return { value: price, kind: 'buy_cost', low: BUY_COST_RATIO_LOW, high: BUY_COST_RATIO_HIGH }
   }
   const cost = Number(tire.cost)
   if (Number.isFinite(cost) && cost > 0) {
-    return { value: cost, kind: 'base_cost', low: SUSPICIOUS_RATIO_LOW, high: SUSPICIOUS_RATIO_HIGH }
-  }
-  const retail = Number(tire.retailPrice)
-  if (Number.isFinite(retail) && retail > 0) {
-    return { value: retail, kind: 'csv_retail', low: CSV_RETAIL_RATIO_LOW, high: CSV_RETAIL_RATIO_HIGH }
+    return { value: cost, kind: 'buy_cost', low: BUY_COST_RATIO_LOW, high: BUY_COST_RATIO_HIGH }
   }
   return null
 }
@@ -780,7 +765,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
 
   if (outcome === 'not_found' && slackMode === 'single' && !silent && token && channel) {
     const line = tireDisplayLine(tire)
-    const anchorLabel = anchor?.kind === 'base_cost' ? 'base cost' : 'CSV retail'
+    const anchorLabel = 'buy cost'
     const text = suspiciousDelta
       ? `⚠️ Retail price for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)}) came back ${formatCurrency(foundPrice)} vs ${anchorLabel} ${formatCurrency(anchor.value)}, rejected as suspicious (ratio ${Number((foundPrice / anchor.value).toFixed(2))}x).`
       : `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`
