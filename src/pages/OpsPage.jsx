@@ -30,7 +30,14 @@ const EXPENSE_CATEGORIES = [
 ]
 
 const exportTaxPrepCsv = httpsCallable(functions, 'exportTaxPrepCsv')
-const runTirePriceResearchNow = httpsCallable(functions, 'runTirePriceResearchNow')
+// Tire price research runs synchronously for 2-5 minutes against 500 tires.
+// Firebase's callable SDK defaults to a 70-second client timeout, so without
+// this override the browser aborts while the function happily keeps running
+// on the server; the UI shows "failed" even though the Slack completion
+// summary still posts. Match the server-side `timeoutSeconds: 540`.
+const runTirePriceResearchNow = httpsCallable(functions, 'runTirePriceResearchNow', {
+  timeout: 540000,
+})
 
 const DENVER_TZ = 'America/Denver'
 
@@ -248,12 +255,22 @@ export function OpsPage() {
 
   async function runPriceResearch() {
     setPriceResearchBusy(true)
+    toast('Price research kicked off. Slack will post progress + the final summary.', 'info')
     try {
       await runTirePriceResearchNow({})
       toast('Price research run complete. Check #fleet-ops Slack for details.', 'success')
     } catch (err) {
+      // The callable can still take longer than our 9-minute ceiling on truly
+      // huge backlogs. The server keeps running even if the client bails, so
+      // we distinguish genuine errors (bad key, permissions) from a
+      // deadline-exceeded where Slack will deliver the result anyway.
+      const code = err?.code || ''
       const msg = err?.message || 'Price research failed.'
-      toast(msg, 'error')
+      if (code === 'deadline-exceeded' || code === 'functions/deadline-exceeded') {
+        toast('Still running on the server. The Slack summary will post when it finishes.', 'info')
+      } else {
+        toast(msg, 'error')
+      }
     } finally {
       setPriceResearchBusy(false)
     }
