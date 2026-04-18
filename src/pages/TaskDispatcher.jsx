@@ -102,6 +102,21 @@ export function TaskDispatcherPage() {
     writeHandoff({ decided, completed, outstanding, nextBrief })
   }, [decided, completed, outstanding, nextBrief])
 
+  // Sync from other tabs. The `storage` event only fires in tabs that did NOT
+  // write, so updating state here won't loop back through our own write effect.
+  useEffect(() => {
+    function onStorage(e) {
+      if (e.key !== HANDOFF_STORAGE_KEY) return
+      const h = readHandoff()
+      setDecided(h.decided)
+      setCompleted(h.completed)
+      setOutstanding(h.outstanding)
+      setNextBrief(h.nextBrief)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const runDispatch = useCallback(async () => {
     const t = String(task || '').trim()
     if (!t) {
