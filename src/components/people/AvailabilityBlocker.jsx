@@ -13,6 +13,7 @@ import { auth, db } from '../../firebase/config'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { addDaysToYmd } from '../../utils/isoWeekDenver.js'
 import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
+import { InputPromptModal } from '../shared/InputPromptModal.jsx'
 
 const DENVER = 'America/Denver'
 const OP_START = 8
@@ -163,6 +164,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
   const [dayBlocks, setDayBlocks] = useState(() => ({}))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [pendingBlock, setPendingBlock] = useState(/** @type {{ ymd: string, hour: number } | null} */ (null))
 
   const canPickSubject = permissionMeets(profile?.permissions?.people, 'manage')
   const viewerUid = auth.currentUser?.uid || ''
@@ -275,28 +277,43 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
     if (!canEdit) return
     setErr('')
     const kind = cellState(ymd, hour)
+    if (kind === 'open') {
+      // Open the input modal; the actual block-write happens in the submit
+      // handler below so we don't block the UI thread with a native prompt.
+      setPendingBlock({ ymd, hour })
+      return
+    }
     setBusy(true)
     try {
       const slots = [...(dayBlocks[ymd] || [])]
-      if (kind === 'open') {
-        const raw = window.prompt('Block reason (optional)')
-        // Cancel returns null — never use `raw || ''` here or the block would still be saved.
-        if (raw == null) return
-        const reason = String(raw)
-        slots.push({
-          start: hour,
-          end: Math.min(OP_END, hour + 1),
-          reason: reason.slice(0, 200),
-          blockedBy: viewerUid,
-        })
-        await persistSlots(ymd, slots)
-      } else if (kind === 'blocked') {
+      if (kind === 'blocked') {
         const idx = findBlockIndexForHour(slots, hour)
         if (idx >= 0) {
           slots.splice(idx, 1)
           await persistSlots(ymd, slots)
         }
       }
+    } catch (e) {
+      setErr(e?.message || String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitBlock(reason) {
+    if (!pendingBlock) return
+    const { ymd, hour } = pendingBlock
+    setErr('')
+    setBusy(true)
+    try {
+      const slots = [...(dayBlocks[ymd] || [])]
+      slots.push({
+        start: hour,
+        end: Math.min(OP_END, hour + 1),
+        reason: String(reason || '').slice(0, 200),
+        blockedBy: viewerUid,
+      })
+      await persistSlots(ymd, slots)
     } catch (e) {
       setErr(e?.message || String(e))
     } finally {
@@ -420,6 +437,18 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
           ))}
         </div>
       </div>
+
+      <InputPromptModal
+        isOpen={pendingBlock != null}
+        title="Block this hour"
+        label="Reason (optional)"
+        placeholder="Dentist appointment"
+        submitLabel="Block"
+        allowEmpty
+        maxLength={200}
+        onSubmit={(reason) => void submitBlock(reason)}
+        onClose={() => setPendingBlock(null)}
+      />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { formatPercent } from '../utils/format'
+import { copyToClipboard } from '../utils/copyToClipboard'
 
 const NOTES_STORAGE_KEY = 'sk-dispatch-notes'
 const dispatchFn = httpsCallable(functions, 'taskDispatcher')
@@ -62,11 +63,7 @@ function modelDisplayName(routing) {
 }
 
 async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    window.prompt('Copy:', text)
-  }
+  return copyToClipboard(text)
 }
 
 function GrowthLabRoutingForm() {

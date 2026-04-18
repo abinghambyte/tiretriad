@@ -35,6 +35,7 @@ import {
 import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPicklists.js'
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
+import { InputPromptModal } from '../components/shared/InputPromptModal.jsx'
 
 const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
@@ -86,6 +87,7 @@ export function CrmPage() {
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
   const [vehicles, setVehicles] = useState([])
+  const [addAccountOpen, setAddAccountOpen] = useState(false)
   const [leadForm, setLeadForm] = useState({
     businessName: '',
     source: '',
@@ -204,12 +206,12 @@ export function CrmPage() {
     }
   }
 
-  async function addAccount() {
+  async function createAccountWithName(name) {
     if (!canEdit) return
-    const name = window.prompt('Company name?')
-    if (!name?.trim()) return
+    const clean = String(name || '').trim()
+    if (!clean) return
     await addDoc(collection(db, 'crmAccounts'), {
-      companyName: name.trim(),
+      companyName: clean,
       pipelineStage: 1,
       pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
       fleetSize: 0,
@@ -338,7 +340,7 @@ export function CrmPage() {
               {canEdit ? (
                 <button
                   type="button"
-                  onClick={() => void addAccount()}
+                  onClick={() => setAddAccountOpen(true)}
                   className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
                 >
                   Add VIP client
@@ -447,7 +449,7 @@ export function CrmPage() {
                 {canEdit ? (
                   <button
                     type="button"
-                    onClick={() => void addAccount()}
+                    onClick={() => setAddAccountOpen(true)}
                     className="mt-6 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
                   >
                     Add your first VIP client
@@ -828,6 +830,17 @@ export function CrmPage() {
           onRefresh={(a) => setDetail(a)}
         />
       ) : null}
+
+      <InputPromptModal
+        isOpen={addAccountOpen}
+        title="Add VIP client"
+        label="Company name"
+        placeholder="Acme Freight"
+        submitLabel="Add client"
+        maxLength={100}
+        onSubmit={(name) => void createAccountWithName(name)}
+        onClose={() => setAddAccountOpen(false)}
+      />
     </div>
   )
 }
