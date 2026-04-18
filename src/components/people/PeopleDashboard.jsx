@@ -33,6 +33,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { copyToClipboard } from '../../utils/copyToClipboard'
 import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
+import { LoadingBlock } from '../shared/LoadingBlock.jsx'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -791,8 +792,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
-                    Loading crew…
+                  <td colSpan={8}>
+                    <LoadingBlock label="Loading crew…" variant="inline" />
                   </td>
                 </tr>
               ) : users.length === 0 ? (

@@ -16,6 +16,7 @@ import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { buildCrmTabs } from '../utils/crmModuleTabs.js'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const JOB_COMPLETION_LABELS = {
   Pending: 'Pending',
@@ -123,7 +124,7 @@ export function CrmDispatchPage() {
         maxWidthClass="max-w-3xl"
       />
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
-        {loading ? <p className="text-sm text-zinc-500">Loading jobs…</p> : null}
+        {loading ? <LoadingBlock label="Loading jobs…" /> : null}
         {!loading && loadError ? (
           <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
             {loadError}

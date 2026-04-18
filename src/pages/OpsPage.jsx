@@ -20,6 +20,7 @@ import Spinner from '../components/ui/Spinner.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const EXPENSE_CATEGORIES = [
   { value: 'fuel', label: 'Fuel' },
@@ -369,8 +370,8 @@ export function OpsPage() {
               <tbody>
                 {expLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-zinc-500">
-                      Loading…
+                    <td colSpan={6}>
+                      <LoadingBlock label="Loading expenses…" variant="inline" />
                     </td>
                   </tr>
                 ) : expenses.length === 0 ? (
