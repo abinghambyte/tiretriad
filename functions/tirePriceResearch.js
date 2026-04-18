@@ -270,18 +270,22 @@ function buildResearchUserPrompt(tire) {
   const desc = String(tire.description || '').trim()
   const tread = String(tire.tread || '').trim()
   const lr = String(tire.lr || '').trim()
+  const mspn = String(tire.mspn || '').trim()
   const size = extractTireSize(desc) || ''
   const formattedDesc = formatTireDescriptionForSearch(desc)
 
-  // Retailers (TireRack, DiscountTire, SimpleTire, etc.) index on brand + the
-  // printed size + the printed marketing name (e.g. "X INCITY Z"), which lives
-  // inside the Description column of the CSV. The Tread column is an internal
-  // short code ("XIZ") that retail product pages never use, so feeding it into
-  // the search query is pure noise. Use the spaced-out description instead;
-  // size + marketing name + load range are all in there.
+  // MSPN is the strongest search signal: Autoplicity, THMotorsports, and
+  // other aggregators index product pages on the manufacturer part number
+  // (`Michelin 64542 Mi 11r22.5/g ...`, `Michelin 15701ASSYSTL ...`). Brand +
+  // size + MSPN + load range pulls up the exact SKU. Marketing name in the
+  // concatenated description is left out of the search string; suffixes like
+  // `TLLRG VB MI` / `VG` are internal codes that just add noise to the query.
+  // Gemini still sees the full description in the structured context below
+  // and can verify tread matches.
   const searchTarget = [
     brand,
-    formattedDesc || size,
+    size,
+    mspn,
     lr ? `Load Range ${lr}` : '',
   ]
     .filter(Boolean)
@@ -296,20 +300,28 @@ function buildResearchUserPrompt(tire) {
     `Tire:`,
     brand ? `- Brand: ${brand}` : '',
     size ? `- Size: ${size}` : '',
+    mspn ? `- Manufacturer part number (MSPN): ${mspn}` : '',
     formattedDesc && formattedDesc !== size ? `- Printed description: ${formattedDesc}` : '',
     tread && tread !== desc ? `- Tread model: ${tread}` : '',
     lr ? `- Load range: ${lr}` : '',
     '',
-    `Prefer consumer retail sellers that display real prices: TireRack, DiscountTire, SimpleTire, PriorityTire, Walmart, Amazon, Costco. Median across whatever sources you find is fine. Price is for one (1) tire, not a set of four.`,
+    `Source preference, in priority order:`,
+    `1. The tire manufacturer's own official US retail/commercial store first. For MICHELIN try michelintruck.com for commercial sizes or michelinman.com for consumer. For BFGOODRICH try bfgoodrichtires.com. For other brands use the manufacturer's official US site. That MSRP is the primary anchor.`,
+    `2. Then one or two consumer retail aggregators that list this specific MSPN: Tire Agent, Autoplicity, SimpleTire, THMotorsports, TireRack, PriorityTire. These typically show the real street price, slightly below MSRP.`,
+    '',
+    `Compute the price as a weighted blend that anchors to the manufacturer MSRP but nudges slightly lower toward the aggregator street prices. Price is for one (1) tire, not a set of four.`,
+    '',
+    `Avoid these sources; their sticker prices are inflated to advertise "buy N get N% off" discounts and they skew high:`,
+    `- BB Wheels, Budget Truck Tires, TruckTireExpress, OTRUSA.COM, SpeedyTire, Us-Tires.`,
     '',
     `Respond with a JSON object only, no prose before or after:`,
     `{"price": <number or null>, "confidence": "high"|"medium"|"low", "notes": "<short source summary>"}`,
     '',
-    `- Keep "notes" under 160 characters. Name the top one or two sources, nothing more.`,
-    `- "high" confidence: two or more sellers list the same tire at similar prices.`,
-    `- "medium": only one seller, or prices varied noticeably.`,
+    `- Keep "notes" under 160 characters. Name the manufacturer site price + one aggregator, nothing more.`,
+    `- "high" confidence: manufacturer store price confirmed by at least one aggregator within 10%.`,
+    `- "medium": only manufacturer, only aggregators, or the two disagree by more than 10%.`,
     `- "low": very uncertain or extrapolated.`,
-    `- If you genuinely cannot find a retail price for this brand + size + tread combination, set price to null.`,
+    `- If you genuinely cannot find a retail price for this exact MSPN or brand + size + tread combination, set price to null.`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -540,7 +552,10 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   const token = String(slack?.token || '').trim()
   const channel = String(slack?.channel || '').trim()
 
-  const userPrompt = buildResearchUserPrompt(tire)
+  // MSPN === Firestore doc ID by construction, but belt-and-suspenders: older
+  // tire docs may pre-date the importer's `mspn` field, so fall back to the
+  // doc ID when building the prompt so the search always includes it.
+  const userPrompt = buildResearchUserPrompt({ ...tire, mspn: tire.mspn || mspn })
   const { parsed, rawText, modelUsed, rateLimited } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
 
   // Rate-limited is not the tire's fault. Skip the Firestore write entirely so
