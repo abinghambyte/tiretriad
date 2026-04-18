@@ -10,7 +10,7 @@ Live at skedaddleinc.com | Repo: abinghambyte/skedaddleinc | Auto-deploys to Ver
 - Backend: Firebase Cloud Functions Gen2 (Node 22) → npm run deploy:firebase
 - DB: Firestore (project: skedaddle-inventory)
 - Auth: Firebase Auth
-- External: Slack (Rubber Signal app / #fleet-ops), Sinch (SMS), Resend (email), Anthropic API
+- External: Slack (Rubber Signal app / #fleet-ops), Sinch (SMS), Resend (email), Anthropic API, Gemini API
 
 ## Crew
 - Alex (Overwatch/admin): boydabingham@gmail.com — owner, 50% of profit pool
@@ -112,13 +112,21 @@ Credit: /charge, /payment, /balance
 
 ## Key docs
 - docs/ROADMAP.md — full feature roadmap with all phases
-- docs/SKEDADDLE-MASTER.md — canonical project spec
+- docs/UI-POLISH-VISION.md — core vision: UI polish priorities
+- docs/GEMINI-UI-WALKTHROUGH.md — Gemini + screenshots for visual UI review (preferred vs unit tests)
+- docs/NOTEBOOKLM-INVENTORY-BOT.md — Notebook LM corpus + optional Slack study bot plan
+- docs/SKEDADDLE-MCP.md — Firestore MCP design (developer tooling)
+- docs/EBAY-SELLERCHAMP-HANDOFF.md — deferred eBay plan (not current priority)
+- docs/SKEDADDLE-MASTER.md — deprecated historical spec only
 - docs/PHASE9-FLEET-CRM-HANDOFF.md — CRM data model
 
-## Active work (as of April 13 2026)
-- **AI listing advisor** — shipped (`listingAdvisor` callable; Gemini + Anthropic fallback; Listing Generator)
-- **Price intelligence** — `tirePriceResearch` nightly; preflight counts + `#fleet-ops` start message in logs/Slack; `priceIntel.kyleConfirmed` freezes buy
-- **GitHub Actions CI** (lint + build on PRs) — decision pending
+## Active work (as of April 18 2026)
+- **UI / UX polish** — primary product focus: clarity, hierarchy, role-appropriate surfaces ([UI-POLISH-VISION.md](./UI-POLISH-VISION.md)); visual QA via [GEMINI-UI-WALKTHROUGH.md](./GEMINI-UI-WALKTHROUGH.md)
+- **AI listing advisor** — shipped (`listingAdvisor` + Listing Generator); next: stronger in-app guidance and explainability
+- **Notebook LM + study bot** — inventory Q&A notebook + optional scheduled Slack questions ([NOTEBOOKLM-INVENTORY-BOT.md](./NOTEBOOKLM-INVENTORY-BOT.md))
+- **Price intelligence** — `tirePriceResearch` nightly; `priceIntel.kyleConfirmed` freezes buy
+- **GitHub Actions CI** — shipped (`.github/workflows/ci.yml`: lint + build; functions deps)
+- **eBay / SellerChamp** — explicitly **not** a current priority (Phase 6 deferred)
 
 ## Rules for AI sessions
 - Never rename "Rubber CRM" back to "Fleet CRM"

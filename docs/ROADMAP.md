@@ -1,5 +1,5 @@
 # Skedaddle Portal — Master Roadmap
-**Last updated: April 13, 2026**
+**Last updated: April 18, 2026**
 **Live at: skedaddleinc.com | Repo: abinghambyte/skedaddleinc**
 
 ---
@@ -10,7 +10,7 @@
 - **Backend:** Firebase Cloud Functions Gen2 (Node 22, us-central1) → `npm run deploy:firebase`
 - **Database:** Firestore (project: skedaddle-inventory)
 - **Auth:** Firebase Auth (email/password)
-- **External:** Slack (Rubber Signal app), Sinch (SMS), Resend (email), Anthropic API, Gemini API (planned)
+- **External:** Slack (Rubber Signal app), Sinch (SMS), Resend (email), Anthropic API, **Gemini API** (listing advisor, tire research, future bots)
 
 ---
 
@@ -48,10 +48,8 @@
 - Mechanic (Field/DJ): assigned orders, mark fulfillment. Tanner is a silent partner with no portal access.
 
 ### Phase 6 — eBay listing integration
-- Status: PLANNED
-- eBay Developer Program — sandbox + production, REST API + OAuth 2.0
-- Post to eBay flow from listing generator
-- SellerChamp integration for passive listing automation
+- Status: **DEFERRED** — not a current priority; see [EBAY-SELLERCHAMP-HANDOFF.md](./EBAY-SELLERCHAMP-HANDOFF.md) when revisiting
+- Was: eBay Developer Program, OAuth, SellerChamp — passive listings (on hold)
 
 ### Phase 7 — Portal polish ✅
 - Inline CTS edit per tire row
@@ -64,12 +62,18 @@
 ### Phase 8 — Hygiene ✅
 - Node 20 → 22 upgrade ✅
 - firebase-functions v4 → v7.2.5 ✅
-- GitHub Actions CI (lint + build on PRs) — DECISION PENDING
+- GitHub Actions CI (lint + build on PRs; functions deps install) — `.github/workflows/ci.yml` ✅
 
 ### Phase 9 — Rubber CRM ✅
 - Renamed from "Fleet CRM" to "Rubber CRM" everywhere — never revert
 - Kanban: Spotted → Contacted → Qualified → Quoted → Closed (VIP clients)
 - Leads tab, DJ Dispatch tab
+
+### Phase 10 — UI polish & crew intelligence (in progress)
+- **Core vision polish** — hierarchy, density, role clarity: [UI-POLISH-VISION.md](./UI-POLISH-VISION.md)
+- **Visual QA** — Gemini screenshot walkthrough: [GEMINI-UI-WALKTHROUGH.md](./GEMINI-UI-WALKTHROUGH.md)
+- **AI listing advisor** — expand UX around existing `listingAdvisor` + Listing Generator (explainability, inventory-aware nudges)
+- **Notebook LM + study bot** — inventory Q&A corpus + optional Slack “trivia” via Gemini: [NOTEBOOKLM-INVENTORY-BOT.md](./NOTEBOOKLM-INVENTORY-BOT.md)
 
 ---
 
@@ -146,10 +150,12 @@ For local emulator: use .secret.local
 
 ## Next Priorities
 
-1. AI listing advisor — Gemini, eBay sold listing scan, per-SKU sell probability, listing copy generation
-2. eBay via SellerChamp — passive income engine
-3. GitHub Actions CI — lint + build on PRs (decision pending)
-4. Custom Skedaddle MCP server — exposes Firestore to Claude/Cursor directly
+1. **Portal UI / UX polish** — substantial refinement of core flows (see [UI-POLISH-VISION.md](./UI-POLISH-VISION.md)); use [GEMINI-UI-WALKTHROUGH.md](./GEMINI-UI-WALKTHROUGH.md) for visual reviews
+2. **AI listing advisor** — stronger in-app experience around existing listing AI (guidance, explainability, inventory-aware suggestions); copy generation already shipped
+3. **Notebook LM + random study bot** — inventory/tire-type Q&A grounded in exports + optional scheduled Slack prompts ([NOTEBOOKLM-INVENTORY-BOT.md](./NOTEBOOKLM-INVENTORY-BOT.md))
+4. **Custom Skedaddle MCP server** — read-only Firestore for Cursor/Claude ([SKEDADDLE-MCP.md](./SKEDADDLE-MCP.md))
+
+**Deferred:** eBay / SellerChamp ([EBAY-SELLERCHAMP-HANDOFF.md](./EBAY-SELLERCHAMP-HANDOFF.md)). **Shipped:** GitHub Actions CI (lint + build).
 
 ---
 
@@ -161,11 +167,11 @@ For local emulator: use .secret.local
 
 **Medium term:**
 - Google Business Profile (when ready to be searchable)
-- eBay account + first 20 listings for highest-demand LT sizes
+- Optional eBay listings — **only if revived** as a priority; not required for current strategy
 
-**Passive income engine:**
-- eBay via SellerChamp — listings run autonomously
+**Automation:**
 - AI listing advisor reduces posting effort per SKU
+- eBay/SellerChamp remains **out of scope** until Phase 6 is unparked
 
 **Highest value, slowest close:**
 - Fleet contracts via Rubber CRM

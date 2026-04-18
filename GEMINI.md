@@ -9,7 +9,7 @@ If a rule applies to every agent (Cursor, Claude Code, Antigravity), put it in A
 - When a rule here conflicts with AGENTS.md, this file wins (in Antigravity only).
 
 ## Active overrides
-_(none yet — add overrides below as you discover them)_
+- **UI quality bar:** Prefer the Gemini screenshot walkthrough in [`docs/GEMINI-UI-WALKTHROUGH.md`](docs/GEMINI-UI-WALKTHROUGH.md) over adding unit-test harnesses for portal UI. Align substantive UI work with [`docs/UI-POLISH-VISION.md`](docs/UI-POLISH-VISION.md).
 
 ## Suggested overrides to consider adding later
 - Preferred agent mode for multi-file refactors (plan-then-execute vs. inline edit)
