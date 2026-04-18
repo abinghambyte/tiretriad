@@ -40,3 +40,10 @@ functions/.env
 
 .vercel
 .env*.local
+
+# Productivity plugin (local-only; not tracked)
+/TASKS.md
+/CLAUDE.md
+/dashboard.html
+/memory/
+/.claude/

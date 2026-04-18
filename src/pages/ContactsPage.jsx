@@ -24,6 +24,7 @@ import { permissionMeets } from '../constants/peoplePermissions'
 import { formatCurrency, formatQty } from '../utils/format'
 import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../utils/formatPhone.js'
 import { phoneDocIdFromContact } from '../utils/phoneDocId'
+import Spinner from '../components/ui/Spinner.jsx'
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -71,6 +72,7 @@ export function ContactsPage({ embedded = false }) {
   const [addPhone, setAddPhone] = useState('')
   const [addBusy, setAddBusy] = useState(false)
   const [addError, setAddError] = useState('')
+  const [removingContact, setRemovingContact] = useState(false)
 
   useEffect(() => {
     const q = query(collection(db, 'contacts'), limit(2000))
@@ -266,13 +268,15 @@ export function ContactsPage({ embedded = false }) {
       return
     }
     setRemoveContactPending(false)
+    setRemovingContact(true)
     try {
       await deleteDoc(doc(db, 'contacts', selected.id))
       toast('Contact removed', 'success')
-      setRemoveContactPending(false)
       setSelected(null)
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
+    } finally {
+      setRemovingContact(false)
     }
   }
 
@@ -354,8 +358,9 @@ export function ContactsPage({ embedded = false }) {
               <button
                 type="submit"
                 disabled={addBusy}
-                className="w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 sm:w-auto"
               >
+                {addBusy && <Spinner className="h-4 w-4 text-white/90" />}
                 {addBusy ? 'Saving…' : 'Add to list'}
               </button>
               <p className="text-[11px] leading-snug text-zinc-600">
@@ -516,16 +521,23 @@ export function ContactsPage({ embedded = false }) {
                       type="button"
                       disabled={nameSaving}
                       onClick={() => void saveDisplayName()}
-                      className="rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-50"
                     >
+                      {nameSaving && <Spinner className="h-3 w-3 text-zinc-700" />}
                       {nameSaving ? 'Saving…' : 'Save name'}
                     </button>
                     <button
                       type="button"
                       onClick={() => void removeSelectedContact()}
-                      className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-950/50"
+                      disabled={removingContact}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-950/50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {removeContactPending ? 'Confirm remove?' : 'Remove contact…'}
+                      {removingContact && <Spinner className="h-3 w-3 text-rose-200" />}
+                      {removingContact
+                        ? 'Removing…'
+                        : removeContactPending
+                          ? 'Confirm remove?'
+                          : 'Remove contact…'}
                     </button>
                   </div>
                 ) : null}
@@ -561,8 +573,9 @@ export function ContactsPage({ embedded = false }) {
               type="button"
               disabled={notesSaving}
               onClick={() => void saveNotes()}
-              className="mt-2 rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-50"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white disabled:opacity-50"
             >
+              {notesSaving && <Spinner className="h-3 w-3 text-zinc-700" />}
               {notesSaving ? 'Saving…' : 'Save notes'}
             </button>
 

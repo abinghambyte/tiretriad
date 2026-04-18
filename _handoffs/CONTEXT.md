@@ -136,12 +136,27 @@ All `window.alert` calls replaced with `toast()` across `PeopleDashboard.jsx`, `
 - `MarginTable.jsx`: `minWidth` 1068 → 820, `gridTemplateColumns` tightened to `'40px 6rem 2fr 5rem 3rem 5rem 6rem 4.5rem 5.5rem 5.5rem'`
 - `PeopleDashboard.jsx`: `lockConfirmPending` state + inline two-click confirm pattern in `lockUser()`; reset in `openEditor()` and `closeEditor()`
 
+### Handoff 13 — window.confirm Sweep ✅
+All `window.confirm` calls replaced with the inline two-click pending-state pattern in `PeopleDashboard.jsx` (applyRoleDefaults, revokeInvite, deleteUser), `ContactsPage.jsx` (removeSelectedContact), `CrmAccountDetailPanel.jsx` (remove vehicle inline), and `TaskDispatcher.jsx` (clearHandoff).
+
+### Handoff 14 — Loading States & Spinner Audit ✅
+Shared `<Spinner />` component at `src/components/ui/Spinner.jsx` (animate-spin SVG, className-configurable). Per-operation loading state + spinner indicator wired across all major write paths:
+- `OpsPage.jsx`: `savingExp`, `fulfillingId` (per-row), `taxBusy`
+- `PeopleDashboard.jsx`: `saving` (permissions + apply-defaults), `invokeBusy` (lock/unlock/delete/revoke/reissue)
+- `OrdersList.jsx`: `submitting` (complete), `cancelSubmitting` (cancel), `pokingId` (per-row poke), `busy` (debrief save/skip)
+- `CrmAccountDetailPanel.jsx`: `savingNextAction`, `loggingActivity`, `savingVehicleProfile`, `addingVehicle`, `removingVehicleId` (per-row)
+- `TiresDashboard.jsx`: `notifyingTeam`, `loggingProspective`
+- `MarginTable.jsx`: `costSaving` (existing — spinner added to Save overhead button)
+- `ContactsPage.jsx`: `addBusy`, `nameSaving`, `notesSaving`, `removingContact`
+- `TaskDispatcher.jsx`: `busy` (Route Task) — Copy Prompt keeps its existing `copied ✓` swap
+
+All state resets in `finally`. Disabled + `cursor-not-allowed` + 50% opacity is the consistent pattern.
+
 ---
 
 ## Active / Upcoming Handoffs
 
-### Handoff 13 — window.confirm Sweep (active)
-6 remaining `window.confirm` calls: `PeopleDashboard.jsx` (applyRoleDefaults, revokeInvite, deleteUser), `ContactsPage.jsx` (removeSelectedContact), `CrmAccountDetailPanel.jsx` (remove vehicle inline), `TaskDispatcher.jsx` (clearHandoff). All use the same inline two-click pending-state pattern established in Handoff 12.
+None currently active. Next candidates from `_handoffs/ROADMAP.md` Phase 9+: command palette mobile trigger, analytics chart readability on small screens, Growth Lab routing accuracy review.
 
 **Note:** `scripts/gen-next-handoff.js` produces hallucinated file paths. Handoffs 11+ are hand-written from actual file reads. Do NOT run the gen script and use its output as a handoff — always hand-write from real file reads.
 

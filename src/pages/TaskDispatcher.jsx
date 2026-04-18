@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
+import Spinner from '../components/ui/Spinner.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 
 const HANDOFF_STORAGE_KEY = 'dispatcher:handoff'
@@ -226,8 +227,9 @@ export function TaskDispatcherPage() {
             type="button"
             disabled={busy}
             onClick={() => void runDispatch()}
-            className="mt-4 w-full rounded-xl bg-amber-600 py-3 text-sm font-semibold text-zinc-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-8"
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-sm font-semibold text-zinc-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-8"
           >
+            {busy && <Spinner className="h-4 w-4 text-zinc-800" />}
             {busy ? 'Routing…' : 'Route Task'}
           </button>
           {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
