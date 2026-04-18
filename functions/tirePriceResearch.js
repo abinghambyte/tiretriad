@@ -19,7 +19,13 @@ const admin = require('firebase-admin')
 const { FieldValue, FieldPath, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatQty } = require('./format')
 
-const CONCURRENCY = 10
+/**
+ * Gemini free-tier burst limits are extremely low. Even on paid plans, the
+ * `google_search` grounded models prefer small fan-outs. 3 keeps us under
+ * typical per-minute limits while still clearing a 500-tire batch in a few
+ * minutes once prices are coming back cleanly.
+ */
+const CONCURRENCY = 3
 const DEFAULT_BATCH_SIZE = 500
 const SANITY_MIN = 10
 const SANITY_MAX = 2000
@@ -97,6 +103,12 @@ function tryParsePriceJson(text) {
   }
 }
 
+function isRateLimitedError(status, message) {
+  if (status === 429) return true
+  const m = String(message || '').toLowerCase()
+  return m.includes('quota') || m.includes('rate limit') || m.includes('resource_exhausted')
+}
+
 async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
   const keyTrim = String(geminiKey || '').trim()
   if (!keyTrim || keyTrim === '-') {
@@ -104,10 +116,12 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       rawText: '',
       parsed: { ok: false, price: null, confidence: 'low', notes: 'no api key' },
       modelUsed: null,
+      rateLimited: false,
     }
   }
-  const models = ['gemini-1.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
   let lastErr = ''
+  let lastStatus = 0
   for (const model of models) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(keyTrim)}`
     const body = {
@@ -129,7 +143,19 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       continue
     }
     if (!res.ok) {
+      lastStatus = res.status
       lastErr = json?.error?.message || `${res.status}`
+      // If this model hit a quota error, every other Gemini model on the same
+      // key is almost certainly also out of quota. Bail fast instead of pounding
+      // each fallback model with another 429.
+      if (isRateLimitedError(res.status, lastErr)) {
+        return {
+          rawText: '',
+          parsed: { ok: false, price: null, confidence: 'low', notes: lastErr },
+          modelUsed: null,
+          rateLimited: true,
+        }
+      }
       continue
     }
     const parts = json?.candidates?.[0]?.content?.parts
@@ -139,12 +165,13 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       continue
     }
     const parsed = tryParsePriceJson(text)
-    return { rawText: text, parsed, modelUsed: model }
+    return { rawText: text, parsed, modelUsed: model, rateLimited: false }
   }
   return {
     rawText: '',
     parsed: { ok: false, price: null, confidence: 'low', notes: lastErr || 'gemini failed' },
     modelUsed: null,
+    rateLimited: isRateLimitedError(lastStatus, lastErr),
   }
 }
 
@@ -382,7 +409,14 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   const channel = String(slack?.channel || '').trim()
 
   const userPrompt = buildResearchUserPrompt(tire)
-  const { parsed, rawText, modelUsed } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
+  const { parsed, rawText, modelUsed, rateLimited } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
+
+  // Rate-limited is not the tire's fault. Skip the Firestore write entirely so
+  // we don't burn the retry counter or move `lastResearched` forward. The
+  // tire will be picked up again on the next run.
+  if (rateLimited) {
+    return 'rate_limited'
+  }
 
   const rawPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
   const foundPrice =
@@ -394,8 +428,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   if (foundPrice == null) {
     // Log the first few hundred chars of the raw response so we can tell
     // whether Gemini actually returned nothing, returned unparseable text, or
-    // returned a number we clamped away. Keeps us out of blind-flying when
-    // not_found counts spike.
+    // returned a number we clamped away.
     console.warn('[tirePriceResearch] not_found detail', {
       mspn,
       modelUsed,
@@ -552,21 +585,34 @@ async function tirePriceResearchRun(opts) {
   let updated = 0
   let notFound = 0
   let skippedKyle = 0
+  let rateLimited = 0
   let errored = 0
   for (const r of results) {
     if (r === 'updated') updated += 1
     else if (r === 'not_found') notFound += 1
     else if (r === 'skipped_kyle') skippedKyle += 1
+    else if (r === 'rate_limited') rateLimited += 1
     else errored += 1
   }
 
-  console.log('[tirePriceResearch] done', { processed: docs.length, updated, notFound, skippedKyle, errored })
+  console.log('[tirePriceResearch] done', {
+    processed: docs.length,
+    updated,
+    notFound,
+    skippedKyle,
+    rateLimited,
+    errored,
+  })
 
   if (token && channel) {
     const errorNote = errored > 0 ? `, ${formatQty(errored)} errored` : ''
+    const rateNote =
+      rateLimited > 0
+        ? `\n:warning: ${formatQty(rateLimited)} tires hit Gemini rate limits and will retry on the next run. If this number stays high, enable billing on the Gemini API key (https://aistudio.google.com/app/apikey).`
+        : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Retail price research complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped (Kyle confirmed)${errorNote}`,
+      text: `🔍 Retail price research complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped (Kyle confirmed)${errorNote}${rateNote}`,
     })
   }
 }
@@ -626,19 +672,22 @@ async function runBulkPriceRefresh(db, geminiKey, slack) {
   let updated = 0
   let notFound = 0
   let skippedKyle = 0
+  let rateLimited = 0
   let errored = 0
   for (const r of results) {
     if (r === 'updated') updated += 1
     else if (r === 'not_found') notFound += 1
     else if (r === 'skipped_kyle') skippedKyle += 1
+    else if (r === 'rate_limited') rateLimited += 1
     else errored += 1
   }
 
   if (token && channel) {
     const errorNote = errored > 0 ? `, ${formatQty(errored)} errored` : ''
+    const rateNote = rateLimited > 0 ? `, ${formatQty(rateLimited)} rate-limited (will retry)` : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Bulk refresh complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped${errorNote}`,
+      text: `🔍 Bulk refresh complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped${rateNote}${errorNote}`,
     })
   }
 }
