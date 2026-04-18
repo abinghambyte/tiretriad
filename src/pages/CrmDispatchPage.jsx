@@ -129,13 +129,17 @@ export function CrmDispatchPage() {
             {loadError}
           </p>
         ) : null}
-        {!loading && !loadError && visibleJobs.length === 0 ? (
+        {!loading && !loadError && jobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/25 px-6 py-16 text-center">
+            <p className="text-sm text-zinc-400">No jobs dispatched yet.</p>
+            <p className="mt-1 text-xs text-zinc-600">Jobs appear here when dispatched from a VIP client account.</p>
+          </div>
+        ) : null}
+        {!loading && !loadError && jobs.length > 0 && visibleJobs.length === 0 ? (
           <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm leading-relaxed text-zinc-400">
-            No jobs assigned yet.
+            No jobs assigned to you yet.
             <br />
-            <span className="text-zinc-500">
-              Jobs appear here when a trial is scheduled.
-            </span>
+            <span className="text-zinc-500">Check with dispatch when new field jobs are scheduled.</span>
           </p>
         ) : null}
         {!loading && visibleJobs.map((j) => (

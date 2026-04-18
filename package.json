@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "seed:tires": "node scripts/seed-tires.mjs",
     "import:tires-csv": "node scripts/import-tires-csv.mjs",
+    "handoff:next": "node scripts/gen-next-handoff.js",
     "deploy:functions": "firebase deploy --only functions",
     "deploy:firebase": "firebase deploy --only functions,firestore",
     "emulators:functions": "firebase emulators:start --only functions"

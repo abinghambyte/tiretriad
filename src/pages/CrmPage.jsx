@@ -95,6 +95,8 @@ export function CrmPage() {
   })
   /** Mobile (under md): which pipeline stage accordion is open; desktop uses grid. */
   const [crmMobileStage, setCrmMobileStage] = useState(null)
+  /** Mobile: account IDs whose stage picker is expanded. */
+  const [mobileMoveOpen, setMobileMoveOpen] = useState(() => new Set())
 
   useEffect(() => {
     const q = query(collection(db, 'crmAccounts'), orderBy('lastContactedAt', 'desc'), limit(500))
@@ -183,7 +185,22 @@ export function CrmPage() {
       })
       toast(`Moved to ${CRM_STAGE_LABELS[stage] || 'stage ' + stage}`, 'success')
     } catch (err) {
-      window.alert(err?.message || String(err))
+      toast(err?.message || 'Move failed', 'error')
+    }
+  }
+
+  async function moveAccountStage(id, stage) {
+    if (!canEdit) return
+    try {
+      await updateDoc(doc(db, 'crmAccounts', id), {
+        pipelineStage: stage,
+        pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
+        lastContactedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+      toast(`Moved to ${CRM_STAGE_LABELS[stage] || 'stage ' + stage}`, 'success')
+    } catch (err) {
+      toast(err?.message || 'Move failed', 'error')
     }
   }
 
@@ -551,34 +568,80 @@ export function CrmPage() {
                             onDrop={(e) => void onDropStage(stage, e)}
                           >
                             {(stage === CRM_LOST_STAGE ? lostAccounts : byStage(stage)).map((a) => (
-                              <button
+                              <div
                                 key={a.id}
-                                type="button"
                                 draggable={canEdit}
                                 onDragStart={(e) => {
                                   e.dataTransfer.setData('text/accountId', a.id)
                                 }}
-                                onClick={() => setDetail(a)}
-                                className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
+                                className="rounded-lg border border-zinc-700/80 bg-zinc-950/80 text-xs hover:border-violet-700/50"
                               >
-                                <span className="font-medium text-zinc-100">{a.companyName}</span>
-                                <p className="mt-1 text-[10px] text-zinc-500">Next: {nextActionSummary(a)}</p>
-                                <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
-                                  Last note: {lastActivityNotePreview(a)}
-                                </p>
-                                <p className="mt-0.5 text-[10px] font-semibold text-amber-200/90">
-                                  {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
-                                    ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
-                                    : '—'}
-                                </p>
-                                <div className="mt-1 flex flex-wrap items-center gap-1">
-                                  <span
-                                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
-                                  >
-                                    {a.score ?? computeCrmScore(a)}
-                                  </span>
-                                </div>
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetail(a)}
+                                  className="w-full p-2 text-left"
+                                >
+                                  <span className="font-medium text-zinc-100">{a.companyName}</span>
+                                  <p className="mt-1 text-[10px] text-zinc-500">Next: {nextActionSummary(a)}</p>
+                                  <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
+                                    Last note: {lastActivityNotePreview(a)}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] font-semibold text-amber-200/90">
+                                    {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
+                                      ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
+                                      : '—'}
+                                  </p>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                                    <span
+                                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                                    >
+                                      {a.score ?? computeCrmScore(a)}
+                                    </span>
+                                  </div>
+                                </button>
+                                {canEdit ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setMobileMoveOpen((prev) => {
+                                          const next = new Set(prev)
+                                          if (next.has(a.id)) next.delete(a.id)
+                                          else next.add(a.id)
+                                          return next
+                                        })
+                                      }}
+                                      className="mx-2 mb-2 mt-0.5 text-[10px] text-violet-400 hover:text-violet-200"
+                                    >
+                                      Move →
+                                    </button>
+                                    {mobileMoveOpen.has(a.id) ? (
+                                      <div className="mx-2 mb-2 mt-2 flex flex-wrap gap-1 border-t border-zinc-800/60 pt-2">
+                                        {[...KANBAN_STAGES, CRM_LOST_STAGE]
+                                          .filter((s) => s !== normalizePipelineStage(a.pipelineStage, a))
+                                          .map((s) => (
+                                            <button
+                                              key={s}
+                                              type="button"
+                                              onClick={() => {
+                                                void moveAccountStage(a.id, s)
+                                                setMobileMoveOpen((prev) => {
+                                                  const next = new Set(prev)
+                                                  next.delete(a.id)
+                                                  return next
+                                                })
+                                              }}
+                                              className="rounded bg-zinc-800 px-2 py-1 text-[10px] font-semibold text-zinc-300 hover:bg-zinc-700"
+                                            >
+                                              {CRM_STAGE_LABELS[s] || `Stage ${s}`}
+                                            </button>
+                                          ))}
+                                      </div>
+                                    ) : null}
+                                  </>
+                                ) : null}
+                              </div>
                             ))}
                           </div>
                         ) : null}
@@ -592,6 +655,45 @@ export function CrmPage() {
         ) : (
           <section className="space-y-6">
             <h2 className="text-sm font-semibold text-zinc-300">Leads</h2>
+            <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+              <label className="flex min-w-[10rem] flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Segment
+                <select
+                  value={segment}
+                  onChange={(e) => setSegment(e.target.value)}
+                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                >
+                  <option value="">All segments</option>
+                  {CRM_ACCOUNT_SEGMENTS.filter((s) => s.value).map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex min-w-[11rem] flex-1 flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                Location contains
+                <input
+                  placeholder="City, region, metro…"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                />
+              </label>
+              <input
+                type="number"
+                placeholder="Min score"
+                value={minScore}
+                onChange={(e) => setMinScore(e.target.value)}
+                className="w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+              />
+              <input
+                placeholder="Search company"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="min-w-[140px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+              />
+            </div>
             {canEdit ? (
               <form
                 onSubmit={(e) => void addLead(e)}
@@ -655,7 +757,7 @@ export function CrmPage() {
                     <th className="px-3 py-2">Vehicles</th>
                     <th className="px-3 py-2">Urgency</th>
                     <th className="px-3 py-2">Follow-up</th>
-                    <th className="px-3 py-2 max-sm:hidden" />
+                    <th className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -679,7 +781,7 @@ export function CrmPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(r.followUpAt)}</td>
-                      <td className="px-3 py-2 text-right max-sm:hidden">
+                      <td className="px-3 py-2 text-right">
                         {r.convertedToAccountId ? (
                           <span className="text-xs text-zinc-600">Converted</span>
                         ) : canEdit ? (
@@ -688,7 +790,8 @@ export function CrmPage() {
                             className="text-xs text-violet-300 hover:underline"
                             onClick={() => void convertLead(r)}
                           >
-                            Convert to VIP client
+                            <span className="hidden sm:inline">Convert to VIP client</span>
+                            <span className="sm:hidden">Convert</span>
                           </button>
                         ) : null}
                       </td>
@@ -696,45 +799,6 @@ export function CrmPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <label className="flex min-w-[10rem] flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                Segment
-                <select
-                  value={segment}
-                  onChange={(e) => setSegment(e.target.value)}
-                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
-                >
-                  <option value="">All segments</option>
-                  {CRM_ACCOUNT_SEGMENTS.filter((s) => s.value).map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex min-w-[11rem] flex-1 flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                Location contains
-                <input
-                  placeholder="City, region, metro…"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
-                />
-              </label>
-              <input
-                type="number"
-                placeholder="Min score"
-                value={minScore}
-                onChange={(e) => setMinScore(e.target.value)}
-                className="w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              />
-              <input
-                placeholder="Search company"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="min-w-[140px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
-              />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-zinc-300">VIP clients pipeline</h2>
