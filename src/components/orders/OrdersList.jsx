@@ -26,6 +26,7 @@ import {
   MODAL_CENTER_BACKDROP,
   MODAL_CENTER_PANEL_BASE,
 } from '../ui/modalChrome.js'
+import Spinner from '../ui/Spinner.jsx'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
@@ -252,16 +253,18 @@ function OrderDebriefPrompt({ order }) {
           type="button"
           disabled={busy}
           onClick={() => void save()}
-          className="rounded-lg bg-violet-900/50 px-3 py-1.5 text-[11px] font-semibold text-violet-100 ring-1 ring-violet-800/50 hover:bg-violet-900/70 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-900/50 px-3 py-1.5 text-[11px] font-semibold text-violet-100 ring-1 ring-violet-800/50 hover:bg-violet-900/70 disabled:opacity-50"
         >
+          {busy && <Spinner className="h-3 w-3 text-violet-100" />}
           Save debrief
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => void skip()}
-          className="rounded-lg border border-zinc-600 px-3 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800/50 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-600 px-3 py-1.5 text-[11px] text-zinc-400 hover:bg-zinc-800/50 disabled:opacity-50"
         >
+          {busy && <Spinner className="h-3 w-3 text-zinc-400" />}
           Skip
         </button>
       </div>
@@ -293,6 +296,7 @@ export function OrdersList({ highlightId }) {
   const prevStatusRef = useRef(new Map())
   const [soundOn, setSoundOn] = useState(() => readSoundEnabled())
   const [tiresByMspn, setTiresByMspn] = useState(() => new Map())
+  const [pokingId, setPokingId] = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -429,6 +433,7 @@ export function OrdersList({ highlightId }) {
     const notifyToPokeMinutes =
       firstMs != null ? Math.round((Date.now() - firstMs) / 60000) : 0
     const nextPoke = (Number(order.pokeCount) || 0) + 1
+    setPokingId(order.id)
     try {
       await updateDoc(doc(db, 'orders', order.id), {
         pokeCount: increment(1),
@@ -440,6 +445,8 @@ export function OrdersList({ highlightId }) {
     } catch (e) {
       console.error(e)
       toast('SMS opened. Poke save failed — check rules.', 'error')
+    } finally {
+      setPokingId(null)
     }
   }, [toast])
 
@@ -681,9 +688,11 @@ export function OrdersList({ highlightId }) {
                     {o.customerNotifiedAt ? (
                       <button
                         type="button"
-                        className="rounded-lg border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-900/40"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-900/40 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => pokeCustomer(o)}
+                        disabled={pokingId === o.id}
                       >
+                        {pokingId === o.id && <Spinner className="h-3 w-3 text-amber-100" />}
                         Poke customer
                       </button>
                     ) : null}
@@ -819,10 +828,11 @@ export function OrdersList({ highlightId }) {
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-red-900/80 px-3 py-2 text-xs font-semibold text-red-50 hover:bg-red-800 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-red-900/80 px-3 py-2 text-xs font-semibold text-red-50 hover:bg-red-800 disabled:opacity-50"
                 onClick={() => void submitCancel()}
                 disabled={cancelSubmitting}
               >
+                {cancelSubmitting && <Spinner className="h-3.5 w-3.5 text-red-50" />}
                 {cancelSubmitting ? 'Cancelling…' : 'Confirm cancel'}
               </button>
             </div>
@@ -875,10 +885,11 @@ export function OrdersList({ highlightId }) {
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-amber-50 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-amber-50 disabled:opacity-50"
                 onClick={submitComplete}
                 disabled={submitting}
               >
+                {submitting && <Spinner className="h-3.5 w-3.5 text-zinc-700" />}
                 {submitting ? 'Saving…' : 'Confirm'}
               </button>
             </div>

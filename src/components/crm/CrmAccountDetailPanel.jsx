@@ -31,6 +31,7 @@ import {
   normalizeCrmVin,
 } from '../../utils/crmAccountPicklists.js'
 import { computeCrmScore, scoreBadgeClass } from '../../utils/crmScore'
+import Spinner from '../ui/Spinner.jsx'
 
 // Tanner is a silent partner — no portal access, never assignable.
 const OWNERS = [
@@ -73,10 +74,15 @@ function fmtActivityAt(ts) {
 export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onRefresh, avgBuyPerTire }) {
   const [draft, setDraft] = useState({ ...account })
   const [removeVehiclePendingId, setRemoveVehiclePendingId] = useState(null)
+  const [removingVehicleId, setRemovingVehicleId] = useState(null)
   /** Preset segment dropdown vs free-text custom label (not a Firestore field). */
   const [segmentMode, setSegmentMode] = useState(() => (crmSegmentIsPreset(account.segment) ? 'preset' : 'custom'))
   const [vehLabel, setVehLabel] = useState('')
+  const [addingVehicle, setAddingVehicle] = useState(false)
   const [activityNote, setActivityNote] = useState('')
+  const [loggingActivity, setLoggingActivity] = useState(false)
+  const [savingNextAction, setSavingNextAction] = useState(false)
+  const [savingVehicleProfile, setSavingVehicleProfile] = useState(false)
   const [linkedOrdersRows, setLinkedOrdersRows] = useState([])
 
   const vp = useMemo(
@@ -162,7 +168,12 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
       ownedBy: isValidCrmOwner(ownedBy) ? ownedBy : 'alex',
       dueDate: dueStr ? Timestamp.fromDate(new Date(dueStr)) : null,
     }
-    await saveField({ nextAction })
+    setSavingNextAction(true)
+    try {
+      await saveField({ nextAction })
+    } finally {
+      setSavingNextAction(false)
+    }
   }
 
   async function saveVehicleProfile() {
@@ -179,7 +190,12 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
       currentVendor: String(vp.currentVendor || '').trim(),
       estimatedAnnualSpend: Math.max(0, Number(vp.estimatedAnnualSpend) || 0),
     }
-    await saveField({ vehicleProfile })
+    setSavingVehicleProfile(true)
+    try {
+      await saveField({ vehicleProfile })
+    } finally {
+      setSavingVehicleProfile(false)
+    }
   }
 
   async function postActivity() {
@@ -190,8 +206,13 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
       addedBy: auth.currentUser?.email || auth.currentUser?.uid || 'portal',
       addedAt: Timestamp.now(),
     }
-    await saveField({ activityLog: [...prev, entry] })
-    setActivityNote('')
+    setLoggingActivity(true)
+    try {
+      await saveField({ activityLog: [...prev, entry] })
+      setActivityNote('')
+    } finally {
+      setLoggingActivity(false)
+    }
   }
 
   const sortedActivity = useMemo(
@@ -460,9 +481,11 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             <button
               type="button"
               onClick={() => void saveNextAction()}
-              className="w-full rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+              disabled={savingNextAction}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
             >
-              Save next action
+              {savingNextAction && <Spinner className="h-4 w-4 text-white/90" />}
+              {savingNextAction ? 'Saving…' : 'Save next action'}
             </button>
           ) : null}
         </div>
@@ -490,9 +513,11 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             <button
               type="button"
               onClick={() => void postActivity()}
-              className="rounded-lg bg-violet-800 px-2 py-2 text-sm font-semibold text-white"
+              disabled={loggingActivity || !activityNote.trim()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-800 px-2 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              Post
+              {loggingActivity && <Spinner className="h-4 w-4 text-white/90" />}
+              {loggingActivity ? 'Posting…' : 'Post'}
             </button>
           </div>
         ) : null}
@@ -711,9 +736,11 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             <button
               type="button"
               onClick={() => void saveVehicleProfile()}
-              className="w-full rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-500"
+              disabled={savingVehicleProfile}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
             >
-              Save vehicle profile
+              {savingVehicleProfile && <Spinner className="h-4 w-4 text-white/90" />}
+              {savingVehicleProfile ? 'Saving…' : 'Save vehicle profile'}
             </button>
           ) : null}
         </div>
@@ -747,21 +774,27 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
           />
           <button
             type="button"
-            disabled={!canEdit}
+            disabled={!canEdit || addingVehicle || !vehLabel.trim()}
             onClick={async () => {
               if (!canEdit || !vehLabel.trim()) return
-              await addDoc(collection(db, 'crmVehicles'), {
-                accountId: account.id,
-                label: vehLabel.trim(),
-                tireSize: '',
-                notes: '',
-                createdAt: serverTimestamp(),
-              })
-              setVehLabel('')
+              setAddingVehicle(true)
+              try {
+                await addDoc(collection(db, 'crmVehicles'), {
+                  accountId: account.id,
+                  label: vehLabel.trim(),
+                  tireSize: '',
+                  notes: '',
+                  createdAt: serverTimestamp(),
+                })
+                setVehLabel('')
+              } finally {
+                setAddingVehicle(false)
+              }
             }}
-            className="rounded-lg bg-zinc-700 px-2 py-1.5 text-sm text-white disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-700 px-2 py-1.5 text-sm text-white disabled:opacity-50"
           >
-            Add
+            {addingVehicle && <Spinner className="h-3.5 w-3.5 text-white/90" />}
+            {addingVehicle ? 'Adding…' : 'Add'}
           </button>
         </div>
         <ul className="mt-2 space-y-1 text-xs text-zinc-400">
@@ -771,17 +804,28 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               {canEdit ? (
                 <button
                   type="button"
-                  className="text-red-400 hover:underline"
-                  onClick={() => {
-                      if (removeVehiclePendingId !== v.id) {
-                        setRemoveVehiclePendingId(v.id)
-                        return
-                      }
-                      setRemoveVehiclePendingId(null)
-                      void deleteDoc(doc(db, 'crmVehicles', v.id))
+                  disabled={removingVehicleId === v.id}
+                  className="inline-flex items-center gap-1 text-red-400 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={async () => {
+                    if (removeVehiclePendingId !== v.id) {
+                      setRemoveVehiclePendingId(v.id)
+                      return
+                    }
+                    setRemoveVehiclePendingId(null)
+                    setRemovingVehicleId(v.id)
+                    try {
+                      await deleteDoc(doc(db, 'crmVehicles', v.id))
+                    } finally {
+                      setRemovingVehicleId(null)
+                    }
                   }}
                 >
-                  {removeVehiclePendingId === v.id ? 'Confirm?' : 'Remove'}
+                  {removingVehicleId === v.id && <Spinner className="h-3 w-3 text-red-400" />}
+                  {removingVehicleId === v.id
+                    ? 'Removing…'
+                    : removeVehiclePendingId === v.id
+                      ? 'Confirm?'
+                      : 'Remove'}
                 </button>
               ) : null}
             </li>

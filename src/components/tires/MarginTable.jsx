@@ -8,6 +8,7 @@ import { computeCts, effectiveCts, tireOverheadParts } from '../../utils/ctsCalc
 import { computeMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
+import Spinner from '../ui/Spinner.jsx'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 import { timeAgo } from '../../utils/timeAgo'
@@ -344,8 +345,9 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               type="button"
               disabled={costSaving}
               onClick={() => saveCosts(row.id)}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-50"
             >
+              {costSaving && <Spinner className="h-3.5 w-3.5 text-zinc-800" />}
               {costSaving ? 'Saving…' : 'Save overhead'}
             </button>
           </div>
