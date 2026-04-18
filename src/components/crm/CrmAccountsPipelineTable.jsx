@@ -5,6 +5,7 @@ import {
   estimatedDealValue,
   lastActivityAt,
 } from '../../utils/crmPipeline'
+import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 
 function fmtTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '—'
@@ -100,6 +101,15 @@ export function CrmAccountsPipelineTable({ accounts, avgBuyPerTire, onOpen }) {
           </tr>
         </thead>
         <tbody>
+          {rows.length === 0 ? (
+            <EmptyState
+              variant="row"
+              colSpan={6}
+              icon={EmptyStateIcons.users}
+              title="No VIP clients match"
+              description="Nothing matches the current filters. Clear them or add a new VIP client to start populating the pipeline."
+            />
+          ) : null}
           {rows.map(({ raw }) => (
             <tr key={raw.id} className="border-b border-zinc-800/80 hover:bg-zinc-900/30">
               <td className="px-3 py-2 font-medium text-zinc-100">{raw.companyName}</td>
