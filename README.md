@@ -45,7 +45,7 @@ Custom operations software for a northern Colorado tire resale and mobile road-s
 
 React SPA in `src/`, Cloud Functions in `functions/`, Firestore rules and indexes at root. Business logic shared between client and server via common helpers. Production secrets never committed — all tokens live in GCP Secret Manager and are bound to functions at deploy time.
 
-Deploy path: lint → build → Firebase (functions first) → Vercel picks up the frontend push automatically.
+Deploy path: lint → test → build → Firebase (functions first) → Vercel picks up the frontend push automatically. CI runs the same checks on every push and PR to `main` via `.github/workflows/ci.yml`.
 
 ---
 

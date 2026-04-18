@@ -18,7 +18,7 @@ Live at skedaddleinc.com. Repo: abinghambyte/skedaddleinc.
 ## Deploy
 - Functions: npm run deploy:firebase (from repo root)
 - Frontend: git add . && git commit -m "message" && git push
-- Always run npm run lint && npm run build before declaring done
+- Always run npm run lint && npm run test && npm run build before declaring done
 - Deploy functions before pushing frontend when both change
 - After every deploy, walk through post-deploy verification steps in detail
 
