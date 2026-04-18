@@ -18,7 +18,6 @@
 const admin = require('firebase-admin')
 const { FieldValue, FieldPath, Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatQty } = require('./format')
-const { parseDescription } = require('./parseTireDescription')
 
 const CONCURRENCY = 10
 const DEFAULT_BATCH_SIZE = 500
@@ -26,6 +25,8 @@ const SANITY_MIN = 10
 const SANITY_MAX = 2000
 const REFRESH_STALENESS_MS = 6 * 86400000
 const BULK_RESEARCH_MS = 30 * 86400000
+/** Cap retries for tires that Gemini keeps coming back empty on, so obscure SKUs don't spin forever. */
+const MAX_FAILED_ATTEMPTS = 3
 
 function stripJsonFences(text) {
   const t = String(text || '').trim()
@@ -147,58 +148,43 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
   }
 }
 
-function buildSizeSpec(_tire, d) {
-  const parts = []
-  if (d.parseKind === 'metric' && d.width != null && d.aspectRatio != null && d.construction && d.rimDiameter != null) {
-    const lt = d.ltPrefixedMetric ? 'LT' : ''
-    parts.push(`${lt}${d.width}/${d.aspectRatio}${d.construction}${d.rimDiameter}`)
-  } else if (d.parseKind === 'flotation' && d.width != null && d.flotationMid && d.rimDiameter != null) {
-    const lt = d.trailingLt ? 'LT' : ''
-    parts.push(`${d.width}X${d.flotationMid}R${d.rimDiameter}${lt}`)
-  }
-  const ls = []
-  if (d.loadIndex != null) ls.push(String(d.loadIndex))
-  if (d.speedRating) ls.push(d.speedRating)
-  if (d.extraLoad) ls.push('XL')
-  if (ls.length) parts.push(ls.join('/'))
-  return parts.join(' ').trim()
-}
-
 /**
  * @param {Record<string, unknown>} tire
- * @param {string} mspn
  */
-function buildResearchUserPrompt(tire, mspn) {
+function buildResearchUserPrompt(tire) {
   const brand = String(tire.brand || '').trim()
-  const tread = String(tire.tread || '').trim()
   const desc = String(tire.description || '').trim()
-  const d = parseDescription(desc)
-  const treadLine = tread || d.treadName || ''
-  const size = buildSizeSpec(tire, d)
-  const loadSpeed = [d.loadIndex != null ? String(d.loadIndex) : '', d.speedRating || '']
-    .filter(Boolean)
-    .join('')
+  const tread = String(tire.tread || '').trim()
+  const lr = String(tire.lr || '').trim()
 
-  const searchTarget = [brand, treadLine, size, loadSpeed, d.extraLoad ? 'XL' : '']
+  // Retailers (TireRack, DiscountTire, SimpleTire, etc.) index on the printed
+  // description the same way consumers type it: brand + size + load index/speed
+  // + tread model, optionally with a load range like "Load Range E". Build the
+  // search string directly from those fields — the MSPN is a manufacturer part
+  // number that almost no retail site uses, so dropping it avoids dead-end
+  // searches.
+  const searchTarget = [
+    brand,
+    desc,
+    tread && tread !== desc ? tread : '',
+    lr ? `Load Range ${lr}` : '',
+  ]
     .filter(Boolean)
     .join(' ')
     .trim()
 
   return [
-    `Find the typical current US retail price per single tire for this tire, using Google Search.`,
+    `Find the typical current US retail price per single tire, using Google Search.`,
     '',
-    `Search for: ${searchTarget || desc || mspn}`,
+    `Search for: ${searchTarget || desc || brand}`,
     '',
-    `Details:`,
+    `Tire:`,
     brand ? `- Brand: ${brand}` : '',
-    treadLine ? `- Model / tread: ${treadLine}` : '',
-    size ? `- Size: ${size}` : '',
-    loadSpeed ? `- Load/speed: ${loadSpeed}` : '',
-    d.extraLoad ? `- Load rating: XL (extra load)` : '',
-    `- Manufacturer part number (secondary hint, not all retailers use this): ${mspn}`,
-    `- Raw catalog description: ${desc || '—'}`,
+    desc ? `- Description: ${desc}` : '',
+    tread && tread !== desc ? `- Tread model: ${tread}` : '',
+    lr ? `- Load range: ${lr}` : '',
     '',
-    `Prefer consumer retail sellers that display real prices: TireRack, DiscountTire, SimpleTire, PriorityTire, Walmart, Amazon, Costco. Median across whatever sources you find is fine; price is for one (1) tire, not a set of four.`,
+    `Prefer consumer retail sellers that display real prices: TireRack, DiscountTire, SimpleTire, PriorityTire, Walmart, Amazon, Costco. Median across whatever sources you find is fine. Price is for one (1) tire, not a set of four.`,
     '',
     `Respond with a JSON object only, no prose before or after:`,
     `{"price": <number or null>, "confidence": "high"|"medium"|"low", "notes": "<short source summary>"}`,
@@ -206,7 +192,7 @@ function buildResearchUserPrompt(tire, mspn) {
     `- "high" confidence: two or more sellers list the same tire at similar prices.`,
     `- "medium": only one seller, or prices varied noticeably.`,
     `- "low": very uncertain or extrapolated.`,
-    `- If you genuinely cannot find a retail price for this brand + model + size combination, set price to null.`,
+    `- If you genuinely cannot find a retail price for this brand + size + tread combination, set price to null.`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -254,6 +240,18 @@ function tireNeedsFirstResearch(data) {
   if (!pi || typeof pi !== 'object') return true
   const lr = pi.lastResearched
   if (lr == null) return true
+  // Retry tires that were "researched" but Gemini returned no price, up to
+  // MAX_FAILED_ATTEMPTS times. Once a tire has that many `gemini_not_found`
+  // source entries, we stop picking it via the first-research path and fall
+  // back to the regular 6-day staleness refresh cycle.
+  const retail = Number(pi.retailPrice)
+  if (!Number.isFinite(retail) || retail <= 0) {
+    const sources = Array.isArray(pi.sources) ? pi.sources : []
+    const failedAttempts = sources.filter(
+      (s) => s && s.source === 'gemini_not_found',
+    ).length
+    if (failedAttempts < MAX_FAILED_ATTEMPTS) return true
+  }
   return false
 }
 
@@ -383,7 +381,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   const token = String(slack?.token || '').trim()
   const channel = String(slack?.channel || '').trim()
 
-  const userPrompt = buildResearchUserPrompt(tire, mspn)
+  const userPrompt = buildResearchUserPrompt(tire)
   const { parsed, rawText, modelUsed } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
 
   const rawPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
@@ -540,7 +538,7 @@ async function tirePriceResearchRun(opts) {
     const fmt = (n) => (typeof n === 'number' && n >= 0 ? formatQty(n) : '—')
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Retail price research starting — ${fmt(neverN)} never researched, ${fmt(staleN)} due for refresh (6+ days), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching ${formatQty(docs.length)} tires this run…`,
+      text: `🔍 Retail price research starting — ${fmt(neverN)} need research (no retail price yet, under ${MAX_FAILED_ATTEMPTS} attempts), ${fmt(staleN)} due for refresh (6+ days), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching ${formatQty(docs.length)} tires this run…`,
     })
   }
 
