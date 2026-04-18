@@ -793,6 +793,47 @@ exports.tirePriceResearch = onSchedule(
   },
 )
 
+/**
+ * Manual admin trigger for the same price research the nightly cron runs.
+ * Useful for testing after setting GEMINI_API_KEY or when buy prices look stale.
+ * Admin-only. Respects `priceIntel.kyleConfirmed` as a freeze. Writes only to
+ * `priceIntel.*` so CSV-sourced fields (price, cost, retailPrice) are untouched.
+ */
+exports.runTirePriceResearchNow = onCall(
+  {
+    secrets: TIRE_PRICE_INTEL_SECRETS,
+    region: 'us-central1',
+    timeoutSeconds: 540,
+    memory: '1GiB',
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required.')
+    }
+    const db = admin.firestore()
+    const u = await db.collection('users').doc(request.auth.uid).get()
+    if (!u.exists || String(u.get('role') || '') !== 'admin') {
+      throw new HttpsError('permission-denied', 'Admin only.')
+    }
+    const token = String(SLACK_BOT_TOKEN.value() || '').trim()
+    const channel = String(slackChannelWithSecretFallback() || '').trim()
+    const geminiKey = String(GEMINI_API_KEY.value() || '').trim()
+    if (!geminiKey || geminiKey === '-') {
+      throw new HttpsError(
+        'failed-precondition',
+        'GEMINI_API_KEY secret is not set. Run `firebase functions:secrets:set GEMINI_API_KEY` and redeploy.',
+      )
+    }
+    try {
+      await tirePriceResearchRun({ token, channel, geminiKey })
+      return { ok: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new HttpsError('internal', msg)
+    }
+  },
+)
+
 /** 1st of month 8:00 AM America/Denver — Kyle sourcing scorecard to #fleet-ops. */
 exports.kyleScorecard = onSchedule(
   {

@@ -28,6 +28,7 @@ const EXPENSE_CATEGORIES = [
 ]
 
 const exportTaxPrepCsv = httpsCallable(functions, 'exportTaxPrepCsv')
+const runTirePriceResearchNow = httpsCallable(functions, 'runTirePriceResearchNow')
 
 const DENVER_TZ = 'America/Denver'
 
@@ -96,6 +97,8 @@ export function OpsPage() {
   const [taxStart, setTaxStart] = useState(() => denverMonthStartYmd())
   const [taxEnd, setTaxEnd] = useState(() => denverYmdString())
   const [taxBusy, setTaxBusy] = useState(false)
+
+  const [priceResearchBusy, setPriceResearchBusy] = useState(false)
 
   const region = import.meta.env.VITE_FUNCTIONS_REGION || 'us-central1'
   const inboundSmsUrl = `https://${region}-${firebaseProjectId}.cloudfunctions.net/inboundSms`
@@ -238,6 +241,19 @@ export function OpsPage() {
       toast(err?.message || 'Export failed.', 'error')
     } finally {
       setTaxBusy(false)
+    }
+  }
+
+  async function runPriceResearch() {
+    setPriceResearchBusy(true)
+    try {
+      await runTirePriceResearchNow({})
+      toast('Price research run complete. Check #fleet-ops Slack for details.', 'success')
+    } catch (err) {
+      const msg = err?.message || 'Price research failed.'
+      toast(msg, 'error')
+    } finally {
+      setPriceResearchBusy(false)
     }
   }
 
@@ -475,6 +491,29 @@ export function OpsPage() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-white">Price research</h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Runs the Gemini-backed wholesale-price check against up to 100 tires. Same job the nightly 2 AM cron
+            runs; use this to test after setting <code className="text-zinc-300">GEMINI_API_KEY</code> or to pull a
+            fresh batch on demand.
+          </p>
+          <p className="mt-2 text-xs text-zinc-600">
+            Writes only to <code className="text-zinc-400">priceIntel.*</code>. Tires with{' '}
+            <code className="text-zinc-400">priceIntel.kyleConfirmed = true</code> are skipped. Large deltas (more
+            than 15%) are flagged in Slack for review rather than accepted automatically.
+          </p>
+          <button
+            type="button"
+            onClick={() => void runPriceResearch()}
+            disabled={priceResearchBusy}
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {priceResearchBusy && <Spinner className="h-4 w-4 text-zinc-800" />}
+            {priceResearchBusy ? 'Running price research…' : 'Run price research now'}
+          </button>
         </section>
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
