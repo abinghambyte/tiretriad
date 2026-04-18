@@ -110,6 +110,28 @@ function tryParsePriceJson(text) {
   }
 }
 
+/**
+ * Last-ditch rescue for Gemini responses whose JSON got truncated mid-string
+ * (usually inside a long `notes` value when the model runs out of output
+ * tokens). Pulls `price` and `confidence` out with loose regexes so we don't
+ * throw away a perfectly good price just because the notes never closed.
+ */
+function tryRegexRescuePrice(text) {
+  const s = stripJsonFences(String(text || ''))
+  const priceMatch = s.match(/"price"\s*:\s*(null|-?\d+(?:\.\d+)?)/i)
+  if (!priceMatch) return null
+  const rawP = priceMatch[1].toLowerCase()
+  const price = rawP === 'null' ? null : Number(rawP)
+  const confMatch = s.match(/"confidence"\s*:\s*"(high|medium|low)"/i)
+  const confidence = confMatch ? confMatch[1].toLowerCase() : 'low'
+  return {
+    ok: true,
+    price: Number.isFinite(price) ? price : null,
+    confidence,
+    notes: 'rescued_from_truncated_json',
+  }
+}
+
 function isRateLimitedError(status, message) {
   if (status === 429) return true
   const m = String(message || '').toLowerCase()
@@ -126,7 +148,10 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       rateLimited: false,
     }
   }
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
+  // `gemini-1.5-pro` is no longer served on `v1beta` (returns
+  // `models/gemini-1.5-pro is not found...`), so skipping it saves one
+  // round-trip per failure.
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash']
   let lastErr = ''
   let lastStatus = 0
   for (const model of models) {
@@ -134,7 +159,11 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
     const body = {
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
       tools: [{ google_search: {} }],
-      generationConfig: { temperature: 0.25, maxOutputTokens: 1024 },
+      // 1024 tokens wasn't enough headroom: Gemini kept running out of
+      // space mid-notes-string, leaving the JSON unclosed and unparseable.
+      // 4096 leaves plenty of room even when the model lists several
+      // retailers in the notes field.
+      generationConfig: { temperature: 0.25, maxOutputTokens: 4096 },
     }
     let res
     let json = {}
@@ -171,7 +200,11 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       lastErr = 'empty candidates text'
       continue
     }
-    const parsed = tryParsePriceJson(text)
+    let parsed = tryParsePriceJson(text)
+    if (!parsed.ok) {
+      const rescued = tryRegexRescuePrice(text)
+      if (rescued) parsed = rescued
+    }
     return { rawText: text, parsed, modelUsed: model, rateLimited: false }
   }
   return {
@@ -263,6 +296,7 @@ function buildResearchUserPrompt(tire) {
     `Respond with a JSON object only, no prose before or after:`,
     `{"price": <number or null>, "confidence": "high"|"medium"|"low", "notes": "<short source summary>"}`,
     '',
+    `- Keep "notes" under 160 characters. Name the top one or two sources, nothing more.`,
     `- "high" confidence: two or more sellers list the same tire at similar prices.`,
     `- "medium": only one seller, or prices varied noticeably.`,
     `- "low": very uncertain or extrapolated.`,
