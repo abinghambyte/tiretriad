@@ -27,3 +27,30 @@ export function tireRetailIsResearched(t) {
   const researched = Number(pi.retailPrice)
   return Number.isFinite(researched) && researched > 0
 }
+
+/**
+ * Last entry in the priceIntel sources audit trail. The backend writes one
+ * source entry per attempt (`gemini_retail_search`,
+ * `gemini_retail_search_alt`, `gemini_retail_search_pro`,
+ * `estimated_from_catalog_median`, etc.), so the tail entry tells us where
+ * the currently-displayed retail came from.
+ * @param {Record<string, unknown> | null | undefined} t
+ */
+function lastPriceSource(t) {
+  if (t == null || typeof t !== 'object') return ''
+  const pi = t.priceIntel && typeof t.priceIntel === 'object' ? t.priceIntel : {}
+  const sources = Array.isArray(pi.sources) ? pi.sources : []
+  const last = sources[sources.length - 1]
+  return String(last?.source || '')
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} t
+ * @returns {boolean} true when the retail number is a catalog-median estimate
+ *   rather than a real Gemini hit. UI should render these muted so users
+ *   know the number is approximate.
+ */
+export function tireRetailIsEstimated(t) {
+  if (!tireRetailIsResearched(t)) return false
+  return lastPriceSource(t) === 'estimated_from_catalog_median'
+}

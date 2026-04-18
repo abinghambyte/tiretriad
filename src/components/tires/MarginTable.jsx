@@ -10,7 +10,7 @@ import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import Spinner from '../ui/Spinner.jsx'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
-import { tireCatalogRetailNumber, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
+import { tireCatalogRetailNumber, tireRetailIsEstimated, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
@@ -84,16 +84,25 @@ function RetailPriceCell({ row }) {
   if (!(n > 0 && Number.isFinite(n))) {
     return <span className="font-mono text-sm text-zinc-600">—</span>
   }
+  const estimated = tireRetailIsEstimated(row)
   const researched = tireRetailIsResearched(row)
+  // Three-state styling so Alex can tell at a glance where each retail came
+  // from: cyan = real Gemini research, muted amber = catalog-median estimate
+  // (approximate), grey = legacy pre-research.
+  const className = estimated
+    ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-amber-300/70 italic max-sm:min-w-0'
+    : researched
+      ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-cyan-200/90 max-sm:min-w-0'
+      : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-500 max-sm:min-w-0'
+  const title = estimated
+    ? `Estimated from catalog-median markup × buy cost. Gemini could not find this tire; hover/click Refresh Price in the tire detail if you want to retry.`
+    : researched
+      ? 'Researched retail from the nightly Gemini price intel job.'
+      : ''
   return (
-    <span
-      className={
-        researched
-          ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-cyan-200/90 max-sm:min-w-0'
-          : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-500 max-sm:min-w-0'
-      }
-    >
+    <span className={className} title={title}>
       {formatCurrency(n)}
+      {estimated ? <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-amber-400/80">est</span> : null}
     </span>
   )
 }
