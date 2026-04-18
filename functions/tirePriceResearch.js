@@ -25,7 +25,10 @@ const { formatCurrency, formatQty } = require('./format')
  * typical per-minute limits while still clearing a 500-tire batch in a few
  * minutes once prices are coming back cleanly.
  */
-const CONCURRENCY = 3
+// Bumped from 3 to 8 after we confirmed paid-tier Gemini handles well above
+// 100 RPM comfortably. With the waterfall adding up to 3 AI attempts per
+// stubborn tire, this keeps batch wall time under the 9-minute function cap.
+const CONCURRENCY = 8
 const DEFAULT_BATCH_SIZE = 500
 const SANITY_MIN = 10
 const SANITY_MAX = 2000
@@ -42,6 +45,17 @@ const MAX_FAILED_ATTEMPTS = 3
  */
 const BUY_COST_RATIO_LOW = 1.0
 const BUY_COST_RATIO_HIGH = 2.5
+
+/**
+ * Sensible bounds on the catalog-median markup used by the estimation
+ * fallback. If the running median ever falls outside this range something
+ * has gone wrong (bad data in Firestore, most likely) and we should prefer
+ * a hardcoded fallback rather than apply a clearly-wrong multiplier to 500
+ * tires at once.
+ */
+const ESTIMATED_MARKUP_MIN = 1.05
+const ESTIMATED_MARKUP_MAX = 2.0
+const ESTIMATED_MARKUP_FALLBACK = 1.3
 
 function normalizeConfidence(c) {
   const s = String(c || '').toLowerCase().trim()
@@ -158,7 +172,7 @@ function isRateLimitedError(status, message) {
   return m.includes('quota') || m.includes('rate limit') || m.includes('resource_exhausted')
 }
 
-async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
+async function geminiRetailPriceWithSearch(geminiKey, userPrompt, opts = {}) {
   const keyTrim = String(geminiKey || '').trim()
   if (!keyTrim || keyTrim === '-') {
     return {
@@ -172,7 +186,16 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
   // Only currently-served models: `gemini-2.0-flash` hit end-of-life in
   // March 2026 and returns `models/gemini-2.0-flash is no longer available
   // to new users`. Fall back to `flash-lite` if `flash` is rate-limited.
-  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+  //
+  // When the waterfall escalates to the "pro" retry step, caller passes
+  // `opts.modelOverride: 'gemini-2.5-pro'` which replaces the default chain
+  // for that single call.
+  const defaultModels = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+  const models = Array.isArray(opts.modelOverride)
+    ? opts.modelOverride
+    : opts.modelOverride
+      ? [opts.modelOverride]
+      : defaultModels
   let lastErr = ''
   let lastStatus = 0
   for (const model of models) {
@@ -301,6 +324,36 @@ function extractTireSize(desc) {
 }
 
 /**
+ * Pull the marketing tread name out of a printed description: the chunk that
+ * sits between the size and the trailing load-range/code noise. Used by the
+ * alternate-query retry path so Gemini can search for the tire by model name
+ * instead of MSPN when the primary MSPN-centric search dead-ends.
+ *
+ * `11R22.5 X INCITY Z LRH` -> `X INCITY Z`
+ * `37X13.50R20LT128QLRF HDTAKT` -> `HDTAKT`
+ * `255/40ZR19 100Y XL G-FORCM2AS+` -> `G-FORCM2AS+`
+ * @param {string} desc
+ * @returns {string}
+ */
+function extractMarketingName(desc) {
+  let s = formatTireDescriptionForSearch(desc)
+  if (!s) return ''
+  const size = extractTireSize(s)
+  if (size) {
+    const idx = s.toUpperCase().indexOf(size.toUpperCase())
+    if (idx >= 0) s = s.slice(idx + size.length)
+  }
+  // Strip the trailing `LR[A-L]` suffix + anything in the noise tokens
+  // (`TL`, `TLLRG`, `VB`, `MI`, `XL`, `GO`, `CPJ`, `BSW`, etc.) and
+  // alphanumeric load-index / speed-rating tokens like `128Q`, `112T`.
+  s = s.replace(/\bLR[A-L]\b/gi, ' ')
+  s = s.replace(/\b(LT|ST|TL|BSW|CPJ|GO|XL|VB|MI|VG|INMET)\b/gi, ' ')
+  s = s.replace(/\b\d{2,3}\/?\d{0,3}[A-Z]\b/gi, ' ') // load index + speed rating
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+
+/**
  * Insert spaces at known boundaries in a concatenated printed description so
  * Google-search-grounded queries match retailer product pages instead of
  * dead-ending. `37X13.50R20LT128QLRF HDTAKT` becomes
@@ -323,6 +376,67 @@ function formatTireDescriptionForSearch(desc) {
 /**
  * @param {Record<string, unknown>} tire
  */
+/**
+ * Alternate query shape used after the primary MSPN-centric search returns
+ * null. Drops the MSPN and leads with brand + size + marketing tread name,
+ * reaching parts of Google's index that index by product name rather than
+ * part number. Same response schema + rules; just a different search hook.
+ * @param {Record<string, unknown>} tire
+ */
+function buildAlternateResearchPrompt(tire) {
+  const brand = String(tire.brand || '').trim()
+  const desc = String(tire.description || '').trim()
+  const tread = String(tire.tread || '').trim()
+  const lr = String(tire.lr || '').trim()
+  const size = extractTireSize(desc) || ''
+  const marketing = extractMarketingName(desc) || tread
+  const formattedDesc = formatTireDescriptionForSearch(desc)
+
+  const searchTarget = [
+    brand,
+    size,
+    marketing,
+    lr ? `Load Range ${lr}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+
+  return [
+    `Find the typical current US consumer retail price per single tire using Google Search. This is an alternate-query retry after the MSPN-centric search returned no results, so prefer the tread marketing name + size over any part number.`,
+    '',
+    `Tire:`,
+    brand ? `- Brand: ${brand}` : '',
+    size ? `- Size: ${size}` : '',
+    marketing ? `- Tread marketing name: ${marketing}` : '',
+    formattedDesc ? `- Printed description: ${formattedDesc}` : '',
+    lr ? `- Load range: ${lr}` : '',
+    '',
+    `Run these site-scoped Google searches first:`,
+    `  - site:tirerack.com ${brand} ${marketing} ${size}`,
+    `  - site:discounttire.com ${brand} ${marketing} ${size}`,
+    `  - site:simpletire.com ${brand} ${marketing} ${size}`,
+    `Then a broad query: ${searchTarget}`,
+    '',
+    `Acceptable consumer-retail sellers: TireRack, DiscountTire, SimpleTire, PriorityTire, Tire Agent, Autoplicity, THMotorsports, Walmart, Amazon, Costco, Route One, US Tire Outlet, and the manufacturer's own site.`,
+    '',
+    `EXCLUDE wholesale/B2B/fleet/bulk-quantity listings and the inflated-sticker sellers (BB Wheels, Budget Truck Tires, SpeedyTire, TruckTireExpress, OTRUSA, Us-Tires, Walmart Business Supplies).`,
+    '',
+    `Use the plain median across 3-5 matching consumer-retail sellers. With 1-2 sellers, single lowest. Price is for one (1) tire, not a set.`,
+    '',
+    `Respond with a single JSON object, no prose:`,
+    `{`,
+    `  "price": <number or null>,`,
+    `  "confidence": "high" | "medium" | "low",`,
+    `  "notes": "<one short sentence>",`,
+    `  "sources": [{"seller": "<name>", "url": "<url>", "price": <number>}, ...]`,
+    `}`,
+    `Set price to null only if NO consumer-retail seller anywhere shows this tread + size combination.`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 function buildResearchUserPrompt(tire) {
   const brand = String(tire.brand || '').trim()
   const desc = String(tire.description || '').trim()
@@ -480,6 +594,73 @@ function tireRatioAnchor(tire) {
   return null
 }
 
+function tireBuyCost(tire) {
+  if (tire == null || typeof tire !== 'object') return 0
+  const pi = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
+  const active = Number(pi.activeBuyPrice)
+  if (Number.isFinite(active) && active > 0) return active
+  const price = Number(tire.price)
+  if (Number.isFinite(price) && price > 0) return price
+  const cost = Number(tire.cost)
+  if (Number.isFinite(cost) && cost > 0) return cost
+  return 0
+}
+
+function median(values) {
+  const xs = values.filter((v) => Number.isFinite(v)).slice().sort((a, b) => a - b)
+  if (xs.length === 0) return null
+  const mid = Math.floor(xs.length / 2)
+  return xs.length % 2 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2
+}
+
+/**
+ * Scan the catalog for tires that already have a researched retail and
+ * compute the median `retail / buy` multiplier across them. Used by the
+ * estimation fallback when the full waterfall fails to find a price; we
+ * multiply the tire's own buy cost by this to get a defensible estimate
+ * that is anchored to real market data for tires we could find.
+ *
+ * Caps at 500 samples to keep the query cheap. Clamped to
+ * `[ESTIMATED_MARKUP_MIN, ESTIMATED_MARKUP_MAX]`. If we can't compute a
+ * sensible value (no prior research, all zero buy costs, etc.) we return
+ * `ESTIMATED_MARKUP_FALLBACK` so the estimator always has something to
+ * work with.
+ *
+ * @param {import('firebase-admin/firestore').Firestore} db
+ * @returns {Promise<number>}
+ */
+async function computeCatalogMedianMarkup(db) {
+  try {
+    const snap = await db
+      .collection('tires')
+      .where('priceIntel.retailPrice', '>', 0)
+      .select('priceIntel', 'price', 'cost')
+      .limit(500)
+      .get()
+    const ratios = []
+    for (const doc of snap.docs) {
+      const data = doc.data() || {}
+      const pi = data.priceIntel || {}
+      const retail = Number(pi.retailPrice)
+      if (!Number.isFinite(retail) || retail <= 0) continue
+      // Skip estimated entries so they don't reinforce their own multiplier.
+      const lastSrc = Array.isArray(pi.sources) && pi.sources.length
+        ? String(pi.sources[pi.sources.length - 1].source || '')
+        : ''
+      if (lastSrc === 'estimated_from_catalog_median') continue
+      const buy = tireBuyCost(data)
+      if (!buy || buy <= 0) continue
+      ratios.push(retail / buy)
+    }
+    const m = median(ratios)
+    if (!Number.isFinite(m) || m <= 0) return ESTIMATED_MARKUP_FALLBACK
+    return Math.max(ESTIMATED_MARKUP_MIN, Math.min(ESTIMATED_MARKUP_MAX, m))
+  } catch (e) {
+    console.error('[tirePriceResearch] computeCatalogMedianMarkup failed', e)
+    return ESTIMATED_MARKUP_FALLBACK
+  }
+}
+
 function tireNeedsFirstResearch(data) {
   const pi = data && data.priceIntel
   if (!pi || typeof pi !== 'object') return true
@@ -612,12 +793,34 @@ async function pickTiresForResearch(db, limit) {
 }
 
 /**
+ * Run one Gemini attempt + apply sanity + ratio check. Returns a normalized
+ * shape the waterfall can branch on. Does not touch Firestore.
+ */
+async function runOneResearchAttempt(geminiKey, prompt, tire, opts = {}) {
+  const { parsed, rawText, modelUsed, rateLimited, groundingUris } =
+    await geminiRetailPriceWithSearch(geminiKey, prompt, opts)
+  if (rateLimited) return { status: 'rate_limited', modelUsed, parsed, rawText, groundingUris }
+  const rawPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
+  const inSanity =
+    rawPrice != null && Number.isFinite(rawPrice) && rawPrice >= SANITY_MIN && rawPrice <= SANITY_MAX
+  const foundPrice = inSanity ? rawPrice : null
+  if (foundPrice == null) {
+    return { status: 'null_price', modelUsed, parsed, rawText, groundingUris }
+  }
+  const anchor = tireRatioAnchor(tire)
+  if (anchor && (foundPrice < anchor.value * anchor.low || foundPrice > anchor.value * anchor.high)) {
+    return { status: 'suspicious', foundPrice, modelUsed, parsed, rawText, groundingUris, anchor }
+  }
+  return { status: 'ok', foundPrice, modelUsed, parsed, rawText, groundingUris, anchor }
+}
+
+/**
  * @param {import('firebase-admin/firestore').Firestore} db
  * @param {string} geminiKey
  * @param {{ token: string, channel: string }} slack
  * @param {FirebaseFirestore.QueryDocumentSnapshot} docSnap
- * @param {{ slackMode?: 'batch' | 'single', silent?: boolean }} [opts]
- * @returns {Promise<'updated' | 'not_found' | 'skipped_kyle'>}
+ * @param {{ slackMode?: 'batch' | 'single', silent?: boolean, catalogMedianMarkup?: number }} [opts]
+ * @returns {Promise<'updated' | 'not_found' | 'skipped_kyle' | 'rate_limited' | 'estimated'>}
  */
 async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) {
   const slackMode = opts.slackMode === 'single' ? 'single' : 'batch'
@@ -627,65 +830,93 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   const ref = docSnap.ref
   const token = String(slack?.token || '').trim()
   const channel = String(slack?.channel || '').trim()
+  const catalogMedianMarkup = Number(opts.catalogMedianMarkup) > 0
+    ? Number(opts.catalogMedianMarkup)
+    : ESTIMATED_MARKUP_FALLBACK
 
-  // MSPN === Firestore doc ID by construction, but belt-and-suspenders: older
-  // tire docs may pre-date the importer's `mspn` field, so fall back to the
-  // doc ID when building the prompt so the search always includes it.
-  const userPrompt = buildResearchUserPrompt({ ...tire, mspn: tire.mspn || mspn })
-  const { parsed, rawText, modelUsed, rateLimited, groundingUris } =
-    await geminiRetailPriceWithSearch(geminiKey, userPrompt)
+  // Waterfall: three AI attempts with increasing effort, then a catalog-median
+  // estimation fallback so every tire with a known buy cost ends up with a
+  // retail number instead of a dash. Each AI hit that is accepted short-
+  // circuits the rest of the waterfall.
+  const tireWithMspn = { ...tire, mspn: tire.mspn || mspn }
 
-  // Rate-limited is not the tire's fault. Skip the Firestore write entirely so
-  // we don't burn the retry counter or move `lastResearched` forward. The
-  // tire will be picked up again on the next run.
-  if (rateLimited) {
-    return 'rate_limited'
+  const attemptLog = []
+  let accepted = null // { source, foundPrice, confidence, modelUsed, parsed, groundingUris, anchor }
+  let lastAttempt = null // for diagnostics when nothing is accepted
+
+  // Attempt 1: primary MSPN-centric prompt, flash model.
+  const a1 = await runOneResearchAttempt(geminiKey, buildResearchUserPrompt(tireWithMspn), tire)
+  attemptLog.push({ step: 'primary', status: a1.status, model: a1.modelUsed })
+  lastAttempt = a1
+  if (a1.status === 'rate_limited') return 'rate_limited'
+  if (a1.status === 'ok') {
+    accepted = { ...a1, source: 'gemini_retail_search', confidence: normalizeConfidence(a1.parsed.confidence) }
   }
 
-  const rawPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
-  const foundPrice =
-    rawPrice != null && Number.isFinite(rawPrice) && rawPrice >= SANITY_MIN && rawPrice <= SANITY_MAX
-      ? rawPrice
-      : null
-  const gemConf = normalizeConfidence(parsed.confidence)
-
-  // Ratio check against whatever reference price we have for this tire. See
-  // `tireRatioAnchor` for the tier logic (confirmed buy cost vs CSV retail).
-  // Skipped when the tire has no usable reference (new SKU, CSV gaps).
-  const anchor = tireRatioAnchor(tire)
-  const suspiciousDelta =
-    foundPrice != null &&
-    anchor != null &&
-    (foundPrice < anchor.value * anchor.low || foundPrice > anchor.value * anchor.high)
-
-  if (suspiciousDelta) {
-    console.warn('[tirePriceResearch] suspicious_delta', {
-      mspn,
-      modelUsed,
-      anchorKind: anchor.kind,
-      anchorValue: anchor.value,
-      foundPrice,
-      ratio: Number((foundPrice / anchor.value).toFixed(2)),
-      geminiSources: parsed.sources,
-      groundingUris,
-    })
-  } else if (foundPrice == null) {
-    // Log the first few hundred chars of the raw response so we can tell
-    // whether Gemini actually returned nothing, returned unparseable text, or
-    // returned a number we clamped away.
-    console.warn('[tirePriceResearch] not_found detail', {
-      mspn,
-      modelUsed,
-      parsedOk: parsed.ok,
-      parsedPrice: parsed.price,
-      parsedNotes: String(parsed.notes || '').slice(0, 200),
-      geminiSources: parsed.sources,
-      groundingUris,
-      rawTextHead: String(rawText || '').slice(0, 500),
-    })
+  // Attempt 2: alternate marketing-name-centric prompt, same flash model.
+  if (!accepted) {
+    const a2 = await runOneResearchAttempt(geminiKey, buildAlternateResearchPrompt(tireWithMspn), tire)
+    attemptLog.push({ step: 'alternate', status: a2.status, model: a2.modelUsed })
+    lastAttempt = a2
+    if (a2.status === 'rate_limited') return 'rate_limited'
+    if (a2.status === 'ok') {
+      accepted = { ...a2, source: 'gemini_retail_search_alt', confidence: normalizeConfidence(a2.parsed.confidence) }
+    }
   }
 
-  let outcome = 'updated'
+  // Attempt 3: alternate prompt again but on 2.5-pro (more reasoning, more
+  // expensive; only runs for the stubborn ~20% that the flash paths can't
+  // resolve).
+  if (!accepted) {
+    const a3 = await runOneResearchAttempt(
+      geminiKey,
+      buildAlternateResearchPrompt(tireWithMspn),
+      tire,
+      { modelOverride: 'gemini-2.5-pro' },
+    )
+    attemptLog.push({ step: 'pro', status: a3.status, model: a3.modelUsed })
+    lastAttempt = a3
+    if (a3.status === 'rate_limited') return 'rate_limited'
+    if (a3.status === 'ok') {
+      accepted = { ...a3, source: 'gemini_retail_search_pro', confidence: normalizeConfidence(a3.parsed.confidence) }
+    }
+  }
+
+  // Estimation fallback: catalog-median-markup * buyCost. Only kicks in when
+  // all AI paths returned null or suspicious prices, never for Kyle-frozen
+  // tires, and only when there is a usable buy cost to multiply.
+  if (!accepted) {
+    const buy = tireBuyCost(tire)
+    if (buy > 0 && catalogMedianMarkup > 0) {
+      const estimated = Math.round(buy * catalogMedianMarkup * 100) / 100
+      accepted = {
+        source: 'estimated_from_catalog_median',
+        foundPrice: estimated,
+        confidence: 'low',
+        modelUsed: null,
+        parsed: { sources: [], notes: `Estimated as buy × ${catalogMedianMarkup.toFixed(2)} catalog-median markup` },
+        groundingUris: [],
+        estimated: true,
+        markup: catalogMedianMarkup,
+      }
+      attemptLog.push({ step: 'estimated', status: 'ok', markup: catalogMedianMarkup })
+    }
+  }
+
+  let outcome = accepted ? (accepted.estimated ? 'estimated' : 'updated') : 'not_found'
+  const finalPrice = accepted?.foundPrice ?? null
+  const finalSource = accepted?.source ?? (lastAttempt?.status === 'suspicious' ? 'gemini_suspicious_delta' : 'gemini_not_found')
+  const finalConfidence = accepted?.confidence ?? 'low'
+
+  if (outcome === 'not_found') {
+    console.warn('[tirePriceResearch] waterfall_exhausted', {
+      mspn,
+      attempts: attemptLog,
+      parsedNotes: String(lastAttempt?.parsed?.notes || '').slice(0, 200),
+      groundingUris: lastAttempt?.groundingUris || [],
+      rawTextHead: String(lastAttempt?.rawText || '').slice(0, 400),
+    })
+  }
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
@@ -695,39 +926,34 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
     const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
     const kyleFrozen = pi.kyleConfirmed === true
 
-    if (foundPrice == null || suspiciousDelta) {
-      const tag = suspiciousDelta ? 'gemini_suspicious_delta' : 'gemini_not_found'
-      sources.push(sourceEntry(suspiciousDelta ? foundPrice : null, tag))
+    if (outcome === 'not_found') {
+      sources.push(sourceEntry(
+        lastAttempt?.status === 'suspicious' ? lastAttempt.foundPrice : null,
+        finalSource,
+      ))
       tx.update(ref, {
-        priceIntel: {
-          ...pi,
-          sources,
-          lastResearched: FieldValue.serverTimestamp(),
-        },
+        priceIntel: { ...pi, sources, lastResearched: FieldValue.serverTimestamp() },
       })
-      outcome = 'not_found'
       return
     }
 
-    sources.push(sourceEntry(foundPrice, 'gemini_retail_search'))
-
+    // Kyle frozen: record the source entry (audit trail) but do NOT overwrite
+    // the existing retail / activeBuyPrice; Kyle has authority.
     if (kyleFrozen) {
+      sources.push(sourceEntry(finalPrice, finalSource))
       tx.update(ref, {
-        priceIntel: {
-          ...pi,
-          sources,
-          lastResearched: FieldValue.serverTimestamp(),
-        },
+        priceIntel: { ...pi, sources, lastResearched: FieldValue.serverTimestamp() },
       })
       outcome = 'skipped_kyle'
       return
     }
 
+    sources.push(sourceEntry(finalPrice, finalSource))
     tx.update(ref, {
       priceIntel: {
         ...pi,
-        retailPrice: foundPrice,
-        confidence: gemConf,
+        retailPrice: finalPrice,
+        confidence: finalConfidence,
         sources,
         flagged: false,
         flagReason: null,
@@ -735,47 +961,44 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
         lastUpdated: FieldValue.serverTimestamp(),
       },
     })
-    outcome = 'updated'
   })
 
-  // Log every successful write with the notes Gemini returned, so we can
-  // audit which sellers it picked without re-running the tire. Costs one
-  // log line per tire and lets us diagnose pricing bias later without
-  // shipping another round of deploy-and-wait.
-  if (outcome === 'updated' || outcome === 'skipped_kyle') {
+  // Success-path diagnostic log. `priceSource` tells us at a glance whether
+  // the value came from primary research, an alternate-query retry, the pro
+  // escalation, or the catalog-median estimator.
+  if (outcome === 'updated' || outcome === 'estimated' || outcome === 'skipped_kyle') {
     console.log('[tirePriceResearch] price_found', {
       mspn,
-      modelUsed,
-      foundPrice,
-      confidence: gemConf,
-      anchorKind: anchor?.kind || null,
-      anchorValue: anchor?.value || null,
-      ratio: anchor ? Number((foundPrice / anchor.value).toFixed(2)) : null,
-      notes: String(parsed.notes || '').slice(0, 300),
-      // `geminiSources` is Gemini's self-reported audit trail (from the
-      // structured response). `groundingUris` is the authoritative list of
-      // URLs it actually fetched via googleSearch / urlContext. Both are
-      // logged so we can cross-check.
-      geminiSources: parsed.sources,
-      groundingUris,
+      priceSource: finalSource,
+      modelUsed: accepted?.modelUsed || null,
+      foundPrice: finalPrice,
+      confidence: finalConfidence,
+      attempts: attemptLog,
+      notes: String(accepted?.parsed?.notes || '').slice(0, 300),
+      geminiSources: accepted?.parsed?.sources || [],
+      groundingUris: accepted?.groundingUris || [],
       outcome,
     })
   }
 
-  if (outcome === 'not_found' && slackMode === 'single' && !silent && token && channel) {
+  if (slackMode === 'single' && !silent && token && channel) {
     const line = tireDisplayLine(tire)
-    const anchorLabel = 'buy cost'
-    const text = suspiciousDelta
-      ? `⚠️ Retail price for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)}) came back ${formatCurrency(foundPrice)} vs ${anchorLabel} ${formatCurrency(anchor.value)}, rejected as suspicious (ratio ${Number((foundPrice / anchor.value).toFixed(2))}x).`
-      : `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`
-    await slackApiPost(token, 'chat.postMessage', { channel, text })
-  }
-
-  if (outcome === 'updated' && slackMode === 'single' && !silent && token && channel) {
-    await slackApiPost(token, 'chat.postMessage', {
-      channel,
-      text: `✅ Retail price \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(foundPrice)} (_${escapeSlackMrkdwn(gemConf)}_ confidence)`,
-    })
+    if (outcome === 'updated') {
+      await slackApiPost(token, 'chat.postMessage', {
+        channel,
+        text: `✅ Retail price \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(finalPrice)} (_${escapeSlackMrkdwn(finalConfidence)}_ confidence, ${escapeSlackMrkdwn(finalSource.replace(/_/g, ' '))})`,
+      })
+    } else if (outcome === 'estimated') {
+      await slackApiPost(token, 'chat.postMessage', {
+        channel,
+        text: `📐 Retail estimate \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(finalPrice)} (catalog-median markup × buy; Gemini could not find this tire)`,
+      })
+    } else if (outcome === 'not_found') {
+      await slackApiPost(token, 'chat.postMessage', {
+        channel,
+        text: `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)}): no buy cost to estimate from`,
+      })
+    }
   }
 
   return outcome
@@ -846,20 +1069,27 @@ async function tirePriceResearchRun(opts) {
     })
   }
 
+  // Compute the catalog-median markup once per batch so every
+  // estimation-fallback in this run uses a stable multiplier.
+  const catalogMedianMarkup = await computeCatalogMedianMarkup(db)
+  console.log('[tirePriceResearch] markup', { catalogMedianMarkup })
+
   const slack = { token, channel }
   const results = await processInParallel(
     docs,
-    (d) => processTireResearchDoc(db, geminiKey, slack, d),
+    (d) => processTireResearchDoc(db, geminiKey, slack, d, { catalogMedianMarkup }),
     CONCURRENCY,
   )
 
   let updated = 0
+  let estimated = 0
   let notFound = 0
   let skippedKyle = 0
   let rateLimited = 0
   let errored = 0
   for (const r of results) {
     if (r === 'updated') updated += 1
+    else if (r === 'estimated') estimated += 1
     else if (r === 'not_found') notFound += 1
     else if (r === 'skipped_kyle') skippedKyle += 1
     else if (r === 'rate_limited') rateLimited += 1
@@ -869,6 +1099,7 @@ async function tirePriceResearchRun(opts) {
   console.log('[tirePriceResearch] done', {
     processed: docs.length,
     updated,
+    estimated,
     notFound,
     skippedKyle,
     rateLimited,
@@ -881,9 +1112,12 @@ async function tirePriceResearchRun(opts) {
       rateLimited > 0
         ? `\n:warning: ${formatQty(rateLimited)} tires hit Gemini rate limits and will retry on the next run. If this number stays high, enable billing on the Gemini API key (https://aistudio.google.com/app/apikey).`
         : ''
+    const estNote = estimated > 0
+      ? `, ${formatQty(estimated)} estimated (catalog-median × buy)`
+      : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Retail price research complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped (Kyle confirmed)${errorNote}${rateNote}`,
+      text: `🔍 Retail price research complete: ${formatQty(updated)} updated${estNote}, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped (Kyle confirmed)${errorNote}${rateNote}`,
     })
   }
 }
@@ -899,7 +1133,11 @@ async function refreshSingleTirePrice(db, geminiKey, slack, mspnRaw) {
   if (!mspn) throw new Error('Missing MSPN')
   const snap = await db.collection('tires').doc(mspn).get()
   if (!snap.exists) throw new Error('Tire not found')
-  return processTireResearchDoc(db, geminiKey, slack, snap, { slackMode: 'single' })
+  const catalogMedianMarkup = await computeCatalogMedianMarkup(db)
+  return processTireResearchDoc(db, geminiKey, slack, snap, {
+    slackMode: 'single',
+    catalogMedianMarkup,
+  })
 }
 
 /**
@@ -934,19 +1172,25 @@ async function runBulkPriceRefresh(db, geminiKey, slack) {
     })
   }
 
+  const catalogMedianMarkup = await computeCatalogMedianMarkup(db)
   const results = await processInParallel(
     targets,
-    (d) => processTireResearchDoc(db, geminiKey, { token, channel }, d, { slackMode: 'batch' }),
+    (d) => processTireResearchDoc(db, geminiKey, { token, channel }, d, {
+      slackMode: 'batch',
+      catalogMedianMarkup,
+    }),
     CONCURRENCY,
   )
 
   let updated = 0
+  let estimated = 0
   let notFound = 0
   let skippedKyle = 0
   let rateLimited = 0
   let errored = 0
   for (const r of results) {
     if (r === 'updated') updated += 1
+    else if (r === 'estimated') estimated += 1
     else if (r === 'not_found') notFound += 1
     else if (r === 'skipped_kyle') skippedKyle += 1
     else if (r === 'rate_limited') rateLimited += 1
@@ -956,9 +1200,10 @@ async function runBulkPriceRefresh(db, geminiKey, slack) {
   if (token && channel) {
     const errorNote = errored > 0 ? `, ${formatQty(errored)} errored` : ''
     const rateNote = rateLimited > 0 ? `, ${formatQty(rateLimited)} rate-limited (will retry)` : ''
+    const estNote = estimated > 0 ? `, ${formatQty(estimated)} estimated` : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Bulk refresh complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped${rateNote}${errorNote}`,
+      text: `🔍 Bulk refresh complete: ${formatQty(updated)} updated${estNote}, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped${rateNote}${errorNote}`,
     })
   }
 }
