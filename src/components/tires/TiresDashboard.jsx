@@ -41,7 +41,6 @@ export function TiresDashboard() {
 
   const [minMargin, setMinMargin] = useState(0)
   const [brand, setBrand] = useState('')
-  const [categoryFilters, setCategoryFilters] = useState([])
   const [useTagFilters, setUseTagFilters] = useState([])
   const [lrFilters, setLrFilters] = useState([])
   const [sortKey, setSortKey] = useState('margin')
@@ -53,25 +52,18 @@ export function TiresDashboard() {
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
   const [deadStockOnly, setDeadStockOnly] = useState(false)
   const [filtersManualOpen, setFiltersManualOpen] = useState(false)
-  const [mobileSelectMode, setMobileSelectMode] = useState(false)
   const isNarrowForFilters = useMediaQuery('(max-width: 639px)')
 
   const showFilterPanel = !isNarrowForFilters || filtersManualOpen
 
   const applyFilterPreset = useCallback((p) => {
     setBrand(p.brand ?? '')
-    const catArr = Array.isArray(p.categoryFilters)
-      ? p.categoryFilters
-      : p.category
-        ? [p.category]
-        : []
     const lrArr = Array.isArray(p.lrFilters) ? p.lrFilters : p.lr ? [p.lr] : []
     const tagArr = Array.isArray(p.useTagFilters)
       ? p.useTagFilters
       : p.useTag
         ? [p.useTag]
         : []
-    setCategoryFilters(catArr.map(String).filter(Boolean))
     setLrFilters(lrArr.map(String).filter(Boolean))
     setUseTagFilters(tagArr.map(String).filter(Boolean))
     setMinMargin(Number(p.minMargin) || 0)
@@ -81,7 +73,6 @@ export function TiresDashboard() {
   const hasActiveFilters =
     minMargin > 0 ||
     Boolean(brand) ||
-    categoryFilters.length > 0 ||
     useTagFilters.length > 0 ||
     lrFilters.length > 0 ||
     deadStockOnly
@@ -90,21 +81,19 @@ export function TiresDashboard() {
     let n = 0
     if (minMargin > 0) n += 1
     if (brand) n += 1
-    if (categoryFilters.length > 0) n += 1
     if (useTagFilters.length > 0) n += 1
     if (lrFilters.length > 0) n += 1
     if (deadStockOnly) n += 1
     return n
-  }, [minMargin, brand, categoryFilters, useTagFilters, lrFilters, deadStockOnly])
+  }, [minMargin, brand, useTagFilters, lrFilters, deadStockOnly])
 
-  function clearFilters() {
+  const clearFilters = useCallback(() => {
     setMinMargin(0)
     setBrand('')
-    setCategoryFilters([])
     setUseTagFilters([])
     setLrFilters([])
     setDeadStockOnly(false)
-  }
+  }, [])
 
   function clearSelection() {
     setSelectedIds(new Set())
@@ -113,10 +102,6 @@ export function TiresDashboard() {
 
   const brands = useMemo(
     () => uniqueSorted(tires.map((t) => t.brand)),
-    [tires],
-  )
-  const categories = useMemo(
-    () => uniqueSorted(tires.map((t) => t.category)),
     [tires],
   )
   const lrs = useMemo(() => uniqueSorted(tires.map((t) => t.lr)), [tires])
@@ -138,10 +123,6 @@ export function TiresDashboard() {
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
       if (brand && row.brand !== brand) return false
-      if (categoryFilters.length > 0) {
-        const c = String(row.category || '')
-        if (!categoryFilters.includes(c)) return false
-      }
       if (lrFilters.length > 0) {
         const l = String(row.lr || '')
         if (!lrFilters.includes(l)) return false
@@ -158,7 +139,7 @@ export function TiresDashboard() {
       if (deadStockOnly && !row.deadStockFlag) return false
       return true
     })
-  }, [enriched, brand, categoryFilters, lrFilters, useTagFilters, minMargin, deadStockOnly])
+  }, [enriched, brand, lrFilters, useTagFilters, minMargin, deadStockOnly])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]
@@ -202,7 +183,7 @@ export function TiresDashboard() {
     if (hasActiveFilters) {
       return (
         <>
-          No tires match the current filters.
+          No tires match your filters.
           <br />
           <button
             type="button"
@@ -215,7 +196,7 @@ export function TiresDashboard() {
       )
     }
     return 'No rows to display.'
-  }, [loading, tires.length, hasActiveFilters])
+  }, [loading, tires.length, hasActiveFilters, clearFilters])
 
   function handleSort(key) {
     if (sortKey === key) {
@@ -409,15 +390,12 @@ export function TiresDashboard() {
           <>
             <MarginFilters
               brands={brands}
-              categories={categories}
               useTags={useTags}
               lrs={lrs}
               brand={brand}
-              categoryFilters={categoryFilters}
               useTagFilters={useTagFilters}
               lrFilters={lrFilters}
               onBrand={setBrand}
-              onCategoryFilters={setCategoryFilters}
               onUseTagFilters={setUseTagFilters}
               onLrFilters={setLrFilters}
               minMargin={minMargin}
@@ -430,7 +408,6 @@ export function TiresDashboard() {
 
             <FilterPresetsBar
               brand={brand}
-              categoryFilters={categoryFilters}
               useTagFilters={useTagFilters}
               lrFilters={lrFilters}
               minMargin={minMargin}
@@ -464,13 +441,6 @@ export function TiresDashboard() {
                 </>
               )}
             </p>
-            <button
-              type="button"
-              onClick={() => setMobileSelectMode((v) => !v)}
-              className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 md:hidden"
-            >
-              {mobileSelectMode ? 'Exit select mode' : 'Select mode'}
-            </button>
             </div>
             <button
               type="button"
@@ -556,7 +526,6 @@ export function TiresDashboard() {
           onSort={handleSort}
           loading={loading}
           emptyState={emptyState}
-          selectMode={mobileSelectMode}
         />
           </>
         ) : null}

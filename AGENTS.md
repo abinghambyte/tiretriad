@@ -76,7 +76,7 @@ Consequence: there is no inventory-leak bug on cancel or reject. Do NOT add logi
 - Desktop layout must never change when adding mobile fixes
 - Use max-sm: and sm: breakpoints only for mobile
 - Crew tag labels in UI: Overwatch, Source, Field, Spotter — never raw values (admin, supplier, mechanic, viewer)
-- Margin % color scale: red < 10%, amber 10–25%, green > 25%
+- Margin % color scale: red below 15%, amber 15–29%, green 30–44%, emerald 45%+
 - Modal close: always support Escape keypress and backdrop click to dismiss
 
 ## Naming — never change these

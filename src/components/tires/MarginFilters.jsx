@@ -2,15 +2,12 @@ import { useMemo, useState } from 'react'
 
 export function MarginFilters({
   brands,
-  categories,
   useTags,
   lrs,
   brand,
-  categoryFilters,
   useTagFilters,
   lrFilters,
   onBrand,
-  onCategoryFilters,
   onUseTagFilters,
   onLrFilters,
   minMargin,
@@ -21,9 +18,9 @@ export function MarginFilters({
   onClearAll,
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:gap-6 sm:p-6">
+    <div className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 sm:gap-4 sm:p-4">
       {hasActiveFilters && onClearAll ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
           <p className="text-xs text-zinc-500">Filters are narrowing the table.</p>
           <button
             type="button"
@@ -53,19 +50,11 @@ export function MarginFilters({
           className="w-full accent-zinc-200"
         />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 lg:gap-6">
-        <div className="flex flex-col gap-4 lg:border-r lg:border-zinc-800 lg:pr-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+        <div className="flex flex-col gap-3 sm:border-r sm:border-zinc-800 sm:pr-4 lg:pr-5">
           <FilterSelect label="Brand" value={brand} onChange={onBrand} options={brands} />
-          <FilterMultiSelect
-            label="Category"
-            hint="Check one or more values. A row is shown if its category equals any of them (OR)."
-            searchPlaceholder="Search categories…"
-            options={categories}
-            selected={categoryFilters}
-            onChange={onCategoryFilters}
-          />
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <FilterMultiSelect
             label="Load range (LR)"
             hint="Check one or more values. A row is shown if its LR equals any of them (OR)."
@@ -85,15 +74,22 @@ export function MarginFilters({
         </div>
       </div>
       {onDeadStockOnly != null ? (
-        <label className="flex cursor-pointer items-center gap-2 pt-0 text-sm text-zinc-400 sm:pt-0">
-          <input
-            type="checkbox"
-            checked={Boolean(deadStockOnly)}
-            onChange={(e) => onDeadStockOnly(e.target.checked)}
-            className="rounded border-zinc-600"
-          />
-          Dead stock only
-        </label>
+        <div className="mt-1 border-t border-zinc-800/80 pt-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={Boolean(deadStockOnly)}
+              onChange={(e) => onDeadStockOnly(e.target.checked)}
+              className="rounded border-zinc-600"
+            />
+            <span>
+              <span className="font-medium text-zinc-200">Dead stock only</span>
+              <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+                Show tires with no orders in 90+ days (separate from brand / LR / tags filters).
+              </span>
+            </span>
+          </label>
+        </div>
       ) : null}
     </div>
   )

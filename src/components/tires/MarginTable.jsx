@@ -24,9 +24,8 @@ const LIST_MIN_H = 200
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 1038,
-  gridTemplateColumns:
-    '52px minmax(56px,6.5rem) minmax(100px,1.3fr) 5.25rem minmax(2.75rem,3.25rem) minmax(6.75rem,7.25rem) minmax(4.5rem,4.85rem) minmax(5.25rem,5.75rem) minmax(4.25rem,5.5rem)',
+  minWidth: 980,
+  gridTemplateColumns: '52px 7rem 2fr 5.5rem 3rem 7rem 5rem 6rem 6rem',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -37,47 +36,11 @@ function buyPriceOf(row) {
 }
 
 function BuyPriceCell({ row }) {
-  const pi = row?.priceIntel && typeof row.priceIntel === 'object' ? row.priceIntel : null
   const n = tireCatalogBuyNumber(row)
   const text = n > 0 && Number.isFinite(n) ? formatCurrency(n) : '—'
-  const conf = pi ? String(pi.confidence || '').toLowerCase() : ''
-  const dotTitle =
-    conf === 'high'
-      ? 'Confidence: high'
-      : conf === 'medium'
-        ? 'Confidence: medium'
-        : conf === 'low'
-          ? 'Confidence: low'
-          : pi
-            ? 'Confidence: unknown'
-            : 'No price intelligence yet'
-  const dotClass =
-    conf === 'high'
-      ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.45)]'
-      : conf === 'medium'
-        ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.4)]'
-        : conf === 'low'
-          ? 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.45)]'
-          : 'bg-zinc-500'
-  const flagReason = pi?.flagged ? String(pi.flagReason || 'flagged') : ''
   return (
-    <span className="inline-flex max-w-full whitespace-nowrap max-sm:min-w-0 max-sm:items-center max-sm:gap-0.5 sm:items-center sm:gap-1">
-      {pi?.flagged ? (
-        <span className="max-sm:text-[11px] sm:text-xs" title={flagReason} aria-label={`Flagged: ${flagReason}`}>
-          🔴
-        </span>
-      ) : null}
-      {pi?.kyleConfirmed ? (
-        <span className="max-sm:text-[11px] sm:text-xs" title="Kyle confirmed" aria-label="Kyle confirmed">
-          ✅
-        </span>
-      ) : null}
-      <span className="font-mono text-sm font-semibold tabular-nums text-zinc-200">{text}</span>
-      <span
-        className={`inline-block h-2 w-2 shrink-0 rounded-full max-sm:translate-y-px sm:translate-y-px ${dotClass}`}
-        title={dotTitle}
-        aria-hidden
-      />
+    <span className="inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-zinc-200 max-sm:min-w-0">
+      {text}
     </span>
   )
 }
@@ -135,9 +98,10 @@ function MiniNum({ label, value, onChange }) {
 function marginPctTone(pct) {
   const t = 'transition-colors duration-300 ease-out '
   if (pct == null || Number.isNaN(pct)) return t + 'text-zinc-500'
-  if (pct < 10) return t + 'text-red-400'
-  if (pct <= 25) return t + 'text-amber-300'
-  return t + 'text-emerald-300'
+  if (pct < 15) return t + 'text-red-400'
+  if (pct < 30) return t + 'text-amber-300'
+  if (pct < 45) return t + 'text-emerald-300'
+  return t + 'text-emerald-200'
 }
 
 /** Best-effort two-line split when parseKind is still raw (catalog edge cases). */
@@ -261,10 +225,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   onToggle,
   setOverheadDraft,
   isMobile = false,
-  selectMode = false,
 }) {
   const row = rows[index]
   if (!row) return null
+
+  const deadStockRowTint = row.deadStockFlag
+    ? 'border-l-2 border-l-amber-700/40 bg-amber-950/10'
+    : ''
 
   const m = computeMargin(row)
   const showCostEditor = editingCostsId === row.id
@@ -364,11 +331,12 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
     return (
       <div
         style={style}
-        className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
+        className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${deadStockRowTint}`}
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
-            <div className="flex w-11 shrink-0 items-center justify-center px-0.5">
+            <div className="flex w-11 shrink-0 flex-col items-center justify-center gap-0.5 px-0.5">
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-zinc-500">Pick</span>
               <input
                 type="checkbox"
                 checked={selected}
@@ -377,16 +345,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 className="h-4 w-4 rounded border-zinc-600"
               />
             </div>
-            {selectMode ? (
-              <button
-                type="button"
-                onClick={() => onToggle(row.id)}
-                className="flex w-12 min-w-12 shrink-0 flex-col items-center justify-center border-r border-zinc-800/60 bg-zinc-900/50 text-[11px] font-semibold leading-tight text-amber-200/95 active:bg-zinc-800"
-                aria-label={selected ? 'Deselect row' : 'Select row'}
-              >
-                {selected ? '✓' : 'Select'}
-              </button>
-            ) : null}
             <div className="flex w-[200px] shrink-0 items-center border-r border-zinc-800/60 px-2">
               <span className="inline-flex min-w-0 items-start gap-1.5">
                 {row.deadStockFlag ? (
@@ -445,7 +403,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   return (
     <div
       style={style}
-      className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
+      className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${deadStockRowTint}`}
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...GRID_STYLE, height: ROW_BASE_PX }}>
         <div className="flex items-center justify-center px-0.5">
@@ -524,7 +482,6 @@ export function MarginTable({
   onSort,
   loading,
   emptyState,
-  selectMode = false,
 }) {
   const { toast } = useToast()
   const listRef = useListRef(null)
@@ -609,7 +566,6 @@ export function MarginTable({
       onToggle,
       setOverheadDraft,
       isMobile: isMobileTable,
-      selectMode,
       mobileRowBasePx,
     }),
     [
@@ -625,7 +581,6 @@ export function MarginTable({
       onToggle,
       setOverheadDraft,
       isMobileTable,
-      selectMode,
       mobileRowBasePx,
     ],
   )
@@ -660,7 +615,7 @@ export function MarginTable({
             ← Scroll for overhead, FET, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1038px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[980px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
@@ -746,7 +701,6 @@ export function MarginTable({
                     None
                   </button>
                 </div>
-                {selectMode ? <div className="w-12 shrink-0 border-r border-zinc-800/60" aria-hidden /> : null}
                 <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">
                   Desc
                 </div>

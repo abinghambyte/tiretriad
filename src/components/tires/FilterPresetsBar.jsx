@@ -31,7 +31,6 @@ function newId() {
 
 export function FilterPresetsBar({
   brand,
-  categoryFilters,
   useTagFilters,
   lrFilters,
   minMargin,
@@ -48,7 +47,6 @@ export function FilterPresetsBar({
       id: newId(),
       name: String(name).trim(),
       brand: brand || '',
-      categoryFilters: [...categoryFilters],
       lrFilters: [...lrFilters],
       useTagFilters: [...useTagFilters],
       minMargin: Number(minMargin) || 0,
@@ -58,7 +56,7 @@ export function FilterPresetsBar({
       writePresets(next)
       return next
     })
-  }, [brand, categoryFilters, useTagFilters, lrFilters, minMargin])
+  }, [brand, useTagFilters, lrFilters, minMargin])
 
   const apply = useCallback(
     (p) => {
