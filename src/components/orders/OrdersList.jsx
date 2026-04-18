@@ -28,6 +28,7 @@ import {
 } from '../ui/modalChrome.js'
 import Spinner from '../ui/Spinner.jsx'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
+import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -532,13 +533,19 @@ export function OrdersList({ highlightId }) {
   }
   if (orders.length === 0) {
     return (
-      <p className="text-sm text-zinc-500">
-        No orders yet. Log a sale from{' '}
-        <Link to="/tires" className="text-amber-300 underline-offset-2 hover:underline">
-          Skedaddle Tires
-        </Link>{' '}
-        to create one.
-      </p>
+      <EmptyState
+        icon={EmptyStateIcons.cart}
+        title="No orders yet"
+        description="Log a sale from the Tires catalog to create the first order."
+        action={
+          <Link
+            to="/tires"
+            className="inline-flex items-center rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
+          >
+            Open Skedaddle Tires
+          </Link>
+        }
+      />
     )
   }
 

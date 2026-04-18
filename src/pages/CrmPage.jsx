@@ -36,6 +36,7 @@ import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPickli
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
 import { InputPromptModal } from '../components/shared/InputPromptModal.jsx'
+import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
 
 const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
@@ -763,6 +764,15 @@ export function CrmPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {leads.length === 0 ? (
+                    <EmptyState
+                      variant="row"
+                      colSpan={7}
+                      icon={EmptyStateIcons.clipboard}
+                      title="No leads yet"
+                      description="Raw leads from phone, SMS, and site inquiries show up here. Promote the strong ones to VIP clients to start tracking activity."
+                    />
+                  ) : null}
                   {leads.map((r) => (
                     <tr key={r.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2">{r.businessName}</td>

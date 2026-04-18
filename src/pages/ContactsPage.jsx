@@ -24,6 +24,7 @@ import { permissionMeets } from '../constants/peoplePermissions'
 import { formatCurrency, formatQty } from '../utils/format'
 import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../utils/formatPhone.js'
 import { phoneDocIdFromContact } from '../utils/phoneDocId'
+import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 
 function formatTs(ts) {
@@ -433,13 +434,17 @@ export function ContactsPage({ embedded = false }) {
                   ))
                 : sorted.length === 0
                   ? (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-10 text-center text-zinc-500">
-                          {rows.length === 0
-                            ? 'No contacts yet.'
-                            : 'No contacts match your search. Try a different name or phone.'}
-                        </td>
-                      </tr>
+                      <EmptyState
+                        variant="row"
+                        colSpan={7}
+                        icon={EmptyStateIcons.users}
+                        title={rows.length === 0 ? 'No contacts yet' : 'No contacts match'}
+                        description={
+                          rows.length === 0
+                            ? 'Customer contacts fill in automatically after their first completed order.'
+                            : 'Try a different name or phone number.'
+                        }
+                      />
                     )
                   : sorted.map((c) => (
                       <tr

@@ -32,6 +32,7 @@ import Spinner from '../ui/Spinner.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { copyToClipboard } from '../../utils/copyToClipboard'
+import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -795,11 +796,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                   </td>
                 </tr>
               ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
-                    No user profiles yet.
-                  </td>
-                </tr>
+                <EmptyState
+                  variant="row"
+                  colSpan={8}
+                  icon={EmptyStateIcons.users}
+                  title="No user profiles yet"
+                  description="Invite crew via the panel above. Each accepted invite creates a portal user with the role-default permissions."
+                />
               ) : (
                 users.map((u) => {
                   const evLabel = elevationCountdownLabel(u, tick)
