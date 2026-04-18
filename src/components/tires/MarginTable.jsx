@@ -2,10 +2,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListRef } from 'react-window'
 import { useToast } from '../../context/ToastContext.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
-import { TireGradeModal } from './TireGradeModal.jsx'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
-import { computeCts, effectiveCts, gradeLetter, gradePillClass, tireOverheadParts } from '../../utils/ctsCalc'
+import { computeCts, effectiveCts, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
@@ -25,9 +24,9 @@ const LIST_MIN_H = 200
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 1220,
+  minWidth: 1168,
   gridTemplateColumns:
-    '52px minmax(56px,6.5rem) minmax(100px,1.3fr) 5.25rem minmax(2.75rem,3.25rem) 3.25rem minmax(6.75rem,7.25rem) minmax(4.5rem,4.85rem) minmax(5.25rem,5.75rem) minmax(4.25rem,5.5rem) minmax(8.5rem,1.15fr)',
+    '52px minmax(56px,6.5rem) minmax(100px,1.3fr) 5.25rem minmax(2.75rem,3.25rem) minmax(6.75rem,7.25rem) minmax(4.5rem,4.85rem) minmax(5.25rem,5.75rem) minmax(4.25rem,5.5rem) minmax(8.5rem,1.15fr)',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -97,7 +96,7 @@ function TableSkeleton() {
       className="box-border grid border-b border-zinc-800/40 px-0 py-2"
       style={{ ...GRID_STYLE, minHeight: ROW_BASE_PX }}
     >
-      {[...Array(11)].map((__, j) => (
+      {[...Array(10)].map((__, j) => (
         <div key={j} className="px-3">
           <div className="h-3.5 animate-pulse rounded-md bg-zinc-800/65" />
         </div>
@@ -105,8 +104,6 @@ function TableSkeleton() {
     </div>
   ))
 }
-
-const GRADES = ['A', 'B', 'C']
 
 function listHeightPx(rowCount, basePx = ROW_BASE_PX) {
   const raw = rowCount * basePx + 8
@@ -260,7 +257,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   costSaving,
   openCostEdit,
   closeCostEdit,
-  openGradeEdit,
   saveCosts,
   onToggle,
   setOverheadDraft,
@@ -271,7 +267,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   if (!row) return null
 
   const m = computeMargin(row)
-  const letter = gradeLetter(row)
   const showCostEditor = editingCostsId === row.id
   const previewMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : m
 
@@ -429,28 +424,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
               {formatCurrencyOrDash(Number(row.fet) || 0)}
             </div>
-            <div className="flex w-[72px] shrink-0 items-center justify-center px-1">
-              {letter ? (
-                <button
-                  type="button"
-                  onClick={() => openGradeEdit(row)}
-                  title="Change grade"
-                  className={`inline-flex min-w-[2rem] justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${gradePillClass(letter)}`}
-                >
-                  {letter}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openGradeEdit(row)}
-                  title="Set grade"
-                  className="inline-flex min-h-[1.5rem] min-w-[2rem] items-center justify-center rounded-full border border-dashed border-zinc-700 px-2 text-[10px] text-zinc-600 hover:border-zinc-500 hover:text-zinc-400"
-                  aria-label="Set grade"
-                >
-                  {'\u00a0'}
-                </button>
-              )}
-            </div>
             <div className="flex min-w-[5.75rem] shrink-0 items-center px-2 text-sm font-semibold tabular-nums text-zinc-200">
               <button
                 type="button"
@@ -513,28 +486,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           {row.mspn || '—'}
         </div>
         <div className="whitespace-nowrap px-2 text-center text-zinc-400">{row.lr || '—'}</div>
-        <div className="flex items-center px-3">
-          {letter ? (
-            <button
-              type="button"
-              onClick={() => openGradeEdit(row)}
-              title="Change grade — opens guide"
-              className={`inline-flex min-w-[2rem] justify-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${gradePillClass(letter)}`}
-            >
-              {letter}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => openGradeEdit(row)}
-              title="Set grade — opens guide"
-              className="inline-flex min-h-[1.5rem] min-w-[2rem] items-center justify-center rounded-full border border-dashed border-zinc-700 px-2 text-[10px] text-zinc-600 hover:border-zinc-500 hover:text-zinc-400"
-              aria-label="Set grade"
-            >
-              {'\u00a0'}
-            </button>
-          )}
-        </div>
         <div
           className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
           title="Buy price — catalog buy (includes FET component)"
@@ -599,31 +550,17 @@ export function MarginTable({
     otherCost: 0,
   }))
   const [costSaving, setCostSaving] = useState(false)
-  const [editingGradeId, setEditingGradeId] = useState(null)
-  const [gradeDraft, setGradeDraft] = useState('B')
-  const [gradeSaving, setGradeSaving] = useState(false)
 
   const allVisibleSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
   const anyVisibleSelected = rows.some((r) => selectedIds.has(r.id))
 
   const openCostEdit = useCallback((row) => {
-    setEditingGradeId(null)
     setEditingCostsId(row.id)
     setOverheadDraft(tireOverheadParts(row))
   }, [])
 
   const closeCostEdit = useCallback(() => {
     setEditingCostsId(null)
-  }, [])
-
-  const openGradeEdit = useCallback((row) => {
-    setEditingCostsId(null)
-    setEditingGradeId(row.id)
-    setGradeDraft(gradeLetter(row) || 'B')
-  }, [])
-
-  const closeGradeEdit = useCallback(() => {
-    setEditingGradeId(null)
   }, [])
 
   const draftOverheadTotal = useMemo(() => computeCts(overheadDraft), [overheadDraft])
@@ -656,27 +593,6 @@ export function MarginTable({
     [overheadDraft, toast, closeCostEdit],
   )
 
-  const saveGrade = useCallback(
-    async (rowId) => {
-      const g = String(gradeDraft || 'B').toUpperCase()
-      if (!GRADES.includes(g)) return
-      setGradeSaving(true)
-      try {
-        await updateDoc(doc(db, 'tires', rowId), { grade: g })
-        toast('Grade saved', 'success')
-        closeGradeEdit()
-      } catch (e) {
-        console.error(e)
-        window.alert(
-          e instanceof Error ? e.message : 'Could not save grade. Check Firestore rules.',
-        )
-      } finally {
-        setGradeSaving(false)
-      }
-    },
-    [gradeDraft, toast, closeGradeEdit],
-  )
-
   const rowHeightFn = useCallback((index, rp) => {
     const base = rp.mobileRowBasePx ?? ROW_BASE_PX
     const r = rp.rows[index]
@@ -684,16 +600,6 @@ export function MarginTable({
     if (rp.editingCostsId === r.id) return base + ROW_CTS_EDITOR_EXTRA_PX
     return base
   }, [])
-
-  const gradeEditTire = useMemo(
-    () => (editingGradeId ? (rows.find((r) => r.id === editingGradeId) ?? null) : null),
-    [editingGradeId, rows],
-  )
-
-  const confirmGradeSave = useCallback(() => {
-    if (!editingGradeId) return
-    void saveGrade(editingGradeId)
-  }, [editingGradeId, saveGrade])
 
   const rowProps = useMemo(
     () => ({
@@ -705,7 +611,6 @@ export function MarginTable({
       costSaving,
       openCostEdit,
       closeCostEdit,
-      openGradeEdit,
       saveCosts,
       onToggle,
       setOverheadDraft,
@@ -722,7 +627,6 @@ export function MarginTable({
       costSaving,
       openCostEdit,
       closeCostEdit,
-      openGradeEdit,
       saveCosts,
       onToggle,
       setOverheadDraft,
@@ -759,10 +663,10 @@ export function MarginTable({
       >
         {isMobileTable && rows.length > 0 && !loading && !scrollHintDismissed ? (
           <div className="mx-2 mb-2 rounded-full border border-amber-800/50 bg-amber-950/40 px-3 py-2 text-center text-xs font-medium text-amber-100/95 md:hidden">
-            ← Scroll for overhead, FET, grade, brand →
+            ← Scroll for overhead, FET, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1220px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1168px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
@@ -800,7 +704,6 @@ export function MarginTable({
             <div className="px-3">Description</div>
             <div className="px-3">MSPN</div>
             <div className="whitespace-nowrap px-2 text-center">LR</div>
-            <div className="px-3">Grade</div>
             <div className="min-w-0 whitespace-nowrap px-2 text-right">
               <SortButton
                 label="Buy Price"
@@ -895,7 +798,6 @@ export function MarginTable({
                 <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
                   FET
                 </div>
-                <div className="flex w-[72px] shrink-0 items-center justify-center">Gr</div>
                 <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
                   OH
                 </div>
@@ -943,15 +845,6 @@ export function MarginTable({
           )}
         </div>
       </div>
-      <TireGradeModal
-        open={editingGradeId != null}
-        tire={gradeEditTire}
-        draftGrade={gradeDraft === 'A' || gradeDraft === 'B' || gradeDraft === 'C' ? gradeDraft : 'B'}
-        onDraftChange={setGradeDraft}
-        onClose={closeGradeEdit}
-        onSave={confirmGradeSave}
-        saving={gradeSaving}
-      />
     </div>
   )
 }

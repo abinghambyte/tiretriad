@@ -25,25 +25,3 @@ export function tireOverheadParts(tire) {
 export function effectiveCts(tire) {
   return computeCts(tire)
 }
-
-/** @returns {'A' | 'B' | 'C' | ''} */
-export function gradeLetter(tire) {
-  const g = String(tire?.grade || '').trim().toUpperCase()
-  if (g === 'A' || g === 'B' || g === 'C') return g
-  return ''
-}
-
-/** @param {'A' | 'B' | 'C' | ''} letter */
-export function gradePillClass(letter) {
-  const t = 'transition-colors duration-200 ease-out '
-  switch (letter) {
-    case 'A':
-      return t + 'bg-emerald-950/90 text-emerald-200 ring-1 ring-emerald-800/70'
-    case 'B':
-      return t + 'bg-amber-950/90 text-amber-200 ring-1 ring-amber-800/60'
-    case 'C':
-      return t + 'bg-zinc-700/90 text-zinc-200 ring-1 ring-zinc-600/80'
-    default:
-      return t + 'bg-zinc-800/80 text-zinc-500 ring-1 ring-zinc-700'
-  }
-}

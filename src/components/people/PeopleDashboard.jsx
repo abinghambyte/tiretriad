@@ -426,14 +426,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
   }
 
-  async function renewInvite(u) {
-    try {
-      await reissueInviteFn({ targetUid: u.id, inviteDelivery: 'email' })
-    } catch (e) {
-      window.alert(e?.message || String(e))
-    }
-  }
-
   async function lockUser() {
     if (!selected) return
     const isLocked = selected.inviteStatus === 'locked'
