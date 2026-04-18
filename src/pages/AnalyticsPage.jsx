@@ -387,6 +387,11 @@ export function AnalyticsPage() {
 
         {tab === 'metrics' ? (
           <div className="space-y-6">
+            {!ordersLoading && completedRows.length >= 4000 ? (
+              <p className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-400">
+                Showing the 4,000 most recent completed orders. Older orders are excluded from all calculations on this page.
+              </p>
+            ) : null}
             {ordersLoading ? (
               <p className="text-sm text-zinc-500">Loading completed orders…</p>
             ) : completedRows.length === 0 ? (
@@ -412,12 +417,12 @@ export function AnalyticsPage() {
                 <MetricCard
                   label="Avg friction score"
                   value={metrics.avgFriction != null ? metrics.avgFriction.toFixed(1) : '—'}
-                  hint="Mean of numeric frictionScore across completed orders."
+                  hint="Friction score measures how many follow-ups or complications an order required before completion. Lower is smoother. Set by backend on order close."
                 />
                 <MetricCard
-                  label="Hat trick days"
+                  label="Hat trick days (3-in-1)"
                   value={String(metrics.hatTricks)}
-                  hint="Completed orders with hatTrickDay set true."
+                  hint="Orders completed on a day when 3+ orders were all finished — hat trick. Set by the backend on order completion."
                 />
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
@@ -432,8 +437,8 @@ export function AnalyticsPage() {
                         {djStreakUi.current} day{djStreakUi.current === 1 ? '' : 's'}
                       </p>
                       <p className="text-xs text-zinc-500">
-                        Personal best (assigned): {formatQty(djStreakUi.best)} days · meta clean-order
-                        record: {formatQty(cleanStreakMeta)}
+                        Personal best this session: {formatQty(djStreakUi.best)} days · All-time record (server):{' '}
+                        {formatQty(cleanStreakMeta)} days
                       </p>
                     </div>
                   </div>
@@ -463,6 +468,11 @@ export function AnalyticsPage() {
 
         {tab === 'revenue' ? (
           <div className="space-y-6">
+            {!ordersLoading && completedRows.length >= 4000 ? (
+              <p className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-400">
+                Showing the 4,000 most recent completed orders. Older orders are excluded from all calculations on this page.
+              </p>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard
                 label={allTimeIsEstimate ? 'All-time revenue (estimated from loaded orders)' : 'All-time revenue (meta)'}
@@ -471,17 +481,21 @@ export function AnalyticsPage() {
               />
               <MetricCard
                 label="MTD revenue (meta)"
-                value={
-                  revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '—'
+                value={revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '—'}
+                hint={
+                  revenueWindows.mtd != null
+                    ? `Month ${revenueWindows.mo} · from meta/revenueStats.`
+                    : `Not yet updated for ${revenueWindows.mo}. Written by backend after each completed order.`
                 }
-                hint={`Monthly window ${revenueWindows.mo} (resets when window rolls).`}
               />
               <MetricCard
                 label="WTD revenue (meta)"
-                value={
-                  revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '—'
+                value={revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '—'}
+                hint={
+                  revenueWindows.wtd != null
+                    ? `ISO week ${revenueWindows.wk} · from meta/revenueStats.`
+                    : `Not yet updated for week ${revenueWindows.wk}. The backend job writes this after each completed order. Check meta/revenueStats in Firestore if stale.`
                 }
-                hint={`ISO week ${revenueWindows.wk} (resets when window rolls).`}
               />
             </div>
             <MetricCard
@@ -517,7 +531,13 @@ export function AnalyticsPage() {
         ) : null}
 
         {tab === 'leaderboard' ? (
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-6">
+            {!ordersLoading && completedRows.length >= 4000 ? (
+              <p className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-400">
+                Showing the 4,000 most recent completed orders. Older orders are excluded from all calculations on this page.
+              </p>
+            ) : null}
+            <div className="grid gap-6 sm:grid-cols-2">
             <LeaderBlock
               title="Biggest single order (margin %)"
               body={
@@ -550,6 +570,7 @@ export function AnalyticsPage() {
                   : '—'
               }
             />
+            </div>
           </div>
         ) : null}
       </main>
