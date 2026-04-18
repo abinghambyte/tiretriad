@@ -26,6 +26,12 @@ export function useDashboardSignals() {
     if (tiresLoading) return null
     let n = 0
     for (const t of tires) {
+      // Only flag tires that were ever posted on at least one platform
+      const everPosted = ['facebook', 'offerup', 'craigslist'].some(
+        (p) => t?.platformListings?.[p]?.lastPostedAt,
+      )
+      if (!everPosted) continue
+      // And are now stale on all platforms (none currently active)
       const allInactive = ['facebook', 'offerup', 'craigslist'].every(
         (p) => listingStatus(t, p) !== 'active',
       )

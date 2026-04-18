@@ -14,6 +14,7 @@ import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { auth, db, functions, firebaseProjectId } from '../firebase/config'
+import { useToast } from '../context/ToastContext.jsx'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
@@ -77,6 +78,7 @@ function downloadCsvString(csv, fileName) {
 
 export function OpsPage() {
   const { profile, loading: profileLoading } = useUserProfile()
+  const { toast } = useToast()
 
   const [expenses, setExpenses] = useState([])
   const [expLoading, setExpLoading] = useState(true)
@@ -172,7 +174,7 @@ export function OpsPage() {
     e.preventDefault()
     const n = Number(amount)
     if (!Number.isFinite(n) || n <= 0) {
-      window.alert('Enter a valid amount.')
+      toast('Enter a valid amount.', 'error')
       return
     }
     const loggedBy = String(auth.currentUser?.email || auth.currentUser?.uid || 'unknown')
@@ -186,10 +188,11 @@ export function OpsPage() {
         loggedBy,
         createdAt: serverTimestamp(),
       })
+      toast('Expense logged', 'success')
       setAmount('')
       setNote('')
     } catch (err) {
-      window.alert(err?.message || String(err))
+      toast(err?.message || 'Could not save expense.', 'error')
     } finally {
       setSavingExp(false)
     }
@@ -208,10 +211,10 @@ export function OpsPage() {
           { merge: true },
         )
       } catch (err) {
-        window.alert(err?.message || String(err))
+        toast(err?.message || 'Could not update reorder queue.', 'error')
       }
     },
-    [reorderEntries],
+    [reorderEntries, toast],
   )
 
   async function runTaxExport() {
@@ -222,12 +225,12 @@ export function OpsPage() {
       const csv = String(data?.csv || '')
       const fileName = String(data?.fileName || 'tax-prep-orders.csv')
       if (!csv) {
-        window.alert('No CSV returned.')
+        toast('No CSV data returned from server.', 'error')
         return
       }
       downloadCsvString(csv, fileName)
     } catch (err) {
-      window.alert(err?.message || String(err))
+      toast(err?.message || 'Export failed.', 'error')
     } finally {
       setTaxBusy(false)
     }

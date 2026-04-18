@@ -103,22 +103,31 @@ Mobile tire business in northern Colorado (Fort Collins / Greeley area). Just-in
 
 ---
 
+## Completed Handoffs
+
+### Phase 4 — CRM Polish (Handoff 06) ✅
+- Mobile tap-to-move stage (Set-based `mobileMoveOpen` state, `moveAccountStage()` function)
+- Duplicate filter bar removed from leads tab
+- `window.alert` → `toast` in `onDropStage` catch block
+- Convert button responsive on mobile
+- Dispatch empty state + mechanic "no jobs" variant
+
+### Phase 5 — Analytics Accuracy (Handoff 07) ✅
+- Hat trick label clarified to "Hat trick days (3-in-1)" with plain-English hint
+- WTD/MTD: branch on null to show "Not yet updated for week X" instead of raw window key
+- 4k cap: amber warning banner when `completedRows.length >= 4000` on metrics/revenue/leaderboard tabs
+- DJ streak: "Personal best this session" + "All-time record (server)" labels
+
+### Phase 6 — People Panel & Orders Polish (Handoffs 08–09) ✅
+- `ContactsPage.jsx`: `addError` inline state, E.164 phone validation before using phone as doc ID, 3× `window.alert` → inline error + toast
+- `OrdersList.jsx`: all 12 `window.alert` calls → `toast(..., 'error')`, prospective rows `opacity-60`
+
+---
+
 ## Remaining Handoffs (ROADMAP phases)
 
-### Handoff 06 — CRM Polish (written, ready)
-Mobile tap-to-move stage, duplicate filter bar removal, window.alert → toast, convert button on mobile, dispatch empty state.
-
-### Handoff 07 — Analytics Accuracy
-Verify Wall tab real-time feed, Revenue/MTD/WTD numbers, 12-week margin chart calculation, DJ streak logic, poke conversion metric clarity, leaderboard top SKU/crew calculations, fulfillment time averages.
-
-### Handoff 08 — People Panel Polish
-Edit panel footer layout on narrow screens (Ghost/Lock/Unlock/Delete), invite flow end-to-end verification, availability blocker surfacing, permission matrix display, contacts phone E.164 validation.
-
-### Handoff 09 — Orders Polish
-Order status flow stages, payment status clarity, customer linking, mobile order list, prospective vs confirmed differentiation, debrief notes display.
-
-### Handoff 10 — Ops Page QA
-Expense tracker category % math, tax prep export timezone handling (Denver), reorder queue Slack command verification, inbound SMS webhook URL accuracy.
+### Handoff 10 — Ops Page QA (active)
+5× `window.alert` → `toast()` in `src/pages/OpsPage.jsx` (addExpense, removeReorderEntry, runTaxExport), success toast on expense add, VITE_FUNCTIONS_REGION env var verification.
 
 ### Handoff 11 — Error Handling Pass
 try-catch blocks → toasts, error boundaries on route components, loading spinners where missing, Firestore write failure toasts, large query limit warnings.

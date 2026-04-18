@@ -85,7 +85,7 @@ export function MarginFilters({
             <span>
               <span className="font-medium text-zinc-200">Needs reposting</span>
               <span className="mt-0.5 block text-xs font-normal text-zinc-500">
-                All platforms stale or never posted
+                Previously posted, now stale on all platforms
               </span>
             </span>
           </label>

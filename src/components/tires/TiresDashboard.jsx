@@ -141,6 +141,11 @@ export function TiresDashboard() {
         if (row.margin < minMargin) return false
       }
       if (needsReposting) {
+        // Only show tires that were ever posted but are now stale on all platforms
+        const everPosted = ['facebook', 'offerup', 'craigslist'].some(
+          (p) => row?.platformListings?.[p]?.lastPostedAt,
+        )
+        if (!everPosted) return false
         const allInactive = ['facebook', 'offerup', 'craigslist'].every(
           (p) => listingStatus(row, p) !== 'active',
         )
