@@ -50,7 +50,7 @@ export function PortalTopBar({ pathname, navigate, profile, onOpenPalette, theme
         <button
           type="button"
           onClick={onOpenPalette}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition-all duration-200 hover:border-amber-600/40 hover:bg-zinc-800/80 hover:text-zinc-100 hover:ring-1 hover:ring-amber-500/25 sm:h-8 sm:w-8"
+          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 transition-all duration-200 hover:border-amber-600/40 hover:bg-zinc-800/80 hover:text-zinc-100 hover:ring-1 hover:ring-amber-500/25 sm:h-8 sm:min-h-0 sm:w-8 sm:min-w-0"
           aria-label="Open search"
           title="Search (⌘K / Ctrl+K)"
         >
