@@ -62,6 +62,7 @@ const { crmJobTrigger } = require('./crmJobTrigger')
 const { submitMechanicIntake } = require('./mechanicIntake')
 const { runCompletionTransaction } = require('./financeStats')
 const { taskDispatcher } = require('./taskDispatcher')
+const { auditFromCallable } = require('./adminAuditLog')
 admin.initializeApp()
 
 setGlobalOptions({ region: 'us-central1' })
@@ -858,6 +859,10 @@ exports.runTirePriceResearchNow = onCall(
     }
     try {
       await tirePriceResearchRun({ token, channel, geminiKey })
+      await auditFromCallable(db, request, {
+        action: 'price_research.run_now',
+        payload: { scheduled: false },
+      })
       return { ok: true }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -896,6 +901,10 @@ exports.crmStaleCheck = onSchedule(
 
 exports.crmAccountTrigger = crmAccountTrigger
 exports.crmJobTrigger = crmJobTrigger
+
+const { expenseAuditTrigger, reorderQueueAuditTrigger } = require('./adminAuditTriggers')
+exports.expenseAuditTrigger = expenseAuditTrigger
+exports.reorderQueueAuditTrigger = reorderQueueAuditTrigger
 exports.submitMechanicIntake = submitMechanicIntake
 
 /**
