@@ -124,24 +124,26 @@ Mobile tire business in northern Colorado (Fort Collins / Greeley area). Just-in
 
 ---
 
-## Remaining Handoffs (ROADMAP phases)
+## Completed Handoffs (continued)
 
 ### Phase 7 — Ops Page QA (Handoff 10) ✅
 5× `window.alert` → `toast()` in `src/pages/OpsPage.jsx`, success toast on `addDoc` expense, VITE_FUNCTIONS_REGION confirmed. Also fixed "Needs Reposting" signal to count only previously-posted-but-now-stale tires (was counting all 1,160 never-posted tires).
 
-### Handoff 11 — Alert Sweep (active)
-22 remaining `window.alert` calls across `PeopleDashboard.jsx` (15), `ContactsPage.jsx` (4), `TiresDashboard.jsx` (4 — already has `useToast`), `MarginTable.jsx` (1), `BulkCtsModal.jsx` (1), `ListingGenerator.jsx` (1). Also wire `ErrorBoundary` around `<PortalChrome>` route in `App.jsx`.
+### Handoff 11 — Alert Sweep ✅
+All `window.alert` calls replaced with `toast()` across `PeopleDashboard.jsx`, `ContactsPage.jsx`, `TiresDashboard.jsx`, `MarginTable.jsx`, `BulkCtsModal.jsx`, `ListingGenerator.jsx`. `ErrorBoundary` wired around `<PortalChrome>` in `App.jsx`. Import path for `useToast` is `'../context/ToastContext.jsx'` (NOT `'../../contexts/'`).
 
-**Note:** `scripts/gen-next-handoff.js` produces hallucinated file paths. Handoffs 11+ are hand-written from actual file reads.
+### Handoff 12 — Mobile Experience Audit ✅
+- `MarginTable.jsx`: `minWidth` 1068 → 820, `gridTemplateColumns` tightened to `'40px 6rem 2fr 5rem 3rem 5rem 6rem 4.5rem 5.5rem 5.5rem'`
+- `PeopleDashboard.jsx`: `lockConfirmPending` state + inline two-click confirm pattern in `lockUser()`; reset in `openEditor()` and `closeEditor()`
 
-### Handoff 11 — Error Handling Pass
-try-catch blocks → toasts, error boundaries on route components, loading spinners where missing, Firestore write failure toasts, large query limit warnings.
+---
 
-### Handoff 12 — Mobile Experience Audit
-Catalog column proportions on small screens, CRM kanban (done in 06), people edit panel collapse, analytics chart readability, command palette mobile trigger, bottom nav permissions.
+## Active / Upcoming Handoffs
 
-### Handoff 13 — Growth Lab Review
-Task dispatcher routing accuracy (Opus/Sonnet/Haiku/Gemini criteria), session notes localStorage multi-tab behavior, Antigravity routing verification, copy prompt quality.
+### Handoff 13 — window.confirm Sweep (active)
+6 remaining `window.confirm` calls: `PeopleDashboard.jsx` (applyRoleDefaults, revokeInvite, deleteUser), `ContactsPage.jsx` (removeSelectedContact), `CrmAccountDetailPanel.jsx` (remove vehicle inline), `TaskDispatcher.jsx` (clearHandoff). All use the same inline two-click pending-state pattern established in Handoff 12.
+
+**Note:** `scripts/gen-next-handoff.js` produces hallucinated file paths. Handoffs 11+ are hand-written from actual file reads. Do NOT run the gen script and use its output as a handoff — always hand-write from real file reads.
 
 ---
 
