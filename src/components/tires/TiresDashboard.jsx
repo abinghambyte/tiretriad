@@ -7,7 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
-import { computeMargin } from '../../utils/marginCalc'
+import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { listingStatus } from '../../utils/listingStatus'
@@ -59,6 +59,16 @@ export function TiresDashboard() {
     const v = searchParams.get('needsReposting')
     return v === '1' || v === 'true'
   })
+  // Deep-link filters from the Dashboard Catalog Health card. Applied once
+  // on mount via query params; the main filter UI does not expose checkboxes
+  // for these since they are single-use triage views (user clears by editing
+  // the URL or navigating back to the catalog without the param).
+  const [missingOverheadOnly] = useState(
+    () => searchParams.get('overhead') === 'missing',
+  )
+  const [lowMarginOnly] = useState(
+    () => searchParams.get('margin') === 'below-15',
+  )
   const [filtersManualOpen, setFiltersManualOpen] = useState(false)
   const isNarrowForFilters = useMediaQuery('(max-width: 639px)')
 
@@ -125,6 +135,7 @@ export function TiresDashboard() {
     return tires.map((t) => ({
       ...t,
       margin: computeMargin(t),
+      listingMargin: computeListingMargin(t),
     }))
   }, [tires])
 
@@ -155,9 +166,20 @@ export function TiresDashboard() {
         )
         if (!allInactive) return false
       }
+      if (missingOverheadOnly) {
+        const mount = Number(row.mountCost) || 0
+        const delivery = Number(row.deliveryCost) || 0
+        const other = Number(row.otherCost) || 0
+        const cts = Number(row.cts) || 0
+        if (cts > 0 || mount > 0 || delivery > 0 || other > 0) return false
+      }
+      if (lowMarginOnly) {
+        if (row.listingMargin == null || Number.isNaN(row.listingMargin)) return false
+        if (row.listingMargin >= 15) return false
+      }
       return true
     })
-  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting])
+  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, missingOverheadOnly, lowMarginOnly])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]

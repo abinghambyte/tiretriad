@@ -475,8 +475,12 @@ export function Dashboard() {
                     {formatQty(catalogHealth.total ?? 0)}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3">
-                  <dt className="text-zinc-400">Missing overhead</dt>
+                <Link
+                  to="/tires?overhead=missing"
+                  className="group flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3 transition-colors hover:text-zinc-100"
+                  title="Open the tires catalog filtered to rows still missing mount/delivery/other cost"
+                >
+                  <dt className="text-zinc-400 group-hover:text-zinc-200">Missing overhead</dt>
                   <dd
                     className={`font-mono font-semibold tabular-nums ${
                       (catalogHealth.missingOverhead ?? 0) > 0 ? 'text-amber-300' : 'text-zinc-100'
@@ -484,9 +488,13 @@ export function Dashboard() {
                   >
                     {formatQty(catalogHealth.missingOverhead ?? 0)}
                   </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-zinc-400">Below 15% margin</dt>
+                </Link>
+                <Link
+                  to="/tires?margin=below-15"
+                  className="group flex items-center justify-between gap-3 transition-colors hover:text-zinc-100"
+                  title="Open the tires catalog filtered to rows under 15% listing margin"
+                >
+                  <dt className="text-zinc-400 group-hover:text-zinc-200">Below 15% margin</dt>
                   <dd
                     className={`font-mono font-semibold tabular-nums ${
                       (catalogHealth.lowMargin ?? 0) > 0 ? 'text-red-400' : 'text-zinc-100'
@@ -494,7 +502,7 @@ export function Dashboard() {
                   >
                     {formatQty(catalogHealth.lowMargin ?? 0)}
                   </dd>
-                </div>
+                </Link>
               </dl>
             )}
           </section>

@@ -10,7 +10,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { db } from '../firebase/config'
 import { useTires } from './useTires'
-import { computeMargin } from '../utils/marginCalc'
+import { computeMargin, computeListingMargin } from '../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
 import { listingStatus } from '../utils/listingStatus'
 
@@ -67,11 +67,12 @@ export function useDashboardSignals() {
       const other = Number(t.otherCost) || 0
       const cts = Number(t.cts) || 0
       if (cts === 0 && mount === 0 && delivery === 0 && other === 0) missingOverhead += 1
-      const buy = tireCatalogBuyNumber(t)
-      if (buy > 0) {
-        const m = computeMargin(t)
-        if (m != null && !Number.isNaN(m) && m < 15) lowMargin += 1
-      }
+      // "Below 15% margin" card measures listing margin at researched retail
+      // (what the catalog Margin % column shows). Unresearched tires are
+      // excluded from the count because null margin is not a "low" signal;
+      // it is a "not yet researched" signal surfaced elsewhere.
+      const m = computeListingMargin(t)
+      if (m != null && !Number.isNaN(m) && m < 15) lowMargin += 1
     }
     return { total: tires.length, missingOverhead, lowMargin, loading: false }
   }, [tires, tiresLoading])

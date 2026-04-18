@@ -1,9 +1,13 @@
 import { effectiveCts } from './ctsCalc'
 import { tireCatalogBuyNumber } from './tireCatalogBuy'
+import { tireCatalogRetailNumber } from './tireCatalogRetail'
 
 /**
  * Markup headroom vs Kyle buy: ((buyPrice − overhead) / buyPrice) × 100.
- * `price` is Kyle's buy (CSV); overhead is mount + delivery + other (`cts` on save).
+ * Answers "how much of the buy cost stays as headroom after overhead" and is
+ * useful for catalog-health checks where retail research has not run yet.
+ * For the "what margin do I get at market retail?" question, use
+ * `computeListingMargin` instead.
  * @param {Record<string, unknown>} tire
  * @returns {number | null}
  */
@@ -12,6 +16,23 @@ export function computeMargin(tire) {
   if (!buyPrice || buyPrice === 0) return null
   const overhead = effectiveCts(tire)
   return ((buyPrice - overhead) / buyPrice) * 100
+}
+
+/**
+ * Listing margin at researched street retail: ((retail − buy) / retail) × 100.
+ * Answers "if I list this tire at the typical consumer retail price, what
+ * percentage of the sale is margin?". Matches how the Margin % column in the
+ * catalog should be read. Returns null when no researched retail exists
+ * (unresearched tires, genuine not-founds); the UI renders that as a dash.
+ * @param {Record<string, unknown>} tire
+ * @returns {number | null}
+ */
+export function computeListingMargin(tire) {
+  const retail = tireCatalogRetailNumber(tire)
+  if (!retail || retail <= 0) return null
+  const buy = tireCatalogBuyNumber(tire)
+  if (!buy || buy <= 0) return null
+  return ((retail - buy) / retail) * 100
 }
 
 /**
