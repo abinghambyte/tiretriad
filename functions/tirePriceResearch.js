@@ -39,10 +39,49 @@ function normalizeConfidence(c) {
   return 'low'
 }
 
+/**
+ * Extract the first plausible JSON object from a chunk of text. Handles
+ * responses where Gemini prepends grounded-search preamble ("Based on my
+ * search, I found: { ... }") or wraps the object in markdown fences. Returns
+ * null when no balanced {...} block is found.
+ */
+function extractFirstJsonObject(text) {
+  const raw = stripJsonFences(text).trim()
+  if (!raw) return null
+  if (raw.startsWith('{')) return raw
+  const start = raw.indexOf('{')
+  if (start < 0) return null
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < raw.length; i += 1) {
+    const ch = raw[i]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{') depth += 1
+    else if (ch === '}') {
+      depth -= 1
+      if (depth === 0) return raw.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
 function tryParsePriceJson(text) {
-  const t = stripJsonFences(text)
+  const candidate = extractFirstJsonObject(text)
+  if (!candidate) {
+    return { ok: false, price: null, confidence: 'low', notes: 'no_json_block' }
+  }
   try {
-    const o = JSON.parse(t)
+    const o = JSON.parse(candidate)
     const price = o?.price == null ? null : Number(o.price)
     const confidence = normalizeConfidence(o?.confidence)
     const notes = String(o?.notes || '').slice(0, 400)
@@ -136,35 +175,41 @@ function buildResearchUserPrompt(tire, mspn) {
   const d = parseDescription(desc)
   const treadLine = tread || d.treadName || ''
   const size = buildSizeSpec(tire, d)
-  const bits = [
-    brand && `brand: ${brand}`,
-    treadLine && `tread: ${treadLine}`,
-    d.width != null && `width: ${d.width}`,
-    d.aspectRatio != null && `aspectRatio: ${d.aspectRatio}`,
-    d.construction && `construction: ${d.construction}`,
-    d.rimDiameter != null && `rimDiameter: ${d.rimDiameter}`,
-    d.loadIndex != null && `loadIndex: ${d.loadIndex}`,
-    d.speedRating && `speedRating: ${d.speedRating}`,
-    d.extraLoad ? 'extraLoad: true' : '',
-    size && `size: ${size}`,
+  const loadSpeed = [d.loadIndex != null ? String(d.loadIndex) : '', d.speedRating || '']
+    .filter(Boolean)
+    .join('')
+
+  const searchTarget = [brand, treadLine, size, loadSpeed, d.extraLoad ? 'XL' : '']
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+
+  return [
+    `Find the typical current US retail price per single tire for this tire, using Google Search.`,
+    '',
+    `Search for: ${searchTarget || desc || mspn}`,
+    '',
+    `Details:`,
+    brand ? `- Brand: ${brand}` : '',
+    treadLine ? `- Model / tread: ${treadLine}` : '',
+    size ? `- Size: ${size}` : '',
+    loadSpeed ? `- Load/speed: ${loadSpeed}` : '',
+    d.extraLoad ? `- Load rating: XL (extra load)` : '',
+    `- Manufacturer part number (secondary hint, not all retailers use this): ${mspn}`,
+    `- Raw catalog description: ${desc || '—'}`,
+    '',
+    `Prefer consumer retail sellers that display real prices: TireRack, DiscountTire, SimpleTire, PriorityTire, Walmart, Amazon, Costco. Median across whatever sources you find is fine; price is for one (1) tire, not a set of four.`,
+    '',
+    `Respond with a JSON object only, no prose before or after:`,
+    `{"price": <number or null>, "confidence": "high"|"medium"|"low", "notes": "<short source summary>"}`,
+    '',
+    `- "high" confidence: two or more sellers list the same tire at similar prices.`,
+    `- "medium": only one seller, or prices varied noticeably.`,
+    `- "low": very uncertain or extrapolated.`,
+    `- If you genuinely cannot find a retail price for this brand + model + size combination, set price to null.`,
   ]
     .filter(Boolean)
     .join('\n')
-
-  return [
-    `Find the typical current US retail price, per single tire, for this catalog SKU.`,
-    `MSPN: ${mspn}.`,
-    bits ? `Parsed / catalog fields:\n${bits}` : `Raw catalog description: ${desc || '—'}`,
-    '',
-    `Look at consumer-facing retail sellers: TireRack, DiscountTire, SimpleTire, Walmart, Amazon, PriorityTire.`,
-    `Return the typical median retail price you see across those sources. Price is per single tire, not a set of four.`,
-    '',
-    `Return ONLY a JSON object (no markdown fences): { "price": number, "confidence": "high"|"medium"|"low", "notes": string }.`,
-    `confidence "high" = you saw consistent retail prices across two or more sellers.`,
-    `confidence "medium" = only one seller, or prices varied noticeably.`,
-    `confidence "low" = very uncertain or extrapolated.`,
-    `If you cannot find any retail price signal at all, set price to null and confidence to "low".`,
-  ].join('\n')
 }
 
 function tireDisplayLine(tire) {
@@ -339,7 +384,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   const channel = String(slack?.channel || '').trim()
 
   const userPrompt = buildResearchUserPrompt(tire, mspn)
-  const { parsed } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
+  const { parsed, rawText, modelUsed } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
 
   const rawPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
   const foundPrice =
@@ -347,6 +392,21 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       ? rawPrice
       : null
   const gemConf = normalizeConfidence(parsed.confidence)
+
+  if (foundPrice == null) {
+    // Log the first few hundred chars of the raw response so we can tell
+    // whether Gemini actually returned nothing, returned unparseable text, or
+    // returned a number we clamped away. Keeps us out of blind-flying when
+    // not_found counts spike.
+    console.warn('[tirePriceResearch] not_found detail', {
+      mspn,
+      modelUsed,
+      parsedOk: parsed.ok,
+      parsedPrice: parsed.price,
+      parsedNotes: String(parsed.notes || '').slice(0, 200),
+      rawTextHead: String(rawText || '').slice(0, 500),
+    })
+  }
 
   let outcome = 'updated'
 
