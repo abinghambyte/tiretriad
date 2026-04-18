@@ -126,8 +126,13 @@ Mobile tire business in northern Colorado (Fort Collins / Greeley area). Just-in
 
 ## Remaining Handoffs (ROADMAP phases)
 
-### Handoff 10 — Ops Page QA (active)
-5× `window.alert` → `toast()` in `src/pages/OpsPage.jsx` (addExpense, removeReorderEntry, runTaxExport), success toast on expense add, VITE_FUNCTIONS_REGION env var verification.
+### Phase 7 — Ops Page QA (Handoff 10) ✅
+5× `window.alert` → `toast()` in `src/pages/OpsPage.jsx`, success toast on `addDoc` expense, VITE_FUNCTIONS_REGION confirmed. Also fixed "Needs Reposting" signal to count only previously-posted-but-now-stale tires (was counting all 1,160 never-posted tires).
+
+### Handoff 11 — Alert Sweep (active)
+22 remaining `window.alert` calls across `PeopleDashboard.jsx` (15), `ContactsPage.jsx` (4), `TiresDashboard.jsx` (4 — already has `useToast`), `MarginTable.jsx` (1), `BulkCtsModal.jsx` (1), `ListingGenerator.jsx` (1). Also wire `ErrorBoundary` around `<PortalChrome>` route in `App.jsx`.
+
+**Note:** `scripts/gen-next-handoff.js` produces hallucinated file paths. Handoffs 11+ are hand-written from actual file reads.
 
 ### Handoff 11 — Error Handling Pass
 try-catch blocks → toasts, error boundaries on route components, loading spinners where missing, Firestore write failure toasts, large query limit warnings.
