@@ -1,12 +1,69 @@
 import { useMemo } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { WORKFORCE_URL } from '../../constants/externalUrls'
-import { permissionMeets } from '../../constants/peoplePermissions'
+import { crewTagFromRole, permissionMeets } from '../../constants/peoplePermissions'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
-import { formatCurrency, formatQty } from '../../utils/format'
+import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
+import { timeAgo } from '../../utils/timeAgo'
 import { CreditTrackerCard } from './CreditTrackerCard.jsx'
 import { ProjectCard } from './ProjectCard'
+
+const ORDER_ACTIVITY_STATUS = {
+  pending: 'Pending',
+  available: 'Available',
+  scheduled: 'Scheduled',
+  in_transit: 'In transit',
+  completed: 'Complete',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+  prospective: 'Prospective',
+  ready: 'Ready',
+}
+
+function activityStatusLabel(status) {
+  const k = String(status || '').trim()
+  return ORDER_ACTIVITY_STATUS[k] || (k ? k.replace(/_/g, ' ') : '—')
+}
+
+function activityCustomerLine(data) {
+  const name = String(data.customerName || '').trim()
+  if (name) return name
+  const raw = String(data.customerContact || '').replace(/\D/g, '')
+  if (raw.length >= 4) return `…${raw.slice(-4)}`
+  return '—'
+}
+
+function activityTireLine(data) {
+  const d = String(data.description || '').trim()
+  if (d) return d
+  return String(data.mspn || '—').trim()
+}
+
+function activityMarginDisplay(data) {
+  const v = Number(data.marginPct ?? data.catalogMarginPct)
+  if (Number.isFinite(v)) return formatPercent(v, 1)
+  return '—'
+}
+
+function crewDisplayName(data) {
+  const n = `${data.firstName || ''} ${data.lastName || ''}`.trim()
+  return n || String(data.email || '—').trim()
+}
+
+function crewStatusLabel(data) {
+  if (String(data.inviteStatus || '') === 'locked') return 'Locked'
+  if (String(data.inviteStatus || '') === 'active' && !data.inviteAccepted) return 'Pending invite'
+  return 'Active'
+}
+
+function crewRowTone(data) {
+  if (String(data.inviteStatus || '') === 'locked') return 'bg-red-950/15 border-l-2 border-l-red-800/50'
+  if (String(data.inviteStatus || '') === 'active' && !data.inviteAccepted) {
+    return 'bg-amber-950/10 border-l-2 border-l-amber-700/40'
+  }
+  return ''
+}
 
 function IconTires() {
   return (
@@ -114,11 +171,45 @@ function IconOpsCommand() {
   )
 }
 
+function SignalCard({ label, value, warn, to, loading }) {
+  const n = value == null ? null : Number(value)
+  const show = !loading && n != null
+  const amber = warn && show && n > 0
+  return (
+    <Link
+      to={to}
+      className={[
+        'block rounded-xl border p-4 transition-colors duration-200',
+        amber
+          ? 'border-amber-700/40 bg-amber-950/10 hover:border-amber-600/50 hover:bg-amber-950/20'
+          : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/90',
+      ].join(' ')}
+    >
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
+      {loading ? (
+        <div className="mt-2 h-8 w-16 animate-pulse rounded-md bg-zinc-800/80" />
+      ) : (
+        <p className="sk-figures mt-1 text-2xl font-semibold tabular-nums text-zinc-50">{show ? formatQty(n) : '—'}</p>
+      )}
+    </Link>
+  )
+}
+
 export function Dashboard() {
   const { permissionFor, profile, loading: profileGate } = useUserProfile()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { catalogSkuDisplay, tireSku, priceIntelResearched, crm, people, completedOrders } =
-    useDashboardSignals()
+  const {
+    catalogSkuDisplay,
+    tireSku,
+    priceIntelResearched,
+    crm,
+    people,
+    completedOrders,
+    signalBar,
+    recentActivity,
+    catalogHealth,
+    crewPreview,
+  } = useDashboardSignals()
 
   const tireSignal = useMemo(() => {
     if (tireSku.loading || priceIntelResearched.loading) return 'Syncing catalog…'
@@ -255,6 +346,11 @@ export function Dashboard() {
     setSearchParams(next, { replace: true })
   }
 
+  const sigLoading = signalBar.loading
+  const recentLoading = recentActivity.loading
+  const healthLoading = catalogHealth.loading
+  const crewLoading = crewPreview.loading
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div
@@ -273,17 +369,9 @@ export function Dashboard() {
         aria-hidden
       />
 
-      {!profileGate && profile?.role === 'admin' ? (
-        <header className="relative border-b border-zinc-800/90 bg-zinc-950/75 backdrop-blur-md">
-          <div className="mx-auto max-w-6xl px-6 py-2">
-            <CreditTrackerCard compact />
-          </div>
-        </header>
-      ) : null}
-
-      <main className="relative mx-auto max-w-6xl px-6 py-10 sm:py-12">
+      <main className="relative mx-auto max-w-6xl space-y-8 px-6 py-8 sm:py-10">
         {notice === 'access' ? (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900/50 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900/50 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
             <span>That module is not available for your current clearance.</span>
             <button
               type="button"
@@ -294,41 +382,211 @@ export function Dashboard() {
             </button>
           </div>
         ) : null}
-        <p className="mb-3 text-center text-xs text-zinc-600 sm:hidden">
-          Scroll for more modules
-        </p>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleModules.map((m) => {
-            const perm = m.moduleKey ? permissionFor(m.moduleKey) : 'none'
-            const lockedTires =
-              m.moduleKey === 'tires' &&
-              m.to &&
-              permissionMeets(perm, 'view') &&
-              !permissionMeets(perm, 'edit')
-            const isOverwatch =
-              profile?.role === 'admin' || String(profile?.crewTag || '').trim() === 'Overwatch'
-            const secondaryFooter =
-              m.title === 'Growth Lab' && isOverwatch
-                ? { href: WORKFORCE_URL, label: 'Launch Dispatcher', external: true }
-                : undefined
-            return (
-              <ProjectCard
-                key={m.title}
-                title={m.title}
-                description={m.description}
-                stat={m.stat}
-                statLabel={m.statLabel}
-                ctaLabel={m.ctaLabel}
-                status={m.status}
-                accent={m.accent}
-                icon={m.icon}
-                to={m.to}
-                locked={Boolean(lockedTires)}
-                secondaryFooter={secondaryFooter}
-              />
-            )
-          })}
+
+        <section aria-label="Operational signals">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Today</h2>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SignalCard
+              label="Pending orders"
+              value={signalBar.pendingOrders}
+              warn
+              to="/orders"
+              loading={sigLoading}
+            />
+            <SignalCard
+              label="Dead stock"
+              value={signalBar.deadStock}
+              warn
+              to="/tires?deadStockOnly=true"
+              loading={sigLoading}
+            />
+            <SignalCard
+              label="Catalog size"
+              value={signalBar.catalogSize}
+              warn={false}
+              to="/tires"
+              loading={sigLoading}
+            />
+            <SignalCard
+              label="Crew alerts"
+              value={signalBar.crewAlerts}
+              warn
+              to="/people"
+              loading={sigLoading}
+            />
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Recent activity</h2>
+            {recentLoading ? (
+              <ul className="mt-4 space-y-3">
+                {[1, 2, 3, 4, 5].map((k) => (
+                  <li key={k} className="h-14 animate-pulse rounded-lg bg-zinc-800/60" />
+                ))}
+              </ul>
+            ) : recentActivity.orders.length === 0 ? (
+              <p className="mt-4 text-sm text-zinc-500">
+                No orders yet.{' '}
+                <Link to="/tires" className="text-amber-300 underline-offset-2 hover:underline">
+                  Open the tire catalog
+                </Link>{' '}
+                to log a sale.
+              </p>
+            ) : (
+              <ul className="mt-4 divide-y divide-zinc-800/80">
+                {recentActivity.orders.map(({ id, data }) => {
+                  const createdAt = data.createdAt
+                  return (
+                    <li key={id} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-zinc-200">{activityTireLine(data)}</p>
+                        <p className="mt-0.5 text-xs text-zinc-500">{activityCustomerLine(data)}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 text-right">
+                        <span className="rounded-full bg-zinc-800/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
+                          {activityStatusLabel(data.status)}
+                        </span>
+                        <span className="font-mono text-xs text-zinc-500">{activityMarginDisplay(data)}</span>
+                        <span className="text-[10px] text-zinc-600">{timeAgo(createdAt) || '—'}</span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Catalog health</h2>
+            {healthLoading ? (
+              <div className="mt-4 space-y-3">
+                {[1, 2, 3].map((k) => (
+                  <div key={k} className="h-10 animate-pulse rounded-lg bg-zinc-800/60" />
+                ))}
+              </div>
+            ) : (
+              <dl className="mt-4 space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3">
+                  <dt className="text-zinc-400">Total tires</dt>
+                  <dd className="font-mono font-semibold tabular-nums text-zinc-100">
+                    {formatQty(catalogHealth.total ?? 0)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3">
+                  <dt className="text-zinc-400">Missing overhead</dt>
+                  <dd
+                    className={`font-mono font-semibold tabular-nums ${
+                      (catalogHealth.missingOverhead ?? 0) > 0 ? 'text-amber-300' : 'text-zinc-100'
+                    }`}
+                  >
+                    {formatQty(catalogHealth.missingOverhead ?? 0)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-zinc-400">Below 15% margin</dt>
+                  <dd
+                    className={`font-mono font-semibold tabular-nums ${
+                      (catalogHealth.lowMargin ?? 0) > 0 ? 'text-red-400' : 'text-zinc-100'
+                    }`}
+                  >
+                    {formatQty(catalogHealth.lowMargin ?? 0)}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </section>
         </div>
+
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Crew</h2>
+            {crewPreview.hasMore ? (
+              <Link to="/people" className="text-xs font-medium text-amber-300/90 hover:underline">
+                View all →
+              </Link>
+            ) : null}
+          </div>
+          {crewLoading ? (
+            <div className="mt-4 space-y-2">
+              {[1, 2, 3, 4].map((k) => (
+                <div key={k} className="h-10 animate-pulse rounded-lg bg-zinc-800/60" />
+              ))}
+            </div>
+          ) : crewPreview.users.length === 0 ? (
+            <p className="mt-4 text-sm text-zinc-500">No crew rows loaded.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-zinc-800/80">
+              {crewPreview.users.map(({ id, data }) => (
+                <li
+                  key={id}
+                  className={`flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 ${crewRowTone(data)}`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-200">{crewDisplayName(data)}</p>
+                    <p className="text-[11px] text-zinc-500">
+                      {String(data.crewTag || crewTagFromRole(data.role || 'viewer'))}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-zinc-400">
+                    <p>{crewStatusLabel(data)}</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-zinc-600">
+                      {timeAgo(data.lastLoginAt) || 'never'}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {!profileGate && profile?.role === 'admin' ? (
+          <section aria-label="Credit tracker" className="rounded-xl border border-zinc-800/90 bg-zinc-950/60 p-1">
+            <CreditTrackerCard compact />
+          </section>
+        ) : null}
+
+        {/*
+          Module tiles: secondary navigation. Bottom nav + sidebar already cover most routes on mobile,
+          so tiles are hidden below sm. If these feel redundant on desktop too, confirm with Alex before removing.
+        */}
+        <section aria-label="Modules" className="hidden sm:block">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Modules</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleModules.map((m) => {
+              const perm = m.moduleKey ? permissionFor(m.moduleKey) : 'none'
+              const lockedTires =
+                m.moduleKey === 'tires' &&
+                m.to &&
+                permissionMeets(perm, 'view') &&
+                !permissionMeets(perm, 'edit')
+              const isOverwatch =
+                profile?.role === 'admin' || String(profile?.crewTag || '').trim() === 'Overwatch'
+              const secondaryFooter =
+                m.title === 'Growth Lab' && isOverwatch
+                  ? { href: WORKFORCE_URL, label: 'Launch Dispatcher', external: true }
+                  : undefined
+              return (
+                <ProjectCard
+                  key={m.title}
+                  title={m.title}
+                  description={m.description}
+                  stat={m.stat}
+                  statLabel={m.statLabel}
+                  ctaLabel={m.ctaLabel}
+                  status={m.status}
+                  accent={m.accent}
+                  icon={m.icon}
+                  to={m.to}
+                  locked={Boolean(lockedTires)}
+                  secondaryFooter={secondaryFooter}
+                  compact
+                />
+              )
+            })}
+          </div>
+        </section>
       </main>
     </div>
   )

@@ -50,7 +50,10 @@ export function TiresDashboard() {
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
-  const [deadStockOnly, setDeadStockOnly] = useState(false)
+  const [deadStockOnly, setDeadStockOnly] = useState(() => {
+    const v = searchParams.get('deadStockOnly')
+    return v === '1' || v === 'true'
+  })
   const [filtersManualOpen, setFiltersManualOpen] = useState(false)
   const isNarrowForFilters = useMediaQuery('(max-width: 639px)')
 

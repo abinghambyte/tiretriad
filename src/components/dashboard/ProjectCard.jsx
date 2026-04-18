@@ -57,6 +57,7 @@ const ACCENT_CTA_RING = {
  * @param {string} [props.to]
  * @param {boolean} [props.locked] View-only or limited access (shows lock on card)
  * @param {{ to: string, label: string } | { href: string, label: string, external?: boolean }} [props.secondaryFooter] Second CTA above primary (e.g. Launch Dispatcher)
+ * @param {boolean} [props.compact] Smaller module tiles (e.g. bottom-of-dashboard nav)
  */
 export function ProjectCard({
   title,
@@ -70,6 +71,7 @@ export function ProjectCard({
   to,
   locked,
   secondaryFooter,
+  compact = false,
 }) {
   const clickable = Boolean(to)
   const statusClass = STATUS_STYLES[status] ?? STATUS_STYLES.Internal
@@ -89,9 +91,9 @@ export function ProjectCard({
   )
 
   const headerBlock = (
-    <div className="relative z-[2] mb-4 flex items-start justify-between gap-3 pl-2">
+    <div className={`relative z-[2] flex items-start justify-between gap-3 pl-2 ${compact ? 'mb-3' : 'mb-4'}`}>
       <div
-        className={`flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-900/80 text-zinc-200 shadow-inner shadow-black/20 transition ${clickable ? 'group-hover:scale-[1.03] group-hover:border-zinc-600/80 group-hover:bg-zinc-800/80' : 'opacity-80'}`}
+        className={`flex items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-900/80 text-zinc-200 shadow-inner shadow-black/20 transition ${compact ? 'h-9 w-9' : 'h-11 w-11'} ${clickable ? 'group-hover:scale-[1.03] group-hover:border-zinc-600/80 group-hover:bg-zinc-800/80' : 'opacity-80'}`}
       >
         {icon}
       </div>
@@ -115,9 +117,11 @@ export function ProjectCard({
 
   const bodyBlock = (
     <div className="relative z-[2] flex flex-1 flex-col pl-2">
-      <h2 className="text-lg font-semibold tracking-tight text-zinc-50">{title}</h2>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-400">{description}</p>
-      <div className="mt-5 border-t border-zinc-800/80 pt-4">
+      <h2 className={`font-semibold tracking-tight text-zinc-50 ${compact ? 'text-base' : 'text-lg'}`}>{title}</h2>
+      <p className={`mt-2 flex-1 leading-relaxed text-zinc-400 ${compact ? 'text-xs line-clamp-3' : 'text-sm'}`}>
+        {description}
+      </p>
+      <div className={`border-t border-zinc-800/80 ${compact ? 'mt-3 pt-3' : 'mt-5 pt-4'}`}>
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{statLabel}</p>
         <p className="sk-figures mt-1 text-sm text-zinc-200">{stat}</p>
       </div>
@@ -169,16 +173,20 @@ export function ProjectCard({
   const inner = (
     <article
       className={[
-        'group relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-5 transition-all duration-200 ease-out sm:min-h-[220px] sm:p-6',
+        compact
+          ? 'group relative flex h-full min-h-[132px] flex-col overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950/75 p-4 transition-all duration-200 ease-out sm:min-h-[150px]'
+          : 'group relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-5 transition-all duration-200 ease-out sm:min-h-[220px] sm:p-6',
         clickable
-          ? `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 sm:hover:-translate-y-0.5 ${glowClass}`
+          ? compact
+            ? `cursor-pointer border-zinc-700/80 hover:border-zinc-600 hover:bg-zinc-900/65 hover:shadow-lg hover:shadow-black/40 ${glowClass}`
+            : `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 sm:hover:-translate-y-0.5 ${glowClass}`
           : 'cursor-not-allowed border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50 hover:border-zinc-800 hover:bg-zinc-950/55',
       ].join(' ')}
       aria-disabled={!clickable}
     >
       {!clickable ? (
         <div
-          className="pointer-events-none absolute inset-0 z-[1] rounded-2xl bg-[repeating-linear-gradient(-12deg,transparent,transparent_14px,rgba(255,255,255,0.04)_14px,rgba(255,255,255,0.04)_15px)] opacity-90"
+          className={`pointer-events-none absolute inset-0 z-[1] bg-[repeating-linear-gradient(-12deg,transparent,transparent_14px,rgba(255,255,255,0.04)_14px,rgba(255,255,255,0.04)_15px)] opacity-90 ${compact ? 'rounded-xl' : 'rounded-2xl'}`}
           aria-hidden
         />
       ) : null}
@@ -214,11 +222,13 @@ export function ProjectCard({
     </article>
   )
 
+  const outerRound = compact ? 'rounded-xl' : 'rounded-2xl'
+
   if (clickable && to && !splitFooters) {
     return (
       <Link
         to={to}
-        className="block h-full rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+        className={`block h-full ${outerRound} outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950`}
       >
         {inner}
       </Link>
@@ -227,7 +237,9 @@ export function ProjectCard({
 
   if (splitFooters) {
     return (
-      <div className="h-full rounded-2xl outline-none focus-within:ring-2 focus-within:ring-amber-500/50 focus-within:ring-offset-2 focus-within:ring-offset-zinc-950">
+      <div
+        className={`h-full ${outerRound} outline-none focus-within:ring-2 focus-within:ring-amber-500/50 focus-within:ring-offset-2 focus-within:ring-offset-zinc-950`}
+      >
         {inner}
       </div>
     )
