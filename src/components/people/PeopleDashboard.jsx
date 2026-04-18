@@ -315,7 +315,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [eleSaving, setEleSaving] = useState(false)
   const [showElevation, setShowElevation] = useState(false)
   const [showAvailability, setShowAvailability] = useState(false)
-  const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | 'delete' | ''
+  const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | 'delete' | 'lock' | ''
+  const [lockConfirmPending, setLockConfirmPending] = useState(false)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
@@ -349,6 +350,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   const openEditor = useCallback((u) => {
     setSelected(u)
+    setLockConfirmPending(false)
     const r = u.role || 'viewer'
     setRoleDraft(r)
     const base = { ...ROLE_DEFAULTS[r], ...(u.permissions || {}) }
@@ -360,6 +362,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   const closeEditor = useCallback(() => {
     setSelected(null)
+    setLockConfirmPending(false)
     setPermDraft({})
     setPanelInviteUrl('')
   }, [])
@@ -431,15 +434,24 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   async function lockUser() {
     if (!selected) return
     const isLocked = selected.inviteStatus === 'locked'
-    const name = `${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.email
-    if (!isLocked && !window.confirm(`Lock ${name}? They won't be able to sign in.`)) return
+    if (!isLocked) {
+      if (!lockConfirmPending) {
+        setLockConfirmPending(true)
+        return
+      }
+      setLockConfirmPending(false)
+    }
+    setInvokeBusy('lock')
     try {
       await updatePortalUser({
         targetUid: selected.id,
         inviteStatus: isLocked ? 'renewed' : 'locked',
       })
+      toast(isLocked ? 'User unlocked.' : 'User locked.', 'success')
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
+    } finally {
+      setInvokeBusy('')
     }
   }
 
@@ -1122,7 +1134,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                         : 'rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40'
                     }
                   >
-                    {selected.inviteStatus === 'locked' ? 'Unlock' : 'Lock'}
+                    {selected.inviteStatus === 'locked' ? 'Unlock' : lockConfirmPending ? 'Confirm lock?' : 'Lock'}
                   </button>
                   <button
                     type="button"

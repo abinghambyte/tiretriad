@@ -56,8 +56,8 @@ function ListedPlatformsCell({ row }) {
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 1068,
-  gridTemplateColumns: '52px 7rem 2fr 5.5rem 3rem 6rem 7rem 5rem 6rem 6rem',
+  minWidth: 820,
+  gridTemplateColumns: '40px 6rem 2fr 5rem 3rem 5rem 6rem 4.5rem 5.5rem 5.5rem',
   alignItems: 'center',
   columnGap: 0,
 }
