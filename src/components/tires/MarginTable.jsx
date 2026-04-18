@@ -10,6 +10,7 @@ import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import Spinner from '../ui/Spinner.jsx'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { tireCatalogRetailNumber, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
@@ -57,8 +58,8 @@ function ListedPlatformsCell({ row }) {
 const GRID_STYLE = {
   display: 'grid',
   width: '100%',
-  minWidth: 820,
-  gridTemplateColumns: '40px 6rem 2fr 5rem 3rem 5rem 6rem 4.5rem 5.5rem 5.5rem',
+  minWidth: 900,
+  gridTemplateColumns: '40px 6rem 2fr 5rem 3rem 5rem 6rem 5rem 4.5rem 5.5rem 5.5rem',
   alignItems: 'center',
   columnGap: 0,
 }
@@ -74,6 +75,25 @@ function BuyPriceCell({ row }) {
   return (
     <span className="inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-zinc-200 max-sm:min-w-0">
       {text}
+    </span>
+  )
+}
+
+function RetailPriceCell({ row }) {
+  const n = tireCatalogRetailNumber(row)
+  if (!(n > 0 && Number.isFinite(n))) {
+    return <span className="font-mono text-sm text-zinc-600">—</span>
+  }
+  const researched = tireRetailIsResearched(row)
+  return (
+    <span
+      className={
+        researched
+          ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-cyan-200/90 max-sm:min-w-0'
+          : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-500 max-sm:min-w-0'
+      }
+    >
+      {formatCurrency(n)}
     </span>
   )
 }
@@ -408,6 +428,9 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
               {formatCurrencyOrDash(Number(row.fet) || 0)}
             </div>
+            <div className="flex min-w-[5rem] shrink-0 items-center justify-end whitespace-nowrap px-0.5 font-mono text-xs tabular-nums">
+              <RetailPriceCell row={row} />
+            </div>
             <div className="flex min-w-[5.75rem] shrink-0 items-center px-2 text-sm font-semibold tabular-nums text-zinc-200">
               <button
                 type="button"
@@ -468,6 +491,16 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           title="Buy price — catalog buy (includes FET component)"
         >
           <BuyPriceCell row={row} />
+        </div>
+        <div
+          className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm tabular-nums"
+          title={
+            tireRetailIsResearched(row)
+              ? 'Typical US retail (Gemini research)'
+              : 'Legacy catalog retail — will be refreshed on the next research pass'
+          }
+        >
+          <RetailPriceCell row={row} />
         </div>
         <div
           className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
@@ -638,7 +671,7 @@ export function MarginTable({
             ← Scroll for overhead, FET, brand →
           </div>
         ) : null}
-        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1068px]'}`}>
+        <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1148px]'}`}>
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
             style={GRID_STYLE}
@@ -683,6 +716,19 @@ export function MarginTable({
                 active={sortKey === 'buy'}
                 dir={sortDir}
                 onClick={() => onSort('buy')}
+                disabled={loading}
+                touchWide={isMobileTable}
+              />
+            </div>
+            <div
+              className="min-w-0 whitespace-nowrap px-2 text-right"
+              title="Typical retail price from the nightly research job (priceIntel.retailPrice)"
+            >
+              <SortButton
+                label="Retail"
+                active={sortKey === 'retail'}
+                dir={sortDir}
+                onClick={() => onSort('retail')}
                 disabled={loading}
                 touchWide={isMobileTable}
               />
@@ -771,6 +817,16 @@ export function MarginTable({
                 </div>
                 <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
                   FET
+                </div>
+                <div className="flex min-w-[5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                  <SortButton
+                    label="Retail"
+                    active={sortKey === 'retail'}
+                    dir={sortDir}
+                    onClick={() => onSort('retail')}
+                    disabled={loading}
+                    touchWide
+                  />
                 </div>
                 <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
                   OH

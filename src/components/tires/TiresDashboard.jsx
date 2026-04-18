@@ -9,6 +9,7 @@ import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
 import { computeMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { listingStatus } from '../../utils/listingStatus'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { BulkCtsModal } from './BulkCtsModal'
@@ -169,6 +170,14 @@ export function TiresDashboard() {
         const av = tireCatalogBuyNumber(a)
         const bv = tireCatalogBuyNumber(b)
         if (av === bv) return 0
+        return av < bv ? -dir : dir
+      }
+      if (sortKey === 'retail') {
+        const av = tireCatalogRetailNumber(a)
+        const bv = tireCatalogRetailNumber(b)
+        if (av === bv) return 0
+        if (av === 0) return 1
+        if (bv === 0) return -1
         return av < bv ? -dir : dir
       }
       const am = a.margin

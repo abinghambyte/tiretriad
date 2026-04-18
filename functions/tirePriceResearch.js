@@ -443,7 +443,7 @@ async function processInParallel(items, fn, concurrency) {
 }
 
 /**
- * @param {{ token: string, channel: string, geminiKey: string, batchSize?: number }} opts
+ * @param {{ token: string, channel: string, geminiKey: string, batchSize?: number, silentIfEmpty?: boolean }} opts
  */
 async function tirePriceResearchRun(opts) {
   const db = admin.firestore()
@@ -451,6 +451,22 @@ async function tirePriceResearchRun(opts) {
   const channel = String(opts?.channel || '').trim()
   const geminiKey = String(opts?.geminiKey || '').trim()
   const batchSize = Math.max(1, Number(opts?.batchSize) || DEFAULT_BATCH_SIZE)
+  const silentIfEmpty = opts?.silentIfEmpty === true
+
+  // Pick first. If there's no work, bail without the Slack start message so
+  // the hourly catch-up schedule doesn't fire 24 "starting — 0 never researched"
+  // posts once the backlog is clear.
+  const docs = await pickTiresForResearch(db, batchSize)
+  if (docs.length === 0) {
+    console.log('[tirePriceResearch] nothing to do', { batchSize })
+    if (!silentIfEmpty && token && channel) {
+      await slackApiPost(token, 'chat.postMessage', {
+        channel,
+        text: `🔍 Retail price research — backlog is clear. No tires need research right now.`,
+      })
+    }
+    return
+  }
 
   const { neverN, staleN, kyleN } = await countPriceIntelPreflight(db)
   console.log('[tirePriceResearch] preflight', {
@@ -458,16 +474,16 @@ async function tirePriceResearchRun(opts) {
     dueForRefresh: staleN,
     kyleConfirmed: kyleN,
     batchSize,
+    picked: docs.length,
   })
   if (token && channel) {
     const fmt = (n) => (typeof n === 'number' && n >= 0 ? formatQty(n) : '—')
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Retail price research starting — ${fmt(neverN)} never researched, ${fmt(staleN)} due for refresh (6+ days), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching up to ${formatQty(batchSize)} tires this run…`,
+      text: `🔍 Retail price research starting — ${fmt(neverN)} never researched, ${fmt(staleN)} due for refresh (6+ days), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching ${formatQty(docs.length)} tires this run…`,
     })
   }
 
-  const docs = await pickTiresForResearch(db, batchSize)
   const slack = { token, channel }
   const results = await processInParallel(
     docs,
@@ -488,7 +504,7 @@ async function tirePriceResearchRun(opts) {
 
   console.log('[tirePriceResearch] done', { processed: docs.length, updated, notFound, skippedKyle, errored })
 
-  if (token && channel && docs.length > 0) {
+  if (token && channel) {
     const errorNote = errored > 0 ? `, ${formatQty(errored)} errored` : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
