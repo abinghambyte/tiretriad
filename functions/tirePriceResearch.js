@@ -33,6 +33,13 @@ const REFRESH_STALENESS_MS = 6 * 86400000
 const BULK_RESEARCH_MS = 30 * 86400000
 /** Cap retries for tires that Gemini keeps coming back empty on, so obscure SKUs don't spin forever. */
 const MAX_FAILED_ATTEMPTS = 3
+/**
+ * Retail prices more than 50% below or above Kyle's base cost are almost
+ * always a wrong match (wrong size, 4-pack total, hallucination). Reject
+ * them the same way we reject not-found so the retry cycle keeps trying.
+ */
+const SUSPICIOUS_RATIO_LOW = 0.5
+const SUSPICIOUS_RATIO_HIGH = 1.5
 
 function stripJsonFences(text) {
   const t = String(text || '').trim()
@@ -176,6 +183,45 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
 }
 
 /**
+ * Pull the tire size out of a printed description. Handles both flotation
+ * (`37X13.50R20`) and metric (`P265/70R17`) formats. Retailers index on size
+ * far more than on MSPN or tread code, so extracting the size lets us use it
+ * as a clean search key even when the CSV description jams everything into
+ * one unspaced string like `37X13.50R20LT128QLRF HDTAKT`.
+ * @param {string} desc
+ * @returns {string | null} upper-case size string, or null if no size found
+ */
+function extractTireSize(desc) {
+  const raw = String(desc || '')
+  if (!raw) return null
+  const flotation = raw.match(/(\d{2,3}(?:\.\d{1,2})?X\d{1,2}(?:\.\d{1,2})?R\d{2}(?:\.\d{1,2})?)/i)
+  if (flotation) return flotation[1].toUpperCase()
+  const metric = raw.match(/((?:LT|ST|P)?\d{3}\/\d{2,3}(?:\.\d{1,2})?R\d{2}(?:\.\d{1,2})?)/i)
+  if (metric) return metric[1].toUpperCase()
+  return null
+}
+
+/**
+ * Insert spaces at known boundaries in a concatenated printed description so
+ * Google-search-grounded queries match retailer product pages instead of
+ * dead-ending. `37X13.50R20LT128QLRF HDTAKT` becomes
+ * `37X13.50R20 LT 128Q LRF HDTAKT`.
+ * @param {string} desc
+ */
+function formatTireDescriptionForSearch(desc) {
+  let s = String(desc || '').trim()
+  if (!s) return ''
+  // Space after the size block if the next char isn't already whitespace.
+  s = s.replace(/(\d{2,3}(?:\.\d{1,2})?X\d{1,2}(?:\.\d{1,2})?R\d{2}(?:\.\d{1,2})?)(?!\s|$)/gi, '$1 ')
+  s = s.replace(/((?:LT|ST|P)?\d{3}\/\d{2,3}(?:\.\d{1,2})?R\d{2}(?:\.\d{1,2})?)(?!\s|$)/gi, '$1 ')
+  // Split the LT/ST vehicle-type prefix off the load index that follows it.
+  s = s.replace(/\b(LT|ST)(\d)/gi, '$1 $2')
+  // Split the LR[A-J] load-range suffix off whatever precedes it.
+  s = s.replace(/(\w)(LR[A-J])\b/gi, '$1 $2')
+  return s.replace(/\s+/g, ' ').trim()
+}
+
+/**
  * @param {Record<string, unknown>} tire
  */
 function buildResearchUserPrompt(tire) {
@@ -183,16 +229,16 @@ function buildResearchUserPrompt(tire) {
   const desc = String(tire.description || '').trim()
   const tread = String(tire.tread || '').trim()
   const lr = String(tire.lr || '').trim()
+  const size = extractTireSize(desc) || ''
+  const formattedDesc = formatTireDescriptionForSearch(desc)
 
-  // Retailers (TireRack, DiscountTire, SimpleTire, etc.) index on the printed
-  // description the same way consumers type it: brand + size + load index/speed
-  // + tread model, optionally with a load range like "Load Range E". Build the
-  // search string directly from those fields — the MSPN is a manufacturer part
-  // number that almost no retail site uses, so dropping it avoids dead-end
-  // searches.
+  // Retailers (TireRack, DiscountTire, SimpleTire, etc.) index on brand + size
+  // + tread + load range the way consumers type it. CSV descriptions often
+  // jam those fields together without spaces, so we rebuild a clean search
+  // target from the structured pieces when available.
   const searchTarget = [
     brand,
-    desc,
+    size,
     tread && tread !== desc ? tread : '',
     lr ? `Load Range ${lr}` : '',
   ]
@@ -203,11 +249,12 @@ function buildResearchUserPrompt(tire) {
   return [
     `Find the typical current US retail price per single tire, using Google Search.`,
     '',
-    `Search for: ${searchTarget || desc || brand}`,
+    `Search for: ${searchTarget || formattedDesc || brand}`,
     '',
     `Tire:`,
     brand ? `- Brand: ${brand}` : '',
-    desc ? `- Description: ${desc}` : '',
+    size ? `- Size: ${size}` : '',
+    formattedDesc && formattedDesc !== size ? `- Printed description: ${formattedDesc}` : '',
     tread && tread !== desc ? `- Tread model: ${tread}` : '',
     lr ? `- Load range: ${lr}` : '',
     '',
@@ -262,20 +309,41 @@ function sourceEntry(price, source) {
   }
 }
 
+/**
+ * Kyle's base cost for ratio-checking Gemini retail suggestions. Mirrors the
+ * client-side `tireCatalogBuyNumber` fallback chain, minus the legacy
+ * `retailPrice` fallback (circular to check retail against retail).
+ * @param {Record<string, unknown>} tire
+ * @returns {number}
+ */
+function tireBaseCost(tire) {
+  if (tire == null || typeof tire !== 'object') return 0
+  const pi = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
+  const active = Number(pi.activeBuyPrice)
+  if (Number.isFinite(active) && active > 0) return active
+  const price = Number(tire.price)
+  if (Number.isFinite(price) && price > 0) return price
+  const cost = Number(tire.cost)
+  if (Number.isFinite(cost) && cost > 0) return cost
+  return 0
+}
+
 function tireNeedsFirstResearch(data) {
   const pi = data && data.priceIntel
   if (!pi || typeof pi !== 'object') return true
   const lr = pi.lastResearched
   if (lr == null) return true
-  // Retry tires that were "researched" but Gemini returned no price, up to
-  // MAX_FAILED_ATTEMPTS times. Once a tire has that many `gemini_not_found`
-  // source entries, we stop picking it via the first-research path and fall
-  // back to the regular 6-day staleness refresh cycle.
+  // Retry tires that were "researched" but produced no usable price, up to
+  // MAX_FAILED_ATTEMPTS times. Counts both `gemini_not_found` (price was null
+  // or out of sanity range) and `gemini_suspicious_delta` (price came back
+  // but was more than 50% off from Kyle's base cost). Once a tire has that
+  // many combined failures we stop picking it via the first-research path
+  // and fall back to the regular 6-day staleness refresh cycle.
   const retail = Number(pi.retailPrice)
   if (!Number.isFinite(retail) || retail <= 0) {
     const sources = Array.isArray(pi.sources) ? pi.sources : []
     const failedAttempts = sources.filter(
-      (s) => s && s.source === 'gemini_not_found',
+      (s) => s && (s.source === 'gemini_not_found' || s.source === 'gemini_suspicious_delta'),
     ).length
     if (failedAttempts < MAX_FAILED_ATTEMPTS) return true
   }
@@ -425,7 +493,23 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       : null
   const gemConf = normalizeConfidence(parsed.confidence)
 
-  if (foundPrice == null) {
+  // Ratio check against Kyle's base cost. Skipped when we don't have a base
+  // cost to compare against (new tires, CSV gaps).
+  const baseCost = tireBaseCost(tire)
+  const suspiciousDelta =
+    foundPrice != null &&
+    baseCost > 0 &&
+    (foundPrice < baseCost * SUSPICIOUS_RATIO_LOW || foundPrice > baseCost * SUSPICIOUS_RATIO_HIGH)
+
+  if (suspiciousDelta) {
+    console.warn('[tirePriceResearch] suspicious_delta', {
+      mspn,
+      modelUsed,
+      baseCost,
+      foundPrice,
+      ratio: Number((foundPrice / baseCost).toFixed(2)),
+    })
+  } else if (foundPrice == null) {
     // Log the first few hundred chars of the raw response so we can tell
     // whether Gemini actually returned nothing, returned unparseable text, or
     // returned a number we clamped away.
@@ -449,8 +533,9 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
     const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
     const kyleFrozen = pi.kyleConfirmed === true
 
-    if (foundPrice == null) {
-      sources.push(sourceEntry(null, 'gemini_not_found'))
+    if (foundPrice == null || suspiciousDelta) {
+      const tag = suspiciousDelta ? 'gemini_suspicious_delta' : 'gemini_not_found'
+      sources.push(sourceEntry(suspiciousDelta ? foundPrice : null, tag))
       tx.update(ref, {
         priceIntel: {
           ...pi,
@@ -494,10 +579,10 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
 
   if (outcome === 'not_found' && slackMode === 'single' && !silent && token && channel) {
     const line = tireDisplayLine(tire)
-    await slackApiPost(token, 'chat.postMessage', {
-      channel,
-      text: `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`,
-    })
+    const text = suspiciousDelta
+      ? `⚠️ Retail price for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)}) came back ${formatCurrency(foundPrice)} vs base ${formatCurrency(baseCost)}, rejected as suspicious (outside ±50%).`
+      : `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`
+    await slackApiPost(token, 'chat.postMessage', { channel, text })
   }
 
   if (outcome === 'updated' && slackMode === 'single' && !silent && token && channel) {
