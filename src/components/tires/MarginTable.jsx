@@ -5,7 +5,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, tireOverheadParts } from '../../utils/ctsCalc'
-import { computeMargin, marginBadgeLabel } from '../../utils/marginCalc'
+import { computeListingMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import Spinner from '../ui/Spinner.jsx'
@@ -282,14 +282,26 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const row = rows[index]
   if (!row) return null
 
-  const m = computeMargin(row)
+  // Default display: listing margin at researched street retail. Returns null
+  // when no retail is known yet (unresearched or genuine not-found), which the
+  // cell renders as a dash. While Kyle is editing overhead inline, we swap to
+  // the headroom-vs-buy preview so the slider feedback matches the numbers
+  // he is typing in.
+  const m = computeListingMargin(row)
   const showCostEditor = editingCostsId === row.id
   const previewMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : m
 
-  const marginTitle =
-    (previewMargin == null || Number.isNaN(previewMargin)) && (showCostEditor ? buyPriceOf(row) <= 0 : m == null)
-      ? 'No buy price on this catalog row.'
-      : marginBadgeLabel(previewMargin)
+  const marginTitle = (() => {
+    if (showCostEditor) {
+      return buyPriceOf(row) <= 0 ? 'No buy price on this catalog row.' : marginBadgeLabel(previewMargin)
+    }
+    if (m == null) {
+      return buyPriceOf(row) <= 0
+        ? 'No buy price on this catalog row.'
+        : 'Retail not researched yet. Runs hourly; check back.'
+    }
+    return marginBadgeLabel(m)
+  })()
   const marginCell =
     previewMargin != null && !Number.isNaN(previewMargin) ? (
       <span
