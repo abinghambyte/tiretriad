@@ -18,6 +18,7 @@ import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { SaleMessenger } from './SaleMessenger'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
+import Spinner from '../ui/Spinner.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 
 const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
@@ -51,6 +52,8 @@ export function TiresDashboard() {
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
+  const [notifyingTeam, setNotifyingTeam] = useState(false)
+  const [loggingProspective, setLoggingProspective] = useState(false)
   const [needsReposting, setNeedsReposting] = useState(() => {
     const v = searchParams.get('needsReposting')
     return v === '1' || v === 'true'
@@ -280,6 +283,7 @@ export function TiresDashboard() {
     const ctx = selectionPrimaryMspnRows()
     if (!ctx) return
     const first = ctx.rows[0]
+    setNotifyingTeam(true)
     try {
       await notifyTeamQuick({
         mspn: ctx.mspn,
@@ -290,6 +294,8 @@ export function TiresDashboard() {
     } catch (e) {
       console.error(e)
       toast(e?.message || 'Could not notify team.', 'error')
+    } finally {
+      setNotifyingTeam(false)
     }
   }
 
@@ -304,6 +310,7 @@ export function TiresDashboard() {
     }
     const quantity = ctx.rows.length
     const totalPrice = pricePerTire * quantity
+    setLoggingProspective(true)
     try {
       const { data } = await createProspectiveOrder({
         mspn: ctx.mspn,
@@ -321,6 +328,8 @@ export function TiresDashboard() {
     } catch (e) {
       console.error(e)
       toast(e?.message || 'Could not create order — are functions deployed?', 'error')
+    } finally {
+      setLoggingProspective(false)
     }
   }
 
@@ -491,19 +500,21 @@ export function TiresDashboard() {
                 </button>
                 <button
                   type="button"
-                  disabled={loading}
+                  disabled={loading || notifyingTeam}
                   onClick={() => void notifySelectedQuick()}
-                  className="min-h-[44px] rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
                 >
-                  Notify team
+                  {notifyingTeam && <Spinner className="h-4 w-4 text-cyan-100" />}
+                  {notifyingTeam ? 'Notifying…' : 'Notify team'}
                 </button>
                 <button
                   type="button"
-                  disabled={loading}
+                  disabled={loading || loggingProspective}
                   onClick={() => void logSelectedProspective()}
-                  className="min-h-[44px] rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
                 >
-                  Log prospective order
+                  {loggingProspective && <Spinner className="h-4 w-4 text-fuchsia-100" />}
+                  {loggingProspective ? 'Logging…' : 'Log prospective order'}
                 </button>
               </div>
               <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />

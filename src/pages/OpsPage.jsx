@@ -16,6 +16,7 @@ import { Navigate } from 'react-router-dom'
 import { auth, db, functions, firebaseProjectId } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
+import Spinner from '../components/ui/Spinner.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 
@@ -90,6 +91,7 @@ export function OpsPage() {
 
   const [reorderEntries, setReorderEntries] = useState([])
   const [reorderDesc, setReorderDesc] = useState(() => new Map())
+  const [fulfillingId, setFulfillingId] = useState(null)
 
   const [taxStart, setTaxStart] = useState(() => denverMonthStartYmd())
   const [taxEnd, setTaxEnd] = useState(() => denverYmdString())
@@ -201,6 +203,7 @@ export function OpsPage() {
   const removeReorderEntry = useCallback(
     async (id) => {
       const next = reorderEntries.filter((x) => x.id !== id)
+      setFulfillingId(id)
       try {
         await setDoc(
           doc(db, 'meta', 'reorderQueue'),
@@ -212,6 +215,8 @@ export function OpsPage() {
         )
       } catch (err) {
         toast(err?.message || 'Could not update reorder queue.', 'error')
+      } finally {
+        setFulfillingId(null)
       }
     },
     [reorderEntries, toast],
@@ -324,8 +329,9 @@ export function OpsPage() {
               <button
                 type="submit"
                 disabled={savingExp}
-                className="w-full rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50 sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
+                {savingExp && <Spinner className="h-4 w-4 text-zinc-700" />}
                 {savingExp ? 'Saving…' : 'Add expense'}
               </button>
             </div>
@@ -401,8 +407,9 @@ export function OpsPage() {
               type="button"
               onClick={() => void runTaxExport()}
               disabled={taxBusy}
-              className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
             >
+              {taxBusy && <Spinner className="h-4 w-4 text-zinc-700" />}
               {taxBusy ? 'Building CSV…' : 'Download CSV'}
             </button>
           </div>
@@ -445,15 +452,19 @@ export function OpsPage() {
                           <button
                             type="button"
                             onClick={() => void removeReorderEntry(row.id)}
-                            className="rounded border border-emerald-800/80 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-950/50"
+                            disabled={fulfillingId === row.id}
+                            className="inline-flex items-center gap-1.5 rounded border border-emerald-800/80 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-950/50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
+                            {fulfillingId === row.id && <Spinner className="h-3 w-3 text-emerald-300" />}
                             Fulfilled
                           </button>
                           <button
                             type="button"
                             onClick={() => void removeReorderEntry(row.id)}
-                            className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800/80"
+                            disabled={fulfillingId === row.id}
+                            className="inline-flex items-center gap-1.5 rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800/80 disabled:cursor-not-allowed disabled:opacity-50"
                           >
+                            {fulfillingId === row.id && <Spinner className="h-3 w-3 text-zinc-400" />}
                             Dismiss
                           </button>
                         </div>

@@ -28,6 +28,7 @@ import {
   MODAL_CENTER_PANEL,
 } from '../ui/modalChrome.js'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
+import Spinner from '../ui/Spinner.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -921,8 +922,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                           type="button"
                           disabled={invokeBusy !== ''}
                           onClick={() => void revokeInvite()}
-                          className="rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
                         >
+                          {invokeBusy === 'revoke' && <Spinner className="h-3 w-3 text-red-400/80" />}
                           {invokeBusy === 'revoke'
                             ? 'Revoking…'
                             : revokeConfirmPending
@@ -940,8 +942,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                           type="button"
                           disabled={invokeBusy !== ''}
                           onClick={() => void reissueInvite()}
-                          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
                         >
+                          {invokeBusy === 'reissue' && <Spinner className="h-3 w-3 text-zinc-300" />}
                           {invokeBusy === 'reissue' ? 'Sending…' : 'New invite'}
                         </button>
                       ) : null}
@@ -972,9 +975,14 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                       type="button"
                       onClick={() => void applyRoleDefaults()}
                       disabled={saving}
-                      className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
                     >
-                      {roleDefaultsPending ? 'Confirm reset?' : 'Apply defaults'}
+                      {saving && !roleDefaultsPending && <Spinner className="h-3 w-3 text-amber-300/90" />}
+                      {saving && !roleDefaultsPending
+                        ? 'Saving…'
+                        : roleDefaultsPending
+                          ? 'Confirm reset?'
+                          : 'Apply defaults'}
                     </button>
                   </div>
                 </div>
@@ -1123,8 +1131,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 type="button"
                 disabled={saving}
                 onClick={savePermissions}
-                className="flex-1 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
               >
+                {saving && <Spinner className="h-4 w-4 text-white/90" />}
                 {saving ? 'Saving…' : 'Save permissions'}
               </button>
               {selected && selected.id !== auth.currentUser?.uid ? (
@@ -1146,18 +1155,30 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     onClick={() => void lockUser()}
                     className={
                       selected.inviteStatus === 'locked'
-                        ? 'rounded-lg border border-amber-700/60 px-3 py-2.5 text-sm text-amber-300/80 transition-colors hover:bg-amber-950/30 hover:text-amber-200 disabled:opacity-40'
-                        : 'rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40'
+                        ? 'inline-flex items-center gap-1.5 rounded-lg border border-amber-700/60 px-3 py-2.5 text-sm text-amber-300/80 transition-colors hover:bg-amber-950/30 hover:text-amber-200 disabled:opacity-40'
+                        : 'inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40'
                     }
                   >
-                    {selected.inviteStatus === 'locked' ? 'Unlock' : lockConfirmPending ? 'Confirm lock?' : 'Lock'}
+                    {invokeBusy === 'lock' && (
+                      <Spinner className="h-3.5 w-3.5 text-current" />
+                    )}
+                    {invokeBusy === 'lock'
+                      ? selected.inviteStatus === 'locked'
+                        ? 'Unlocking…'
+                        : 'Locking…'
+                      : selected.inviteStatus === 'locked'
+                        ? 'Unlock'
+                        : lockConfirmPending
+                          ? 'Confirm lock?'
+                          : 'Lock'}
                   </button>
                   <button
                     type="button"
                     disabled={invokeBusy !== ''}
                     onClick={() => void deleteUser()}
-                    className="rounded-lg border border-red-900/50 px-3 py-2.5 text-sm font-medium text-red-400/80 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-900/50 px-3 py-2.5 text-sm font-medium text-red-400/80 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
                   >
+                    {invokeBusy === 'delete' && <Spinner className="h-3.5 w-3.5 text-red-400/80" />}
                     {invokeBusy === 'delete'
                       ? 'Deleting…'
                       : deleteConfirmPending
