@@ -179,7 +179,7 @@ function OrderDebriefPrompt({ order }) {
       })
       toast('Debrief skipped', 'success')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Skip failed.', 'error')
     } finally {
       setBusy(false)
     }
@@ -187,7 +187,7 @@ function OrderDebriefPrompt({ order }) {
 
   async function save() {
     if (!['yes', 'no', 'maybe'].includes(vote)) {
-      window.alert('Choose Yes / No / Maybe.')
+      toast('Choose Yes, No, or Maybe before saving.', 'error')
       return
     }
     setBusy(true)
@@ -210,7 +210,7 @@ function OrderDebriefPrompt({ order }) {
       }
       toast('Debrief saved', 'success')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Save failed.', 'error')
     } finally {
       setBusy(false)
     }
@@ -381,11 +381,11 @@ export function OrdersList({ highlightId }) {
   const openNotifyModal = useCallback((order) => {
     const { digits } = buildNotifyPayload(order)
     if (!digits) {
-      window.alert('No usable phone number on this order.')
+      toast('No phone number on this order.', 'error')
       return
     }
     setNotifyModalOrder(order)
-  }, [])
+  }, [toast])
 
   const copyNotifyMessage = useCallback(async () => {
     if (!notifyModalOrder) return
@@ -393,15 +393,15 @@ export function OrdersList({ highlightId }) {
     try {
       await navigator.clipboard.writeText(body)
     } catch {
-      window.alert('Could not copy. Select the message text manually.')
+      toast('Could not copy — select the text manually.', 'error')
     }
     try {
       await persistCustomerNotified(notifyModalOrder)
     } catch (e) {
       console.error(e)
-      window.alert('Copied, but could not save notify fields. Check Firestore rules.')
+      toast('Copied. Firestore save failed — check rules.', 'error')
     }
-  }, [notifyModalOrder, persistCustomerNotified])
+  }, [notifyModalOrder, persistCustomerNotified, toast])
 
   const openNotifySms = useCallback(async () => {
     if (!notifyModalOrder) return
@@ -412,14 +412,14 @@ export function OrdersList({ highlightId }) {
       await persistCustomerNotified(notifyModalOrder)
     } catch (e) {
       console.error(e)
-      window.alert('Opened Messages but could not save notify fields. Check Firestore rules.')
+      toast('SMS opened. Firestore save failed — check rules.', 'error')
     }
-  }, [notifyModalOrder, persistCustomerNotified])
+  }, [notifyModalOrder, persistCustomerNotified, toast])
 
   const pokeCustomer = useCallback(async (order) => {
     const digits = smsDigits(order.customerContact)
     if (!digits) {
-      window.alert('No usable phone number on this order.')
+      toast('No phone number on this order.', 'error')
       return
     }
     const body = pokeBody(order)
@@ -439,9 +439,9 @@ export function OrdersList({ highlightId }) {
       })
     } catch (e) {
       console.error(e)
-      window.alert('Opened SMS but could not save poke fields. Check Firestore rules.')
+      toast('SMS opened. Poke save failed — check rules.', 'error')
     }
-  }, [])
+  }, [toast])
 
   const openComplete = (order) => {
     setPaymentReceived(true)
@@ -453,7 +453,7 @@ export function OrdersList({ highlightId }) {
     if (!completeFor) return
     const amt = Number(paymentAmount)
     if (!Number.isFinite(amt) || amt < 0) {
-      window.alert('Enter a valid payment amount.')
+      toast('Enter a valid payment amount.', 'error')
       return
     }
     setSubmitting(true)
@@ -466,7 +466,7 @@ export function OrdersList({ highlightId }) {
       setCompleteFor(null)
     } catch (err) {
       console.error(err)
-      window.alert(err?.message || String(err))
+      toast(err?.message || 'Could not complete order.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -481,11 +481,11 @@ export function OrdersList({ highlightId }) {
   const submitCancel = async () => {
     if (!cancelFor) return
     if (!cancelDisp) {
-      window.alert('Choose a cancellation reason.')
+      toast('Choose a cancellation reason.', 'error')
       return
     }
     if (cancelDisp === 'other' && !cancelNote.trim()) {
-      window.alert('Add a short note when Other is selected.')
+      toast('Add a short note for Other.', 'error')
       return
     }
     setCancelSubmitting(true)
@@ -499,7 +499,7 @@ export function OrdersList({ highlightId }) {
       toast('Order cancelled', 'success')
     } catch (e) {
       console.error(e)
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Could not cancel order.', 'error')
     } finally {
       setCancelSubmitting(false)
     }
@@ -580,6 +580,7 @@ export function OrdersList({ highlightId }) {
               className={[
                 'rounded-xl border border-zinc-800 bg-zinc-900/40 p-4',
                 isHi ? 'ring-2 ring-amber-500/50' : '',
+                String(o.status || '') === 'prospective' ? 'opacity-60' : '',
               ].join(' ')}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
