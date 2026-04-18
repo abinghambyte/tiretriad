@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useToast } from '../../context/ToastContext.jsx'
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../../firebase/config'
@@ -244,6 +245,7 @@ function SellProbabilityBadge({ value }) {
  * @param {(p: { mspn: string, quantity: number, pricePerTire: number }) => void} [props.onUseRecommendedPrice]
  */
 export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
+  const { toast } = useToast()
   const [platform, setPlatform] = useState(PLATFORMS[0])
   const [lines, setLines] = useState(() => initLines(tires))
   const [generated, setGenerated] = useState([])
@@ -272,13 +274,13 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
       }, 2000)
     } catch (e) {
       console.error(e)
-      window.alert(e instanceof Error ? e.message : 'Could not update listing timestamp.')
+      toast(e instanceof Error ? e.message : 'Could not update listing timestamp.', 'error')
       setMarkPostedUi((prev) => ({
         ...prev,
         [tireId]: { ...prev[tireId], [platform]: 'idle' },
       }))
     }
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     function onKey(e) {

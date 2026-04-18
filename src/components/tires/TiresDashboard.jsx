@@ -258,15 +258,13 @@ export function TiresDashboard() {
     if (picks.length === 0) return null
     const m0 = String(picks[0].mspn || '').trim()
     if (!m0) {
-      window.alert('Selected tires are missing an MSPN.')
+      toast('Selected tires are missing an MSPN.', 'error')
       return null
     }
     const same = picks.filter((p) => String(p.mspn || '').trim() === m0)
     const mixed = picks.some((p) => String(p.mspn || '').trim() !== m0)
     if (mixed) {
-      window.alert(
-        'Selection includes multiple MSPNs. Using the first SKU and the count of rows that match it.',
-      )
+      toast('Mixed MSPNs selected — using first SKU and matching rows only.', 'error')
     }
     return { mspn: m0, rows: same }
   }
@@ -301,7 +299,7 @@ export function TiresDashboard() {
     const first = ctx.rows[0]
     const pricePerTire = tireCatalogBuyNumber(first)
     if (!Number.isFinite(pricePerTire) || pricePerTire <= 0) {
-      window.alert('Selected tire needs a valid buy price (Kyle catalog price) for a prospective order.')
+      toast('Selected tire needs a valid buy price (Kyle catalog price).', 'error')
       return
     }
     const quantity = ctx.rows.length
@@ -322,7 +320,7 @@ export function TiresDashboard() {
       }
     } catch (e) {
       console.error(e)
-      window.alert(e?.message || 'Could not create prospective order. Deploy functions?')
+      toast(e?.message || 'Could not create order — are functions deployed?', 'error')
     }
   }
 

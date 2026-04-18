@@ -554,8 +554,9 @@ export function MarginTable({
         closeCostEdit()
       } catch (e) {
         console.error(e)
-        window.alert(
+        toast(
           e instanceof Error ? e.message : 'Could not save overhead. Check Firestore rules.',
+          'error',
         )
       } finally {
         setCostSaving(false)

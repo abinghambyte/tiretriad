@@ -189,7 +189,7 @@ export function ContactsPage({ embedded = false }) {
       await updateDoc(doc(db, 'contacts', selected.id), { notes: notesDraft })
       toast('Notes saved', 'success')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Could not save notes.', 'error')
     } finally {
       setNotesSaving(false)
     }
@@ -199,7 +199,7 @@ export function ContactsPage({ embedded = false }) {
     if (!selected || !canManagePeople) return
     const name = String(nameDraft || '').trim()
     if (!name) {
-      window.alert('Name is required.')
+      toast('Name is required.', 'error')
       return
     }
     setNameSaving(true)
@@ -207,7 +207,7 @@ export function ContactsPage({ embedded = false }) {
       await updateDoc(doc(db, 'contacts', selected.id), { name })
       toast('Name updated', 'success')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Could not update name.', 'error')
     } finally {
       setNameSaving(false)
     }
@@ -271,7 +271,7 @@ export function ContactsPage({ embedded = false }) {
       toast('Contact removed', 'success')
       setSelected(null)
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     }
   }
 

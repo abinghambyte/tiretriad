@@ -29,6 +29,7 @@ import {
 } from '../ui/modalChrome.js'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
+import { useToast } from '../../context/ToastContext.jsx'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -279,6 +280,7 @@ function elevationCountdownLabel(u, tick) {
  * When true, skips outer shell + header (used under People page with shared chrome).
  */
 export function PeopleDashboard({ omitPageChrome = false }) {
+  const { toast } = useToast()
   const { profile } = useUserProfile()
   const navigate = useNavigate()
   const [users, setUsers] = useState([])
@@ -395,7 +397,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       closeEditor()
     } catch (e) {
       console.error(e)
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setSaving(false)
     }
@@ -420,7 +422,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       setPermDraft({ ...ROLE_DEFAULTS[roleDraft] })
     } catch (e) {
       console.error(e)
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setSaving(false)
     }
@@ -437,7 +439,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         inviteStatus: isLocked ? 'renewed' : 'locked',
       })
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     }
   }
 
@@ -447,7 +449,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     try {
       await updatePortalUser({ targetUid: selected.id, ghostMode: next })
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     }
   }
 
@@ -472,7 +474,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       setAccessLog(rows)
     } catch (e) {
       console.error(e)
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setLogLoading(false)
     }
@@ -480,7 +482,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function submitCreateUser() {
     if (isTannerPortalBlocked(fn, ln, email)) {
-      window.alert('This partner is not provisioned in the People system.')
+      toast('This partner is not provisioned in the People system.', 'error')
       return
     }
     setCreateBusy(true)
@@ -517,7 +519,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       setCreateDrawerOpen(false)
     } catch (err) {
       console.error(err)
-      window.alert(err?.message || String(err))
+      toast(err?.message || 'Action failed.', 'error')
     } finally {
       setCreateBusy(false)
     }
@@ -525,11 +527,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function openInvitePreview() {
     if (!fn.trim() || !ln.trim() || !email.trim()) {
-      window.alert('Enter first name, last name, and email before preview.')
+      toast('Enter first name, last name, and email before preview.', 'error')
       return
     }
     if (isTannerPortalBlocked(fn, ln, email)) {
-      window.alert('This partner is not provisioned in the People system.')
+      toast('This partner is not provisioned in the People system.', 'error')
       return
     }
     setPreviewOpen(true)
@@ -553,7 +555,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   async function saveTimedElevation() {
     if (!selected) return
     if (!eleModule || !eleLevel || !eleDuration) {
-      window.alert('Choose module, elevated level, and duration.')
+      toast('Choose module, elevated level, and duration.', 'error')
       return
     }
     setEleSaving(true)
@@ -564,9 +566,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         elevatedLevel: eleLevel,
         duration: eleDuration,
       })
-      window.alert('Temporary elevation saved. It will revert automatically when it expires.')
+      toast('Temporary elevation saved — will revert when it expires.', 'success')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setEleSaving(false)
     }
@@ -580,7 +582,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       await revokeInviteFn({ targetUid: selected.id })
       setPanelInviteUrl('')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setInvokeBusy('')
     }
@@ -593,7 +595,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: 'email' })
       setPanelInviteUrl(data.inviteUrl || '')
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setInvokeBusy('')
     }
@@ -613,7 +615,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       await deletePortalUserFn({ targetUid: selected.id })
       closeEditor()
     } catch (e) {
-      window.alert(e?.message || String(e))
+      toast(e?.message || 'Action failed.', 'error')
     } finally {
       setInvokeBusy('')
     }

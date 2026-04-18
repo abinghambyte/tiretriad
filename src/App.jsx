@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { ErrorBoundary } from './components/ui/ErrorBoundary.jsx'
 import { PortalChrome } from './components/layout/PortalChrome.jsx'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { CrmDispatchPage } from './pages/CrmDispatchPage'
@@ -22,7 +23,13 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/i/:token" element={<InvitePage />} />
       <Route path="/intake/mechanic" element={<MechanicIntakePage />} />
-      <Route element={<PortalChrome />}>
+      <Route
+        element={
+          <ErrorBoundary>
+            <PortalChrome />
+          </ErrorBoundary>
+        }
+      >
         <Route
           path="/handshake"
           element={

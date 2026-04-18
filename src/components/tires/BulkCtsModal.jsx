@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { doc, writeBatch } from 'firebase/firestore'
 import { db } from '../../firebase/config'
+import { useToast } from '../../context/ToastContext.jsx'
 import { computeCts } from '../../utils/ctsCalc'
 import { formatCurrency } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
@@ -14,6 +15,7 @@ function num(v) {
  * @param {{ open: boolean, onClose: () => void, tires: { id: string }[] }} props
  */
 export function BulkCtsModal({ open, onClose, tires }) {
+  const { toast } = useToast()
   const [mountCost, setMountCost] = useState(0)
   const [deliveryCost, setDeliveryCost] = useState(0)
   const [otherCost, setOtherCost] = useState(0)
@@ -60,10 +62,11 @@ export function BulkCtsModal({ open, onClose, tires }) {
       onClose()
     } catch (e) {
       console.error(e)
-      window.alert(
+      toast(
         e instanceof Error
           ? e.message
           : 'Bulk save failed. Check Firestore rules and your connection.',
+        'error',
       )
     } finally {
       setSaving(false)
