@@ -87,6 +87,7 @@ export function TaskDispatcherPage() {
   const [outstanding, setOutstanding] = useState('')
   const [nextBrief, setNextBrief] = useState('')
   const [copied, setCopied] = useState(false)
+  const [clearPending, setClearPending] = useState(false)
 
   useEffect(() => {
     const h = readHandoff()
@@ -137,7 +138,11 @@ export function TaskDispatcherPage() {
   }, [result])
 
   const clearHandoff = useCallback(() => {
-    if (!window.confirm('Clear all four handoff fields?')) return
+    if (!clearPending) {
+      setClearPending(true)
+      return
+    }
+    setClearPending(false)
     setDecided('')
     setCompleted('')
     setOutstanding('')
@@ -147,7 +152,7 @@ export function TaskDispatcherPage() {
     } catch {
       /* ignore */
     }
-  }, [])
+  }, [clearPending])
 
   const costLabel = useMemo(() => {
     const r = result?.costCheckResult
@@ -316,10 +321,10 @@ export function TaskDispatcherPage() {
           <h2 className="text-sm font-semibold text-zinc-200">Session handoff</h2>
           <button
             type="button"
-            onClick={clearHandoff}
+            onClick={() => void clearHandoff()}
             className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
           >
-            Clear Handoff
+            {clearPending ? 'Confirm clear?' : 'Clear Handoff'}
           </button>
         </div>
         <p className="mt-1 text-xs text-zinc-500">
@@ -330,7 +335,10 @@ export function TaskDispatcherPage() {
             DECIDED
             <textarea
               value={decided}
-              onChange={(e) => setDecided(e.target.value)}
+              onChange={(e) => {
+                setClearPending(false)
+                setDecided(e.target.value)
+              }}
               rows={4}
               className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40"
             />
@@ -339,7 +347,10 @@ export function TaskDispatcherPage() {
             COMPLETED
             <textarea
               value={completed}
-              onChange={(e) => setCompleted(e.target.value)}
+              onChange={(e) => {
+                setClearPending(false)
+                setCompleted(e.target.value)
+              }}
               rows={4}
               className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40"
             />
@@ -348,7 +359,10 @@ export function TaskDispatcherPage() {
             OUTSTANDING
             <textarea
               value={outstanding}
-              onChange={(e) => setOutstanding(e.target.value)}
+              onChange={(e) => {
+                setClearPending(false)
+                setOutstanding(e.target.value)
+              }}
               rows={4}
               className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40"
             />
@@ -357,7 +371,10 @@ export function TaskDispatcherPage() {
             NEXT SESSION BRIEF
             <textarea
               value={nextBrief}
-              onChange={(e) => setNextBrief(e.target.value)}
+              onChange={(e) => {
+                setClearPending(false)
+                setNextBrief(e.target.value)
+              }}
               rows={4}
               className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40"
             />

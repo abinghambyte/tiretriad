@@ -317,6 +317,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [showAvailability, setShowAvailability] = useState(false)
   const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | 'delete' | 'lock' | ''
   const [lockConfirmPending, setLockConfirmPending] = useState(false)
+  const [revokeConfirmPending, setRevokeConfirmPending] = useState(false)
+  const [deleteConfirmPending, setDeleteConfirmPending] = useState(false)
+  const [roleDefaultsPending, setRoleDefaultsPending] = useState(false)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
@@ -351,6 +354,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const openEditor = useCallback((u) => {
     setSelected(u)
     setLockConfirmPending(false)
+    setRevokeConfirmPending(false)
+    setDeleteConfirmPending(false)
+    setRoleDefaultsPending(false)
     const r = u.role || 'viewer'
     setRoleDraft(r)
     const base = { ...ROLE_DEFAULTS[r], ...(u.permissions || {}) }
@@ -363,6 +369,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const closeEditor = useCallback(() => {
     setSelected(null)
     setLockConfirmPending(false)
+    setRevokeConfirmPending(false)
+    setDeleteConfirmPending(false)
+    setRoleDefaultsPending(false)
     setPermDraft({})
     setPanelInviteUrl('')
   }, [])
@@ -408,13 +417,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function applyRoleDefaults() {
     if (!selected) return
-    if (
-      !window.confirm(
-        'Changing role resets permissions to defaults for that role. Continue?',
-      )
-    ) {
+    if (!roleDefaultsPending) {
+      setRoleDefaultsPending(true)
       return
     }
+    setRoleDefaultsPending(false)
     setSaving(true)
     try {
       await updatePortalUser({
@@ -588,7 +595,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function revokeInvite() {
     if (!selected) return
-    if (!window.confirm(`Revoke the invite for ${selected.firstName} ${selected.lastName}? They will not be able to use the current link.`)) return
+    if (!revokeConfirmPending) {
+      setRevokeConfirmPending(true)
+      return
+    }
+    setRevokeConfirmPending(false)
     setInvokeBusy('revoke')
     try {
       await revokeInviteFn({ targetUid: selected.id })
@@ -615,13 +626,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function deleteUser() {
     if (!selected) return
-    const name = `${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.email
-    if (
-      !window.confirm(
-        `Permanently delete ${name}? This removes their account, invite tokens, and Firestore record. This cannot be undone.`,
-      )
-    )
+    if (!deleteConfirmPending) {
+      setDeleteConfirmPending(true)
       return
+    }
+    setDeleteConfirmPending(false)
     setInvokeBusy('delete')
     try {
       await deletePortalUserFn({ targetUid: selected.id })
@@ -914,7 +923,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                           onClick={() => void revokeInvite()}
                           className="rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
                         >
-                          {invokeBusy === 'revoke' ? 'Revoking…' : 'Revoke'}
+                          {invokeBusy === 'revoke'
+                            ? 'Revoking…'
+                            : revokeConfirmPending
+                              ? 'Confirm revoke?'
+                              : 'Revoke'}
                         </button>
                       </div>
                       <InviteUrlToolkit url={panelInviteUrl} />
@@ -943,7 +956,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <div className="flex-1">
                       <select
                         value={roleDraft}
-                        onChange={(e) => setRoleDraft(e.target.value)}
+                        onChange={(e) => {
+                          setRoleDraft(e.target.value)
+                          setRoleDefaultsPending(false)
+                        }}
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm"
                       >
                         <option value="admin">{crewTagFromRole('admin')}</option>
@@ -954,11 +970,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     </div>
                     <button
                       type="button"
-                      onClick={applyRoleDefaults}
+                      onClick={() => void applyRoleDefaults()}
                       disabled={saving}
                       className="whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-2 text-xs text-amber-300/90 transition-colors hover:bg-zinc-800 hover:text-amber-200 disabled:opacity-40"
                     >
-                      Apply defaults
+                      {roleDefaultsPending ? 'Confirm reset?' : 'Apply defaults'}
                     </button>
                   </div>
                 </div>
@@ -1142,7 +1158,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     onClick={() => void deleteUser()}
                     className="rounded-lg border border-red-900/50 px-3 py-2.5 text-sm font-medium text-red-400/80 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
                   >
-                    {invokeBusy === 'delete' ? 'Deleting…' : 'Delete'}
+                    {invokeBusy === 'delete'
+                      ? 'Deleting…'
+                      : deleteConfirmPending
+                        ? 'Confirm delete?'
+                        : 'Delete'}
                   </button>
                 </>
               ) : null}

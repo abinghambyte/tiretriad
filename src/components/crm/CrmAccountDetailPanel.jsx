@@ -72,6 +72,7 @@ function fmtActivityAt(ts) {
  */
 export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onRefresh, avgBuyPerTire }) {
   const [draft, setDraft] = useState({ ...account })
+  const [removeVehiclePendingId, setRemoveVehiclePendingId] = useState(null)
   /** Preset segment dropdown vs free-text custom label (not a Firestore field). */
   const [segmentMode, setSegmentMode] = useState(() => (crmSegmentIsPreset(account.segment) ? 'preset' : 'custom'))
   const [vehLabel, setVehLabel] = useState('')
@@ -772,11 +773,15 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                   type="button"
                   className="text-red-400 hover:underline"
                   onClick={() => {
-                    if (!window.confirm('Remove vehicle?')) return
-                    void deleteDoc(doc(db, 'crmVehicles', v.id))
+                      if (removeVehiclePendingId !== v.id) {
+                        setRemoveVehiclePendingId(v.id)
+                        return
+                      }
+                      setRemoveVehiclePendingId(null)
+                      void deleteDoc(doc(db, 'crmVehicles', v.id))
                   }}
                 >
-                  Remove
+                  {removeVehiclePendingId === v.id ? 'Confirm?' : 'Remove'}
                 </button>
               ) : null}
             </li>

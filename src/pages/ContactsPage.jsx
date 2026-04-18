@@ -59,6 +59,7 @@ export function ContactsPage({ embedded = false }) {
   const [sortKey, setSortKey] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
   const [selected, setSelected] = useState(null)
+  const [removeContactPending, setRemoveContactPending] = useState(false)
   const [ordersFor, setOrdersFor] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [ghostCount, setGhostCount] = useState(null)
@@ -260,15 +261,15 @@ export function ContactsPage({ embedded = false }) {
 
   async function removeSelectedContact() {
     if (!selected || !canManagePeople) return
-    const oc = Number(selected.orderCount) || 0
-    const msg =
-      oc > 0
-        ? `Remove this contact (${displayPhone(selected.id)})? They have ${oc} linked order(s) in history; orders are not deleted, but the contact row will disappear from Customers.`
-        : `Remove this contact (${displayPhone(selected.id)})?`
-    if (!window.confirm(msg)) return
+    if (!removeContactPending) {
+      setRemoveContactPending(true)
+      return
+    }
+    setRemoveContactPending(false)
     try {
       await deleteDoc(doc(db, 'contacts', selected.id))
       toast('Contact removed', 'success')
+      setRemoveContactPending(false)
       setSelected(null)
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
@@ -283,7 +284,10 @@ export function ContactsPage({ embedded = false }) {
   useEffect(() => {
     if (!selected) return undefined
     function onKey(e) {
-      if (e.key === 'Escape') setSelected(null)
+      if (e.key === 'Escape') {
+        setRemoveContactPending(false)
+        setSelected(null)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -521,7 +525,7 @@ export function ContactsPage({ embedded = false }) {
                       onClick={() => void removeSelectedContact()}
                       className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-950/50"
                     >
-                      Remove contact…
+                      {removeContactPending ? 'Confirm remove?' : 'Remove contact…'}
                     </button>
                   </div>
                 ) : null}
