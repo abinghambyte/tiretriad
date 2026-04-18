@@ -8,5 +8,9 @@ export function tireCatalogBuyNumber(t) {
   const pi = t.priceIntel && typeof t.priceIntel === 'object' ? t.priceIntel : {}
   const active = Number(pi.activeBuyPrice)
   if (Number.isFinite(active) && active > 0) return active
-  return Number(t.price ?? t.cost ?? t.retailPrice) || 0
+  const price = Number(t.price)
+  if (Number.isFinite(price) && price > 0) return price
+  const cost = Number(t.cost)
+  if (Number.isFinite(cost) && cost > 0) return cost
+  return Number(t.retailPrice) || 0
 }
