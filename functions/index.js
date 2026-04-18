@@ -758,7 +758,31 @@ exports.morningBrief = onSchedule(
   },
 )
 
-/** Daily 2:00 AM America/Denver — tire wholesale price intelligence (Gemini + Slack). */
+async function runScheduledRetailResearch(triggerLabel) {
+  const token = String(SLACK_BOT_TOKEN.value() || '').trim()
+  const channel = String(slackChannelWithSecretFallback() || '').trim()
+  const geminiKey = String(GEMINI_API_KEY.value() || '').trim()
+  try {
+    await tirePriceResearchRun({ token, channel, geminiKey })
+  } catch (err) {
+    console.error(`tirePriceResearch ${triggerLabel} run failed`, err)
+    const msg = escapeSlackMrkdwn(
+      String(err instanceof Error ? err.message : err).slice(0, 300),
+    )
+    if (token && channel) {
+      try {
+        await slackApiPost(token, 'chat.postMessage', {
+          channel,
+          text: `:warning: *Retail price research (${triggerLabel}) failed*\n${msg}\n_Retail reference may be stale, check Firebase logs._`,
+        })
+      } catch (slackErr) {
+        console.error(`tirePriceResearch ${triggerLabel} Slack alert failed`, slackErr)
+      }
+    }
+  }
+}
+
+/** 2:00 AM America/Denver retail price research run. */
 exports.tirePriceResearch = onSchedule(
   {
     schedule: '0 2 * * *',
@@ -768,29 +792,20 @@ exports.tirePriceResearch = onSchedule(
     timeoutSeconds: 540,
     memory: '1GiB',
   },
-  async () => {
-    const token = String(SLACK_BOT_TOKEN.value() || '').trim()
-    const channel = String(slackChannelWithSecretFallback() || '').trim()
-    const geminiKey = String(GEMINI_API_KEY.value() || '').trim()
-    try {
-      await tirePriceResearchRun({ token, channel, geminiKey })
-    } catch (err) {
-      console.error('tirePriceResearch scheduled run failed', err)
-      const msg = escapeSlackMrkdwn(
-        String(err instanceof Error ? err.message : err).slice(0, 300),
-      )
-      if (token && channel) {
-        try {
-          await slackApiPost(token, 'chat.postMessage', {
-            channel,
-            text: `:warning: *Nightly tire price research failed*\n${msg}\n_Buy prices may be stale — check Firebase logs._`,
-          })
-        } catch (slackErr) {
-          console.error('tirePriceResearch failure Slack alert failed', slackErr)
-        }
-      }
-    }
+  () => runScheduledRetailResearch('2am'),
+)
+
+/** 2:00 PM America/Denver second daily retail price research run (coverage). */
+exports.tirePriceResearchAfternoon = onSchedule(
+  {
+    schedule: '0 14 * * *',
+    timeZone: 'America/Denver',
+    region: 'us-central1',
+    secrets: TIRE_PRICE_INTEL_SECRETS,
+    timeoutSeconds: 540,
+    memory: '1GiB',
   },
+  () => runScheduledRetailResearch('2pm'),
 )
 
 /**

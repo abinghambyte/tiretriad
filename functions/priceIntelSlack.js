@@ -50,25 +50,6 @@ async function resolveSlackUserAdminOrSupplier(db, slackUserId) {
   return { allowed: false }
 }
 
-function numericPricesFromSources(sources) {
-  if (!Array.isArray(sources)) return []
-  return sources.map((s) => Number(s?.price)).filter((n) => Number.isFinite(n) && n > 0)
-}
-
-function runningAverageFromSources(sources) {
-  const nums = numericPricesFromSources(sources)
-  if (!nums.length) return 0
-  return nums.reduce((a, b) => a + b, 0) / nums.length
-}
-
-function historicLowFromSources(sources, activeBuy) {
-  const nums = [...numericPricesFromSources(sources)]
-  const a = Number(activeBuy)
-  if (Number.isFinite(a) && a > 0) nums.push(a)
-  if (!nums.length) return 0
-  return Math.min(...nums)
-}
-
 function sourceEntry(price, source) {
   return {
     price: price == null ? null : Number(price),
@@ -197,11 +178,9 @@ async function executePriceHistoryPost(db, botToken, postChannel, mspn) {
     text: {
       type: 'mrkdwn',
       text: [
-        `*Active buy:* ${formatCurrency(Number(pi.activeBuyPrice) || 0)}`,
-        `*Rolling avg:* ${formatCurrency(Number(pi.runningAverage) || 0)}`,
-        `*Historic low:* ${formatCurrency(Number(pi.historicLow) || 0)}`,
+        `*Retail price:* ${formatCurrency(Number(pi.retailPrice) || 0)}`,
         `*Confidence:* ${escapeSlackMrkdwn(String(pi.confidence || '—'))}`,
-        `*Kyle confirmed:* ${pi.kyleConfirmed === true ? 'yes' : 'no'}`,
+        `*Locked by Kyle:* ${pi.kyleConfirmed === true ? 'yes' : 'no'}`,
       ].join('\n'),
     },
   })
@@ -247,14 +226,10 @@ async function executeConfirmPricing(db, botToken, postChannel, userId, mspn, pr
     const pi = t.priceIntel && typeof t.priceIntel === 'object' ? { ...t.priceIntel } : {}
     const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
     sources.push(sourceEntry(price, 'kyle_confirmed'))
-    const runningAverage = runningAverageFromSources(sources)
-    const historicLow = historicLowFromSources(sources, price)
     tx.update(ref, {
       priceIntel: {
         ...pi,
-        activeBuyPrice: price,
-        runningAverage,
-        historicLow,
+        retailPrice: price,
         kyleConfirmed: true,
         kyleConfirmedAt: FieldValue.serverTimestamp(),
         sources,
@@ -342,14 +317,14 @@ async function tryHandlePriceIntelSlash(db, token, fleetChannel, form) {
         })
         for (const { r, pi } of list.slice(0, 25)) {
           const desc = String(r.description || r.brand || '—').trim().slice(0, 120)
-          const ab = Number(pi.activeBuyPrice)
-          const buyTxt = Number.isFinite(ab) && ab > 0 ? formatCurrency(ab) : '—'
+          const rp = Number(pi.retailPrice)
+          const retailTxt = Number.isFinite(rp) && rp > 0 ? formatCurrency(rp) : '—'
           const lr = formatTsDenver(pi.lastResearched)
           blocks.push({
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `• *\`${escapeSlackMrkdwn(r.id)}\`* ${escapeSlackMrkdwn(String(r.brand || ''))} — ${escapeSlackMrkdwn(desc)}\n  _Buy:_ ${buyTxt} · _Last researched:_ ${lr}`,
+              text: `• *\`${escapeSlackMrkdwn(r.id)}\`* ${escapeSlackMrkdwn(String(r.brand || ''))} — ${escapeSlackMrkdwn(desc)}\n  _Retail:_ ${retailTxt} · _Last researched:_ ${lr}`,
             },
           })
         }
@@ -636,14 +611,10 @@ async function tryHandlePriceIntelBlockActions(db, token, envChannel, payload) {
     const pi = t.priceIntel && typeof t.priceIntel === 'object' ? { ...t.priceIntel } : {}
     const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
     sources.push(sourceEntry(proposed, 'slack_accept'))
-    const runningAverage = runningAverageFromSources(sources)
-    const historicLow = historicLowFromSources(sources, proposed)
     tx.update(ref, {
       priceIntel: {
         ...pi,
-        activeBuyPrice: proposed,
-        runningAverage,
-        historicLow,
+        retailPrice: proposed,
         sources,
         flagged: false,
         flagReason: null,

@@ -1,65 +1,63 @@
-'use strict'
+/**
+ * Nightly retail-price research.
+ *
+ * Looks up the typical US retail price per tire using Gemini with Google search
+ * grounding, and writes the result to `priceIntel.retailPrice`. Source of truth
+ * for Kyle's buy cost stays on the CSV-sourced `price` field; this layer is a
+ * retail reference only, used for listing decisions and margin comparisons.
+ *
+ * Fields written to each tire (all under `priceIntel`):
+ *   retailPrice   number  | typical per-tire retail seen across major sellers
+ *   confidence    string  | 'high' | 'medium' | 'low' (from Gemini)
+ *   lastResearched Timestamp
+ *   lastUpdated   Timestamp
+ *   sources       Array   | append-only audit trail of price lookups
+ *   kyleConfirmed bool    | when true, we skip this tire on future runs (freeze)
+ */
 
 const admin = require('firebase-admin')
-const { FieldValue, Timestamp, FieldPath } = require('firebase-admin/firestore')
+const { FieldValue, FieldPath, Timestamp } = require('firebase-admin/firestore')
+const { formatCurrency, formatQty } = require('./format')
 const { parseDescription } = require('./parseTireDescription')
-const { formatCurrency, formatPercent, formatQty } = require('./format')
 
-/** @typedef {'updated'|'flagged_delta'|'not_found'|'skipped_kyle'} ResearchOutcome */
+const CONCURRENCY = 10
+const DEFAULT_BATCH_SIZE = 500
+const SANITY_MIN = 10
+const SANITY_MAX = 2000
+const REFRESH_STALENESS_MS = 6 * 86400000
+const BULK_RESEARCH_MS = 30 * 86400000
 
 function stripJsonFences(text) {
-  let s = String(text || '').trim()
-  const full = /^```(?:json)?\s*([\s\S]*?)```\s*$/im.exec(s)
-  if (full) return full[1].trim()
-  const inner = /```(?:json)?\s*([\s\S]*?)```/im.exec(s)
-  if (inner) return inner[1].trim()
-  return s
-    .replace(/^```(?:json)?\s*\n?/i, '')
-    .replace(/\n?```\s*$/i, '')
-    .trim()
+  const t = String(text || '').trim()
+  if (!t.startsWith('```')) return t
+  return t.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
 }
 
 function normalizeConfidence(c) {
-  const x = String(c || '').toLowerCase()
-  if (x === 'high' || x === 'medium' || x === 'low') return x
+  const s = String(c || '').toLowerCase().trim()
+  if (s === 'high' || s === 'medium' || s === 'low') return s
   return 'low'
 }
 
 function tryParsePriceJson(text) {
-  const trimmed = stripJsonFences(text)
-  if (!trimmed) return { ok: false, price: null, confidence: 'low', notes: 'empty' }
+  const t = stripJsonFences(text)
   try {
-    const obj = JSON.parse(trimmed)
-    if (!obj || typeof obj !== 'object') return { ok: false, price: null, confidence: 'low', notes: 'not object' }
-    const price = Number(obj.price)
-    const confidence = normalizeConfidence(obj.confidence)
-    const notes = String(obj.notes || '').trim().slice(0, 500)
-    const okPrice = Number.isFinite(price) && price > 0
-    return { ok: okPrice, price: okPrice ? price : null, confidence, notes }
-  } catch {
-    const start = trimmed.indexOf('{')
-    const end = trimmed.lastIndexOf('}')
-    if (start >= 0 && end > start) {
-      try {
-        const obj = JSON.parse(trimmed.slice(start, end + 1))
-        const price = Number(obj.price)
-        const confidence = normalizeConfidence(obj.confidence)
-        const notes = String(obj.notes || '').trim().slice(0, 500)
-        const okPrice = Number.isFinite(price) && price > 0
-        return { ok: okPrice, price: okPrice ? price : null, confidence, notes }
-      } catch {
-        return { ok: false, price: null, confidence: 'low', notes: 'parse error' }
-      }
+    const o = JSON.parse(t)
+    const price = o?.price == null ? null : Number(o.price)
+    const confidence = normalizeConfidence(o?.confidence)
+    const notes = String(o?.notes || '').slice(0, 400)
+    return {
+      ok: true,
+      price: Number.isFinite(price) ? price : null,
+      confidence,
+      notes,
     }
-    return { ok: false, price: null, confidence: 'low', notes: 'parse error' }
+  } catch {
+    return { ok: false, price: null, confidence: 'low', notes: 'parse_failed' }
   }
 }
 
-/**
- * @param {string} geminiKey
- * @param {string} userPrompt
- */
-async function geminiDealerBuyWithSearch(geminiKey, userPrompt) {
+async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
   const keyTrim = String(geminiKey || '').trim()
   if (!keyTrim || keyTrim === '-') {
     return {
@@ -154,80 +152,58 @@ function buildResearchUserPrompt(tire, mspn) {
     .join('\n')
 
   return [
-    `You are researching the US dealer or wholesale BUY price for one catalog tire.`,
-    `Catalog MSPN: ${mspn}.`,
+    `Find the typical current US retail price, per single tire, for this catalog SKU.`,
+    `MSPN: ${mspn}.`,
     bits ? `Parsed / catalog fields:\n${bits}` : `Raw catalog description: ${desc || '—'}`,
     '',
-    `Priority order for your price estimate:`,
-    `1. Dealer/wholesale cost if findable (e.g. from tire distributor sites, dealer forums, wholesale listings).`,
-    `2. If dealer cost is not findable, use: (current US retail price) × 0.72 as a proxy for dealer cost. Standard dealer margin on tires is ~28%.`,
-    `3. Use TireRack, DiscountTire, SimpleTire, Walmart, or similar for retail reference if needed.`,
+    `Look at consumer-facing retail sellers: TireRack, DiscountTire, SimpleTire, Walmart, Amazon, PriorityTire.`,
+    `Return the typical median retail price you see across those sources. Price is per single tire, not a set of four.`,
     '',
     `Return ONLY a JSON object (no markdown fences): { "price": number, "confidence": "high"|"medium"|"low", "notes": string }.`,
-    `Set confidence to "high" if you found actual wholesale/dealer cost, "medium" if using retail-minus-margin proxy, "low" if very uncertain.`,
-    `If you truly cannot find any price signal at all, set price to null and confidence to "low".`,
-    `price should be per single tire (not a set).`,
+    `confidence "high" = you saw consistent retail prices across two or more sellers.`,
+    `confidence "medium" = only one seller, or prices varied noticeably.`,
+    `confidence "low" = very uncertain or extrapolated.`,
+    `If you cannot find any retail price signal at all, set price to null and confidence to "low".`,
   ].join('\n')
 }
 
 function tireDisplayLine(tire) {
   const brand = String(tire.brand || '').trim()
   const desc = String(tire.description || '').trim()
-  return [brand, desc].filter(Boolean).join(' ').trim() || 'Tire'
+  if (brand && desc) return `${brand} · ${desc}`
+  return brand || desc || '(tire)'
 }
 
 async function slackApiPost(token, method, body) {
-  const res = await fetch(`https://slack.com/api/${method}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-    body: JSON.stringify(body),
-  })
-  const json = await res.json().catch(() => ({}))
-  if (!json.ok) {
-    throw new Error(json.error || `${method} failed`)
+  if (!token) return null
+  try {
+    const res = await fetch(`https://slack.com/api/${method}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    })
+    return res.json().catch(() => null)
+  } catch (e) {
+    console.error(`slackApiPost ${method}`, e)
+    return null
   }
-  return json
 }
 
 function escapeSlackMrkdwn(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return String(s || '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] || c)
 }
 
 function sourceEntry(price, source) {
   return {
-    price: price == null ? null : Number(price),
-    source: String(source || '').slice(0, 64),
-    recordedAt: Timestamp.now(),
+    price: price == null || !Number.isFinite(Number(price)) ? null : Number(price),
+    source: String(source || '').slice(0, 40),
+    at: Timestamp.now(),
   }
 }
 
-function numericPricesFromSources(sources) {
-  if (!Array.isArray(sources)) return []
-  return sources.map((s) => Number(s?.price)).filter((n) => Number.isFinite(n) && n > 0)
-}
-
-function runningAverageFromSources(sources) {
-  const nums = numericPricesFromSources(sources)
-  if (!nums.length) return 0
-  return nums.reduce((a, b) => a + b, 0) / nums.length
-}
-
-function historicLowFromSources(sources, activeBuy) {
-  const nums = [...numericPricesFromSources(sources)]
-  const a = Number(activeBuy)
-  if (Number.isFinite(a) && a > 0) nums.push(a)
-  if (!nums.length) return 0
-  return Math.min(...nums)
-}
-
-/**
- * True when the tire has never been successfully stamped with lastResearched:
- * missing `priceIntel`, missing `lastResearched`, or `lastResearched` is null.
- * @param {Record<string, unknown>} data
- */
 function tireNeedsFirstResearch(data) {
   const pi = data && data.priceIntel
   if (!pi || typeof pi !== 'object') return true
@@ -235,8 +211,6 @@ function tireNeedsFirstResearch(data) {
   if (lr == null) return true
   return false
 }
-
-const BULK_RESEARCH_MS = 30 * 86400000
 
 /**
  * Tires never researched, or last researched 30+ days ago (bulk `/refreshprice all`).
@@ -284,7 +258,7 @@ async function countNeverResearchedTires(db) {
  * @param {import('firebase-admin/firestore').Firestore} db
  */
 async function countPriceIntelPreflight(db) {
-  const cutoff = Timestamp.fromMillis(Date.now() - 6 * 86400000)
+  const cutoff = Timestamp.fromMillis(Date.now() - REFRESH_STALENESS_MS)
   const safeCount = async (label, q) => {
     try {
       const snap = await q.count().get()
@@ -312,41 +286,24 @@ async function countPriceIntelPreflight(db) {
 }
 
 async function pickTiresForResearch(db, limit) {
-  const cutoff = Timestamp.fromMillis(Date.now() - 6 * 86400000)
+  const cutoff = Timestamp.fromMillis(Date.now() - REFRESH_STALENESS_MS)
   const picked = new Map()
-  const mergeCap = Math.min(100, limit)
 
-  const nullSnap = await db
-    .collection('tires')
-    .where('priceIntel.lastResearched', '==', null)
-    .limit(200)
-    .get()
-    .catch(() => ({ docs: [] }))
-
-  const scanSnap = await db
-    .collection('tires')
-    .orderBy(FieldPath.documentId())
-    .limit(200)
-    .get()
-    .catch(() => ({ docs: [] }))
-
-  const mergeOrder = []
-  const seen = new Set()
-  for (const d of nullSnap.docs || []) {
-    if (!seen.has(d.id)) {
-      seen.add(d.id)
-      mergeOrder.push(d)
+  // Page through tires that have never been researched (priceIntel missing / null / no lastResearched).
+  let last = null
+  while (picked.size < limit) {
+    let q = db.collection('tires').orderBy(FieldPath.documentId()).limit(400)
+    if (last) q = q.startAfter(last)
+    const snap = await q.get().catch(() => ({ docs: [], empty: true, size: 0 }))
+    if (!snap.docs || snap.docs.length === 0) break
+    for (const d of snap.docs) {
+      if (picked.size >= limit) break
+      if (!tireNeedsFirstResearch(d.data() || {})) continue
+      picked.set(d.id, d)
     }
+    if (snap.docs.length < 400) break
+    last = snap.docs[snap.docs.length - 1]
   }
-  for (const d of scanSnap.docs || []) {
-    if (!tireNeedsFirstResearch(d.data() || {})) continue
-    if (!seen.has(d.id)) {
-      seen.add(d.id)
-      mergeOrder.push(d)
-    }
-  }
-  mergeOrder.sort((a, b) => a.id.localeCompare(b.id))
-  for (const d of mergeOrder.slice(0, mergeCap)) picked.set(d.id, d)
 
   const need = limit - picked.size
   if (need > 0) {
@@ -370,7 +327,7 @@ async function pickTiresForResearch(db, limit) {
  * @param {{ token: string, channel: string }} slack
  * @param {FirebaseFirestore.QueryDocumentSnapshot} docSnap
  * @param {{ slackMode?: 'batch' | 'single', silent?: boolean }} [opts]
- * @returns {Promise<ResearchOutcome>}
+ * @returns {Promise<'updated' | 'not_found' | 'skipped_kyle'>}
  */
 async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) {
   const slackMode = opts.slackMode === 'single' ? 'single' : 'batch'
@@ -381,17 +338,17 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   const token = String(slack?.token || '').trim()
   const channel = String(slack?.channel || '').trim()
 
-  const piPre = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
-  const curActivePre = Number(piPre.activeBuyPrice)
-
   const userPrompt = buildResearchUserPrompt(tire, mspn)
-  const { parsed } = await geminiDealerBuyWithSearch(geminiKey, userPrompt)
+  const { parsed } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
 
-  const foundPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
+  const rawPrice = parsed.ok && parsed.price != null ? Number(parsed.price) : null
+  const foundPrice =
+    rawPrice != null && Number.isFinite(rawPrice) && rawPrice >= SANITY_MIN && rawPrice <= SANITY_MAX
+      ? rawPrice
+      : null
   const gemConf = normalizeConfidence(parsed.confidence)
 
-  let outcome = /** @type {ResearchOutcome} */ ('updated')
-  let curActiveForSlack = curActivePre
+  let outcome = 'updated'
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
@@ -400,21 +357,12 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
     const pi = t.priceIntel && typeof t.priceIntel === 'object' ? { ...t.priceIntel } : {}
     const sources = Array.isArray(pi.sources) ? [...pi.sources] : []
     const kyleFrozen = pi.kyleConfirmed === true
-    const curActive = Number(pi.activeBuyPrice)
-    curActiveForSlack =
-      Number.isFinite(curActive) && curActive > 0
-        ? curActive
-        : Number.isFinite(curActivePre) && curActivePre > 0
-          ? curActivePre
-          : 0
 
-    if (foundPrice == null || !Number.isFinite(foundPrice) || foundPrice <= 0) {
+    if (foundPrice == null) {
       sources.push(sourceEntry(null, 'gemini_not_found'))
       tx.update(ref, {
         priceIntel: {
           ...pi,
-          flagged: true,
-          flagReason: 'not_found',
           sources,
           lastResearched: FieldValue.serverTimestamp(),
         },
@@ -423,7 +371,7 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       return
     }
 
-    sources.push(sourceEntry(foundPrice, 'gemini_search'))
+    sources.push(sourceEntry(foundPrice, 'gemini_retail_search'))
 
     if (kyleFrozen) {
       tx.update(ref, {
@@ -437,169 +385,114 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       return
     }
 
-    const hasCur = Number.isFinite(curActive) && curActive > 0
-    const deltaPct = hasCur ? Math.abs(foundPrice - curActive) / curActive : 0
-
-    if (hasCur && deltaPct > 0.15) {
-      tx.update(ref, {
-        priceIntel: {
-          ...pi,
-          flagged: true,
-          flagReason: 'large_delta',
-          sources,
-          lastResearched: FieldValue.serverTimestamp(),
-        },
-      })
-      outcome = 'flagged_delta'
-      return
-    }
-
-    const runningAverage = runningAverageFromSources(sources)
-    const activeBuyPrice = foundPrice
-    const historicLow = historicLowFromSources(sources, activeBuyPrice)
-
     tx.update(ref, {
       priceIntel: {
         ...pi,
-        activeBuyPrice,
-        runningAverage,
-        historicLow,
-        lastResearched: FieldValue.serverTimestamp(),
-        lastUpdated: FieldValue.serverTimestamp(),
+        retailPrice: foundPrice,
         confidence: gemConf,
+        sources,
+        // Old delta-flag review state is obsolete under the retail model.
         flagged: false,
         flagReason: null,
-        sources,
+        lastResearched: FieldValue.serverTimestamp(),
+        lastUpdated: FieldValue.serverTimestamp(),
       },
     })
     outcome = 'updated'
   })
 
-  if (outcome === 'not_found') {
-    if (!silent && token && channel) {
-      const line = tireDisplayLine(tire)
-      await slackApiPost(token, 'chat.postMessage', {
-        channel,
-        text: `⚠️ Price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`,
-      })
-    }
-    return 'not_found'
-  }
-
-  if (outcome === 'skipped_kyle') {
-    if (!silent && token && channel) {
-      await slackApiPost(token, 'chat.postMessage', {
-        channel,
-        text: `🔒 Research recorded for \`${escapeSlackMrkdwn(mspn)}\` — Kyle-confirmed price unchanged (${formatCurrency(Number(curActiveForSlack) || 0)}).`,
-      })
-    }
-    return 'skipped_kyle'
-  }
-
-  if (outcome === 'flagged_delta') {
-    const cur = Number.isFinite(Number(curActiveForSlack)) && Number(curActiveForSlack) > 0 ? Number(curActiveForSlack) : 0
-    const found = Number(foundPrice)
-    if (!silent && token && channel && cur > 0) {
-      const line = tireDisplayLine(tire)
-      const sign = found >= cur ? '+' : ''
-      const pctDisp = formatPercent(((found - cur) / cur) * 100, 1)
-      await slackApiPost(token, 'chat.postMessage', {
-        channel,
-        text: `🔔 Price alert: ${escapeSlackMrkdwn(line)} — current ${formatCurrency(cur)}, found ${formatCurrency(found)} (${sign}${pctDisp}). Review before accepting. MSPN ${escapeSlackMrkdwn(mspn)}`,
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `🔔 *Price alert* — ${escapeSlackMrkdwn(line)}\n• Current: ${formatCurrency(cur)}\n• Found: ${formatCurrency(found)} (${sign}${pctDisp})\n• MSPN: \`${escapeSlackMrkdwn(mspn)}\``,
-            },
-          },
-          {
-            type: 'actions',
-            elements: [
-              {
-                type: 'button',
-                text: { type: 'plain_text', text: 'Accept new price', emoji: true },
-                style: 'primary',
-                action_id: 'price_intel_accept',
-                value: JSON.stringify({ m: mspn, p: found }),
-              },
-              {
-                type: 'button',
-                text: { type: 'plain_text', text: 'Keep current', emoji: true },
-                action_id: 'price_intel_keep',
-                value: JSON.stringify({ m: mspn }),
-              },
-            ],
-          },
-        ],
-      })
-    }
-    return 'flagged_delta'
-  }
-
-  if (
-    !silent &&
-    slackMode === 'single' &&
-    token &&
-    channel &&
-    foundPrice != null &&
-    Number.isFinite(foundPrice) &&
-    foundPrice > 0
-  ) {
+  if (outcome === 'not_found' && slackMode === 'single' && !silent && token && channel) {
+    const line = tireDisplayLine(tire)
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `✅ Price research \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(foundPrice)} (_${escapeSlackMrkdwn(gemConf)}_ confidence)`,
+      text: `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`,
     })
   }
 
-  return 'updated'
+  if (outcome === 'updated' && slackMode === 'single' && !silent && token && channel) {
+    await slackApiPost(token, 'chat.postMessage', {
+      channel,
+      text: `✅ Retail price \`${escapeSlackMrkdwn(mspn)}\` → ${formatCurrency(foundPrice)} (_${escapeSlackMrkdwn(gemConf)}_ confidence)`,
+    })
+  }
+
+  return outcome
 }
 
 /**
- * @param {{ token: string, channel: string, geminiKey: string }} opts
+ * Run `fn` across `items` with a max of `concurrency` in flight at once. Errors
+ * are caught per item so a bad tire doesn't sink the batch.
+ */
+async function processInParallel(items, fn, concurrency) {
+  const state = { i: 0 }
+  const results = new Array(items.length)
+  await Promise.all(
+    Array.from({ length: Math.max(1, concurrency) }, async () => {
+      while (state.i < items.length) {
+        const idx = state.i++
+        try {
+          results[idx] = await fn(items[idx])
+        } catch (e) {
+          console.error('tirePriceResearch tire', items[idx]?.id, e)
+          results[idx] = null
+        }
+      }
+    }),
+  )
+  return results
+}
+
+/**
+ * @param {{ token: string, channel: string, geminiKey: string, batchSize?: number }} opts
  */
 async function tirePriceResearchRun(opts) {
   const db = admin.firestore()
   const token = String(opts?.token || '').trim()
   const channel = String(opts?.channel || '').trim()
   const geminiKey = String(opts?.geminiKey || '').trim()
+  const batchSize = Math.max(1, Number(opts?.batchSize) || DEFAULT_BATCH_SIZE)
 
   const { neverN, staleN, kyleN } = await countPriceIntelPreflight(db)
   console.log('[tirePriceResearch] preflight', {
     neverResearched: neverN,
     dueForRefresh: staleN,
     kyleConfirmed: kyleN,
+    batchSize,
   })
   if (token && channel) {
     const fmt = (n) => (typeof n === 'number' && n >= 0 ? formatQty(n) : '—')
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Price research starting — ${fmt(neverN)} never researched (missing \`priceIntel\`, missing \`lastResearched\`, or null), ${fmt(staleN)} due for refresh (last researched 6+ days ago), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching up to 100 tires…`,
+      text: `🔍 Retail price research starting — ${fmt(neverN)} never researched, ${fmt(staleN)} due for refresh (6+ days), ${fmt(kyleN)} Kyle-confirmed (skipped). Researching up to ${formatQty(batchSize)} tires this run…`,
     })
   }
 
-  const docs = await pickTiresForResearch(db, 100)
+  const docs = await pickTiresForResearch(db, batchSize)
+  const slack = { token, channel }
+  const results = await processInParallel(
+    docs,
+    (d) => processTireResearchDoc(db, geminiKey, slack, d),
+    CONCURRENCY,
+  )
+
   let updated = 0
-  let flagged = 0
   let notFound = 0
   let skippedKyle = 0
-  const slack = { token, channel }
-  for (const d of docs) {
-    try {
-      const out = await processTireResearchDoc(db, geminiKey, slack, d)
-      if (out === 'updated') updated += 1
-      else if (out === 'flagged_delta') flagged += 1
-      else if (out === 'not_found') notFound += 1
-      else if (out === 'skipped_kyle') skippedKyle += 1
-    } catch (e) {
-      console.error('tirePriceResearch tire', d.id, e)
-    }
+  let errored = 0
+  for (const r of results) {
+    if (r === 'updated') updated += 1
+    else if (r === 'not_found') notFound += 1
+    else if (r === 'skipped_kyle') skippedKyle += 1
+    else errored += 1
   }
+
+  console.log('[tirePriceResearch] done', { processed: docs.length, updated, notFound, skippedKyle, errored })
+
   if (token && channel && docs.length > 0) {
+    const errorNote = errored > 0 ? `, ${formatQty(errored)} errored` : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `🔍 Nightly price research complete — ${formatQty(updated)} updated, ${formatQty(flagged)} flagged, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped (Kyle confirmed)`,
+      text: `🔍 Retail price research complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped (Kyle confirmed)${errorNote}`,
     })
   }
 }
@@ -619,7 +512,8 @@ async function refreshSingleTirePrice(db, geminiKey, slack, mspnRaw) {
 }
 
 /**
- * Full-catalog bulk refresh: never researched or last researched 30+ days ago.
+ * Bulk refresh helper used by Slack `/priceintel all`. Processes every tire that
+ * needs bulk refresh (30+ days old or never researched). Parallelized.
  * @param {import('firebase-admin/firestore').Firestore} db
  * @param {string} geminiKey
  * @param {{ token: string, channel: string }} slack
@@ -628,64 +522,59 @@ async function runBulkPriceRefresh(db, geminiKey, slack) {
   const token = String(slack?.token || '').trim()
   const channel = String(slack?.channel || '').trim()
   const PAGE = 400
-  const docs = []
+  const targets = []
   let last = null
   while (true) {
-    let q = db.collection('tires').select('priceIntel').orderBy(FieldPath.documentId()).limit(PAGE)
+    let q = db.collection('tires').orderBy(FieldPath.documentId()).limit(PAGE)
     if (last) q = q.startAfter(last)
-    const snap = await q.get()
-    if (snap.empty) break
+    const snap = await q.get().catch(() => ({ docs: [], empty: true }))
+    if (!snap.docs || snap.docs.length === 0) break
     for (const d of snap.docs) {
-      if (tireNeedsBulkRefresh(d.data() || {})) docs.push(d)
+      if (tireNeedsBulkRefresh(d.data() || {})) targets.push(d)
     }
     if (snap.docs.length < PAGE) break
     last = snap.docs[snap.docs.length - 1]
   }
 
-  let attempted = 0
+  if (token && channel) {
+    await slackApiPost(token, 'chat.postMessage', {
+      channel,
+      text: `🔍 Bulk retail price refresh starting — ${formatQty(targets.length)} tires to process…`,
+    })
+  }
+
+  const results = await processInParallel(
+    targets,
+    (d) => processTireResearchDoc(db, geminiKey, { token, channel }, d, { slackMode: 'batch' }),
+    CONCURRENCY,
+  )
+
   let updated = 0
-  let flagged = 0
   let notFound = 0
   let skippedKyle = 0
-  let errors = 0
-  const BATCH = 20
-  for (let i = 0; i < docs.length; i += BATCH) {
-    const chunk = docs.slice(i, i + BATCH)
-    for (const d of chunk) {
-      attempted += 1
-      try {
-        const out = await processTireResearchDoc(db, geminiKey, slack, d, { silent: true })
-        if (out === 'updated') updated += 1
-        else if (out === 'flagged_delta') flagged += 1
-        else if (out === 'not_found') notFound += 1
-        else if (out === 'skipped_kyle') skippedKyle += 1
-      } catch (e) {
-        errors += 1
-        console.error('runBulkPriceRefresh tire', d.id, e)
-      }
-    }
-    if (i + BATCH < docs.length) {
-      await new Promise((r) => setTimeout(r, 1000))
-    }
+  let errored = 0
+  for (const r of results) {
+    if (r === 'updated') updated += 1
+    else if (r === 'not_found') notFound += 1
+    else if (r === 'skipped_kyle') skippedKyle += 1
+    else errored += 1
   }
 
   if (token && channel) {
-    const errPart = errors > 0 ? `, errors ${formatQty(errors)}` : ''
+    const errorNote = errored > 0 ? `, ${formatQty(errored)} errored` : ''
     await slackApiPost(token, 'chat.postMessage', {
       channel,
-      text: `✅ *Bulk price refresh* (\`/refreshprice all\`) complete — attempted ${formatQty(attempted)}, updated ${formatQty(updated)}, flagged ${formatQty(flagged)}, not found ${formatQty(notFound)}, skipped ${formatQty(skippedKyle)}${errPart}`,
+      text: `🔍 Bulk refresh complete — ${formatQty(updated)} updated, ${formatQty(notFound)} not found, ${formatQty(skippedKyle)} skipped${errorNote}`,
     })
   }
 }
 
 module.exports = {
   tirePriceResearchRun,
-  processTireResearchDoc,
-  pickTiresForResearch,
-  buildResearchUserPrompt,
-  geminiDealerBuyWithSearch,
   refreshSingleTirePrice,
   runBulkPriceRefresh,
   slackApiPost,
   escapeSlackMrkdwn,
+  tireNeedsFirstResearch,
+  tireNeedsBulkRefresh,
 }
