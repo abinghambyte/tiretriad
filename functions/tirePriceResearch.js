@@ -134,22 +134,23 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       groundingUris: [],
     }
   }
-  // `gemini-1.5-pro` is no longer served on `v1beta` (returns
-  // `models/gemini-1.5-pro is not found...`), so skipping it saves one
-  // round-trip per failure.
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash']
+  // Only currently-served models: `gemini-2.0-flash` hit end-of-life in
+  // March 2026 and returns `models/gemini-2.0-flash is no longer available
+  // to new users`. Fall back to `flash-lite` if `flash` is rate-limited.
+  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
   let lastErr = ''
   let lastStatus = 0
   for (const model of models) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(keyTrim)}`
     const body = {
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      // `googleSearch` lets Gemini run Google queries; `urlContext` lets it
+      // `google_search` lets Gemini run Google queries; `url_context` lets it
       // fetch specific seller URLs we name in the prompt (Autoplicity,
       // THMotorsports, Tire Agent product/search pages). The combination
       // gives us both open discovery and directed source routing, which
       // prompt-only "prefer these sellers" language could not achieve.
-      tools: [{ googleSearch: {} }, { urlContext: {} }],
+      // Tool identifiers are snake_case in the REST API.
+      tools: [{ google_search: {} }, { url_context: {} }],
       generationConfig: {
         // Deterministic sampling. `temperature: 0` + fixed `seed` is the
         // supported way to get the same answer on repeated runs. Eliminates
@@ -182,11 +183,21 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       json = await res.json().catch(() => ({}))
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e)
+      console.warn('[tirePriceResearch] gemini_attempt_failed', { model, network: lastErr })
       continue
     }
     if (!res.ok) {
       lastStatus = res.status
       lastErr = json?.error?.message || `${res.status}`
+      // Surface the per-attempt failure so we can tell when a fallback model
+      // masks a real problem with the first-choice model (happened when we
+      // rewrote the client and the real error was being overwritten by the
+      // next model's unrelated deprecation message).
+      console.warn('[tirePriceResearch] gemini_attempt_failed', {
+        model,
+        status: res.status,
+        error: String(lastErr).slice(0, 300),
+      })
       // If this model hit a quota error, every other Gemini model on the same
       // key is almost certainly also out of quota. Bail fast instead of pounding
       // each fallback model with another 429.
