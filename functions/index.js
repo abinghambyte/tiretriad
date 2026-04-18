@@ -758,12 +758,12 @@ exports.morningBrief = onSchedule(
   },
 )
 
-async function runScheduledRetailResearch(triggerLabel) {
+async function runScheduledRetailResearch(triggerLabel, { silentIfEmpty = false } = {}) {
   const token = String(SLACK_BOT_TOKEN.value() || '').trim()
   const channel = String(slackChannelWithSecretFallback() || '').trim()
   const geminiKey = String(GEMINI_API_KEY.value() || '').trim()
   try {
-    await tirePriceResearchRun({ token, channel, geminiKey })
+    await tirePriceResearchRun({ token, channel, geminiKey, silentIfEmpty })
   } catch (err) {
     console.error(`tirePriceResearch ${triggerLabel} run failed`, err)
     const msg = escapeSlackMrkdwn(
@@ -806,6 +806,23 @@ exports.tirePriceResearchAfternoon = onSchedule(
     memory: '1GiB',
   },
   () => runScheduledRetailResearch('2pm'),
+)
+
+/**
+ * Hourly catch-up. Runs the research only if there's backlog; exits silently
+ * otherwise (pickTiresForResearch returns an empty list once the catalog is
+ * covered, and `silentIfEmpty: true` suppresses the Slack start/end posts).
+ */
+exports.tirePriceResearchCatchup = onSchedule(
+  {
+    schedule: '15 * * * *',
+    timeZone: 'America/Denver',
+    region: 'us-central1',
+    secrets: TIRE_PRICE_INTEL_SECRETS,
+    timeoutSeconds: 540,
+    memory: '1GiB',
+  },
+  () => runScheduledRetailResearch('catchup', { silentIfEmpty: true }),
 )
 
 /**
