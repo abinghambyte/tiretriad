@@ -49,10 +49,35 @@ const SUSPICIOUS_RATIO_HIGH = 1.5
 const CSV_RETAIL_RATIO_LOW = 0.4
 const CSV_RETAIL_RATIO_HIGH = 2.5
 
-function stripJsonFences(text) {
-  const t = String(text || '').trim()
-  if (!t.startsWith('```')) return t
-  return t.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
+/**
+ * JSON Schema the Gemini API enforces on every response via
+ * `responseJsonSchema`. Because the API constrains its decoder to this shape,
+ * we no longer need hand-rolled fence stripping, brace balancing, or regex
+ * rescue paths; every response that makes it past the HTTP layer parses
+ * cleanly. The `sources` array is the auditable reasoning: Gemini must list
+ * every seller it consulted and the per-seller price it observed, which we
+ * log for analysis.
+ */
+const RESEARCH_RESPONSE_SCHEMA = {
+  type: 'object',
+  required: ['price', 'confidence', 'notes', 'sources'],
+  properties: {
+    price: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+    notes: { type: 'string' },
+    sources: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['seller', 'price'],
+        properties: {
+          seller: { type: 'string' },
+          url: { type: 'string' },
+          price: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+        },
+      },
+    },
+  },
 }
 
 function normalizeConfidence(c) {
@@ -62,81 +87,33 @@ function normalizeConfidence(c) {
 }
 
 /**
- * Extract the first plausible JSON object from a chunk of text. Handles
- * responses where Gemini prepends grounded-search preamble ("Based on my
- * search, I found: { ... }") or wraps the object in markdown fences. Returns
- * null when no balanced {...} block is found.
+ * Parse a schema-constrained response into our internal shape. Gemini's
+ * `responseJsonSchema` enforcement means `JSON.parse` on the raw text should
+ * always succeed; we still tolerate failure gracefully in case the API
+ * upstream changes or the model produces an unexpected edge case.
  */
-function extractFirstJsonObject(text) {
-  const raw = stripJsonFences(text).trim()
-  if (!raw) return null
-  if (raw.startsWith('{')) return raw
-  const start = raw.indexOf('{')
-  if (start < 0) return null
-  let depth = 0
-  let inString = false
-  let escaped = false
-  for (let i = start; i < raw.length; i += 1) {
-    const ch = raw[i]
-    if (escaped) {
-      escaped = false
-      continue
-    }
-    if (inString) {
-      if (ch === '\\') escaped = true
-      else if (ch === '"') inString = false
-      continue
-    }
-    if (ch === '"') inString = true
-    else if (ch === '{') depth += 1
-    else if (ch === '}') {
-      depth -= 1
-      if (depth === 0) return raw.slice(start, i + 1)
-    }
-  }
-  return null
-}
-
-function tryParsePriceJson(text) {
-  const candidate = extractFirstJsonObject(text)
-  if (!candidate) {
-    return { ok: false, price: null, confidence: 'low', notes: 'no_json_block' }
-  }
+function parseStructuredPriceResponse(text) {
   try {
-    const o = JSON.parse(candidate)
-    const price = o?.price == null ? null : Number(o.price)
-    const confidence = normalizeConfidence(o?.confidence)
-    const notes = String(o?.notes || '').slice(0, 400)
+    const o = JSON.parse(String(text || ''))
+    const rawPrice = o?.price == null ? null : Number(o.price)
+    const sources = Array.isArray(o?.sources)
+      ? o.sources
+          .filter((s) => s && typeof s === 'object')
+          .map((s) => ({
+            seller: String(s.seller || '').slice(0, 80),
+            url: String(s.url || '').slice(0, 400),
+            price: s.price == null ? null : Number(s.price),
+          }))
+      : []
     return {
       ok: true,
-      price: Number.isFinite(price) ? price : null,
-      confidence,
-      notes,
+      price: Number.isFinite(rawPrice) ? rawPrice : null,
+      confidence: normalizeConfidence(o?.confidence),
+      notes: String(o?.notes || '').slice(0, 400),
+      sources,
     }
   } catch {
-    return { ok: false, price: null, confidence: 'low', notes: 'parse_failed' }
-  }
-}
-
-/**
- * Last-ditch rescue for Gemini responses whose JSON got truncated mid-string
- * (usually inside a long `notes` value when the model runs out of output
- * tokens). Pulls `price` and `confidence` out with loose regexes so we don't
- * throw away a perfectly good price just because the notes never closed.
- */
-function tryRegexRescuePrice(text) {
-  const s = stripJsonFences(String(text || ''))
-  const priceMatch = s.match(/"price"\s*:\s*(null|-?\d+(?:\.\d+)?)/i)
-  if (!priceMatch) return null
-  const rawP = priceMatch[1].toLowerCase()
-  const price = rawP === 'null' ? null : Number(rawP)
-  const confMatch = s.match(/"confidence"\s*:\s*"(high|medium|low)"/i)
-  const confidence = confMatch ? confMatch[1].toLowerCase() : 'low'
-  return {
-    ok: true,
-    price: Number.isFinite(price) ? price : null,
-    confidence,
-    notes: 'rescued_from_truncated_json',
+    return { ok: false, price: null, confidence: 'low', notes: 'parse_failed', sources: [] }
   }
 }
 
@@ -151,9 +128,10 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
   if (!keyTrim || keyTrim === '-') {
     return {
       rawText: '',
-      parsed: { ok: false, price: null, confidence: 'low', notes: 'no api key' },
+      parsed: { ok: false, price: null, confidence: 'low', notes: 'no api key', sources: [] },
       modelUsed: null,
       rateLimited: false,
+      groundingUris: [],
     }
   }
   // `gemini-1.5-pro` is no longer served on `v1beta` (returns
@@ -166,12 +144,32 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(keyTrim)}`
     const body = {
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      tools: [{ google_search: {} }],
-      // 1024 tokens wasn't enough headroom: Gemini kept running out of
-      // space mid-notes-string, leaving the JSON unclosed and unparseable.
-      // 4096 leaves plenty of room even when the model lists several
-      // retailers in the notes field.
-      generationConfig: { temperature: 0.25, maxOutputTokens: 4096 },
+      // `googleSearch` lets Gemini run Google queries; `urlContext` lets it
+      // fetch specific seller URLs we name in the prompt (Autoplicity,
+      // THMotorsports, Tire Agent product/search pages). The combination
+      // gives us both open discovery and directed source routing, which
+      // prompt-only "prefer these sellers" language could not achieve.
+      tools: [{ googleSearch: {} }, { urlContext: {} }],
+      generationConfig: {
+        // Deterministic sampling. `temperature: 0` + fixed `seed` is the
+        // supported way to get the same answer on repeated runs. Eliminates
+        // the run-to-run price drift we kept hitting.
+        temperature: 0,
+        topP: 1,
+        seed: 42,
+        // Reduced headroom: structured output removes the need to pad for a
+        // long prose `notes` field. 2048 is plenty for a price + short
+        // summary + a few source entries.
+        maxOutputTokens: 2048,
+        // Light thinking budget helps the aggregation step (picking sellers,
+        // computing the median) without bloating tokens on every tire.
+        thinkingConfig: { thinkingBudget: 512 },
+        // Schema-constrained JSON. With this set, the response `text` always
+        // parses as a valid object matching `RESEARCH_RESPONSE_SCHEMA`, so
+        // we can drop the fence/brace/rescue parsing entirely.
+        responseMimeType: 'application/json',
+        responseJsonSchema: RESEARCH_RESPONSE_SCHEMA,
+      },
     }
     let res
     let json = {}
@@ -195,31 +193,45 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
       if (isRateLimitedError(res.status, lastErr)) {
         return {
           rawText: '',
-          parsed: { ok: false, price: null, confidence: 'low', notes: lastErr },
+          parsed: { ok: false, price: null, confidence: 'low', notes: lastErr, sources: [] },
           modelUsed: null,
           rateLimited: true,
+          groundingUris: [],
         }
       }
       continue
     }
     const parts = json?.candidates?.[0]?.content?.parts
     const text = Array.isArray(parts) ? parts.map((p) => p.text || '').join('').trim() : ''
+    // `groundingMetadata.groundingChunks[].web.uri` is the authoritative list
+    // of URLs Gemini actually consulted. Logging it lets us verify whether
+    // Autoplicity / THMotorsports / Tire Agent were reached, instead of
+    // relying on Gemini's self-reported `sources` array.
+    const gm = json?.candidates?.[0]?.groundingMetadata || {}
+    const groundingUris = Array.isArray(gm.groundingChunks)
+      ? gm.groundingChunks
+          .map((c) => c?.web?.uri || '')
+          .filter(Boolean)
+          .slice(0, 20)
+      : []
     if (!text) {
       lastErr = 'empty candidates text'
       continue
     }
-    let parsed = tryParsePriceJson(text)
-    if (!parsed.ok) {
-      const rescued = tryRegexRescuePrice(text)
-      if (rescued) parsed = rescued
+    return {
+      rawText: text,
+      parsed: parseStructuredPriceResponse(text),
+      modelUsed: model,
+      rateLimited: false,
+      groundingUris,
     }
-    return { rawText: text, parsed, modelUsed: model, rateLimited: false }
   }
   return {
     rawText: '',
-    parsed: { ok: false, price: null, confidence: 'low', notes: lastErr || 'gemini failed' },
+    parsed: { ok: false, price: null, confidence: 'low', notes: lastErr || 'gemini failed', sources: [] },
     modelUsed: null,
     rateLimited: isRateLimitedError(lastStatus, lastErr),
+    groundingUris: [],
   }
 }
 
@@ -292,10 +304,23 @@ function buildResearchUserPrompt(tire) {
     .join(' ')
     .trim()
 
+  // The site: operator forces Google Search to return hits only from a given
+  // domain. Autoplicity and THMotorsports consistently index by MSPN and
+  // quote the true consumer retail street price, which prior runs repeatedly
+  // missed when we let Gemini pick sources on its own. Running three
+  // site-scoped searches first guarantees we reach those sellers; Gemini
+  // can then add fill-in sellers via broad search and fetch specific
+  // product pages via `urlContext` if needed.
+  const directedQueries = mspn
+    ? [
+        `site:autoplicity.com ${brand} ${mspn}`,
+        `site:thmotorsports.com ${brand} ${mspn}`,
+        `site:tireagent.com ${brand} ${mspn}`,
+      ]
+    : []
+
   return [
-    `Find the typical current US retail price per single tire, using Google Search.`,
-    '',
-    `Search for: ${searchTarget || formattedDesc || brand}`,
+    `You are researching the current US consumer retail price per single tire. Use the googleSearch tool to locate listings and the urlContext tool to fetch specific product pages for exact price + MSPN verification. Return the result via the response schema.`,
     '',
     `Tire:`,
     brand ? `- Brand: ${brand}` : '',
@@ -305,20 +330,26 @@ function buildResearchUserPrompt(tire) {
     tread && tread !== desc ? `- Tread model: ${tread}` : '',
     lr ? `- Load range: ${lr}` : '',
     '',
-    `Use CONSUMER RETAIL sellers that display an exact MSPN match in their product title. Examples: Autoplicity, THMotorsports, Tire Agent, SimpleTire, PriorityTire, TireRack, DiscountTire, BB Wheels, Budget Truck Tires, Walmart, Amazon, Costco, and the manufacturer's own retail site (michelintruck.com, michelinman.com, bfgoodrichtires.com, etc.). Any of these are acceptable; do not skip a tire just because the only matches are on sellers outside a preferred list.`,
+    directedQueries.length
+      ? `Run these site-scoped Google searches first, in this order, to reach the known-good sellers that actually list by MSPN:`
+      : '',
+    ...directedQueries.map((q) => `  - ${q}`),
+    directedQueries.length
+      ? `Then a broad query for fill-in sellers: ${searchTarget}`
+      : `Broad query: ${searchTarget || formattedDesc || brand}`,
     '',
-    `Explicitly EXCLUDE: wholesale-only sites, fleet/B2B portals, bulk-quantity discount listings (e.g. "price per tire when buying 4+"), and any listing where the headline price is gated on buying multiple tires or opening a commercial account. We want the single-tire retail sticker that a walk-in consumer would pay.`,
+    `Acceptable consumer-retail sellers (not exhaustive): Autoplicity, THMotorsports, Tire Agent, SimpleTire, PriorityTire, TireRack, DiscountTire, Walmart, Amazon, Costco, Route One, US Tire Outlet, and the manufacturer's own retail site (michelintruck.com, michelinman.com, bfgoodrichtires.com, etc.). Include the manufacturer site when it lists the MSPN.`,
     '',
-    `Price computation: when three or more sellers list the exact MSPN at retail, report the PLAIN MEDIAN (50th percentile) across 3 to 5 of them. No low-end trimming, no high-end trimming. With one or two sellers, use the single price. Price is for one (1) tire, not a set of four.`,
+    `EXCLUDE these sources. Either their prices are inflated stickers gated on multi-tire discounts, or they are wholesale/B2B/fleet portals that do not represent the retail price a walk-in consumer would pay:`,
+    `- Budget Truck Tires, SpeedyTire, TruckTireExpress, OTRUSA.COM, Us-Tires, BB Wheels, Walmart Business Supplies, any "buying 4+" / bulk-only listing.`,
     '',
-    `Respond with a JSON object only, no prose before or after:`,
-    `{"price": <number or null>, "confidence": "high"|"medium"|"low", "notes": "<short source summary>"}`,
+    `Computation: collect per-seller prices from at least 3 acceptable sellers when possible. Report the plain median (50th percentile) as the final price. If only 1 or 2 acceptable sellers list the MSPN, use the single lowest of those. Price is for one (1) tire, not a set of four.`,
     '',
-    `- "notes" MUST list the per-seller prices you used, under 220 chars. Format: "Seller1 $NNN; Seller2 $NNN; Seller3 $NNN".`,
-    `- "high" confidence: three or more consumer-retail sellers listed the exact MSPN and their prices cluster within 15% of each other.`,
-    `- "medium": one or two sellers, or prices varied by more than 15%.`,
-    `- "low": very uncertain, extrapolated, or only partial MSPN matches.`,
-    `- Only set price to null if NO consumer-retail seller anywhere lists this MSPN or exact brand + size + tread combination.`,
+    `Populate the response object as:`,
+    `- price: the median number (or null if NO acceptable seller lists the MSPN)`,
+    `- confidence: "high" when 3+ sellers match within 15% of each other, "medium" when 1-2 sellers or >15% spread, "low" when extrapolated or uncertain`,
+    `- notes: one short sentence naming the cheapest 2 sellers used`,
+    `- sources: array of {seller, url, price} for every acceptable listing you considered (not just the ones used in the median). Include the URL verbatim. This is the audit trail.`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -553,7 +584,8 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
   // tire docs may pre-date the importer's `mspn` field, so fall back to the
   // doc ID when building the prompt so the search always includes it.
   const userPrompt = buildResearchUserPrompt({ ...tire, mspn: tire.mspn || mspn })
-  const { parsed, rawText, modelUsed, rateLimited } = await geminiRetailPriceWithSearch(geminiKey, userPrompt)
+  const { parsed, rawText, modelUsed, rateLimited, groundingUris } =
+    await geminiRetailPriceWithSearch(geminiKey, userPrompt)
 
   // Rate-limited is not the tire's fault. Skip the Firestore write entirely so
   // we don't burn the retry counter or move `lastResearched` forward. The
@@ -586,6 +618,8 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       anchorValue: anchor.value,
       foundPrice,
       ratio: Number((foundPrice / anchor.value).toFixed(2)),
+      geminiSources: parsed.sources,
+      groundingUris,
     })
   } else if (foundPrice == null) {
     // Log the first few hundred chars of the raw response so we can tell
@@ -597,6 +631,8 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       parsedOk: parsed.ok,
       parsedPrice: parsed.price,
       parsedNotes: String(parsed.notes || '').slice(0, 200),
+      geminiSources: parsed.sources,
+      groundingUris,
       rawTextHead: String(rawText || '').slice(0, 500),
     })
   }
@@ -669,6 +705,12 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       anchorValue: anchor?.value || null,
       ratio: anchor ? Number((foundPrice / anchor.value).toFixed(2)) : null,
       notes: String(parsed.notes || '').slice(0, 300),
+      // `geminiSources` is Gemini's self-reported audit trail (from the
+      // structured response). `groundingUris` is the authoritative list of
+      // URLs it actually fetched via googleSearch / urlContext. Both are
+      // logged so we can cross-check.
+      geminiSources: parsed.sources,
+      groundingUris,
       outcome,
     })
   }
