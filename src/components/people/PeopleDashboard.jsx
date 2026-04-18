@@ -75,16 +75,7 @@ function streakLabel(n) {
   return `${v}-day streak`
 }
 
-function PeopleRowActionsMenu({
-  u,
-  profile,
-  lockAwaitUid,
-  onHistory,
-  onEdit,
-  onRenew,
-  onLock,
-  onToggleGhost,
-}) {
+function PeopleRowActionsMenu({ u, onHistory, onEdit }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
 
@@ -115,10 +106,7 @@ function PeopleRowActionsMenu({
             <button
               type="button"
               className="block w-full px-3 py-2.5 text-left text-zinc-200 hover:bg-zinc-800/80"
-              onClick={() => {
-                setOpen(false)
-                void onHistory(u)
-              }}
+              onClick={() => { setOpen(false); void onHistory(u) }}
             >
               History
             </button>
@@ -127,52 +115,11 @@ function PeopleRowActionsMenu({
             <button
               type="button"
               className="block w-full px-3 py-2.5 text-left text-violet-100 hover:bg-zinc-800/80"
-              onClick={() => {
-                setOpen(false)
-                onEdit(u)
-              }}
+              onClick={() => { setOpen(false); onEdit(u) }}
             >
               Edit
             </button>
           </li>
-          <li>
-            <button
-              type="button"
-              className="block w-full px-3 py-2.5 text-left text-zinc-200 hover:bg-zinc-800/80"
-              onClick={() => {
-                setOpen(false)
-                onRenew(u)
-              }}
-            >
-              Renew
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              className="block w-full px-3 py-2.5 text-left text-red-200 hover:bg-zinc-800/80"
-              onClick={() => {
-                setOpen(false)
-                void onLock(u)
-              }}
-            >
-              {lockAwaitUid === u.id ? 'Confirm lock' : 'Lock'}
-            </button>
-          </li>
-          {profile?.role === 'admin' ? (
-            <li>
-              <button
-                type="button"
-                className="block w-full px-3 py-2.5 text-left text-zinc-300 hover:bg-zinc-800/80"
-                onClick={() => {
-                  setOpen(false)
-                  onToggleGhost(u)
-                }}
-              >
-                Ghost {u.ghostMode ? 'off' : 'on'}
-              </button>
-            </li>
-          ) : null}
         </ul>
       ) : null}
     </div>
@@ -367,7 +314,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [showElevation, setShowElevation] = useState(false)
   const [showAvailability, setShowAvailability] = useState(false)
   const [invokeBusy, setInvokeBusy] = useState('')   // 'revoke' | 'reissue' | 'delete' | ''
-  const [lockAwaitUid, setLockAwaitUid] = useState(null)
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
@@ -401,7 +347,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   const openEditor = useCallback((u) => {
     setSelected(u)
-    setLockAwaitUid(null)
     const r = u.role || 'viewer'
     setRoleDraft(r)
     const base = { ...ROLE_DEFAULTS[r], ...(u.permissions || {}) }
@@ -415,7 +360,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     setSelected(null)
     setPermDraft({})
     setPanelInviteUrl('')
-    setLockAwaitUid(null)
   }, [])
 
   useEffect(() => {
@@ -490,23 +434,26 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
   }
 
-  async function lockUser(u) {
-    if (lockAwaitUid !== u.id) {
-      setLockAwaitUid(u.id)
-      return
-    }
-    setLockAwaitUid(null)
+  async function lockUser() {
+    if (!selected) return
+    const isLocked = selected.inviteStatus === 'locked'
+    const name = `${selected.firstName || ''} ${selected.lastName || ''}`.trim() || selected.email
+    if (!isLocked && !window.confirm(`Lock ${name}? They won't be able to sign in.`)) return
     try {
-      await updatePortalUser({ targetUid: u.id, inviteStatus: 'locked' })
+      await updatePortalUser({
+        targetUid: selected.id,
+        inviteStatus: isLocked ? 'renewed' : 'locked',
+      })
     } catch (e) {
       window.alert(e?.message || String(e))
     }
   }
 
-  async function toggleGhost(u) {
-    const next = !u.ghostMode
+  async function toggleGhost() {
+    if (!selected) return
+    const next = !selected.ghostMode
     try {
-      await updatePortalUser({ targetUid: u.id, ghostMode: next })
+      await updatePortalUser({ targetUid: selected.id, ghostMode: next })
     } catch (e) {
       window.alert(e?.message || String(e))
     }
@@ -868,13 +815,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <td className="px-2 py-2 text-right sm:hidden">
                       <PeopleRowActionsMenu
                         u={u}
-                        profile={profile}
-                        lockAwaitUid={lockAwaitUid}
                         onHistory={openHistory}
                         onEdit={openEditor}
-                        onRenew={renewInvite}
-                        onLock={lockUser}
-                        onToggleGhost={toggleGhost}
                       />
                     </td>
                     <td className="sticky right-0 z-[2] hidden whitespace-nowrap border-l border-zinc-800/90 bg-zinc-950 px-3 py-2 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] group-hover:bg-zinc-900/40 sm:table-cell">
@@ -884,10 +826,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                           className="inline-flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-md border border-zinc-600/90 bg-zinc-900/50 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-100 sm:h-9 sm:min-h-9 sm:w-9 sm:min-w-9"
                           title="Access history"
                           aria-label="Access history"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void openHistory(u)
-                          }}
+                          onClick={(e) => { e.stopPropagation(); void openHistory(u) }}
                         >
                           <svg
                             className="h-4 w-4 shrink-0"
@@ -908,33 +847,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                         >
                           Edit
                         </button>
-                        <button
-                          type="button"
-                          className="min-h-[44px] rounded-lg border border-zinc-600 px-2 py-2 text-xs text-zinc-300 hover:bg-zinc-800/80 sm:min-h-0 sm:py-1"
-                          onClick={() => renewInvite(u)}
-                        >
-                          Renew
-                        </button>
-                        <button
-                          type="button"
-                          className={
-                            lockAwaitUid === u.id
-                              ? 'min-h-[44px] rounded-lg border border-red-600 bg-red-950/50 px-2 py-2 text-xs font-semibold text-red-100 sm:min-h-0 sm:py-1'
-                              : 'min-h-[44px] rounded-lg border border-red-900/55 px-2 py-2 text-xs text-red-200 hover:bg-red-950/25 sm:min-h-0 sm:py-1'
-                          }
-                          onClick={() => void lockUser(u)}
-                        >
-                          {lockAwaitUid === u.id ? 'Confirm lock' : 'Lock'}
-                        </button>
-                        {profile?.role === 'admin' ? (
-                          <button
-                            type="button"
-                            className="min-h-[44px] rounded-lg border border-zinc-700/90 bg-zinc-900/40 px-2 py-2 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200 sm:min-h-0 sm:py-1"
-                            onClick={() => toggleGhost(u)}
-                          >
-                            Ghost {u.ghostMode ? 'off' : 'on'}
-                          </button>
-                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -1177,7 +1089,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             </div>
 
             {/* ── Sticky footer ───────────────────────────── */}
-            <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-5 py-4 flex items-center gap-2">
+            <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-5 py-4 flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={closeEditor}
@@ -1194,14 +1106,39 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 {saving ? 'Saving…' : 'Save permissions'}
               </button>
               {selected && selected.id !== auth.currentUser?.uid ? (
-                <button
-                  type="button"
-                  disabled={invokeBusy !== ''}
-                  onClick={() => void deleteUser()}
-                  className="rounded-lg border border-red-900/50 px-4 py-2.5 text-sm font-medium text-red-400/80 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
-                >
-                  {invokeBusy === 'delete' ? 'Deleting…' : 'Delete'}
-                </button>
+                <>
+                  {profile?.role === 'admin' ? (
+                    <button
+                      type="button"
+                      disabled={invokeBusy !== ''}
+                      onClick={() => void toggleGhost()}
+                      className="rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+                      title={selected.ghostMode ? 'Ghost mode on — click to disable' : 'Enable ghost mode'}
+                    >
+                      {selected.ghostMode ? 'Ghost: on' : 'Ghost'}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={invokeBusy !== ''}
+                    onClick={() => void lockUser()}
+                    className={
+                      selected.inviteStatus === 'locked'
+                        ? 'rounded-lg border border-amber-700/60 px-3 py-2.5 text-sm text-amber-300/80 transition-colors hover:bg-amber-950/30 hover:text-amber-200 disabled:opacity-40'
+                        : 'rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40'
+                    }
+                  >
+                    {selected.inviteStatus === 'locked' ? 'Unlock' : 'Lock'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={invokeBusy !== ''}
+                    onClick={() => void deleteUser()}
+                    className="rounded-lg border border-red-900/50 px-3 py-2.5 text-sm font-medium text-red-400/80 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+                  >
+                    {invokeBusy === 'delete' ? 'Deleting…' : 'Delete'}
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
