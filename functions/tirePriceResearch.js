@@ -40,6 +40,14 @@ const MAX_FAILED_ATTEMPTS = 3
  */
 const SUSPICIOUS_RATIO_LOW = 0.5
 const SUSPICIOUS_RATIO_HIGH = 1.5
+/**
+ * Looser envelope when we're anchoring to the legacy CSV retail instead of a
+ * confirmed base cost. The CSV retail may be years stale; we only want to
+ * reject clearly-wrong matches (wrong size, 4-pack total, hallucination),
+ * not price drift within a reasonable factor of the printed retail.
+ */
+const CSV_RETAIL_RATIO_LOW = 0.4
+const CSV_RETAIL_RATIO_HIGH = 2.5
 
 function stripJsonFences(text) {
   const t = String(text || '').trim()
@@ -265,14 +273,15 @@ function buildResearchUserPrompt(tire) {
   const size = extractTireSize(desc) || ''
   const formattedDesc = formatTireDescriptionForSearch(desc)
 
-  // Retailers (TireRack, DiscountTire, SimpleTire, etc.) index on brand + size
-  // + tread + load range the way consumers type it. CSV descriptions often
-  // jam those fields together without spaces, so we rebuild a clean search
-  // target from the structured pieces when available.
+  // Retailers (TireRack, DiscountTire, SimpleTire, etc.) index on brand + the
+  // printed size + the printed marketing name (e.g. "X INCITY Z"), which lives
+  // inside the Description column of the CSV. The Tread column is an internal
+  // short code ("XIZ") that retail product pages never use, so feeding it into
+  // the search query is pure noise. Use the spaced-out description instead;
+  // size + marketing name + load range are all in there.
   const searchTarget = [
     brand,
-    size,
-    tread && tread !== desc ? tread : '',
+    formattedDesc || size,
     lr ? `Load Range ${lr}` : '',
   ]
     .filter(Boolean)
@@ -344,22 +353,43 @@ function sourceEntry(price, source) {
 }
 
 /**
- * Kyle's base cost for ratio-checking Gemini retail suggestions. Mirrors the
- * client-side `tireCatalogBuyNumber` fallback chain, minus the legacy
- * `retailPrice` fallback (circular to check retail against retail).
+ * Pick an anchor value for ratio-checking Gemini retail suggestions. Returns
+ * `null` when the tire has no usable reference price. Two tiers:
+ *
+ *   1. Kyle's confirmed buy cost (`priceIntel.activeBuyPrice`, then legacy
+ *      `price` / `cost` fields). Tight `[0.5x, 1.5x]` envelope per the
+ *      "retail should stay within 50% of base cost" heuristic.
+ *   2. CSV-sourced legacy retail (`retailPrice`). Wider `[0.4x, 2.5x]`
+ *      envelope since that number may be stale and the whole point of the
+ *      research run is to replace it with something current; we only want
+ *      to catch clearly-wrong matches (wrong size, 4-pack totals,
+ *      hallucinations).
+ *
+ * `kind` is recorded on the failure log + Slack message so we can tell at a
+ * glance which anchor triggered the rejection.
  * @param {Record<string, unknown>} tire
- * @returns {number}
+ * @returns {{ value: number, kind: 'base_cost' | 'csv_retail', low: number, high: number } | null}
  */
-function tireBaseCost(tire) {
-  if (tire == null || typeof tire !== 'object') return 0
+function tireRatioAnchor(tire) {
+  if (tire == null || typeof tire !== 'object') return null
   const pi = tire.priceIntel && typeof tire.priceIntel === 'object' ? tire.priceIntel : {}
   const active = Number(pi.activeBuyPrice)
-  if (Number.isFinite(active) && active > 0) return active
+  if (Number.isFinite(active) && active > 0) {
+    return { value: active, kind: 'base_cost', low: SUSPICIOUS_RATIO_LOW, high: SUSPICIOUS_RATIO_HIGH }
+  }
   const price = Number(tire.price)
-  if (Number.isFinite(price) && price > 0) return price
+  if (Number.isFinite(price) && price > 0) {
+    return { value: price, kind: 'base_cost', low: SUSPICIOUS_RATIO_LOW, high: SUSPICIOUS_RATIO_HIGH }
+  }
   const cost = Number(tire.cost)
-  if (Number.isFinite(cost) && cost > 0) return cost
-  return 0
+  if (Number.isFinite(cost) && cost > 0) {
+    return { value: cost, kind: 'base_cost', low: SUSPICIOUS_RATIO_LOW, high: SUSPICIOUS_RATIO_HIGH }
+  }
+  const retail = Number(tire.retailPrice)
+  if (Number.isFinite(retail) && retail > 0) {
+    return { value: retail, kind: 'csv_retail', low: CSV_RETAIL_RATIO_LOW, high: CSV_RETAIL_RATIO_HIGH }
+  }
+  return null
 }
 
 function tireNeedsFirstResearch(data) {
@@ -527,21 +557,23 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
       : null
   const gemConf = normalizeConfidence(parsed.confidence)
 
-  // Ratio check against Kyle's base cost. Skipped when we don't have a base
-  // cost to compare against (new tires, CSV gaps).
-  const baseCost = tireBaseCost(tire)
+  // Ratio check against whatever reference price we have for this tire. See
+  // `tireRatioAnchor` for the tier logic (confirmed buy cost vs CSV retail).
+  // Skipped when the tire has no usable reference (new SKU, CSV gaps).
+  const anchor = tireRatioAnchor(tire)
   const suspiciousDelta =
     foundPrice != null &&
-    baseCost > 0 &&
-    (foundPrice < baseCost * SUSPICIOUS_RATIO_LOW || foundPrice > baseCost * SUSPICIOUS_RATIO_HIGH)
+    anchor != null &&
+    (foundPrice < anchor.value * anchor.low || foundPrice > anchor.value * anchor.high)
 
   if (suspiciousDelta) {
     console.warn('[tirePriceResearch] suspicious_delta', {
       mspn,
       modelUsed,
-      baseCost,
+      anchorKind: anchor.kind,
+      anchorValue: anchor.value,
       foundPrice,
-      ratio: Number((foundPrice / baseCost).toFixed(2)),
+      ratio: Number((foundPrice / anchor.value).toFixed(2)),
     })
   } else if (foundPrice == null) {
     // Log the first few hundred chars of the raw response so we can tell
@@ -613,8 +645,9 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
 
   if (outcome === 'not_found' && slackMode === 'single' && !silent && token && channel) {
     const line = tireDisplayLine(tire)
+    const anchorLabel = anchor?.kind === 'base_cost' ? 'base cost' : 'CSV retail'
     const text = suspiciousDelta
-      ? `⚠️ Retail price for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)}) came back ${formatCurrency(foundPrice)} vs base ${formatCurrency(baseCost)}, rejected as suspicious (outside ±50%).`
+      ? `⚠️ Retail price for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)}) came back ${formatCurrency(foundPrice)} vs ${anchorLabel} ${formatCurrency(anchor.value)}, rejected as suspicious (ratio ${Number((foundPrice / anchor.value).toFixed(2))}x).`
       : `⚠️ Retail price not found for ${escapeSlackMrkdwn(line)} (MSPN ${escapeSlackMrkdwn(mspn)})`
     await slackApiPost(token, 'chat.postMessage', { channel, text })
   }
