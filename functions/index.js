@@ -830,7 +830,7 @@ exports.tirePriceResearchCatchup = onSchedule(
  * Manual admin trigger for the same price research the nightly cron runs.
  * Useful for testing after setting GEMINI_API_KEY or when buy prices look stale.
  * Admin-only. Respects `priceIntel.kyleConfirmed` as a freeze. Writes only to
- * `priceIntel.*` so CSV-sourced fields (price, cost, retailPrice) are untouched.
+ * `priceIntel.*` so CSV-sourced fields (price, cost) are untouched.
  */
 exports.runTirePriceResearchNow = onCall(
   {

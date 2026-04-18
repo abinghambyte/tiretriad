@@ -237,7 +237,9 @@ In `sendTireSaleSms` (Cloud Function), after the order doc is created, check pri
 ```js
 const tireDoc = await db.collection('tires').doc(order.mspn).get();
 if (tireDoc.exists) {
-  const retail = tireDoc.data().price || tireDoc.data().retailPrice;
+  // `price` is Kyle's buy cost (per AGENTS.md); researched retail lives at
+  // priceIntel.retailPrice (populated by the nightly tirePriceResearch job).
+  const retail = Number(tireDoc.data().priceIntel?.retailPrice) || Number(tireDoc.data().price) || 0;
   if (retail > 0) {
     const discount = (retail - order.pricePerTire) / retail;
     if (discount > 0.40) {

@@ -729,7 +729,6 @@ async function processTireResearchDoc(db, geminiKey, slack, docSnap, opts = {}) 
         retailPrice: foundPrice,
         confidence: gemConf,
         sources,
-        // Old delta-flag review state is obsolete under the retail model.
         flagged: false,
         flagReason: null,
         lastResearched: FieldValue.serverTimestamp(),
