@@ -31,6 +31,7 @@ import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { useToast } from '../../context/ToastContext.jsx'
+import { copyToClipboard } from '../../utils/copyToClipboard'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -150,6 +151,7 @@ function InviteUrlToolkit({ url }) {
   const [nfcSuccess, setNfcSuccess] = useState('')
   const [nfcErr, setNfcErr] = useState('')
   const showHardware = shouldShowAndroidInviteHardwareActions()
+  const { toast: toastFn } = useToast()
 
   async function copyUrl() {
     try {
@@ -157,10 +159,13 @@ function InviteUrlToolkit({ url }) {
     } catch {
       /* ignore */
     }
-    try {
-      await navigator.clipboard.writeText(safeUrl)
-    } catch {
-      window.prompt('Copy URL:', safeUrl)
+    const ok = await copyToClipboard(safeUrl)
+    if (ok) {
+      toastFn?.('Invite URL copied', 'success')
+    } else {
+      // Fall back to surfacing the URL in a toast so the user can still copy
+      // it manually. Better than blocking the UI with a native prompt().
+      toastFn?.(`Copy this URL: ${safeUrl}`, 'info')
     }
   }
 

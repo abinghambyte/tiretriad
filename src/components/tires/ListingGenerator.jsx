@@ -8,6 +8,7 @@ import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { parseDescription } from '../../utils/parseTireDescription'
 import { formatCurrency } from '../../utils/format'
+import { copyToClipboard } from '../../utils/copyToClipboard'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
@@ -204,11 +205,7 @@ function buildListingAdvisorRequestBody(t) {
 }
 
 async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    window.prompt('Copy:', text)
-  }
+  return copyToClipboard(text)
 }
 
 function initLines(tires) {

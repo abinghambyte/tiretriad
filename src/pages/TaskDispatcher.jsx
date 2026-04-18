@@ -4,6 +4,7 @@ import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
+import { copyToClipboard } from '../utils/copyToClipboard'
 
 const HANDOFF_STORAGE_KEY = 'dispatcher:handoff'
 
@@ -39,11 +40,7 @@ function RoutingSkeleton() {
 }
 
 async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text)
-  } catch {
-    window.prompt('Copy:', text)
-  }
+  return copyToClipboard(text)
 }
 
 function readHandoff() {
