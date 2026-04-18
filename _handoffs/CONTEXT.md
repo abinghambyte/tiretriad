@@ -34,6 +34,31 @@ Mobile tire business in northern Colorado (Fort Collins / Greeley area). Just-in
 
 ---
 
+## Actual File Structure
+
+**Pages** (`src/pages/`):
+`AnalyticsPage.jsx`, `ContactsPage.jsx`, `CrmDispatchPage.jsx`, `CrmPage.jsx`, `DashboardPage.jsx`, `GrowthLabPage.jsx`, `HandshakePage.jsx`, `InvitePage.jsx`, `LandingPage.jsx`, `MechanicIntakePage.jsx`, `OpsPage.jsx`, `OrdersPage.jsx`, `PeoplePage.jsx`, `TaskDispatcher.jsx`, `TiresPage.jsx`, `WallPage.jsx`
+
+**Components** (`src/components/`):
+- `analytics/MarginWeekLineChart.jsx`
+- `crm/CrmAccountDetailPanel.jsx`, `crm/CrmAccountsPipelineTable.jsx`
+- `dashboard/CreditTrackerCard.jsx`, `dashboard/Dashboard.jsx`, `dashboard/ProjectCard.jsx`
+- `layout/CommandPalette.jsx`, `layout/MobileBottomNav.jsx`, `layout/ModuleSubheader.jsx`, `layout/PortalChrome.jsx`, `layout/PortalTopBar.jsx`
+- `orders/OrdersList.jsx` ← **entire orders UI is in this one file** (no OrderCard, no OrderDetailPanel)
+- `people/AvailabilityBlocker.jsx`, `people/PeopleDashboard.jsx`, `people/PermissionMatrix.jsx`
+- `tires/FilterPresetsBar.jsx`, `tires/ListingGenerator.jsx`, `tires/MarginFilters.jsx`, `tires/MarginTable.jsx`, `tires/SaleMessenger.jsx`, `tires/TiresDashboard.jsx`
+- `ui/ErrorBoundary.jsx`
+
+**Hooks** (`src/hooks/`):
+`useAuth.js`, `useDashboardSignals.js`, `useTires.js`, `useUserProfile.js`
+
+**Key utils** (`src/utils/`):
+`ctsCalc.js` (computeMargin), `crmPipeline.js`, `crmScore.js`, `exportMarginCsv.js`, `format.js`, `formatPhone.js`, `isoWeekDenver.js`, `listingStatus.js`, `orderPoolMargin.js`, `timeAgo.js`, `tireCatalogBuy.js`
+
+**Important:** Do NOT assume file paths. If a component file doesn't appear in this list, it doesn't exist — check before referencing it.
+
+---
+
 ## Modules
 
 | Module | Route | Notes |

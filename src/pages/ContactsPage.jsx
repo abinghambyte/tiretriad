@@ -69,6 +69,7 @@ export function ContactsPage({ embedded = false }) {
   const [addName, setAddName] = useState('')
   const [addPhone, setAddPhone] = useState('')
   const [addBusy, setAddBusy] = useState(false)
+  const [addError, setAddError] = useState('')
 
   useEffect(() => {
     const q = query(collection(db, 'contacts'), limit(2000))
@@ -216,21 +217,25 @@ export function ContactsPage({ embedded = false }) {
     e.preventDefault()
     if (!canManagePeople) return
     const name = String(addName || '').trim()
-    const e164 = normalizePhoneToE164(addPhone)
-    const id = phoneDocIdFromContact(e164 || addPhone)
     if (!name) {
-      window.alert('Enter a display name.')
+      setAddError('Enter a display name.')
       return
     }
+    const e164 = normalizePhoneToE164(addPhone)
+    if (!e164) {
+      setAddError('Enter a valid US or international phone number (e.g. 970-555-1234 or +1...).')
+      return
+    }
+    const id = phoneDocIdFromContact(e164)
     if (!id) {
-      window.alert('Enter a valid phone number (US or international).')
+      setAddError('Could not parse phone number. Try including the area code.')
       return
     }
     setAddBusy(true)
     try {
       const existing = await getDoc(doc(db, 'contacts', id))
       if (existing.exists()) {
-        window.alert('A contact with this phone number already exists. Open it from the list.')
+        setAddError('A contact with this phone number already exists.')
         return
       }
       await setDoc(doc(db, 'contacts', id), {
@@ -243,10 +248,11 @@ export function ContactsPage({ embedded = false }) {
         lastTireLabel: '',
       })
       toast('Contact added', 'success')
+      setAddError('')
       setAddName('')
       setAddPhone('')
     } catch (err) {
-      window.alert(err?.message || String(err))
+      toast(err?.message || String(err), 'error')
     } finally {
       setAddBusy(false)
     }
@@ -318,7 +324,10 @@ export function ContactsPage({ embedded = false }) {
                   type="text"
                   placeholder="Display name"
                   value={addName}
-                  onChange={(e) => setAddName(e.target.value)}
+                  onChange={(e) => {
+                    setAddName(e.target.value)
+                    setAddError('')
+                  }}
                   autoComplete="name"
                   className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
                 />
@@ -328,9 +337,15 @@ export function ContactsPage({ embedded = false }) {
                   autoComplete="tel"
                   placeholder="+1 (555) 123-4567"
                   value={addPhone}
-                  onChange={(e) => setAddPhone(formatPhoneInputForDisplay(e.target.value))}
+                  onChange={(e) => {
+                    setAddPhone(formatPhoneInputForDisplay(e.target.value))
+                    setAddError('')
+                  }}
                   className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500"
                 />
+                {addError ? (
+                  <p className="col-span-full text-xs text-red-400">{addError}</p>
+                ) : null}
               </div>
               <button
                 type="submit"
