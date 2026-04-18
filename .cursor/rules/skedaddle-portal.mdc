@@ -55,7 +55,7 @@ Six stages only: `pending` → `available` → `scheduled` → `in_transit` → 
 
 - **Desktop layout must not change** when adding mobile fixes; use **`max-sm:`** and **`sm:`** only for mobile
 - Crew tags in UI: **Overwatch, Source, Field, Spotter** — use `src/utils/portalCrewTag.js`; never raw role strings in UI
-- Margin % colors: **red below 10%**, **amber 10–25%**, **green above 25%**
+- Margin % colors (from `src/utils/marginCalc.js:marginBadgeClass`): **red below 15%**, **amber 15–24%**, **green 25–34%**, **sky 35%+**
 - Modals: always **Escape** and **backdrop click** to dismiss
 
 ## Naming — do not change
