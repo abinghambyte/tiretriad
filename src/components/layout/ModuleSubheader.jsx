@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
  * @param {Array<{ key: string, label: string, to: string, active?: boolean }>} [props.tabs]
  * @param {string} [props.maxWidthClass]
  */
-export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'max-w-7xl' }) {
+export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'max-w-6xl' }) {
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md">
       <div className={`mx-auto px-4 py-4 sm:px-6 ${maxWidthClass}`}>

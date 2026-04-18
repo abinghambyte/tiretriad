@@ -29,6 +29,15 @@ export function BulkCtsModal({ open, onClose, tires }) {
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open) return undefined
+    function onKey(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
 
   const previewOverhead = computeCts({

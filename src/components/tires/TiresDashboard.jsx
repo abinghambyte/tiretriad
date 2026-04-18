@@ -363,7 +363,7 @@ export function TiresDashboard() {
         ]}
       />
 
-      <main className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+      <main className="mx-auto max-w-6xl space-y-8 px-6 py-8">
         {error ? (
           <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
             Could not load tires: {error.message}

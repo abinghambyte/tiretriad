@@ -378,6 +378,44 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   }, [])
 
   useEffect(() => {
+    const hasOverlay =
+      logOpen ||
+      previewOpen ||
+      selected ||
+      (createDrawerOpen && isMobilePeople)
+    if (!hasOverlay) return undefined
+    function onKey(e) {
+      if (e.key !== 'Escape') return
+      if (logOpen) {
+        setLogOpen(false)
+        setHistoryForUser(null)
+        return
+      }
+      if (previewOpen) {
+        setPreviewOpen(false)
+        setPreviewShowCreatedUrl(false)
+        return
+      }
+      if (selected) {
+        closeEditor()
+        return
+      }
+      if (createDrawerOpen && isMobilePeople) {
+        setCreateDrawerOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [
+    logOpen,
+    previewOpen,
+    selected,
+    createDrawerOpen,
+    isMobilePeople,
+    closeEditor,
+  ])
+
+  useEffect(() => {
     if (!selected?.id) {
       setPanelInviteUrl('')
       return undefined
@@ -652,7 +690,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   const inner = (
     <>
-    <main className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
         {isMobilePeople && !createDrawerOpen ? (
           <button
             type="button"
@@ -1198,8 +1236,17 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           role="dialog"
           aria-modal
           aria-labelledby="preview-invite-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setPreviewOpen(false)
+              setPreviewShowCreatedUrl(false)
+            }
+          }}
         >
-          <div className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}>
+          <div
+            className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}
+            onClick={(e) => e.stopPropagation()}
+          >
             {previewShowCreatedUrl && lastInviteUrl ? (
               <>
                 <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
@@ -1288,6 +1335,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       {logOpen ? (
         <div
           className={MODAL_CENTER_BACKDROP_TOP}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="access-history-title"
           onClick={() => {
             setLogOpen(false)
             setHistoryForUser(null)
@@ -1297,7 +1347,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 sm:max-h-[80vh]`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-white">Access history</h3>
+            <h3 id="access-history-title" className="text-lg font-semibold text-white">
+              Access history
+            </h3>
             {historyForUser ? (
               <p className="mt-1 text-sm text-zinc-500">
                 {historyForUser.firstName} {historyForUser.lastName}{' '}
@@ -1353,7 +1405,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <div className="min-w-0">
             <Link
               to="/dashboard"

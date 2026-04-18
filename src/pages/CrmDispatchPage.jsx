@@ -90,7 +90,7 @@ export function CrmDispatchPage() {
   if (!allowed) {
     return (
       <div className="min-h-screen bg-zinc-950 p-8 text-zinc-100">
-        <p className="text-sm text-zinc-400">DJ dispatch is for mechanics and admins.</p>
+        <p className="text-sm text-zinc-400">DJ dispatch is for Field crew and Overwatch.</p>
         <Link to="/crm" className="mt-4 inline-block text-violet-400 hover:underline">
           ← Rubber CRM
         </Link>

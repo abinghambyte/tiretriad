@@ -74,10 +74,24 @@ Consequence: there is no inventory-leak bug on cancel or reject. Do NOT add logi
 
 ## UI rules
 - Desktop layout must never change when adding mobile fixes
-- Use max-sm: and sm: breakpoints only for mobile
+- **Breakpoints:** use `max-sm:` / `sm:` for phone-vs-desktop stacking (touch targets, single column). `md:`, `lg:`, and wider are allowed for **desktop grid refinements** (e.g. CRM pipeline columns, margin table header swap) where the `sm` layout already matches the intended desktop structure — do not use them to replace `sm` for core mobile layout.
+- **Content width:** main module content aligns with the portal chrome (`max-w-6xl`) unless a future screen truly needs a documented exception.
 - Crew tag labels in UI: Overwatch, Source, Field, Spotter — never raw values (admin, supplier, mechanic, viewer)
 - Margin % color scale: red below 15%, amber 15–29%, green 30–44%, emerald 45%+
-- Modal close: always support Escape keypress and backdrop click to dismiss
+- Modal close: always support Escape keypress and backdrop click to dismiss (center modals: backdrop `onClick` with `e.target === e.currentTarget` or full-backdrop handler + `stopPropagation` on panel; drawers: backdrop click + Escape). **Exceptions:** invite onboarding / registration (`src/pages/InvitePage.jsx`) — no accidental dismiss that abandons the flow.
+
+### Overlay inventory (dismiss contract)
+| Surface | Escape | Backdrop click |
+|--------|--------|------------------|
+| `src/components/layout/CommandPalette.jsx` | Yes | Yes |
+| `src/components/tires/BulkCtsModal.jsx` | Yes | Yes |
+| `src/components/tires/SaleMessenger.jsx` | Yes | Yes |
+| `src/components/tires/ListingGenerator.jsx` | Yes | Yes |
+| `src/components/orders/OrdersList.jsx` modals | Yes | Yes |
+| `src/components/crm/CrmAccountDetailPanel.jsx` | Yes | Yes |
+| `src/pages/ContactsPage.jsx` drawer | Yes | Yes |
+| `src/components/people/PeopleDashboard.jsx` user editor, invite preview, access history, mobile create drawer | Yes | Yes (preview/history/editor); create drawer: Escape + Close |
+| `src/pages/InvitePage.jsx` register / experience | N/A (intentional) | N/A |
 
 ## Naming — never change these
 - "Rubber CRM" — never rename to "Fleet CRM" or anything else
