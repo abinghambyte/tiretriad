@@ -49,37 +49,6 @@ const SUSPICIOUS_RATIO_HIGH = 1.5
 const CSV_RETAIL_RATIO_LOW = 0.4
 const CSV_RETAIL_RATIO_HIGH = 2.5
 
-/**
- * JSON Schema the Gemini API enforces on every response via
- * `responseJsonSchema`. Because the API constrains its decoder to this shape,
- * we no longer need hand-rolled fence stripping, brace balancing, or regex
- * rescue paths; every response that makes it past the HTTP layer parses
- * cleanly. The `sources` array is the auditable reasoning: Gemini must list
- * every seller it consulted and the per-seller price it observed, which we
- * log for analysis.
- */
-const RESEARCH_RESPONSE_SCHEMA = {
-  type: 'object',
-  required: ['price', 'confidence', 'notes', 'sources'],
-  properties: {
-    price: { anyOf: [{ type: 'number' }, { type: 'null' }] },
-    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
-    notes: { type: 'string' },
-    sources: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['seller', 'price'],
-        properties: {
-          seller: { type: 'string' },
-          url: { type: 'string' },
-          price: { anyOf: [{ type: 'number' }, { type: 'null' }] },
-        },
-      },
-    },
-  },
-}
-
 function normalizeConfidence(c) {
   const s = String(c || '').toLowerCase().trim()
   if (s === 'high' || s === 'medium' || s === 'low') return s
@@ -87,34 +56,106 @@ function normalizeConfidence(c) {
 }
 
 /**
- * Parse a schema-constrained response into our internal shape. Gemini's
- * `responseJsonSchema` enforcement means `JSON.parse` on the raw text should
- * always succeed; we still tolerate failure gracefully in case the API
- * upstream changes or the model produces an unexpected edge case.
+ * Extract the first balanced `{...}` object from a chunk of text. The Gemini
+ * API rejects `responseMimeType: "application/json"` when the grounding tools
+ * are enabled (`"Tool use with a response mime type: 'application/json' is
+ * unsupported"`), so we cannot use schema-constrained output. Parsing has to
+ * survive markdown fences, prose preamble, and occasional truncation.
+ */
+function extractFirstJsonObject(text) {
+  let raw = String(text || '').trim()
+  if (raw.startsWith('```')) {
+    raw = raw.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
+  }
+  if (!raw) return null
+  const start = raw.indexOf('{')
+  if (start < 0) return null
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < raw.length; i += 1) {
+    const ch = raw[i]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{') depth += 1
+    else if (ch === '}') {
+      depth -= 1
+      if (depth === 0) return raw.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
+function normalizeParsedObject(o) {
+  const rawPrice = o?.price == null ? null : Number(o.price)
+  const sources = Array.isArray(o?.sources)
+    ? o.sources
+        .filter((s) => s && typeof s === 'object')
+        .map((s) => ({
+          seller: String(s.seller || '').slice(0, 80),
+          url: String(s.url || '').slice(0, 400),
+          price: s.price == null ? null : Number(s.price),
+        }))
+    : []
+  return {
+    ok: true,
+    price: Number.isFinite(rawPrice) ? rawPrice : null,
+    confidence: normalizeConfidence(o?.confidence),
+    notes: String(o?.notes || '').slice(0, 400),
+    sources,
+  }
+}
+
+/**
+ * Parse Gemini's text response in three tiers:
+ *   1. Full JSON.parse after stripping markdown fences (the normal path).
+ *   2. Extract the first balanced {...} block and parse that (handles
+ *      grounded-search preamble).
+ *   3. Regex rescue for `"price": N` + `"confidence": "X"` (handles
+ *      mid-`notes`-string truncation).
+ * Previous runs confirmed tier-3 still saves ~5% of responses per batch.
  */
 function parseStructuredPriceResponse(text) {
+  const raw = String(text || '')
+  if (!raw) return { ok: false, price: null, confidence: 'low', notes: 'empty', sources: [] }
+  const stripped = raw.trim().startsWith('```')
+    ? raw.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
+    : raw.trim()
   try {
-    const o = JSON.parse(String(text || ''))
-    const rawPrice = o?.price == null ? null : Number(o.price)
-    const sources = Array.isArray(o?.sources)
-      ? o.sources
-          .filter((s) => s && typeof s === 'object')
-          .map((s) => ({
-            seller: String(s.seller || '').slice(0, 80),
-            url: String(s.url || '').slice(0, 400),
-            price: s.price == null ? null : Number(s.price),
-          }))
-      : []
+    return normalizeParsedObject(JSON.parse(stripped))
+  } catch {
+    /* fall through to balanced-object extraction */
+  }
+  const balanced = extractFirstJsonObject(raw)
+  if (balanced) {
+    try {
+      return normalizeParsedObject(JSON.parse(balanced))
+    } catch {
+      /* fall through to regex rescue */
+    }
+  }
+  const priceMatch = stripped.match(/"price"\s*:\s*(null|-?\d+(?:\.\d+)?)/i)
+  if (priceMatch) {
+    const rawP = priceMatch[1].toLowerCase()
+    const rescued = rawP === 'null' ? null : Number(rawP)
+    const confMatch = stripped.match(/"confidence"\s*:\s*"(high|medium|low)"/i)
     return {
       ok: true,
-      price: Number.isFinite(rawPrice) ? rawPrice : null,
-      confidence: normalizeConfidence(o?.confidence),
-      notes: String(o?.notes || '').slice(0, 400),
-      sources,
+      price: Number.isFinite(rescued) ? rescued : null,
+      confidence: confMatch ? confMatch[1].toLowerCase() : 'low',
+      notes: 'rescued_from_truncated_json',
+      sources: [],
     }
-  } catch {
-    return { ok: false, price: null, confidence: 'low', notes: 'parse_failed', sources: [] }
   }
+  return { ok: false, price: null, confidence: 'low', notes: 'parse_failed', sources: [] }
 }
 
 function isRateLimitedError(status, message) {
@@ -158,18 +199,18 @@ async function geminiRetailPriceWithSearch(geminiKey, userPrompt) {
         temperature: 0,
         topP: 1,
         seed: 42,
-        // Reduced headroom: structured output removes the need to pad for a
-        // long prose `notes` field. 2048 is plenty for a price + short
-        // summary + a few source entries.
-        maxOutputTokens: 2048,
+        // Higher headroom keeps the `sources` array intact when Gemini
+        // lists several sellers; truncation still happens occasionally on
+        // long prose and is handled by the tier-3 regex rescue.
+        maxOutputTokens: 4096,
         // Light thinking budget helps the aggregation step (picking sellers,
         // computing the median) without bloating tokens on every tire.
         thinkingConfig: { thinkingBudget: 512 },
-        // Schema-constrained JSON. With this set, the response `text` always
-        // parses as a valid object matching `RESEARCH_RESPONSE_SCHEMA`, so
-        // we can drop the fence/brace/rescue parsing entirely.
-        responseMimeType: 'application/json',
-        responseJsonSchema: RESEARCH_RESPONSE_SCHEMA,
+        // NOTE: `responseMimeType: "application/json"` and `responseJsonSchema`
+        // CANNOT be combined with grounding tools. The Gemini API rejects
+        // with `"Tool use with a response mime type: 'application/json' is
+        // unsupported"`. We instruct Gemini to produce JSON via the prompt
+        // and parse defensively with three tiers of recovery.
       },
     }
     let res
@@ -331,7 +372,7 @@ function buildResearchUserPrompt(tire) {
     : []
 
   return [
-    `You are researching the current US consumer retail price per single tire. Use the googleSearch tool to locate listings and the urlContext tool to fetch specific product pages for exact price + MSPN verification. Return the result via the response schema.`,
+    `You are researching the current US consumer retail price per single tire. Use the google_search tool to locate listings and the url_context tool to fetch specific product pages for exact price + MSPN verification.`,
     '',
     `Tire:`,
     brand ? `- Brand: ${brand}` : '',
@@ -356,11 +397,22 @@ function buildResearchUserPrompt(tire) {
     '',
     `Computation: collect per-seller prices from at least 3 acceptable sellers when possible. Report the plain median (50th percentile) as the final price. If only 1 or 2 acceptable sellers list the MSPN, use the single lowest of those. Price is for one (1) tire, not a set of four.`,
     '',
-    `Populate the response object as:`,
-    `- price: the median number (or null if NO acceptable seller lists the MSPN)`,
-    `- confidence: "high" when 3+ sellers match within 15% of each other, "medium" when 1-2 sellers or >15% spread, "low" when extrapolated or uncertain`,
-    `- notes: one short sentence naming the cheapest 2 sellers used`,
-    `- sources: array of {seller, url, price} for every acceptable listing you considered (not just the ones used in the median). Include the URL verbatim. This is the audit trail.`,
+    `Respond with a single JSON object, no prose before or after, matching exactly this shape:`,
+    `{`,
+    `  "price": <number or null>,`,
+    `  "confidence": "high" | "medium" | "low",`,
+    `  "notes": "<one short sentence naming the cheapest 2 sellers used>",`,
+    `  "sources": [`,
+    `    {"seller": "<seller name>", "url": "<verbatim URL>", "price": <number>},`,
+    `    ...`,
+    `  ]`,
+    `}`,
+    '',
+    `Rules:`,
+    `- "price" is the median number computed above, or null if NO acceptable seller lists the MSPN.`,
+    `- "confidence" is "high" when 3+ sellers match within 15% of each other, "medium" when 1-2 sellers or >15% spread, "low" when extrapolated or uncertain.`,
+    `- "sources" MUST contain an entry for every acceptable listing you considered (not just the ones used in the median). Include verbatim product-page URLs. This is the audit trail.`,
+    `- Keep "notes" under 200 characters so the response doesn't truncate.`,
   ]
     .filter(Boolean)
     .join('\n')
