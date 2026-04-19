@@ -1,16 +1,30 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { formatPercent } from '../../utils/format'
 
 /**
- * SVG line chart for weekly margin % (last N weeks, oldest → newest).
- * Mobile-friendly: Y gridlines at 0/25/50/75/100, readable labels, larger
- * points, current-week value as a headline.
+ * SVG line chart for weekly margin % (last N weeks, oldest to newest).
+ * Measures its own container so the SVG viewBox matches rendered width,
+ * preventing horizontal text distortion on wide cards.
  * @param {{ labels: string[], percents: (number|null)[] }} props
  */
 export function MarginWeekLineChart({ labels, percents }) {
-  const w = 360
+  const wrapRef = useRef(null)
+  const [w, setW] = useState(720)
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return undefined
+    const ro = new ResizeObserver((entries) => {
+      const cw = entries[0]?.contentRect?.width
+      if (cw && cw > 0) setW(Math.max(320, Math.round(cw)))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const h = 160
-  const padL = 26
-  const padR = 8
+  const padL = 36
+  const padR = 12
   const padT = 10
   const padB = 24
   const plotW = w - padL - padR
@@ -37,7 +51,6 @@ export function MarginWeekLineChart({ labels, percents }) {
     return null
   })()
 
-  // Show every other label on mobile to avoid overlap; all labels on sm+.
   const mobileLabelSkip = Math.ceil(labels.length / 6)
 
   return (
@@ -55,68 +68,76 @@ export function MarginWeekLineChart({ labels, percents }) {
           </p>
         ) : null}
       </div>
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="mt-2 h-40 w-full max-w-full text-amber-400/90 sm:h-36"
-        role="img"
-        aria-label="Margin percent by week"
-      >
-        {gridPcts.map((g) => {
-          const y = padT + (1 - g / 100) * plotH
-          return (
-            <g key={g}>
-              <line
-                x1={padL}
-                x2={w - padR}
-                y1={y}
-                y2={y}
-                stroke="currentColor"
-                strokeOpacity={g === 0 ? 0.25 : 0.1}
-                strokeDasharray={g === 0 ? '' : '2 3'}
-                strokeWidth="1"
-                vectorEffect="non-scaling-stroke"
-              />
-              <text
-                x={padL - 4}
-                y={y + 3}
-                textAnchor="end"
-                className="fill-zinc-500"
-                style={{ fontSize: '9px' }}
-              >
-                {g}%
-              </text>
-            </g>
-          )
-        })}
-        {d ? (
-          <path
-            d={d}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        ) : null}
-        {pts.map((p, i) => {
-          if (!p.hasValue) return null
-          const isLatest = i === pts.length - 1
-          return (
-            <g key={`${labels[i] ?? 'w'}-${i}`}>
-              <circle cx={p.x} cy={p.y} r={isLatest ? 5 : 4} fill="currentColor">
-                <title>
-                  Week {labels[i]}: {formatPercent(p.raw, 1)}
-                </title>
-              </circle>
-              {isLatest ? (
-                <circle cx={p.x} cy={p.y} r="8" fill="none" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1" />
-              ) : null}
-            </g>
-          )
-        })}
-      </svg>
+      <div ref={wrapRef} className="mt-2">
+        <svg
+          viewBox={`0 0 ${w} ${h}`}
+          className="block w-full text-amber-400/90"
+          style={{ height: h }}
+          role="img"
+          aria-label="Margin percent by week"
+        >
+          {gridPcts.map((g) => {
+            const y = padT + (1 - g / 100) * plotH
+            return (
+              <g key={g}>
+                <line
+                  x1={padL}
+                  x2={w - padR}
+                  y1={y}
+                  y2={y}
+                  stroke="currentColor"
+                  strokeOpacity={g === 0 ? 0.25 : 0.1}
+                  strokeDasharray={g === 0 ? '' : '2 3'}
+                  strokeWidth="1"
+                />
+                <text
+                  x={padL - 6}
+                  y={y + 3}
+                  textAnchor="end"
+                  className="fill-zinc-500"
+                  style={{ fontSize: '10px' }}
+                >
+                  {g}%
+                </text>
+              </g>
+            )
+          })}
+          {d ? (
+            <path
+              d={d}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          ) : null}
+          {pts.map((p, i) => {
+            if (!p.hasValue) return null
+            const isLatest = i === pts.length - 1
+            return (
+              <g key={`${labels[i] ?? 'w'}-${i}`}>
+                <circle cx={p.x} cy={p.y} r={isLatest ? 5 : 4} fill="currentColor">
+                  <title>
+                    Week {labels[i]}: {formatPercent(p.raw, 1)}
+                  </title>
+                </circle>
+                {isLatest ? (
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r="8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeOpacity="0.4"
+                    strokeWidth="1"
+                  />
+                ) : null}
+              </g>
+            )
+          })}
+        </svg>
+      </div>
       <div className="mt-1 flex justify-between text-[10px] text-zinc-500 sm:text-[11px]">
         {labels.map((lab, i) => {
           const showOnMobile = i === 0 || i === labels.length - 1 || i % mobileLabelSkip === 0

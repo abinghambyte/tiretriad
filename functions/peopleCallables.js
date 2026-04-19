@@ -13,7 +13,8 @@ const {
   normalizeRole,
   MODULE_MATRIX,
 } = require('./peopleSystem')
-const { deliverInvite } = require('./inviteFlow')
+const { deliverInvite, generateInviteGreetingLine } = require('./inviteFlow')
+const { ANTHROPIC_API_KEY } = require('./slackSecrets')
 
 /** E.164 — keep in sync with `normalizePhoneToE164` in `src/utils/formatPhone.js`. */
 function normalizePhoneToE164(raw) {
@@ -91,7 +92,7 @@ exports.ensureUserDocument = onCall(async (request) => {
   return { ok: true, created: true, role }
 })
 
-exports.createPortalUser = onCall(async (request) => {
+exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -188,16 +189,28 @@ exports.createPortalUser = onCall(async (request) => {
   // Production invite links always use the public site host (Phase 9).
   const inviteUrl = `https://www.skedaddleinc.com/i/${token}`
 
+  // Generate the greeting line first so both SMS and email bodies can include it.
+  // Never throws; falls back to a safe default line on failure.
+  const greeting = await generateInviteGreetingLine({
+    firstName,
+    role,
+    secretValue: ANTHROPIC_API_KEY.value(),
+  })
+
+  let delivery = { attempted: inviteDelivery, sent: false, reason: 'unknown' }
   try {
-    await deliverInvite({
+    const result = await deliverInvite({
       firstName,
       email,
       phone,
       inviteUrl,
       deliveryMethod: inviteDelivery,
+      greeting,
     })
+    delivery = { attempted: inviteDelivery, ...result }
   } catch (e) {
     console.error('createPortalUser: deliverInvite', e)
+    delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
   }
 
   return {
@@ -205,6 +218,7 @@ exports.createPortalUser = onCall(async (request) => {
     uid,
     token,
     inviteUrl,
+    delivery,
   }
 })
 
@@ -440,7 +454,7 @@ exports.revokeInvite = onCall(async (request) => {
  * Issue a new invite token for an existing (pre-registration) user.
  * Revokes any prior active token, generates a fresh one, and delivers it.
  */
-exports.reissueInvite = onCall(async (request) => {
+exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -508,21 +522,31 @@ exports.reissueInvite = onCall(async (request) => {
 
   await batch.commit()
 
-  // Deliver (best-effort — don't fail the whole request if email/SMS is down)
+  // Generate greeting before delivery (best-effort — fallback line on failure).
+  const greeting = await generateInviteGreetingLine({
+    firstName: user.firstName || '',
+    role: user.role,
+    secretValue: ANTHROPIC_API_KEY.value(),
+  })
+
+  // Deliver (best-effort — don't fail the whole request if email/SMS is down).
+  let delivery = { attempted: inviteDelivery, sent: false, reason: 'unknown' }
   try {
-    const { deliverInvite } = require('./inviteFlow')
-    await deliverInvite({
+    const result = await deliverInvite({
       firstName: user.firstName || '',
       email: user.email || '',
       phone: user.phone || '',
       inviteUrl,
       deliveryMethod: inviteDelivery,
+      greeting,
     })
+    delivery = { attempted: inviteDelivery, ...result }
   } catch (e) {
     console.error('reissueInvite: deliverInvite failed', e)
+    delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
   }
 
-  return { ok: true, token, inviteUrl }
+  return { ok: true, token, inviteUrl, delivery }
 })
 
 /**

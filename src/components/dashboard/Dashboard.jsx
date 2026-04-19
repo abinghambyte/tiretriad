@@ -542,7 +542,7 @@ export function Dashboard() {
                   className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3 transition-colors duration-200 hover:bg-amber-950/15"
                   title="Open the tires catalog filtered to rows still missing mount/delivery/other cost"
                 >
-                  <span className="text-base font-medium text-amber-100/95">Missing overhead</span>
+                  <span className="text-base font-medium text-amber-100/95">Overhead not set</span>
                   <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-amber-200">
                     {formatQty(catalogHealth.missingOverhead ?? 0)}
                     <span className="text-amber-500/90" aria-hidden>

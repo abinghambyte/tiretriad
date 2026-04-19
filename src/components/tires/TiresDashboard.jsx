@@ -18,6 +18,7 @@ import { FilterPresetsBar } from './FilterPresetsBar'
 import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
+import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
@@ -149,6 +150,7 @@ export function TiresDashboard() {
   const [listingOpen, setListingOpen] = useState(false)
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
+  const [quoteOpen, setQuoteOpen] = useState(false)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
   const [notifyingTeam, setNotifyingTeam] = useState(false)
   const [loggingProspective, setLoggingProspective] = useState(false)
@@ -167,6 +169,12 @@ export function TiresDashboard() {
   useEffect(() => {
     writeColumnVisibility(columnVisibility)
   }, [columnVisibility])
+
+  useEffect(() => {
+    // The Quote modal is single-tire only. Auto-close if the selection
+    // changes to zero or many so we don't render against a stale tire.
+    if (quoteOpen && selectedIds.size !== 1) setQuoteOpen(false)
+  }, [quoteOpen, selectedIds])
 
   useEffect(() => {
     writeFiltersOpen(filtersOpen)
@@ -813,6 +821,19 @@ export function TiresDashboard() {
                     </button>
                     <button
                       type="button"
+                      disabled={loading || selectedTires.length !== 1}
+                      onClick={() => setQuoteOpen(true)}
+                      title={
+                        selectedTires.length === 1
+                          ? 'Open the bundle quote calculator'
+                          : 'Select exactly one tire to open a bundle quote'
+                      }
+                      className="min-h-[44px] rounded-lg border border-sky-900/60 bg-sky-950/35 px-3 py-2 text-sm font-medium text-sky-100 hover:bg-sky-950/55 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                    >
+                      Quote
+                    </button>
+                    <button
+                      type="button"
                       disabled={loading}
                       onClick={() => {
                         if (selectedIds.size > 0) logSelectedSale()
@@ -910,6 +931,18 @@ export function TiresDashboard() {
           onClose={() => {
             setSaleOpen(false)
             setSaleInitial(null)
+          }}
+        />
+      ) : null}
+      {quoteOpen && selectedTires.length === 1 ? (
+        <QuoteCalculator
+          key={selectedTires[0].id}
+          tire={selectedTires[0]}
+          onClose={() => setQuoteOpen(false)}
+          onLogSale={({ mspn, quantity, pricePerTire }) => {
+            setQuoteOpen(false)
+            setSaleInitial({ mspn, quantity, pricePerTire })
+            setSaleOpen(true)
           }}
         />
       ) : null}
