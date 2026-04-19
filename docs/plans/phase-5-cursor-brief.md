@@ -33,7 +33,7 @@ Any hardcoded URLs in `src/**` pointing at `skedaddleinc.com` or `www.skedaddlei
 In `src/components/dashboard/Dashboard.jsx` (the Recent Activity block), wrap each order ID in a `<Link>` to `/orders?highlight=<id>` so clicking jumps straight to the order card. Hover/focus style: underline. Preserve the existing row layout.
 
 ### Item 27. Remove em-dash placeholders in empty activity rows
-When an activity row has no description text, the current layout shows a `—` placeholder on both sides. Collapse that row to a single-line `{id} · {status} · {time}` format when the description is empty. Keep the two-line format when a description exists.
+When an activity row has no description text, the current layout shows a dash placeholder on both sides. Collapse that row to a single-line `{id} · {status} · {time}` format when the description is empty. Keep the two-line format when a description exists.
 
 ### Item 28. Crew alerts hover explanation
 The `CREW ALERTS` KPI card on the dashboard shows a red number with no context. Add a `title` attribute (and/or a small helper tooltip) explaining what the alert is. For the current state, it's a pending invite; the copy should be: `1 crew invite pending for {name}` or, if data isn't easily accessible, simply `Pending crew invites`.

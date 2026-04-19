@@ -13,7 +13,7 @@ Source: full UI audit 2026-04-18. Goal: professional-grade polish without expand
 - [ ] 18. Rewrite "Create user + invite" description without Auth/Firestore/invite-token mentions
 - [ ] 19. Strip "(SAMPLE)", "(META)", "(ESTIMATED FROM LOADED ORDERS)" suffixes
 - [ ] 20. Fix pluralization ("1 orders", "1 accounts", "1 units")
-- [ ] 21. Replace "— · — · never" last-seen pattern with "Never signed in"
+- [ ] 21. Replace the dash-placeholder last-seen pattern with "Never signed in"
 - [ ] 22. Replace Unicode `→` in copy with "to" or a semantic separator
 - [ ] 25. Remove dev hints ("Bookmark /orders", "read only" subtitle tags)
 - [ ] 48. Rewrite Revenue debug copy
@@ -55,7 +55,7 @@ Source: full UI audit 2026-04-18. Goal: professional-grade polish without expand
 - [ ] 3. Collapse color tokens to one neutral + accent ramp
 - [ ] 5. Canonical `skedaddleinc.com` vs `www.skedaddleinc.com`
 - [ ] 26. Make Recent Activity order IDs clickable
-- [ ] 27. Remove "—" placeholders in empty activity rows
+- [ ] 27. Remove dash placeholders in empty activity rows
 - [ ] 28. CREW ALERTS hover/tooltip explanation
 - [ ] 29. KPI card accent legend or remove
 - [ ] 30. Relocate Credit tracker band
