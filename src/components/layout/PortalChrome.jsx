@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { OrderCompletionMilestones } from '../milestones/OrderCompletionMilestones.jsx'
 import { MobileBottomNav } from './MobileBottomNav.jsx'
+import { DesktopTopNav } from './DesktopTopNav.jsx'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -13,6 +14,27 @@ const THEME_KEY = 'skedaddle-theme'
 function applyTheme(mode) {
   const m = mode === 'light' ? 'light' : 'dark'
   document.documentElement.dataset.theme = m
+}
+
+function resolveInitialTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY)
+    if (stored === 'light' || stored === 'dark') return stored
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light'
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'dark'
+}
+
+if (typeof document !== 'undefined') {
+  applyTheme(resolveInitialTheme())
 }
 
 function SessionExpiryBanner() {
@@ -61,7 +83,7 @@ function SessionExpiryBanner() {
 
   return (
     <div className="border-b border-amber-900/50 bg-amber-950/90 px-4 py-2 text-center text-sm text-amber-100">
-      Your session expires soon —{' '}
+      Your session expires soon.{' '}
       <button type="button" className="font-semibold underline" onClick={() => void refresh()}>
         click to stay signed in
       </button>
@@ -78,13 +100,7 @@ function SessionExpiryBanner() {
 }
 
 function ThemeToggle() {
-  const [mode, setMode] = useState(() => {
-    try {
-      return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'
-    } catch {
-      return 'dark'
-    }
-  })
+  const [mode, setMode] = useState(() => resolveInitialTheme())
 
   useEffect(() => {
     applyTheme(mode)
@@ -144,7 +160,7 @@ function ShortcutHint() {
               <kbd className="rounded bg-zinc-800 px-1">⌘</kbd>{' '}
               <kbd className="rounded bg-zinc-800 px-1">K</kbd> or{' '}
               <kbd className="rounded bg-zinc-800 px-1">Ctrl</kbd>{' '}
-              <kbd className="rounded bg-zinc-800 px-1">K</kbd> — search
+              <kbd className="rounded bg-zinc-800 px-1">K</kbd> to search
             </li>
             <li>
               <kbd className="rounded bg-zinc-800 px-1">Esc</kbd> close overlays
@@ -161,6 +177,7 @@ export function PortalChrome() {
   const { profile } = useUserProfile()
   const loc = useLocation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   const hideChrome = loc.pathname === '/' || loc.pathname.startsWith('/i/')
@@ -191,12 +208,14 @@ export function PortalChrome() {
         <SessionExpiryBanner />
         <PortalTopBar
           pathname={loc.pathname}
+          tab={searchParams.get('tab')}
           navigate={navigate}
           profile={profile}
           onOpenPalette={() => setPaletteOpen(true)}
           themeToggle={<ThemeToggle />}
           shortcutHint={<ShortcutHint />}
         />
+        <DesktopTopNav />
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <div

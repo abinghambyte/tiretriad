@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useState } from 'react'
 import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
+import { WORKFORCE_URL } from '../constants/externalUrls'
 import { formatPercent } from '../utils/format'
 import { copyToClipboard } from '../utils/copyToClipboard'
 
@@ -25,7 +26,7 @@ function adaptTaskDispatcherResult(raw) {
     return { ok: false, error: o.error }
   }
   const worker = String(o.assignedWorker || '')
-  const credit = [o.costCheckResult, o.costCheckNote].filter(Boolean).join(' — ')
+  const credit = [o.costCheckResult, o.costCheckNote].filter(Boolean).join(' · ')
   return {
     ok: true,
     model: String(o.modelVersion || o.platform || ''),
@@ -138,7 +139,7 @@ function GrowthLabRoutingForm() {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          placeholder="Context for the next visit — decisions, file paths, blockers…"
+          placeholder="Context for the next visit: decisions, file paths, blockers…"
           className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40 focus:ring-1 focus:ring-amber-500/30"
         />
         <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -234,10 +235,26 @@ export function GrowthLabPage() {
     <div className="mx-auto max-w-4xl px-4 py-6 text-zinc-100 sm:px-6 sm:py-8">
       <ModuleSubheader
         title="Growth Lab"
-        subtitle="Internal tools and experiments — Overwatch only."
+        subtitle="Internal tools and experiments. Overwatch only."
         maxWidthClass="max-w-4xl"
       />
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-green-900/40 bg-green-950/20 p-4">
+          <div>
+            <p className="text-sm font-semibold text-green-100">Task Dispatcher (standalone)</p>
+            <p className="mt-0.5 text-xs text-green-200/80">
+              Opens the external Workforce dispatcher in a new tab.
+            </p>
+          </div>
+          <a
+            href={WORKFORCE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-xl border border-green-600/70 bg-green-950/40 px-4 py-2.5 text-sm font-semibold text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/50"
+          >
+            Launch Dispatcher
+          </a>
+        </div>
         <GrowthLabRoutingForm />
       </div>
     </div>

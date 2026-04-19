@@ -5,7 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Worktrees and tooling copies under .claude are not part of the main package
+  globalIgnores(['dist', '.claude/**']),
   {
     files: ['functions/**/*.js'],
     extends: [js.configs.recommended],

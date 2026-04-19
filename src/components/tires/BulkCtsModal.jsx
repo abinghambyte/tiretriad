@@ -29,6 +29,15 @@ export function BulkCtsModal({ open, onClose, tires }) {
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open) return undefined
+    function onKey(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open) return null
 
   const previewOverhead = computeCts({
@@ -91,7 +100,7 @@ export function BulkCtsModal({ open, onClose, tires }) {
         <p className="mt-1 text-sm text-zinc-500">
           Apply the same mount, delivery, and other overhead to{' '}
           <span className="font-medium text-zinc-300">{tires.length}</span> selected tire
-          {tires.length === 1 ? '' : 's'}. FET stays in Kyle&apos;s buy price and is not changed.
+          {tires.length === 1 ? '' : 's'}. FET stays in the Sourcer&apos;s buy price and is not changed.
           Preview overhead total:{' '}
           <span className="font-mono text-amber-200/90">{formatCurrency(previewOverhead)}</span>
         </p>

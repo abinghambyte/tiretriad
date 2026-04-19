@@ -1,6 +1,8 @@
 import {
   collection,
+  doc,
   getCountFromServer,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -103,7 +105,8 @@ export function useDashboardSignals() {
 
   const [signalBar, setSignalBar] = useState({
     pendingOrders: null,
-    catalogSize: null,
+    /** Denver-day revenue from meta/revenueStats (aligns with Analytics). */
+    todayRevenue: null,
     crewAlerts: null,
     loading: true,
   })
@@ -235,9 +238,8 @@ export function useDashboardSignals() {
           collection(db, 'orders'),
           where('status', 'not-in', ['completed', 'cancelled']),
         )
-        const [pendingSnap, tiresSnap, lockedSnap] = await Promise.all([
+        const [pendingSnap, lockedSnap] = await Promise.all([
           getCountFromServer(pendingQ),
-          getCountFromServer(collection(db, 'tires')),
           getCountFromServer(query(collection(db, 'users'), where('inviteStatus', '==', 'locked'))),
         ])
         let pendingInvites = 0
@@ -253,10 +255,19 @@ export function useDashboardSignals() {
         } catch (e) {
           console.error('dashboard pending invite count', e)
         }
+        let todayRevenue = 0
+        try {
+          const revenueSnap = await getDoc(doc(db, 'meta', 'revenueStats'))
+          if (revenueSnap.exists()) {
+            todayRevenue = Number(revenueSnap.data()?.dailyRevenue) || 0
+          }
+        } catch (e) {
+          console.error('dashboard revenueStats read', e)
+        }
         if (cancelled) return
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
-          catalogSize: tiresSnap.data().count,
+          todayRevenue,
           crewAlerts: pendingInvites + lockedSnap.data().count,
           loading: false,
         })
@@ -265,7 +276,7 @@ export function useDashboardSignals() {
         if (!cancelled) {
           setSignalBar({
             pendingOrders: 0,
-            catalogSize: 0,
+            todayRevenue: 0,
             crewAlerts: 0,
             loading: false,
           })

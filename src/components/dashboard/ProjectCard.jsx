@@ -17,15 +17,6 @@ const ACCENT_BAR = {
   amber: 'from-amber-500/90 to-amber-800/40',
 }
 
-const ACCENT_GLOW = {
-  teal: 'group-hover:shadow-teal-500/10',
-  orange: 'group-hover:shadow-orange-500/10',
-  slate: 'group-hover:shadow-slate-400/10',
-  green: 'group-hover:shadow-green-500/10',
-  rose: 'group-hover:shadow-rose-500/10',
-  amber: 'group-hover:shadow-amber-500/10',
-}
-
 const ACCENT_HALO = {
   teal: 'from-teal-400/22 to-transparent',
   orange: 'from-orange-400/22 to-transparent',
@@ -36,15 +27,19 @@ const ACCENT_HALO = {
 }
 
 const ACCENT_CTA_RING = {
-  teal: 'group-hover:border-teal-500/45 group-hover:ring-teal-500/25',
-  orange: 'group-hover:border-orange-500/45 group-hover:ring-orange-500/25',
-  slate: 'group-hover:border-slate-400/45 group-hover:ring-slate-400/20',
-  green: 'group-hover:border-green-500/45 group-hover:ring-green-500/25',
-  rose: 'group-hover:border-rose-500/45 group-hover:ring-rose-500/25',
-  amber: 'group-hover:border-amber-500/45 group-hover:ring-amber-500/25',
+  teal: 'hover:border-teal-500/45 hover:ring-teal-500/25 focus-visible:ring-teal-500/40',
+  orange: 'hover:border-orange-500/45 hover:ring-orange-500/25 focus-visible:ring-orange-500/40',
+  slate: 'hover:border-slate-400/45 hover:ring-slate-400/20 focus-visible:ring-slate-400/40',
+  green: 'hover:border-green-500/45 hover:ring-green-500/25 focus-visible:ring-green-500/40',
+  rose: 'hover:border-rose-500/45 hover:ring-rose-500/25 focus-visible:ring-rose-500/40',
+  amber: 'hover:border-amber-500/45 hover:ring-amber-500/25 focus-visible:ring-amber-500/40',
 }
 
 /**
+ * Dashboard module card. The card itself is a non-interactive region; the
+ * single CTA button at the bottom is the only focusable/click target, which
+ * avoids nested-interactive accessibility pitfalls.
+ *
  * @param {object} props
  * @param {string} props.title
  * @param {string} props.description
@@ -56,7 +51,6 @@ const ACCENT_CTA_RING = {
  * @param {import('react').ReactNode} props.icon
  * @param {string} [props.to]
  * @param {boolean} [props.locked] View-only or limited access (shows lock on card)
- * @param {{ to: string, label: string } | { href: string, label: string, external?: boolean }} [props.secondaryFooter] Second CTA above primary (e.g. Launch Dispatcher)
  * @param {boolean} [props.compact] Smaller module tiles (e.g. bottom-of-dashboard nav)
  */
 export function ProjectCard({
@@ -70,117 +64,45 @@ export function ProjectCard({
   icon,
   to,
   locked,
-  secondaryFooter,
   compact = false,
 }) {
   const clickable = Boolean(to)
   const statusClass = STATUS_STYLES[status] ?? STATUS_STYLES.Internal
   const barClass = ACCENT_BAR[accent] ?? ACCENT_BAR.teal
-  const glowClass = ACCENT_GLOW[accent] ?? ''
   const haloClass = ACCENT_HALO[accent] ?? ACCENT_HALO.teal
   const ctaRing = ACCENT_CTA_RING[accent] ?? ACCENT_CTA_RING.teal
 
   const primaryCta = clickable ? (ctaLabel ?? 'Open') : (ctaLabel ?? 'Unavailable · under construction')
-  const secondaryHref =
-    secondaryFooter && typeof secondaryFooter.href === 'string' ? secondaryFooter.href.trim() : ''
-  const secondaryTo =
-    secondaryFooter && typeof secondaryFooter.to === 'string' ? secondaryFooter.to.trim() : ''
-  const secondaryLabel = secondaryFooter && typeof secondaryFooter.label === 'string' ? secondaryFooter.label : ''
-  const splitFooters = Boolean(
-    clickable && to && secondaryLabel && (secondaryHref.length > 0 || secondaryTo.length > 0),
-  )
 
-  const headerBlock = (
-    <div className={`relative z-[2] flex items-start justify-between gap-3 pl-2 ${compact ? 'mb-3' : 'mb-4'}`}>
-      <div
-        className={`flex items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-900/80 text-zinc-200 shadow-inner shadow-black/20 transition ${compact ? 'h-9 w-9' : 'h-11 w-11'} ${clickable ? 'group-hover:scale-[1.03] group-hover:border-zinc-600/80 group-hover:bg-zinc-800/80' : 'opacity-80'}`}
-      >
-        {icon}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {locked && clickable ? (
-          <span
-            className="rounded-full border border-zinc-600/80 bg-zinc-900/90 px-2 py-0.5 text-[10px] text-zinc-400"
-            title="View only"
-          >
-            View only
-          </span>
-        ) : null}
-        <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusClass}`}
-        >
-          {status}
-        </span>
-      </div>
-    </div>
-  )
-
-  const bodyBlock = (
-    <div className="relative z-[2] flex flex-1 flex-col pl-2">
-      <h2 className={`font-semibold tracking-tight text-zinc-50 ${compact ? 'text-base' : 'text-lg'}`}>{title}</h2>
-      <p className={`mt-2 flex-1 leading-relaxed text-zinc-400 ${compact ? 'text-xs line-clamp-3' : 'text-sm'}`}>
-        {description}
-      </p>
-      <div className={`border-t border-zinc-800/80 ${compact ? 'mt-3 pt-3' : 'mt-5 pt-4'}`}>
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{statLabel}</p>
-        <p className="sk-figures mt-1 text-sm text-zinc-200">{stat}</p>
-      </div>
-    </div>
-  )
-
-  const footerBlock = splitFooters ? (
-    <div className="relative z-[2] mt-4 flex flex-col gap-2 pl-2">
-      {secondaryHref ? (
-        <a
-          href={secondaryHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-full items-center justify-center rounded-xl border border-green-600/70 bg-green-950/25 py-3 text-sm font-bold tracking-tight text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/35"
-        >
-          {secondaryLabel}
-        </a>
-      ) : (
-        <Link
-          to={secondaryTo}
-          className="flex w-full items-center justify-center rounded-xl border border-green-600/70 bg-green-950/25 py-3 text-sm font-bold tracking-tight text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/35"
-        >
-          {secondaryLabel}
-        </Link>
-      )}
-      <Link
-        to={to}
-        className={[
-          'flex w-full items-center justify-center rounded-xl border bg-zinc-900/70 py-3 text-sm font-bold tracking-tight ring-0 transition',
-          `border-zinc-600/90 text-zinc-50 ring-1 ring-transparent ${ctaRing} hover:bg-zinc-800/90`,
-        ].join(' ')}
-      >
-        {primaryCta}
-      </Link>
-    </div>
+  const cta = clickable && to ? (
+    <Link
+      to={to}
+      className={[
+        'mt-4 flex w-full items-center justify-center rounded-xl border bg-zinc-900/70 py-3 text-sm font-bold tracking-tight ring-1 ring-transparent transition outline-none',
+        'border-zinc-600/90 text-zinc-50 hover:bg-zinc-800/90',
+        `${ctaRing} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950`,
+      ].join(' ')}
+    >
+      {primaryCta}
+    </Link>
   ) : (
     <div
-      className={[
-        'relative z-[2] mt-4 flex w-full items-center justify-center rounded-xl border bg-zinc-900/70 py-3 text-sm font-bold tracking-tight ring-0 transition',
-        clickable
-          ? `border-zinc-600/90 text-zinc-50 ring-1 ring-transparent ${ctaRing} group-hover:bg-zinc-800/90`
-          : 'border-zinc-800/80 text-zinc-500',
-      ].join(' ')}
+      className="mt-4 flex w-full items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-900/70 py-3 text-sm font-bold tracking-tight text-zinc-500"
+      aria-disabled
     >
       {primaryCta}
     </div>
   )
 
-  const inner = (
+  return (
     <article
       className={[
         compact
           ? 'group relative flex h-full min-h-[132px] flex-col overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950/75 p-4 transition-all duration-200 ease-out sm:min-h-[150px]'
           : 'group relative flex h-full min-h-[168px] flex-col overflow-hidden rounded-2xl border bg-zinc-950/80 p-5 transition-all duration-200 ease-out sm:min-h-[220px] sm:p-6',
         clickable
-          ? compact
-            ? `cursor-pointer border-zinc-700/80 hover:border-zinc-600 hover:bg-zinc-900/65 hover:shadow-lg hover:shadow-black/40 ${glowClass}`
-            : `cursor-pointer border-zinc-700/90 hover:border-zinc-500 hover:bg-zinc-900/70 hover:shadow-xl hover:shadow-black/50 sm:hover:-translate-y-0.5 ${glowClass}`
-          : 'cursor-not-allowed border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50 hover:border-zinc-800 hover:bg-zinc-950/55',
+          ? 'border-zinc-700/90'
+          : 'border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50',
       ].join(' ')}
       aria-disabled={!clickable}
     >
@@ -196,54 +118,48 @@ export function ProjectCard({
       />
       {clickable ? (
         <div
-          className={`pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-gradient-to-bl ${haloClass} opacity-40 blur-2xl transition duration-500 group-hover:opacity-70`}
+          className={`pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-gradient-to-bl ${haloClass} opacity-40 blur-2xl`}
           aria-hidden
         />
       ) : null}
 
-      {splitFooters && to ? (
-        <>
-          <Link
-            to={to}
-            className="relative z-[2] block flex-1 rounded-xl pl-2 outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+      <div className={`relative z-[2] flex items-start justify-between gap-3 pl-2 ${compact ? 'mb-3' : 'mb-4'}`}>
+        <div
+          className={`flex items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-900/80 text-zinc-200 shadow-inner shadow-black/20 ${compact ? 'h-9 w-9' : 'h-11 w-11'} ${clickable ? '' : 'opacity-80'}`}
+        >
+          {icon}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {locked && clickable ? (
+            <span
+              className="rounded-full border border-zinc-600/80 bg-zinc-900/90 px-2 py-0.5 text-[10px] text-zinc-400"
+              title="View only"
+            >
+              View only
+            </span>
+          ) : null}
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusClass}`}
           >
-            {headerBlock}
-            {bodyBlock}
-          </Link>
-          {footerBlock}
-        </>
-      ) : (
-        <>
-          {headerBlock}
-          {bodyBlock}
-          <div className="pl-2">{footerBlock}</div>
-        </>
-      )}
+            {status}
+          </span>
+        </div>
+      </div>
+
+      <div className="relative z-[2] flex flex-1 flex-col pl-2">
+        <h2 className={`font-semibold tracking-tight text-zinc-50 ${compact ? 'text-base' : 'text-lg'}`}>
+          {title}
+        </h2>
+        <p className={`mt-2 flex-1 leading-relaxed text-zinc-400 ${compact ? 'text-xs line-clamp-3' : 'text-sm'}`}>
+          {description}
+        </p>
+        <div className={`border-t border-zinc-800/80 ${compact ? 'mt-3 pt-3' : 'mt-5 pt-4'}`}>
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{statLabel}</p>
+          <p className="sk-figures mt-1 text-sm text-zinc-200">{stat}</p>
+        </div>
+      </div>
+
+      <div className="relative z-[2] pl-2">{cta}</div>
     </article>
   )
-
-  const outerRound = compact ? 'rounded-xl' : 'rounded-2xl'
-
-  if (clickable && to && !splitFooters) {
-    return (
-      <Link
-        to={to}
-        className={`block h-full ${outerRound} outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950`}
-      >
-        {inner}
-      </Link>
-    )
-  }
-
-  if (splitFooters) {
-    return (
-      <div
-        className={`h-full ${outerRound} outline-none focus-within:ring-2 focus-within:ring-amber-500/50 focus-within:ring-offset-2 focus-within:ring-offset-zinc-950`}
-      >
-        {inner}
-      </div>
-    )
-  }
-
-  return <div className="h-full">{inner}</div>
 }

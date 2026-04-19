@@ -248,7 +248,7 @@ function InviteUrlToolkit({ url }) {
             className="rounded-xl"
           />
           <p className="text-center text-xs text-zinc-500">
-            Scan to open on phone — or write to NFC card
+            Scan to open on phone, or write to NFC card.
           </p>
         </div>
       ) : null}
@@ -383,6 +383,44 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     setPermDraft({})
     setPanelInviteUrl('')
   }, [])
+
+  useEffect(() => {
+    const hasOverlay =
+      logOpen ||
+      previewOpen ||
+      selected ||
+      (createDrawerOpen && isMobilePeople)
+    if (!hasOverlay) return undefined
+    function onKey(e) {
+      if (e.key !== 'Escape') return
+      if (logOpen) {
+        setLogOpen(false)
+        setHistoryForUser(null)
+        return
+      }
+      if (previewOpen) {
+        setPreviewOpen(false)
+        setPreviewShowCreatedUrl(false)
+        return
+      }
+      if (selected) {
+        closeEditor()
+        return
+      }
+      if (createDrawerOpen && isMobilePeople) {
+        setCreateDrawerOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [
+    logOpen,
+    previewOpen,
+    selected,
+    createDrawerOpen,
+    isMobilePeople,
+    closeEditor,
+  ])
 
   useEffect(() => {
     if (!selected?.id) {
@@ -593,7 +631,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         elevatedLevel: eleLevel,
         duration: eleDuration,
       })
-      toast('Temporary elevation saved — will revert when it expires.', 'success')
+      toast('Temporary elevation saved. Will revert when it expires.', 'success')
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
     } finally {
@@ -659,7 +697,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   const inner = (
     <>
-    <main className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
         {isMobilePeople && !createDrawerOpen ? (
           <button
             type="button"
@@ -691,8 +729,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           </div>
           <h2 className="hidden text-lg font-semibold text-zinc-100 sm:block">Create user + invite</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Creates an Auth account (disabled until invite registration), Firestore profile,
-            and invite token. Use Preview invite before sending.
+            Adds a crew member and sends them a sign-in invite. They'll stay inactive until
+            they accept. Use Preview to see the email before sending.
           </p>
           <form
             onSubmit={(e) => e.preventDefault()}
@@ -830,10 +868,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <td className="hidden max-w-[240px] px-3 py-2 text-xs text-zinc-500 sm:table-cell">
                       {u.ghostMode ? (
                         <span className="text-zinc-600">Ghost mode</span>
+                      ) : !u.lastLoginAt ? (
+                        <span className="text-zinc-600">Never signed in</span>
                       ) : (
                         <>
-                          {u.lastLoginDevice || '—'} · {u.lastLoginLocation || '—'} ·{' '}
-                          {timeAgo(u.lastLoginAt) || 'never'}
+                          {[u.lastLoginDevice, u.lastLoginLocation, timeAgo(u.lastLoginAt)]
+                            .filter((x) => x && String(x).trim())
+                            .join(' · ')}
                         </>
                       )}
                     </td>
@@ -1153,7 +1194,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                       disabled={invokeBusy !== ''}
                       onClick={() => void toggleGhost()}
                       className="rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
-                      title={selected.ghostMode ? 'Ghost mode on — click to disable' : 'Enable ghost mode'}
+                      title={selected.ghostMode ? 'Ghost mode on. Click to disable.' : 'Enable ghost mode'}
                     >
                       {selected.ghostMode ? 'Ghost: on' : 'Ghost'}
                     </button>
@@ -1207,15 +1248,24 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           role="dialog"
           aria-modal
           aria-labelledby="preview-invite-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setPreviewOpen(false)
+              setPreviewShowCreatedUrl(false)
+            }
+          }}
         >
-          <div className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}>
+          <div
+            className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}
+            onClick={(e) => e.stopPropagation()}
+          >
             {previewShowCreatedUrl && lastInviteUrl ? (
               <>
                 <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
                   Invite link ready
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-400 max-sm:text-[15px]">
-                  Copy this URL or write it to an NFC card — stay in the browser on your Pixel.
+                  Copy this URL or write it to an NFC card. Stay in the browser on your Pixel.
                 </p>
                 <div className="mt-4">
                   <InviteUrlToolkit url={lastInviteUrl} />
@@ -1239,8 +1289,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                   Invite preview
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                  <span className="font-medium text-zinc-300">Entrance:</span> Dark screen → bolt
-                  animation → Skedaddle reveal. Then a short generative greeting, then registration.
+                  <span className="font-medium text-zinc-300">Entrance:</span> Dark screen, bolt
+                  animation, Skedaddle reveal. Then a short generative greeting, then registration.
                 </p>
                 <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -1263,7 +1313,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <li>6-digit code (sent to email)</li>
                     <li>First and last name</li>
                     <li>Phone</li>
-                    <li>Password — then sign in and first-login handshake</li>
+                    <li>Password, then sign in and first-login handshake</li>
                     <li>Join Slack workspace</li>
                   </ol>
                 </div>
@@ -1297,6 +1347,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       {logOpen ? (
         <div
           className={MODAL_CENTER_BACKDROP_TOP}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="access-history-title"
           onClick={() => {
             setLogOpen(false)
             setHistoryForUser(null)
@@ -1306,7 +1359,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 sm:max-h-[80vh]`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-white">Access history</h3>
+            <h3 id="access-history-title" className="text-lg font-semibold text-white">
+              Access history
+            </h3>
             {historyForUser ? (
               <p className="mt-1 text-sm text-zinc-500">
                 {historyForUser.firstName} {historyForUser.lastName}{' '}
@@ -1314,7 +1369,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               </p>
             ) : null}
             <p className="mt-2 text-xs text-zinc-500">
-              Who changed what — timestamps, field name, and before/after snapshots.
+              Who changed what: timestamps, field name, and before/after snapshots.
             </p>
             {logLoading ? (
               <p className="mt-4 text-sm text-zinc-500">Loading…</p>
@@ -1362,7 +1417,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <div className="min-w-0">
             <Link
               to="/dashboard"

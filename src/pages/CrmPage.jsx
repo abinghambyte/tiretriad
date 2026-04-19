@@ -12,8 +12,9 @@ import {
   where,
 } from 'firebase/firestore'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { db } from '../firebase/config'
+import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
 import { useTires } from '../hooks/useTires'
@@ -35,8 +36,10 @@ import {
 import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPicklists.js'
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../components/ui/buttonStyles.js'
 import { InputPromptModal } from '../components/shared/InputPromptModal.jsx'
 import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
@@ -71,13 +74,156 @@ function lastActivityNotePreview(a) {
   return text.length > 90 ? `${text.slice(0, 87)}…` : text
 }
 
+const JOB_COMPLETION_LABELS = {
+  Pending: 'Pending',
+  'In Progress': 'In progress',
+  Done: 'Done',
+}
+
+function jobCompletionLabel(v) {
+  const s = String(v || '').trim()
+  if (JOB_COMPLETION_LABELS[s]) return JOB_COMPLETION_LABELS[s]
+  if (!s) return 'Pending'
+  return 'Unknown'
+}
+
+function fmtJobTime(v) {
+  if (v == null || v === '') return 'TBD'
+  if (typeof v.toDate === 'function') {
+    try {
+      return v.toDate().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
+    } catch {
+      return 'TBD'
+    }
+  }
+  return String(v)
+}
+
+/** Folded-in DJ Dispatch tab — previously `/crm/dispatch`. */
+function DispatchTab() {
+  const { toast } = useToast()
+  const { user } = useAuth()
+  const { profile } = useUserProfile()
+  const allowed = profile?.role === 'mechanic' || profile?.role === 'admin'
+  const [jobs, setJobs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+
+  useEffect(() => {
+    if (!allowed) return undefined
+    const q = query(collection(db, 'crmJobs'), orderBy('createdAt', 'desc'), limit(80))
+    return onSnapshot(
+      q,
+      (snap) => {
+        setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setLoading(false)
+        setLoadError(null)
+      },
+      (err) => {
+        console.error('crmJobs snapshot', err)
+        setLoadError(err?.message || 'Could not load jobs.')
+        setJobs([])
+        setLoading(false)
+      },
+    )
+  }, [allowed])
+
+  const visibleJobs = useMemo(() => {
+    const uid = user?.uid
+    if (profile?.role === 'admin') return jobs
+    return jobs.filter((j) => !j.assignedToUid || j.assignedToUid === uid)
+  }, [jobs, profile?.role, user?.uid])
+
+  if (!allowed) {
+    return (
+      <p className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-400">
+        DJ dispatch is for Field crew and Overwatch.
+      </p>
+    )
+  }
+
+  async function setStatus(job, status) {
+    const patch = {
+      completionStatus: status,
+      updatedAt: serverTimestamp(),
+    }
+    if (status === 'Done') {
+      patch.completedAt = serverTimestamp()
+    }
+    await updateDoc(doc(db, 'crmJobs', job.id), patch)
+    if (status === 'Done') {
+      toast('Job complete', 'success')
+    }
+  }
+
+  return (
+    <section className="space-y-4">
+      {loading ? <LoadingBlock label="Loading jobs…" /> : null}
+      {!loading && loadError ? (
+        <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+          {loadError}
+        </p>
+      ) : null}
+      {!loading && !loadError && jobs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/25 px-6 py-16 text-center">
+          <p className="text-sm text-zinc-400">No jobs dispatched yet.</p>
+          <p className="mt-1 text-xs text-zinc-600">Jobs appear here when dispatched from a VIP client account.</p>
+        </div>
+      ) : null}
+      {!loading && !loadError && jobs.length > 0 && visibleJobs.length === 0 ? (
+        <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm leading-relaxed text-zinc-400">
+          No jobs assigned to you yet.
+          <br />
+          <span className="text-zinc-500">Check with dispatch when new field jobs are scheduled.</span>
+        </p>
+      ) : null}
+      {!loading &&
+        visibleJobs.map((j) => (
+          <div
+            key={j.id}
+            className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 shadow-sm"
+          >
+            <p className="text-sm font-semibold text-zinc-100">{j.jobType || 'Job'}</p>
+            <p className="mt-1 text-xs text-zinc-400">{j.location || '—'}</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Vehicles: {j.vehicleCount ?? '—'} · Tires: {j.tireSizes || '—'}
+            </p>
+            <p className="mt-1 text-xs text-zinc-600">When: {fmtJobTime(j.scheduledAt)}</p>
+            <p className="mt-2 text-[11px] font-medium text-cyan-400/90">
+              {jobCompletionLabel(j.completionStatus)}
+            </p>
+            <div className="mt-4 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-2">
+              <button
+                type="button"
+                disabled={j.completionStatus === 'Done'}
+                onClick={() => void setStatus(j, 'Done')}
+                className={`${BTN_PRIMARY} w-full justify-center sm:w-auto sm:min-w-[120px]`}
+              >
+                Complete job
+              </button>
+              <button
+                type="button"
+                disabled={j.completionStatus === 'In Progress' || j.completionStatus === 'Done'}
+                onClick={() => void setStatus(j, 'In Progress')}
+                className={`${BTN_SECONDARY} w-full justify-center sm:w-auto sm:min-w-[120px]`}
+              >
+                Start job
+              </button>
+            </div>
+          </div>
+        ))}
+    </section>
+  )
+}
+
 export function CrmPage() {
   const { toast } = useToast()
   const { permissionFor, profile } = useUserProfile()
   const { tires } = useTires()
   const loc = useLocation()
   const [searchParams] = useSearchParams()
-  const tab = searchParams.get('tab') === 'leads' ? 'leads' : 'board'
+  const rawTab = searchParams.get('tab')
+  const tab = rawTab === 'leads' || rawTab === 'dispatch' ? rawTab : 'board'
   const canEdit = permissionMeets(permissionFor('crm'), 'edit')
   const [accounts, setAccounts] = useState([])
   const [leads, setLeads] = useState([])
@@ -174,6 +320,38 @@ export function CrmPage() {
     () => filteredAccounts.filter((a) => Number(a.pipelineStage) === CRM_LOST_STAGE),
     [filteredAccounts],
   )
+
+  const stageTotal = useCallback(
+    (stage) => {
+      const rows = stage === CRM_LOST_STAGE ? lostAccounts : byStage(stage)
+      const sum = rows.reduce((acc, a) => {
+        const v = estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire)
+        return acc + (Number.isFinite(v) ? v : 0)
+      }, 0)
+      return { count: rows.length, dollars: sum }
+    },
+    [avgBuyPerTire, byStage, lostAccounts],
+  )
+
+  const pipelineSummary = useMemo(() => {
+    const activeAccounts = filteredAccounts.filter(
+      (a) => Number(a.pipelineStage) !== CRM_LOST_STAGE,
+    )
+    const closedCount = filteredAccounts.filter(
+      (a) => normalizePipelineStage(a.pipelineStage, a) === 5,
+    ).length
+    const dollars = activeAccounts.reduce((acc, a) => {
+      const v = estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire)
+      return acc + (Number.isFinite(v) ? v : 0)
+    }, 0)
+    const totalForRate = activeAccounts.length + lostAccounts.length
+    const conversionRate = totalForRate > 0 ? (100 * closedCount) / totalForRate : null
+    return {
+      totalAccounts: activeAccounts.length,
+      totalDollars: dollars,
+      conversionRate,
+    }
+  }, [avgBuyPerTire, filteredAccounts, lostAccounts])
 
   async function onDropStage(stage, e) {
     e.preventDefault()
@@ -335,6 +513,7 @@ export function CrmPage() {
       />
 
       <main className="mx-auto max-w-[1600px] space-y-6 px-4 py-6 sm:px-6">
+        {tab === 'dispatch' ? <DispatchTab /> : null}
         {tab === 'board' ? (
           <>
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
@@ -445,7 +624,7 @@ export function CrmPage() {
                   </svg>
                 </div>
                 <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-400">
-                  Track VIP clients from first contact to closed — northern Colorado tire operations.
+                  Track VIP clients from first contact to closed. Northern Colorado tire operations.
                 </p>
                 {canEdit ? (
                   <button
@@ -461,8 +640,35 @@ export function CrmPage() {
               </div>
             ) : (
               <>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-xs text-zinc-400">
+                  <span>
+                    <span className="text-zinc-500">Total leads </span>
+                    <span className="font-semibold text-zinc-200 tabular-nums">
+                      {pipelineSummary.totalAccounts}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="text-zinc-500">Pipeline value </span>
+                    <span className="font-semibold text-amber-200 tabular-nums">
+                      {pipelineSummary.totalDollars > 0
+                        ? formatCurrency(pipelineSummary.totalDollars)
+                        : '—'}
+                    </span>
+                    <span className="ml-1 text-zinc-600">est.</span>
+                  </span>
+                  {pipelineSummary.conversionRate != null ? (
+                    <span>
+                      <span className="text-zinc-500">Conversion rate </span>
+                      <span className="font-semibold text-zinc-200 tabular-nums">
+                        {pipelineSummary.conversionRate.toFixed(1)}%
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
                 <div className="hidden gap-2 md:grid md:grid-cols-6 md:overflow-visible">
-                  {KANBAN_STAGES.map((stage) => (
+                  {KANBAN_STAGES.map((stage) => {
+                    const s = stageTotal(stage)
+                    return (
                     <div
                       key={stage}
                       className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
@@ -471,6 +677,13 @@ export function CrmPage() {
                     >
                       <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
                         {CRM_STAGE_LABELS[stage]}
+                        <span className="font-normal text-zinc-500"> · {s.count}</span>
+                        {s.dollars > 0 ? (
+                          <span className="font-normal text-zinc-500">
+                            {' '}· {formatCurrency(s.dollars)}
+                            <span className="text-zinc-600"> est.</span>
+                          </span>
+                        ) : null}
                       </p>
                       <div className="space-y-2">
                         {byStage(stage).map((a) => (
@@ -499,19 +712,26 @@ export function CrmPage() {
                                 ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
                                 : '—'}
                             </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                                title="CRM score"
                               >
-                                {a.score ?? computeCrmScore(a)}
+                                Score {a.score ?? computeCrmScore(a)}
                               </span>
-                              <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
+                              <span className="text-[10px] text-zinc-500" title="Pain score">
+                                · Pain {a.painScore ?? '—'}
+                              </span>
                             </div>
                           </button>
                         ))}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
+                  {(() => {
+                    const s = stageTotal(CRM_LOST_STAGE)
+                    return (
                   <div
                     className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/20 p-2"
                     onDragOver={(e) => e.preventDefault()}
@@ -519,6 +739,13 @@ export function CrmPage() {
                   >
                     <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-500">
                       {CRM_STAGE_LABELS[CRM_LOST_STAGE]}
+                      <span className="font-normal text-zinc-600"> · {s.count}</span>
+                      {s.dollars > 0 ? (
+                        <span className="font-normal text-zinc-600">
+                          {' '}· {formatCurrency(s.dollars)}
+                          <span> est.</span>
+                        </span>
+                      ) : null}
                     </p>
                     <div className="space-y-2">
                       {lostAccounts.map((a) => (
@@ -544,10 +771,13 @@ export function CrmPage() {
                       ))}
                     </div>
                   </div>
+                    )
+                  })()}
                 </div>
                 <div className="space-y-2 md:hidden">
                   {[...KANBAN_STAGES, CRM_LOST_STAGE].map((stage) => {
                     const open = crmMobileStage === stage
+                    const s = stageTotal(stage)
                     return (
                       <div
                         key={stage}
@@ -561,6 +791,13 @@ export function CrmPage() {
                         >
                           <span className="text-xs font-semibold leading-snug text-zinc-300">
                             {CRM_STAGE_LABELS[stage] || `Stage ${stage}`}
+                            <span className="font-normal text-zinc-500"> · {s.count}</span>
+                            {s.dollars > 0 ? (
+                              <span className="font-normal text-zinc-500">
+                                {' '}· {formatCurrency(s.dollars)}
+                                <span className="text-zinc-600"> est.</span>
+                              </span>
+                            ) : null}
                           </span>
                           <span className="text-zinc-500">{open ? '▾' : '▸'}</span>
                         </button>
@@ -594,11 +831,18 @@ export function CrmPage() {
                                       ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
                                       : '—'}
                                   </p>
-                                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                     <span
                                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                                      title="CRM score"
                                     >
-                                      {a.score ?? computeCrmScore(a)}
+                                      Score {a.score ?? computeCrmScore(a)}
+                                    </span>
+                                    <span
+                                      className="text-[10px] text-zinc-500"
+                                      title="Pain score"
+                                    >
+                                      · Pain {a.painScore ?? '—'}
                                     </span>
                                   </div>
                                 </button>
@@ -617,7 +861,7 @@ export function CrmPage() {
                                       }}
                                       className="mx-2 mb-2 mt-0.5 text-[10px] text-violet-400 hover:text-violet-200"
                                     >
-                                      Move →
+                                      Move
                                     </button>
                                     {mobileMoveOpen.has(a.id) ? (
                                       <div className="mx-2 mb-2 mt-2 flex flex-wrap gap-1 border-t border-zinc-800/60 pt-2">
@@ -655,7 +899,8 @@ export function CrmPage() {
               </>
             )}
           </>
-        ) : (
+        ) : null}
+        {tab === 'leads' ? (
           <section className="space-y-6">
             <h2 className="text-sm font-semibold text-zinc-300">Leads</h2>
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
@@ -733,15 +978,18 @@ export function CrmPage() {
                   onChange={(e) => setLeadForm((f) => ({ ...f, fleetSize: e.target.value }))}
                   className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
                 />
-                <select
-                  value={leadForm.urgency}
-                  onChange={(e) => setLeadForm((f) => ({ ...f, urgency: e.target.value }))}
-                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
-                >
-                  <option value="hot">Hot</option>
-                  <option value="warm">Warm</option>
-                  <option value="cold">Cold</option>
-                </select>
+                <label className="flex flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                  Urgency
+                  <select
+                    value={leadForm.urgency}
+                    onChange={(e) => setLeadForm((f) => ({ ...f, urgency: e.target.value }))}
+                    className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                  >
+                    <option value="cold">Cold</option>
+                    <option value="warm">Warm</option>
+                    <option value="hot">Hot</option>
+                  </select>
+                </label>
                 <button
                   type="submit"
                   className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
@@ -826,7 +1074,7 @@ export function CrmPage() {
               </div>
             </div>
           </section>
-        )}
+        ) : null}
       </main>
 
       {detail ? (

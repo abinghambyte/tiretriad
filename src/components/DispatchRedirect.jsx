@@ -9,7 +9,7 @@ export function DispatchRedirect() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <ModuleSubheader
         title="Task Dispatcher"
-        subtitle="Standalone workforce app — reconnecting soon"
+        subtitle="Standalone workforce app. Reconnecting soon."
         tabs={[]}
         maxWidthClass="max-w-2xl"
       />

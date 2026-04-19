@@ -23,10 +23,10 @@ export function OrdersPage() {
               Tire orders
             </h1>
             <p className="mt-1 max-w-xl text-sm text-zinc-500">
-              Slack drives Kyle → DJ workflow. Here: notify the customer (SMS app) and mark
+              Slack drives the Sourcer to Field crew workflow. Here: notify the customer (SMS app) and mark
               complete when paid. Primary entry:{' '}
               <Link to="/tires?tab=orders" className="text-amber-300/90 underline-offset-2 hover:underline">
-                Skedaddle Tires → Orders
+                Skedaddle Tires to Orders
               </Link>
               .
             </p>

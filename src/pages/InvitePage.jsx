@@ -233,7 +233,7 @@ export function InvitePage() {
         >
           <p className="mb-2 text-xs tracking-[0.3em] text-zinc-500">SKEDADDLE</p>
           <p id="invite-reg-title" className="mb-8 text-sm text-zinc-500">
-            Step {regStep + 1} of {regTitles.length} — {regTitles[regStep]}
+            Step {regStep + 1} of {regTitles.length}. {regTitles[regStep]}
           </p>
           <form
             className="w-full space-y-4"
@@ -346,7 +346,7 @@ export function InvitePage() {
             {regStep === 5 ? (
               <div className="space-y-4 text-center">
                 <p className="text-sm leading-relaxed text-zinc-400">
-                  Last step — join the crew on Slack. That&apos;s where jobs, updates, and schedules live.
+                  Last step. Join the crew on Slack. That&apos;s where jobs, updates, and schedules live.
                 </p>
                 {slackInviteUrl ? (
                   <a
@@ -356,11 +356,11 @@ export function InvitePage() {
                     onClick={() => setSlackJoined(true)}
                     className="block w-full rounded-xl bg-[#4A154B] py-3 text-sm font-medium text-white transition hover:bg-[#611f64]"
                   >
-                    Join Slack workspace →
+                    Join Slack workspace
                   </a>
                 ) : (
                   <p className="text-xs text-zinc-600">
-                    Ask Alex for the Slack invite link — you can join after setup.
+                    Ask Alex for the Slack invite link. You can join after setup.
                   </p>
                 )}
                 {slackJoined ? (

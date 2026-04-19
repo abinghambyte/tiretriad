@@ -49,7 +49,7 @@ function MarkPostedControl({ tire, platformKey, shortLabel, actionLabel, phase, 
           : 'rounded-lg border border-zinc-600 bg-zinc-900/50 px-2 py-1.5 text-xs font-medium text-zinc-200 hover:border-zinc-500'
       }
     >
-      {recent ? `${shortLabel} — posted ${timeAgo(ts) || '—'}` : `✓ ${actionLabel}`}
+      {recent ? `${shortLabel} · posted ${timeAgo(ts) || '—'}` : `✓ ${actionLabel}`}
     </button>
   )
 }
@@ -175,7 +175,7 @@ function parseListingAdvisorResponse(data) {
 function advisorCallableErrorMessage(err) {
   if (err?.code === 'functions/failed-precondition') {
     return String(
-      err.message || 'Configure GEMINI_API_KEY or ANTHROPIC_API_KEY in Secret Manager.',
+      err.message || 'AI listing advisor is not configured. Ask an admin to finish setup.',
     )
   }
   return err?.message || String(err)
@@ -475,7 +475,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                   className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
                 >
                   <p className="text-sm font-medium text-zinc-200">
-                    {t.brand} — {t.description}
+                    {t.brand} · {t.description}
                   </p>
                   <p className="mt-0.5 font-mono text-xs text-zinc-500">
                     {t.mspn}

@@ -2,24 +2,24 @@ import { signOut } from 'firebase/auth'
 import { Link } from 'react-router-dom'
 import { auth } from '../../firebase/config'
 import { displayFirstName } from '../../utils/displayFirstName'
-import { moduleTitleFromPath, showDashboardBackLink } from '../../utils/moduleTitleFromPath'
+import { buildBreadcrumbs } from '../../utils/moduleTitleFromPath'
 import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
 
 /**
  * @param {object} props
  * @param {string} props.pathname
+ * @param {string | null | undefined} [props.tab] value from `?tab=` on current route, optional
  * @param {import('react-router-dom').NavigateFunction} props.navigate
  * @param {Record<string, unknown> | null} props.profile
  * @param {() => void} props.onOpenPalette
  * @param {import('react').ReactNode} props.themeToggle
  * @param {import('react').ReactNode} props.shortcutHint
  */
-export function PortalTopBar({ pathname, navigate, profile, onOpenPalette, themeToggle, shortcutHint }) {
-  const showBack = showDashboardBackLink(pathname)
-  const title = moduleTitleFromPath(pathname)
+export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, themeToggle, shortcutHint }) {
+  const crumbs = buildBreadcrumbs(pathname, tab || null)
   const first = displayFirstName(profile, auth.currentUser?.email || undefined)
-  const tag = portalCrewTagFromRole(String(profile?.role || 'viewer'))
-  const nameBadge = `${first} · ${tag}`
+  const tagLabel = portalCrewTagFromRole(String(profile?.role || 'viewer'))
+  const nameBadge = `${first} · ${tagLabel}`
 
   async function onSignOut() {
     await signOut(auth)
@@ -27,26 +27,42 @@ export function PortalTopBar({ pathname, navigate, profile, onOpenPalette, theme
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2.5 sm:px-4">
-      <div className="flex min-w-0 items-center justify-start">
-        {showBack ? (
-          <Link
-            to="/dashboard"
-            className="group inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-800/70 hover:text-zinc-100 sm:text-sm"
-          >
-            <span className="transition-transform duration-200 group-hover:-translate-x-0.5" aria-hidden>
-              ←
-            </span>
-            <span>Dashboard</span>
-          </Link>
+    <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
+      <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
+        {crumbs.length === 0 ? (
+          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+            Skedaddle
+          </span>
         ) : (
-          <span className="w-px" aria-hidden />
+          <ol className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs font-medium text-zinc-400 sm:text-sm">
+            {crumbs.map((c, i) => {
+              const isLast = i === crumbs.length - 1
+              return (
+                <li key={`${c.label}-${i}`} className="flex min-w-0 items-center gap-1">
+                  {i > 0 ? (
+                    <span className="text-zinc-600" aria-hidden>
+                      /
+                    </span>
+                  ) : null}
+                  {isLast || !c.to ? (
+                    <span className="truncate text-zinc-200" aria-current={isLast ? 'page' : undefined}>
+                      {c.label}
+                    </span>
+                  ) : (
+                    <Link
+                      to={c.to}
+                      className="truncate rounded px-1 py-0.5 text-zinc-400 transition-colors duration-200 hover:bg-zinc-800/60 hover:text-zinc-100"
+                    >
+                      {c.label}
+                    </Link>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
         )}
-      </div>
-      <h1 className="min-w-0 truncate text-center text-base font-bold tracking-tight text-zinc-50 sm:text-xl">
-        {title}
-      </h1>
-      <div className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
+      </nav>
+      <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={onOpenPalette}

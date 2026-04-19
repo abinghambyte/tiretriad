@@ -36,4 +36,8 @@ export default defineConfig({
     host: true,
     ...(devHttps ? { https: customHttps || true } : {}),
   },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}', 'tests/**/*.test.{js,jsx}'],
+  },
 })

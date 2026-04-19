@@ -29,6 +29,6 @@ export function formatSaleMessage(d) {
     `Fulfillment: ${d.fulfillment}`,
     `Notes: ${notes || '—'}`,
     '',
-    '— Skedaddle Portal',
+    'Sent from Skedaddle Portal',
   ].join('\n')
 }

@@ -27,6 +27,11 @@ import {
   MODAL_CENTER_PANEL_BASE,
 } from '../ui/modalChrome.js'
 import Spinner from '../ui/Spinner.jsx'
+import {
+  BTN_GHOST_DESTRUCTIVE,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+} from '../ui/buttonStyles.js'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 
@@ -35,11 +40,11 @@ const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
 
 const POKE_MESSAGES = {
   1: (name) =>
-    `Hey ${name}, checking in — still interested in the tires? Let us know and we can have them ready.`,
+    `Hey ${name}, checking in. Still interested in the tires? Let us know and we can have them ready.`,
   2: (name) =>
-    `Hey ${name}, following up one more time. We're holding them for you but can't indefinitely — let us know either way.`,
+    `Hey ${name}, following up one more time. We're holding them for you but can't indefinitely. Let us know either way.`,
   3: (name) =>
-    `Hey ${name}, last check — tires are still available but we'll need to move on soon.`,
+    `Hey ${name}, last check. Tires are still available but we'll need to move on soon.`,
 }
 
 const CANCEL_DISPOSITIONS = [
@@ -398,13 +403,13 @@ export function OrdersList({ highlightId }) {
     try {
       await navigator.clipboard.writeText(body)
     } catch {
-      toast('Could not copy — select the text manually.', 'error')
+      toast('Could not copy. Select the text manually.', 'error')
     }
     try {
       await persistCustomerNotified(notifyModalOrder)
     } catch (e) {
       console.error(e)
-      toast('Copied. Firestore save failed — check rules.', 'error')
+      toast('Copied. Could not save notification log.', 'error')
     }
   }, [notifyModalOrder, persistCustomerNotified, toast])
 
@@ -417,7 +422,7 @@ export function OrdersList({ highlightId }) {
       await persistCustomerNotified(notifyModalOrder)
     } catch (e) {
       console.error(e)
-      toast('SMS opened. Firestore save failed — check rules.', 'error')
+      toast('SMS opened. Could not save notification log.', 'error')
     }
   }, [notifyModalOrder, persistCustomerNotified, toast])
 
@@ -445,7 +450,7 @@ export function OrdersList({ highlightId }) {
       })
     } catch (e) {
       console.error(e)
-      toast('SMS opened. Poke save failed — check rules.', 'error')
+      toast('SMS opened. Could not log the follow-up.', 'error')
     } finally {
       setPokingId(null)
     }
@@ -563,10 +568,44 @@ export function OrdersList({ highlightId }) {
         <button
           type="button"
           onClick={toggleSound}
-          className="rounded-lg border border-zinc-700 bg-zinc-900/60 px-2 py-1 text-[11px] font-medium text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          aria-pressed={soundOn}
+          aria-label={soundOn ? 'Completion sound on' : 'Completion sound off'}
+          className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 p-1.5 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 aria-pressed:text-amber-200"
           title="Completion sound when an order finishes in this session"
         >
-          Sound: {soundOn ? 'on' : 'off'}
+          {soundOn ? (
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M3 10v4a1 1 0 0 0 1 1h3l4.3 3.6a1 1 0 0 0 1.7-.8V6.2a1 1 0 0 0-1.7-.8L7 9H4a1 1 0 0 0-1 1Z" />
+              <path
+                d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8 8 0 0 1 0 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M3 10v4a1 1 0 0 0 1 1h3l4.3 3.6a1 1 0 0 0 1.7-.8V6.2a1 1 0 0 0-1.7-.8L7 9H4a1 1 0 0 0-1 1Z" />
+              <path
+                d="m16 9 5 5m0-5-5 5"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+          )}
         </button>
       </div>
       <ul className="space-y-3">
@@ -662,7 +701,7 @@ export function OrdersList({ highlightId }) {
                       {o.priceDiscrepancy != null ? (
                         <span
                           className="text-amber-400"
-                          title="Kyle's price differs from system — check before charging."
+                          title="Sourcer's price differs from system. Check before charging."
                           aria-label="Price discrepancy"
                         >
                           ⚠️
@@ -674,45 +713,55 @@ export function OrdersList({ highlightId }) {
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-800/80 pt-4">
-                {cancellable ? (
-                  <button
-                    type="button"
-                    className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-900/40"
-                    onClick={() => openCancelModal(o)}
-                  >
-                    Cancel order
-                  </button>
-                ) : null}
                 {o.status === 'in_transit' ? (
                   <>
-                    <button
-                      type="button"
-                      className="rounded-lg bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-white"
-                      onClick={() => openNotifyModal(o)}
-                    >
-                      Notify customer
-                    </button>
                     {o.customerNotifiedAt ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-900/40 disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => pokeCustomer(o)}
-                        disabled={pokingId === o.id}
-                      >
-                        {pokingId === o.id && <Spinner className="h-3 w-3 text-amber-100" />}
-                        Poke customer
-                      </button>
-                    ) : null}
-                    {o.customerNotifiedAt ? (
-                      <button
-                        type="button"
-                        className="rounded-lg border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/50"
+                        className={BTN_PRIMARY}
                         onClick={() => openComplete(o)}
                       >
                         Mark complete
                       </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={BTN_PRIMARY}
+                        onClick={() => openNotifyModal(o)}
+                      >
+                        Send update
+                      </button>
+                    )}
+                    {o.customerNotifiedAt ? (
+                      <button
+                        type="button"
+                        className={BTN_SECONDARY}
+                        onClick={() => openNotifyModal(o)}
+                      >
+                        Send update
+                      </button>
+                    ) : null}
+                    {o.customerNotifiedAt ? (
+                      <button
+                        type="button"
+                        className={BTN_SECONDARY}
+                        onClick={() => pokeCustomer(o)}
+                        disabled={pokingId === o.id}
+                      >
+                        {pokingId === o.id && <Spinner className="h-3 w-3 text-zinc-300" />}
+                        Send reminder
+                      </button>
                     ) : null}
                   </>
+                ) : null}
+                {cancellable ? (
+                  <button
+                    type="button"
+                    className={`${BTN_GHOST_DESTRUCTIVE} ml-auto`}
+                    onClick={() => openCancelModal(o)}
+                  >
+                    Cancel order
+                  </button>
                 ) : null}
               </div>
               <OrderDebriefPrompt key={`debrief-${o.id}`} order={o} />
@@ -736,7 +785,7 @@ export function OrdersList({ highlightId }) {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="notify-customer-title" className="text-sm font-semibold text-white">
-              Notify customer
+              Send update to customer
             </h2>
             <p className="mt-1 text-xs text-zinc-500">
               Copy the text or open your SMS app. We record the first notify either way.

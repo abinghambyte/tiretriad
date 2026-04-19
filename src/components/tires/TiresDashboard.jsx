@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { functions } from '../../firebase/config'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
@@ -11,6 +11,7 @@ import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { listingStatus } from '../../utils/listingStatus'
+import { effectiveCts } from '../../utils/ctsCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
@@ -20,10 +21,86 @@ import { MarginTable } from './MarginTable'
 import { SaleMessenger } from './SaleMessenger'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
-import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 
 const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
 const notifyTeamQuick = httpsCallable(functions, 'notifyTeamQuick')
+
+const FILTERS_OPEN_KEY = 'skedaddle-tires-filters-open'
+const COLUMNS_KEY = 'skedaddle-tires-columns-v1'
+
+const TIRE_COLUMNS = [
+  { key: 'brand', label: 'Brand', defaultVisible: true },
+  { key: 'description', label: 'Description', defaultVisible: true },
+  { key: 'mspn', label: 'MSPN', defaultVisible: true },
+  { key: 'lr', label: 'LR', defaultVisible: true },
+  { key: 'listed', label: 'Listed', defaultVisible: true },
+  { key: 'buy', label: 'Buy Price', defaultVisible: true },
+  { key: 'retail', label: 'Retail', defaultVisible: true },
+  { key: 'fet', label: 'FET', defaultVisible: false },
+  { key: 'overhead', label: 'Overhead', defaultVisible: true },
+  { key: 'margin', label: 'Margin %', defaultVisible: true },
+]
+
+const SORT_LABELS = {
+  brand: 'Brand',
+  description: 'Description',
+  mspn: 'MSPN',
+  lr: 'LR',
+  listed: 'Listed',
+  buy: 'Buy Price',
+  retail: 'Retail',
+  fet: 'FET',
+  overhead: 'Overhead',
+  margin: 'Margin %',
+}
+
+function defaultColumnVisibility() {
+  const base = {}
+  for (const c of TIRE_COLUMNS) base[c.key] = c.defaultVisible
+  return base
+}
+
+function readColumnVisibility() {
+  try {
+    const raw = localStorage.getItem(COLUMNS_KEY)
+    if (!raw) return defaultColumnVisibility()
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return defaultColumnVisibility()
+    const base = defaultColumnVisibility()
+    for (const c of TIRE_COLUMNS) {
+      if (typeof parsed[c.key] === 'boolean') base[c.key] = parsed[c.key]
+    }
+    return base
+  } catch {
+    return defaultColumnVisibility()
+  }
+}
+
+function writeColumnVisibility(v) {
+  try {
+    localStorage.setItem(COLUMNS_KEY, JSON.stringify(v))
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function readFiltersOpen() {
+  try {
+    const raw = localStorage.getItem(FILTERS_OPEN_KEY)
+    if (raw == null) return false
+    return raw === '1' || raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+function writeFiltersOpen(open) {
+  try {
+    localStorage.setItem(FILTERS_OPEN_KEY, open ? '1' : '0')
+  } catch (e) {
+    console.error(e)
+  }
+}
 
 function uniqueSorted(values) {
   return [...new Set(values.filter(Boolean))].sort((a, b) =>
@@ -31,15 +108,35 @@ function uniqueSorted(values) {
   )
 }
 
+function compareStrings(a, b) {
+  return String(a || '').localeCompare(String(b || ''), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  })
+}
+
+function listedScore(row) {
+  // Count active platforms first, then stale, then never. Used as sort key.
+  let active = 0
+  let stale = 0
+  for (const p of ['facebook', 'offerup', 'craigslist']) {
+    const st = listingStatus(row, p)
+    if (st === 'active') active += 1
+    else if (st === 'stale') stale += 1
+  }
+  return active * 10 + stale
+}
+
 export function TiresDashboard() {
   const { toast } = useToast()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
   const ordersHighlight = searchParams.get('highlight') || undefined
+  const catalogRisk = searchParams.get('risk') || ''
   const canViewOrders = permissionMeets(permissionFor('orders'), 'view')
 
   const [minMargin, setMinMargin] = useState(0)
@@ -59,20 +156,63 @@ export function TiresDashboard() {
     const v = searchParams.get('needsReposting')
     return v === '1' || v === 'true'
   })
-  // Deep-link filters from the Dashboard Catalog Health card. Applied once
-  // on mount via query params; the main filter UI does not expose checkboxes
-  // for these since they are single-use triage views (user clears by editing
-  // the URL or navigating back to the catalog without the param).
-  const [missingOverheadOnly] = useState(
-    () => searchParams.get('overhead') === 'missing',
-  )
-  const [lowMarginOnly] = useState(
-    () => searchParams.get('margin') === 'below-15',
-  )
-  const [filtersManualOpen, setFiltersManualOpen] = useState(false)
-  const isNarrowForFilters = useMediaQuery('(max-width: 639px)')
 
-  const showFilterPanel = !isNarrowForFilters || filtersManualOpen
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
+  const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
+  const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
+  const [columnsPopoverOpen, setColumnsPopoverOpen] = useState(false)
+  const columnsPopoverRef = useRef(null)
+  const columnsButtonRef = useRef(null)
+
+  useEffect(() => {
+    writeColumnVisibility(columnVisibility)
+  }, [columnVisibility])
+
+  useEffect(() => {
+    writeFiltersOpen(filtersOpen)
+  }, [filtersOpen])
+
+  useEffect(() => {
+    if (catalogRisk === 'lowMargin' || catalogRisk === 'missingOverhead') {
+      setFiltersOpen(true)
+    }
+  }, [catalogRisk])
+
+  // Sync `q` search param with URL for shareable deep-links.
+  useEffect(() => {
+    const current = searchParams.get('q') || ''
+    if (current === query) return
+    const next = new URLSearchParams(searchParams)
+    if (query) next.set('q', query)
+    else next.delete('q')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
+
+  // Close columns popover on outside click / Escape.
+  useEffect(() => {
+    if (!columnsPopoverOpen) return
+    function onDown(e) {
+      const pop = columnsPopoverRef.current
+      const btn = columnsButtonRef.current
+      if (pop && pop.contains(e.target)) return
+      if (btn && btn.contains(e.target)) return
+      setColumnsPopoverOpen(false)
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setColumnsPopoverOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [columnsPopoverOpen])
+
+  const toggleColumnVisibility = useCallback((key) => {
+    setColumnVisibility((prev) => ({ ...prev, [key]: !prev[key] }))
+  }, [])
 
   const applyFilterPreset = useCallback((p) => {
     setBrand(p.brand ?? '')
@@ -139,8 +279,22 @@ export function TiresDashboard() {
     }))
   }, [tires])
 
+  const qLower = query.trim().toLowerCase()
+
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
+      if (catalogRisk === 'lowMargin') {
+        // Uses listingMargin (researched-retail based) per PR #34.
+        const m = row.listingMargin
+        if (m == null || Number.isNaN(m) || m >= 15) return false
+      }
+      if (catalogRisk === 'missingOverhead') {
+        const mount = Number(row.mountCost) || 0
+        const delivery = Number(row.deliveryCost) || 0
+        const other = Number(row.otherCost) || 0
+        const cts = Number(row.cts) || 0
+        if (cts > 0 || mount > 0 || delivery > 0 || other > 0) return false
+      }
       if (brand && row.brand !== brand) return false
       if (lrFilters.length > 0) {
         const l = String(row.lr || '')
@@ -166,41 +320,55 @@ export function TiresDashboard() {
         )
         if (!allInactive) return false
       }
-      if (missingOverheadOnly) {
-        const mount = Number(row.mountCost) || 0
-        const delivery = Number(row.deliveryCost) || 0
-        const other = Number(row.otherCost) || 0
-        const cts = Number(row.cts) || 0
-        if (cts > 0 || mount > 0 || delivery > 0 || other > 0) return false
-      }
-      if (lowMarginOnly) {
-        if (row.listingMargin == null || Number.isNaN(row.listingMargin)) return false
-        if (row.listingMargin >= 15) return false
+      if (qLower) {
+        const mspn = String(row.mspn || '').toLowerCase()
+        const desc = String(row.description || '').toLowerCase()
+        if (!mspn.includes(qLower) && !desc.includes(qLower)) return false
       }
       return true
     })
-  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, missingOverheadOnly, lowMarginOnly])
+  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, qLower, catalogRisk])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]
     const dir = sortDir === 'asc' ? 1 : -1
-    rows.sort((a, b) => {
-      if (sortKey === 'brand') {
-        return dir * String(a.brand || '').localeCompare(String(b.brand || ''))
-      }
-      if (sortKey === 'buy') {
-        const av = tireCatalogBuyNumber(a)
-        const bv = tireCatalogBuyNumber(b)
-        if (av === bv) return 0
-        return av < bv ? -dir : dir
-      }
-      if (sortKey === 'retail') {
-        const av = tireCatalogRetailNumber(a)
-        const bv = tireCatalogRetailNumber(b)
-        if (av === bv) return 0
+    function numCmp(av, bv, { zeroLast = false } = {}) {
+      if (av === bv) return 0
+      if (zeroLast) {
         if (av === 0) return 1
         if (bv === 0) return -1
-        return av < bv ? -dir : dir
+      }
+      return av < bv ? -dir : dir
+    }
+    rows.sort((a, b) => {
+      if (sortKey === 'brand') {
+        return dir * compareStrings(a.brand, b.brand)
+      }
+      if (sortKey === 'description') {
+        return dir * compareStrings(a.description, b.description)
+      }
+      if (sortKey === 'mspn') {
+        return dir * compareStrings(a.mspn, b.mspn)
+      }
+      if (sortKey === 'lr') {
+        return dir * compareStrings(a.lr, b.lr)
+      }
+      if (sortKey === 'listed') {
+        return numCmp(listedScore(a), listedScore(b))
+      }
+      if (sortKey === 'buy') {
+        return numCmp(tireCatalogBuyNumber(a), tireCatalogBuyNumber(b))
+      }
+      if (sortKey === 'retail') {
+        return numCmp(tireCatalogRetailNumber(a), tireCatalogRetailNumber(b), {
+          zeroLast: true,
+        })
+      }
+      if (sortKey === 'fet') {
+        return numCmp(Number(a.fet) || 0, Number(b.fet) || 0)
+      }
+      if (sortKey === 'overhead') {
+        return numCmp(effectiveCts(a), effectiveCts(b))
       }
       const am = a.margin
       const bm = b.margin
@@ -228,14 +396,17 @@ export function TiresDashboard() {
         </>
       )
     }
-    if (hasActiveFilters) {
+    if (hasActiveFilters || qLower) {
       return (
         <>
           No tires match your filters.
           <br />
           <button
             type="button"
-            onClick={clearFilters}
+            onClick={() => {
+              clearFilters()
+              setQuery('')
+            }}
             className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-amber-700/50 bg-amber-950/30 px-4 py-2 text-sm font-medium text-amber-100 transition-colors duration-200 hover:border-amber-600/60 hover:bg-amber-950/50 sm:min-h-0"
           >
             Clear filters
@@ -244,15 +415,26 @@ export function TiresDashboard() {
       )
     }
     return 'No rows to display.'
-  }, [loading, tires.length, hasActiveFilters, clearFilters])
+  }, [loading, tires.length, hasActiveFilters, qLower, clearFilters])
 
+  /**
+   * Tri-state sort cycle: first click ascending, second click descending, third click
+   * resets to the default sort (`margin` descending). Sort plumbing lives here so
+   * MarginTable stays presentational.
+   */
   function handleSort(key) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
+    if (sortKey !== key) {
       setSortKey(key)
-      setSortDir(key === 'brand' ? 'asc' : 'desc')
+      setSortDir('asc')
+      return
     }
+    if (sortDir === 'asc') {
+      setSortDir('desc')
+      return
+    }
+    // Third click clears back to the default sort.
+    setSortKey('margin')
+    setSortDir('desc')
   }
 
   function toggle(id) {
@@ -282,6 +464,16 @@ export function TiresDashboard() {
     })
   }
 
+  function toggleAllFilteredSelection(rows) {
+    // If every visible row is already selected, clear them; otherwise select all.
+    const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
+    if (allSelected) {
+      deselectAllVisible(rows)
+    } else {
+      selectAllVisible(rows)
+    }
+  }
+
   const selectedTires = useMemo(
     () => tires.filter((t) => selectedIds.has(t.id)),
     [tires, selectedIds],
@@ -298,7 +490,7 @@ export function TiresDashboard() {
     const same = picks.filter((p) => String(p.mspn || '').trim() === m0)
     const mixed = picks.some((p) => String(p.mspn || '').trim() !== m0)
     if (mixed) {
-      toast('Mixed MSPNs selected — using first SKU and matching rows only.', 'error')
+      toast('Mixed MSPNs selected. Using first SKU and matching rows only.', 'error')
     }
     return { mspn: m0, rows: same }
   }
@@ -336,7 +528,7 @@ export function TiresDashboard() {
     const first = ctx.rows[0]
     const pricePerTire = tireCatalogBuyNumber(first)
     if (!Number.isFinite(pricePerTire) || pricePerTire <= 0) {
-      toast('Selected tire needs a valid buy price (Kyle catalog price).', 'error')
+      toast('Selected tire needs a valid buy price (Sourcer catalog price).', 'error')
       return
     }
     const quantity = ctx.rows.length
@@ -358,11 +550,14 @@ export function TiresDashboard() {
       }
     } catch (e) {
       console.error(e)
-      toast(e?.message || 'Could not create order — are functions deployed?', 'error')
+      toast(e?.message || 'Could not create order. Are functions deployed?', 'error')
     } finally {
       setLoggingProspective(false)
     }
   }
+
+  const visibleColumnLabel = SORT_LABELS[sortKey] || 'Margin %'
+  const visibleDirLabel = sortDir === 'asc' ? 'ascending' : 'descending'
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -385,7 +580,7 @@ export function TiresDashboard() {
         ]}
       />
 
-      <main className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+      <main className="mx-auto max-w-6xl space-y-8 px-6 py-8">
         {error ? (
           <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
             Could not load tires: {error.message}
@@ -397,12 +592,8 @@ export function TiresDashboard() {
             <div>
               <h2 className="text-lg font-semibold text-zinc-100">Tire orders</h2>
               <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-                Slack-driven Kyle → DJ workflow. Notify customers from here and mark complete when
-                paid. Bookmark{' '}
-                <Link to="/orders" className="text-amber-300/90 underline-offset-2 hover:underline">
-                  /orders
-                </Link>{' '}
-                for a direct link.
+                Sourcer to Field crew workflow via Slack. Notify customers from here and mark complete when
+                paid.
               </p>
             </div>
             {canViewOrders ? (
@@ -418,170 +609,277 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
-        {isNarrowForFilters ? (
-          <div className="mb-3 flex flex-wrap items-center gap-2 sm:hidden">
-            <button
-              type="button"
-              onClick={() => setFiltersManualOpen((v) => !v)}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-500"
-              aria-expanded={filtersManualOpen}
-            >
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-amber-950/80 px-2 py-0.5 text-xs font-semibold text-amber-100 ring-1 ring-amber-800/50">
-                  {activeFilterCount} active
-                </span>
-              ) : (
-                <span className="text-xs font-normal text-zinc-500">· none active</span>
-              )}
-            </button>
-          </div>
-        ) : null}
-
-        {showFilterPanel ? (
-          <>
-            <MarginFilters
-              brands={brands}
-              useTags={useTags}
-              lrs={lrs}
-              brand={brand}
-              useTagFilters={useTagFilters}
-              lrFilters={lrFilters}
-              onBrand={setBrand}
-              onUseTagFilters={setUseTagFilters}
-              onLrFilters={setLrFilters}
-              minMargin={minMargin}
-              onMinMargin={setMinMargin}
-              needsReposting={needsReposting}
-              onNeedsReposting={setNeedsReposting}
-              hasActiveFilters={hasActiveFilters}
-              onClearAll={clearFilters}
-            />
-
-            <FilterPresetsBar
-              brand={brand}
-              useTagFilters={useTagFilters}
-              lrFilters={lrFilters}
-              minMargin={minMargin}
-              needsReposting={needsReposting}
-              onApplyPreset={applyFilterPreset}
-            />
-          </>
-        ) : null}
-
-        <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm text-zinc-400">
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                  Loading inventory…
-                </span>
-              ) : (
-                <>
-                  <span className="font-medium text-zinc-300">
-                    {sortedRows.length} tire{sortedRows.length === 1 ? '' : 's'} shown
-                  </span>
-                  <span className="text-zinc-600"> · </span>
-                  {selectedIds.size > 0 ? (
-                    <span className="inline-flex items-center rounded-full bg-amber-950/70 px-2.5 py-0.5 text-xs font-semibold text-amber-100 ring-1 ring-amber-800/50">
-                      {selectedIds.size} selected
+            <div className="sticky top-[92px] z-10 -mx-2 rounded-xl border border-zinc-800 bg-zinc-950/90 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/75 sm:top-[108px]">
+              <div className="flex flex-col gap-2">
+                <label className="block">
+                  <span className="sr-only">Search by MSPN or description</span>
+                  <div className="relative">
+                    <svg
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <circle cx="11" cy="11" r="7" />
+                      <path strokeLinecap="round" d="m20 20-3-3" />
+                    </svg>
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search by MSPN or description…"
+                      autoComplete="off"
+                      className="min-h-[44px] w-full rounded-lg border border-zinc-700 bg-zinc-900/60 py-2 pl-9 pr-9 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-zinc-500 sm:min-h-0"
+                    />
+                    {query ? (
+                      <button
+                        type="button"
+                        onClick={() => setQuery('')}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path strokeLinecap="round" d="m18 6-12 12M6 6l12 12" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen((v) => !v)}
+                    aria-expanded={filtersOpen}
+                    aria-controls="tires-filter-panel"
+                    className="inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:border-zinc-500 hover:text-zinc-100 sm:min-h-0"
+                  >
+                    <svg
+                      className={`h-4 w-4 text-zinc-400 transition-transform duration-150 ${filtersOpen ? 'rotate-90' : ''}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                    </svg>
+                    <span>Filters</span>
+                    <span
+                      className={[
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1',
+                        activeFilterCount > 0
+                          ? 'bg-amber-950/70 text-amber-100 ring-amber-800/50'
+                          : 'bg-zinc-800/80 text-zinc-400 ring-zinc-700/60',
+                      ].join(' ')}
+                    >
+                      {activeFilterCount > 0 ? `${activeFilterCount} active` : 'none active'}
                     </span>
-                  ) : (
-                    <span className="text-zinc-500">None selected</span>
-                  )}
-                </>
-              )}
-            </p>
-            </div>
-            <button
-              type="button"
-              disabled={loading || sortedRows.length === 0}
-              onClick={() => exportMarginCsv(sortedRows)}
-              className="self-start rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50 sm:self-center min-h-[44px] sm:min-h-0"
-            >
-              Export CSV
-            </button>
-          </div>
-          {selectedIds.size > 0 ? (
-            <div className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <button
-                  type="button"
-                  disabled={selectedTires.length === 0 || loading}
-                  onClick={() => setListingOpen(true)}
-                  className="min-h-[44px] rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
-                >
-                  Generate listings
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => {
-                    if (selectedIds.size > 0) logSelectedSale()
-                    else {
-                      setSaleInitial(null)
-                      setSaleOpen(true)
-                    }
-                  }}
-                  className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
-                >
-                  Log sale
-                </button>
-                <button
-                  type="button"
-                  disabled={loading || notifyingTeam}
-                  onClick={() => void notifySelectedQuick()}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
-                >
-                  {notifyingTeam && <Spinner className="h-4 w-4 text-cyan-100" />}
-                  {notifyingTeam ? 'Notifying…' : 'Notify team'}
-                </button>
-                <button
-                  type="button"
-                  disabled={loading || loggingProspective}
-                  onClick={() => void logSelectedProspective()}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
-                >
-                  {loggingProspective && <Spinner className="h-4 w-4 text-fuchsia-100" />}
-                  {loggingProspective ? 'Logging…' : 'Log prospective order'}
-                </button>
-              </div>
-              <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="min-h-[44px] rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 sm:min-h-0"
-                >
-                  Clear selection
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => setBulkCtsOpen(true)}
-                  className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
-                >
-                  Bulk overhead edit
-                </button>
+                  </button>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-white"
+                    >
+                      Clear filters
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
-          ) : null}
-        </div>
 
-        <MarginTable
-          rows={sortedRows}
-          selectedIds={selectedIds}
-          onToggle={toggle}
-          onSelectAllVisible={selectAllVisible}
-          onDeselectAllVisible={deselectAllVisible}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSort={handleSort}
-          loading={loading}
-          emptyState={emptyState}
-        />
+            {filtersOpen ? (
+              <div id="tires-filter-panel" className="space-y-4">
+                <MarginFilters
+                  brands={brands}
+                  useTags={useTags}
+                  lrs={lrs}
+                  brand={brand}
+                  useTagFilters={useTagFilters}
+                  lrFilters={lrFilters}
+                  onBrand={setBrand}
+                  onUseTagFilters={setUseTagFilters}
+                  onLrFilters={setLrFilters}
+                  minMargin={minMargin}
+                  onMinMargin={setMinMargin}
+                  needsReposting={needsReposting}
+                  onNeedsReposting={setNeedsReposting}
+                  hasActiveFilters={hasActiveFilters}
+                  onClearAll={clearFilters}
+                />
+
+                <FilterPresetsBar
+                  brand={brand}
+                  useTagFilters={useTagFilters}
+                  lrFilters={lrFilters}
+                  minMargin={minMargin}
+                  needsReposting={needsReposting}
+                  onApplyPreset={applyFilterPreset}
+                />
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-zinc-400">
+                    {loading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                        Loading inventory…
+                      </span>
+                    ) : selectedIds.size > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-amber-950/70 px-2.5 py-0.5 text-xs font-semibold text-amber-100 ring-1 ring-amber-800/50">
+                        {selectedIds.size} selected
+                      </span>
+                    ) : (
+                      <span className="text-zinc-500">None selected</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                  <div className="relative">
+                    <button
+                      ref={columnsButtonRef}
+                      type="button"
+                      onClick={() => setColumnsPopoverOpen((v) => !v)}
+                      aria-expanded={columnsPopoverOpen}
+                      aria-haspopup="dialog"
+                      aria-controls="tires-columns-popover"
+                      className="min-h-[44px] rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 sm:min-h-0"
+                    >
+                      Columns
+                    </button>
+                    {columnsPopoverOpen ? (
+                      <div
+                        id="tires-columns-popover"
+                        ref={columnsPopoverRef}
+                        role="dialog"
+                        aria-label="Visible columns"
+                        className="absolute right-0 top-full z-30 mt-1 w-56 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl"
+                      >
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Visible columns
+                        </p>
+                        <ul className="space-y-1">
+                          {TIRE_COLUMNS.map((col) => (
+                            <li key={col.key}>
+                              <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm text-zinc-200 hover:bg-zinc-800/70">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(columnVisibility[col.key])}
+                                  onChange={() => toggleColumnVisibility(col.key)}
+                                  className="size-4 rounded border-zinc-600"
+                                />
+                                <span>{col.label}</span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-2 flex justify-end border-t border-zinc-800 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setColumnVisibility(defaultColumnVisibility())}
+                            className="text-[11px] font-medium text-zinc-400 hover:text-zinc-200"
+                          >
+                            Reset defaults
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={loading || sortedRows.length === 0}
+                    onClick={() => exportMarginCsv(sortedRows)}
+                    className="min-h-[44px] rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+              {selectedIds.size > 0 ? (
+                <div className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <button
+                      type="button"
+                      disabled={selectedTires.length === 0 || loading}
+                      onClick={() => setListingOpen(true)}
+                      className="min-h-[44px] rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                    >
+                      Generate listings
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => {
+                        if (selectedIds.size > 0) logSelectedSale()
+                        else {
+                          setSaleInitial(null)
+                          setSaleOpen(true)
+                        }
+                      }}
+                      className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
+                    >
+                      Log sale
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading || notifyingTeam}
+                      onClick={() => void notifySelectedQuick()}
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
+                    >
+                      {notifyingTeam && <Spinner className="h-4 w-4 text-cyan-100" />}
+                      {notifyingTeam ? 'Notifying…' : 'Notify team'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading || loggingProspective}
+                      onClick={() => void logSelectedProspective()}
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
+                    >
+                      {loggingProspective && <Spinner className="h-4 w-4 text-fuchsia-100" />}
+                      {loggingProspective ? 'Logging…' : 'Log prospective order'}
+                    </button>
+                  </div>
+                  <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="min-h-[44px] rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 sm:min-h-0"
+                    >
+                      Clear selection
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => setBulkCtsOpen(true)}
+                      className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
+                    >
+                      Bulk overhead edit
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <MarginTable
+              rows={sortedRows}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              onToggleAllFiltered={toggleAllFilteredSelection}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={handleSort}
+              loading={loading}
+              emptyState={emptyState}
+              columnVisibility={columnVisibility}
+              sortColumnLabel={visibleColumnLabel}
+              sortDirLabel={visibleDirLabel}
+            />
           </>
         ) : null}
       </main>

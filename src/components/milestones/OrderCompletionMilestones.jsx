@@ -99,7 +99,7 @@ export function OrderCompletionMilestones() {
           } catch {
             /* ignore */
           }
-          toast(`New margin record — ${formatPercent(pct, 2)} on this order`, 'success', 4000)
+          toast(`New margin record: ${formatPercent(pct, 2)} on this order`, 'success', 4000)
         }
       }
     })

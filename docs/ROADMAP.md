@@ -64,7 +64,7 @@
 ### Phase 8 — Hygiene ✅
 - Node 20 → 22 upgrade ✅
 - firebase-functions v4 → v7.2.5 ✅
-- GitHub Actions CI (lint + build on PRs) — DECISION PENDING
+- GitHub Actions CI (lint + build on PRs; `functions` install check) — `.github/workflows/ci.yml` ✅
 
 ### Phase 9 — Rubber CRM ✅
 - Renamed from "Fleet CRM" to "Rubber CRM" everywhere — never revert
@@ -146,10 +146,11 @@ For local emulator: use .secret.local
 
 ## Next Priorities
 
-1. AI listing advisor — Gemini, eBay sold listing scan, per-SKU sell probability, listing copy generation
-2. eBay via SellerChamp — passive income engine
-3. GitHub Actions CI — lint + build on PRs (decision pending)
-4. Custom Skedaddle MCP server — exposes Firestore to Claude/Cursor directly
+1. **eBay / SellerChamp** — passive listings engine; OAuth, drafts, optional SellerChamp sync — see [EBAY-SELLERCHAMP-HANDOFF.md](./EBAY-SELLERCHAMP-HANDOFF.md)
+2. **Custom Skedaddle MCP server** — read-only Firestore access for Cursor/Claude — see [SKEDADDLE-MCP.md](./SKEDADDLE-MCP.md)
+3. **AI listing advisor (incremental)** — eBay sold-listing signals, per-SKU sell probability (copy generation already shipped in Listing Generator)
+
+**Done (was pending):** GitHub Actions CI — `.github/workflows/ci.yml` on `main` and PRs to `main`.
 
 ---
 

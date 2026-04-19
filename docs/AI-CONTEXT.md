@@ -112,13 +112,16 @@ Credit: /charge, /payment, /balance
 
 ## Key docs
 - docs/ROADMAP.md — full feature roadmap with all phases
-- docs/SKEDADDLE-MASTER.md — canonical project spec
+- docs/EBAY-SELLERCHAMP-HANDOFF.md — eBay / SellerChamp integration plan (Phase 6)
+- docs/SKEDADDLE-MCP.md — Firestore MCP design (developer tooling)
+- docs/SKEDADDLE-MASTER.md — deprecated historical spec only (do not use for new sessions)
 - docs/PHASE9-FLEET-CRM-HANDOFF.md — CRM data model
 
-## Active work (as of April 13 2026)
-- **AI listing advisor** — shipped (`listingAdvisor` callable; Gemini + Anthropic fallback; Listing Generator)
+## Active work (as of April 18 2026)
+- **AI listing advisor** — shipped (`listingAdvisor` callable; Gemini + Anthropic fallback; Listing Generator). Optional future: eBay sold-listing scan, per-SKU sell probability (incremental).
 - **Price intelligence** — `tirePriceResearch` nightly; preflight counts + `#fleet-ops` start message in logs/Slack; `priceIntel.kyleConfirmed` freezes buy
-- **GitHub Actions CI** (lint + build on PRs) — decision pending
+- **GitHub Actions CI** — shipped (`.github/workflows/ci.yml`: root `npm ci` → lint → build; `functions` `npm ci`)
+- **Next build priorities** — see [ROADMAP.md](./ROADMAP.md) “Next Priorities”: eBay/SellerChamp, Skedaddle MCP
 
 ## Rules for AI sessions
 - Never rename "Rubber CRM" back to "Fleet CRM"
@@ -128,7 +131,7 @@ Credit: /charge, /payment, /balance
 - Never subtract FET in margin or profit calcs — it washes out
 - Never gate order or completion logic on qty > 0 — pre-sold inventory is valid
 - Desktop layout must not change when adding mobile fixes — use max-sm: / sm: breakpoints
-- Always run npm run lint and npm run build before declaring done
+- Always run npm run lint, npm run test, and npm run build before declaring done
 - Deploy functions before pushing frontend when both change
 - firebase-functions is v7.2.5 — do not downgrade
 - All Slack functions use .value() from slackSecrets.js — never process.env for Slack
