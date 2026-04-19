@@ -14,6 +14,8 @@ import { deriveTireTags } from '../../utils/deriveTireTags'
 import { listingStatus } from '../../utils/listingStatus'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
+import { computeOpportunityScore } from '../../utils/opportunityScore'
+import { matchesQuery } from '../../utils/tireSearchHaystack'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
 import { ListingGenerator } from './ListingGenerator'
@@ -21,6 +23,7 @@ import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
+import { TopOpportunities } from './TopOpportunities'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 
@@ -29,6 +32,9 @@ const notifyTeamQuick = httpsCallable(functions, 'notifyTeamQuick')
 
 const FILTERS_OPEN_KEY = 'skedaddle-tires-filters-open'
 const COLUMNS_KEY = 'skedaddle-tires-columns-v1'
+const HAGGLE_KEY = 'skedaddle-tires-haggle-discount'
+const DEFAULT_HAGGLE = 0.1
+const MAX_HAGGLE = 0.3
 
 const TIRE_COLUMNS = [
   { key: 'brand', label: 'Brand', defaultVisible: true },
@@ -40,6 +46,8 @@ const TIRE_COLUMNS = [
   { key: 'retail', label: 'Retail', defaultVisible: true },
   { key: 'fet', label: 'FET', defaultVisible: false },
   { key: 'overhead', label: 'Overhead', defaultVisible: true },
+  { key: 'net', label: 'Net $', defaultVisible: false },
+  { key: 'floor', label: 'Floor', defaultVisible: false },
   { key: 'margin', label: 'Margin %', defaultVisible: true },
 ]
 
@@ -53,7 +61,32 @@ const SORT_LABELS = {
   retail: 'Retail',
   fet: 'FET',
   overhead: 'Overhead',
+  net: 'Net $',
+  floor: 'Floor',
   margin: 'Margin %',
+  opportunity: 'Opportunity',
+}
+
+function readHaggleDiscount() {
+  try {
+    const raw = localStorage.getItem(HAGGLE_KEY)
+    if (raw == null) return DEFAULT_HAGGLE
+    const n = Number(raw)
+    if (!Number.isFinite(n)) return DEFAULT_HAGGLE
+    if (n < 0) return 0
+    if (n > MAX_HAGGLE) return MAX_HAGGLE
+    return n
+  } catch {
+    return DEFAULT_HAGGLE
+  }
+}
+
+function writeHaggleDiscount(v) {
+  try {
+    localStorage.setItem(HAGGLE_KEY, String(v))
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 function defaultColumnVisibility() {
@@ -164,12 +197,28 @@ export function TiresDashboard() {
   const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [columnsPopoverOpen, setColumnsPopoverOpen] = useState(false)
+  const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
+  const [justJumpedToId, setJustJumpedToId] = useState(null)
   const columnsPopoverRef = useRef(null)
   const columnsButtonRef = useRef(null)
+  const marginTableRef = useRef(null)
+  const jumpHighlightTimerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (jumpHighlightTimerRef.current) {
+        clearTimeout(jumpHighlightTimerRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     writeColumnVisibility(columnVisibility)
   }, [columnVisibility])
+
+  useEffect(() => {
+    writeHaggleDiscount(haggleDiscount)
+  }, [haggleDiscount])
 
   useEffect(() => {
     // The Quote modal is single-tire only. Auto-close if the selection
@@ -278,8 +327,9 @@ export function TiresDashboard() {
       margin: computeMargin(t),
       listingMargin: computeListingMargin(t),
       derivedUseTags: deriveTireTags(t),
+      opportunity: computeOpportunityScore(t, haggleDiscount),
     }))
-  }, [tires])
+  }, [tires, haggleDiscount])
 
   const useTags = useMemo(() => {
     const tags = []
@@ -289,7 +339,8 @@ export function TiresDashboard() {
     return uniqueSorted(tags)
   }, [enriched])
 
-  const qLower = query.trim().toLowerCase()
+  const trimmedQuery = query.trim()
+  const hasQuery = trimmedQuery.length > 0
 
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
@@ -332,14 +383,12 @@ export function TiresDashboard() {
         )
         if (!allInactive) return false
       }
-      if (qLower) {
-        const mspn = String(row.mspn || '').toLowerCase()
-        const desc = String(row.description || '').toLowerCase()
-        if (!mspn.includes(qLower) && !desc.includes(qLower)) return false
+      if (hasQuery) {
+        if (!matchesQuery(row, trimmedQuery)) return false
       }
       return true
     })
-  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, qLower, catalogRisk])
+  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, hasQuery, trimmedQuery, catalogRisk])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]
@@ -382,6 +431,33 @@ export function TiresDashboard() {
       if (sortKey === 'overhead') {
         return numCmp(effectiveCts(a), effectiveCts(b))
       }
+      if (sortKey === 'net') {
+        const an = a.opportunity ? a.opportunity.netPerTire : null
+        const bn = b.opportunity ? b.opportunity.netPerTire : null
+        if (an == null && bn == null) return 0
+        if (an == null) return 1
+        if (bn == null) return -1
+        if (an === bn) return 0
+        return an < bn ? -dir : dir
+      }
+      if (sortKey === 'floor') {
+        const af = a.opportunity ? a.opportunity.floor : null
+        const bf = b.opportunity ? b.opportunity.floor : null
+        if (af == null && bf == null) return 0
+        if (af == null) return 1
+        if (bf == null) return -1
+        if (af === bf) return 0
+        return af < bf ? -dir : dir
+      }
+      if (sortKey === 'opportunity') {
+        const as = a.opportunity ? a.opportunity.opportunity : null
+        const bs = b.opportunity ? b.opportunity.opportunity : null
+        if (as == null && bs == null) return 0
+        if (as == null) return 1
+        if (bs == null) return -1
+        if (as === bs) return 0
+        return as < bs ? -dir : dir
+      }
       const am = a.margin
       const bm = b.margin
       if (am == null && bm == null) return 0
@@ -408,7 +484,7 @@ export function TiresDashboard() {
         </>
       )
     }
-    if (hasActiveFilters || qLower) {
+    if (hasActiveFilters || hasQuery) {
       return (
         <>
           No tires match your filters.
@@ -427,7 +503,7 @@ export function TiresDashboard() {
       )
     }
     return 'No rows to display.'
-  }, [loading, tires.length, hasActiveFilters, qLower, clearFilters])
+  }, [loading, tires.length, hasActiveFilters, hasQuery, clearFilters])
 
   /**
    * Tri-state sort cycle: first click ascending, second click descending, third click
@@ -448,6 +524,25 @@ export function TiresDashboard() {
     setSortKey('margin')
     setSortDir('desc')
   }
+
+  const jumpToTire = useCallback(
+    (tireId) => {
+      if (!tireId) return
+      const idx = sortedRows.findIndex((r) => r.id === tireId)
+      if (idx < 0) return
+      const list = marginTableRef.current
+      if (list && typeof list.scrollToRow === 'function') {
+        list.scrollToRow({ index: idx, align: 'center', behavior: 'smooth' })
+      }
+      setJustJumpedToId(tireId)
+      if (jumpHighlightTimerRef.current) clearTimeout(jumpHighlightTimerRef.current)
+      jumpHighlightTimerRef.current = setTimeout(() => {
+        setJustJumpedToId(null)
+        jumpHighlightTimerRef.current = null
+      }, 1500)
+    },
+    [sortedRows],
+  )
 
   function toggle(id) {
     setSelectedIds((prev) => {
@@ -621,6 +716,11 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
+            <TopOpportunities
+              tires={enriched}
+              haggleDiscount={haggleDiscount}
+              onJumpToTire={jumpToTire}
+            />
             <div className="sticky top-[92px] z-10 -mx-2 rounded-xl border border-zinc-800 bg-zinc-950/90 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/75 sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
@@ -698,6 +798,21 @@ export function TiresDashboard() {
                       Clear filters
                     </button>
                   ) : null}
+                  <label className="ml-auto hidden min-w-[220px] items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-xs text-zinc-300 sm:inline-flex">
+                    <span className="whitespace-nowrap font-medium text-zinc-400">
+                      Haggle discount {Math.round(haggleDiscount * 100)}%
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={30}
+                      step={1}
+                      value={Math.round(haggleDiscount * 100)}
+                      onChange={(e) => setHaggleDiscount(Number(e.target.value) / 100)}
+                      aria-label="Haggle discount assumed when scoring opportunities"
+                      className="h-1 w-full cursor-pointer accent-amber-400"
+                    />
+                  </label>
                 </div>
               </div>
             </div>
@@ -752,6 +867,29 @@ export function TiresDashboard() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sortKey === 'opportunity') {
+                        // Second press resets to the default margin sort so
+                        // the ranking is a toggle, not a dead end.
+                        setSortKey('margin')
+                        setSortDir('desc')
+                      } else {
+                        setSortKey('opportunity')
+                        setSortDir('desc')
+                      }
+                    }}
+                    aria-pressed={sortKey === 'opportunity'}
+                    title="Sort catalog by expected profit per tire after haggle, weighted by retail confidence."
+                    className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
+                      sortKey === 'opportunity'
+                        ? 'border-amber-600 bg-amber-950/40 text-amber-100 hover:border-amber-500 hover:bg-amber-950/60'
+                        : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
+                    }`}
+                  >
+                    {sortKey === 'opportunity' ? 'Sort: Opportunity \u2713' : 'Sort: Opportunity'}
+                  </button>
                   <div className="relative">
                     <button
                       ref={columnsButtonRef}
@@ -904,6 +1042,8 @@ export function TiresDashboard() {
               columnVisibility={columnVisibility}
               sortColumnLabel={visibleColumnLabel}
               sortDirLabel={visibleDirLabel}
+              externalListRef={marginTableRef}
+              justJumpedToId={justJumpedToId}
             />
           </>
         ) : null}
