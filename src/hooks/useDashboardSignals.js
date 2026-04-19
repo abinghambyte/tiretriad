@@ -237,10 +237,9 @@ export function useDashboardSignals() {
           collection(db, 'orders'),
           where('status', 'not-in', ['completed', 'cancelled']),
         )
-        const [pendingSnap, lockedSnap, revenueSnap] = await Promise.all([
+        const [pendingSnap, lockedSnap] = await Promise.all([
           getCountFromServer(pendingQ),
           getCountFromServer(query(collection(db, 'users'), where('inviteStatus', '==', 'locked'))),
-          getDoc(doc(db, 'meta', 'revenueStats')),
         ])
         let pendingInvites = 0
         try {
@@ -255,9 +254,16 @@ export function useDashboardSignals() {
         } catch (e) {
           console.error('dashboard pending invite count', e)
         }
+        let todayRevenue = 0
+        try {
+          const revenueSnap = await getDoc(doc(db, 'meta', 'revenueStats'))
+          if (revenueSnap.exists()) {
+            todayRevenue = Number(revenueSnap.data()?.dailyRevenue) || 0
+          }
+        } catch (e) {
+          console.error('dashboard revenueStats read', e)
+        }
         if (cancelled) return
-        const revData = revenueSnap.exists() ? revenueSnap.data() : {}
-        const todayRevenue = Number(revData.dailyRevenue) || 0
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
           todayRevenue,
