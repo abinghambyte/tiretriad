@@ -44,7 +44,7 @@ function ListedPlatformsCell({ row }) {
               ? 'text-amber-500/70'
               : 'text-zinc-700'
         const title =
-          st === 'never' ? `${name} — never posted` : `${name} — posted ${timeAgo(ts) || '—'}`
+          st === 'never' ? `${name}: never posted` : `${name}: posted ${timeAgo(ts) || '—'}`
         return (
           <span key={key} className={cls} title={title}>
             {short}
@@ -307,7 +307,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const ctsEditorSection = showCostEditor ? (
     <div className="border-t border-zinc-800/80 bg-zinc-900/70 px-4 py-4">
       <p className="mb-3 text-xs text-zinc-500">
-        Enter your overhead costs per tire — mount labor, delivery, and other. Buy price from Kyle
+        Enter your overhead costs per tire: mount labor, delivery, and other. Buy price from the Sourcer
         is fixed.
       </p>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -488,7 +488,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         </div>
         <div
           className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
-          title="Buy price — catalog buy (includes FET component)"
+          title="Buy price: catalog buy (includes FET component)"
         >
           <BuyPriceCell row={row} />
         </div>
@@ -497,14 +497,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           title={
             tireRetailIsResearched(row)
               ? 'Typical US retail (Gemini research)'
-              : 'Legacy catalog retail — will be refreshed on the next research pass'
+              : 'Legacy catalog retail. Will be refreshed on the next research pass.'
           }
         >
           <RetailPriceCell row={row} />
         </div>
         <div
           className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
-          title="FET — shown for reference; already included in buy price"
+          title="FET: shown for reference; already included in buy price"
         >
           {formatCurrencyOrDash(Number(row.fet) || 0)}
         </div>
@@ -668,7 +668,7 @@ export function MarginTable({
       >
         {isMobileTable && rows.length > 0 && !loading && !scrollHintDismissed ? (
           <div className="mx-2 mb-2 rounded-full border border-amber-800/50 bg-amber-950/40 px-3 py-2 text-center text-xs font-medium text-amber-100/95 md:hidden">
-            ← Scroll for overhead, FET, brand →
+            Scroll for overhead, FET, brand
           </div>
         ) : null}
         <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1148px]'}`}>
@@ -722,7 +722,7 @@ export function MarginTable({
             </div>
             <div
               className="min-w-0 whitespace-nowrap px-2 text-right"
-              title="Typical retail price from the nightly research job (priceIntel.retailPrice)"
+              title="Typical retail price from the nightly research job."
             >
               <SortButton
                 label="Retail"

@@ -442,7 +442,7 @@ export function CrmPage() {
                   </svg>
                 </div>
                 <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-400">
-                  Track VIP clients from first contact to closed — northern Colorado tire operations.
+                  Track VIP clients from first contact to closed. Northern Colorado tire operations.
                 </p>
                 {canEdit ? (
                   <button
@@ -614,7 +614,7 @@ export function CrmPage() {
                                       }}
                                       className="mx-2 mb-2 mt-0.5 text-[10px] text-violet-400 hover:text-violet-200"
                                     >
-                                      Move →
+                                      Move
                                     </button>
                                     {mobileMoveOpen.has(a.id) ? (
                                       <div className="mx-2 mb-2 mt-2 flex flex-wrap gap-1 border-t border-zinc-800/60 pt-2">

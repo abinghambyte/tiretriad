@@ -276,7 +276,7 @@ export function TiresDashboard() {
     const same = picks.filter((p) => String(p.mspn || '').trim() === m0)
     const mixed = picks.some((p) => String(p.mspn || '').trim() !== m0)
     if (mixed) {
-      toast('Mixed MSPNs selected — using first SKU and matching rows only.', 'error')
+      toast('Mixed MSPNs selected. Using first SKU and matching rows only.', 'error')
     }
     return { mspn: m0, rows: same }
   }
@@ -314,7 +314,7 @@ export function TiresDashboard() {
     const first = ctx.rows[0]
     const pricePerTire = tireCatalogBuyNumber(first)
     if (!Number.isFinite(pricePerTire) || pricePerTire <= 0) {
-      toast('Selected tire needs a valid buy price (Kyle catalog price).', 'error')
+      toast('Selected tire needs a valid buy price (Sourcer catalog price).', 'error')
       return
     }
     const quantity = ctx.rows.length
@@ -336,7 +336,7 @@ export function TiresDashboard() {
       }
     } catch (e) {
       console.error(e)
-      toast(e?.message || 'Could not create order — are functions deployed?', 'error')
+      toast(e?.message || 'Could not create order. Are functions deployed?', 'error')
     } finally {
       setLoggingProspective(false)
     }
@@ -375,12 +375,8 @@ export function TiresDashboard() {
             <div>
               <h2 className="text-lg font-semibold text-zinc-100">Tire orders</h2>
               <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-                Slack-driven Kyle → DJ workflow. Notify customers from here and mark complete when
-                paid. Bookmark{' '}
-                <Link to="/orders" className="text-amber-300/90 underline-offset-2 hover:underline">
-                  /orders
-                </Link>{' '}
-                for a direct link.
+                Sourcer to Field crew workflow via Slack. Notify customers from here and mark complete when
+                paid.
               </p>
             </div>
             {canViewOrders ? (

@@ -247,8 +247,8 @@ export function AnalyticsPage() {
     revenueWindows.allTime <= 0 && revenueSampleTotal > 0 && completedRows.length > 0
   const allTimeRevenueDisplay = revenueWindows.allTime > 0 ? revenueWindows.allTime : revenueSampleTotal
   const allTimeRevenueHint = allTimeIsEstimate
-    ? `Sum of paymentAmount on ${formatQty(completedRows.length)} completed orders in this view (estimated from loaded orders). Shown while meta/revenueStats is at $0 or missing.`
-    : 'From meta/revenueStats · allTimeRevenue.'
+    ? `Sum of payments across ${formatQty(completedRows.length)} completed orders in this view. Shown while the cached total is empty.`
+    : 'Cached running total across all completed orders.'
 
   const avgOrderSample = useMemo(() => {
     const n = completedRows.length
@@ -401,7 +401,7 @@ export function AnalyticsPage() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <MetricCard
-                  label="Total revenue (sample)"
+                  label="Total revenue"
                   value={formatCurrency(metrics.totalRevenue)}
                   hint={`Based on up to ${completedRows.length} most recent completed orders.`}
                 />
@@ -417,12 +417,12 @@ export function AnalyticsPage() {
                 <MetricCard
                   label="Avg friction score"
                   value={metrics.avgFriction != null ? metrics.avgFriction.toFixed(1) : '—'}
-                  hint="Friction score measures how many follow-ups or complications an order required before completion. Lower is smoother. Set by backend on order close."
+                  hint="Friction score measures how many follow-ups or complications an order required before completion. Lower is smoother."
                 />
                 <MetricCard
                   label="Hat trick days (3-in-1)"
                   value={String(metrics.hatTricks)}
-                  hint="Orders completed on a day when 3+ orders were all finished — hat trick. Set by the backend on order completion."
+                  hint="Orders completed on a day when 3+ orders were all finished (hat trick)."
                 />
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
@@ -437,14 +437,13 @@ export function AnalyticsPage() {
                         {djStreakUi.current} day{djStreakUi.current === 1 ? '' : 's'}
                       </p>
                       <p className="text-xs text-zinc-500">
-                        Personal best this session: {formatQty(djStreakUi.best)} days · All-time record (server):{' '}
+                        Personal best this session: {formatQty(djStreakUi.best)} days · All-time record:{' '}
                         {formatQty(cleanStreakMeta)} days
                       </p>
                     </div>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-600">
-                    Consecutive Denver days with at least one completed order where{' '}
-                    <code className="text-zinc-400">assignedTo</code> is <code className="text-zinc-400">dj</code>.
+                    Consecutive Denver days with at least one completed order assigned to field crew.
                     Flame grows at 3 / 7 / 14 days.
                   </p>
                 </div>
@@ -456,9 +455,7 @@ export function AnalyticsPage() {
                     {pokeLoading ? '…' : pokeConversion != null ? formatPercent(pokeConversion * 100, 1) : '—'}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-600">
-                    Share of orders with at least one poke (<code className="text-zinc-400">pokeCount</code> ≥ 1)
-                    that reached <code className="text-zinc-400">completed</code>. Pokes append{' '}
-                    <code className="text-zinc-400">pokedAt</code> timestamps on the order.
+                    Share of orders that got at least one reminder before completion.
                   </p>
                 </div>
               </div>
@@ -475,38 +472,38 @@ export function AnalyticsPage() {
             ) : null}
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard
-                label={allTimeIsEstimate ? 'All-time revenue (estimated from loaded orders)' : 'All-time revenue (meta)'}
+                label="All-time revenue"
                 value={formatCurrency(allTimeRevenueDisplay)}
                 hint={allTimeRevenueHint}
               />
               <MetricCard
-                label="MTD revenue (meta)"
+                label="MTD revenue"
                 value={revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '—'}
                 hint={
                   revenueWindows.mtd != null
-                    ? `Month ${revenueWindows.mo} · from meta/revenueStats.`
-                    : `Not yet updated for ${revenueWindows.mo}. Written by backend after each completed order.`
+                    ? `Month ${revenueWindows.mo}.`
+                    : `Refreshes after each completed order.`
                 }
               />
               <MetricCard
-                label="WTD revenue (meta)"
+                label="WTD revenue"
                 value={revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '—'}
                 hint={
                   revenueWindows.wtd != null
-                    ? `ISO week ${revenueWindows.wk} · from meta/revenueStats.`
-                    : `Not yet updated for week ${revenueWindows.wk}. The backend job writes this after each completed order. Check meta/revenueStats in Firestore if stale.`
+                    ? `ISO week ${revenueWindows.wk}.`
+                    : `Refreshes after each completed order. Contact an admin if this stays stale.`
                 }
               />
             </div>
             <MetricCard
-              label="Avg order value (sample)"
+              label="Avg order value"
               value={avgOrderSample != null ? formatCurrency(avgOrderSample) : '—'}
               hint={`Mean payment on last ${formatQty(completedRows.length)} completed orders loaded here.`}
             />
             <MarginWeekLineChart labels={marginWeekSeries.labels} percents={marginWeekSeries.percents} />
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                Top 10 SKUs by revenue (sample)
+                Top 10 SKUs by revenue
               </p>
               <ol className="mt-3 space-y-2 text-sm">
                 {topSkus.length === 0 ? (
@@ -563,7 +560,7 @@ export function AnalyticsPage() {
               }
             />
             <LeaderBlock
-              title="Top SKU revenue (all time, sample)"
+              title="Top SKU revenue (all time)"
               body={
                 leaderboard.topSku.revenue > 0
                   ? `${leaderboard.topSku.mspn} · ${formatCurrency(leaderboard.topSku.revenue)}`

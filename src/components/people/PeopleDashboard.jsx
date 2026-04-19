@@ -241,7 +241,7 @@ function InviteUrlToolkit({ url }) {
             className="rounded-xl"
           />
           <p className="text-center text-xs text-zinc-500">
-            Scan to open on phone — or write to NFC card
+            Scan to open on phone, or write to NFC card.
           </p>
         </div>
       ) : null}
@@ -624,7 +624,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         elevatedLevel: eleLevel,
         duration: eleDuration,
       })
-      toast('Temporary elevation saved — will revert when it expires.', 'success')
+      toast('Temporary elevation saved. Will revert when it expires.', 'success')
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
     } finally {
@@ -722,8 +722,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           </div>
           <h2 className="hidden text-lg font-semibold text-zinc-100 sm:block">Create user + invite</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Creates an Auth account (disabled until invite registration), Firestore profile,
-            and invite token. Use Preview invite before sending.
+            Adds a crew member and sends them a sign-in invite. They'll stay inactive until
+            they accept. Use Preview to see the email before sending.
           </p>
           <form
             onSubmit={(e) => e.preventDefault()}
@@ -859,10 +859,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <td className="hidden max-w-[240px] px-3 py-2 text-xs text-zinc-500 sm:table-cell">
                       {u.ghostMode ? (
                         <span className="text-zinc-600">Ghost mode</span>
+                      ) : !u.lastLoginAt ? (
+                        <span className="text-zinc-600">Never signed in</span>
                       ) : (
                         <>
-                          {u.lastLoginDevice || '—'} · {u.lastLoginLocation || '—'} ·{' '}
-                          {timeAgo(u.lastLoginAt) || 'never'}
+                          {[u.lastLoginDevice, u.lastLoginLocation, timeAgo(u.lastLoginAt)]
+                            .filter((x) => x && String(x).trim())
+                            .join(' · ')}
                         </>
                       )}
                     </td>
@@ -1182,7 +1185,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                       disabled={invokeBusy !== ''}
                       onClick={() => void toggleGhost()}
                       className="rounded-lg border border-zinc-700 px-3 py-2.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
-                      title={selected.ghostMode ? 'Ghost mode on — click to disable' : 'Enable ghost mode'}
+                      title={selected.ghostMode ? 'Ghost mode on. Click to disable.' : 'Enable ghost mode'}
                     >
                       {selected.ghostMode ? 'Ghost: on' : 'Ghost'}
                     </button>
@@ -1253,7 +1256,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                   Invite link ready
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-400 max-sm:text-[15px]">
-                  Copy this URL or write it to an NFC card — stay in the browser on your Pixel.
+                  Copy this URL or write it to an NFC card. Stay in the browser on your Pixel.
                 </p>
                 <div className="mt-4">
                   <InviteUrlToolkit url={lastInviteUrl} />
@@ -1277,8 +1280,8 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                   Invite preview
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                  <span className="font-medium text-zinc-300">Entrance:</span> Dark screen → bolt
-                  animation → Skedaddle reveal. Then a short generative greeting, then registration.
+                  <span className="font-medium text-zinc-300">Entrance:</span> Dark screen, bolt
+                  animation, Skedaddle reveal. Then a short generative greeting, then registration.
                 </p>
                 <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -1301,7 +1304,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     <li>6-digit code (sent to email)</li>
                     <li>First and last name</li>
                     <li>Phone</li>
-                    <li>Password — then sign in and first-login handshake</li>
+                    <li>Password, then sign in and first-login handshake</li>
                     <li>Join Slack workspace</li>
                   </ol>
                 </div>
@@ -1357,7 +1360,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               </p>
             ) : null}
             <p className="mt-2 text-xs text-zinc-500">
-              Who changed what — timestamps, field name, and before/after snapshots.
+              Who changed what: timestamps, field name, and before/after snapshots.
             </p>
             {logLoading ? (
               <p className="mt-4 text-sm text-zinc-500">Loading…</p>

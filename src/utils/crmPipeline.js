@@ -97,7 +97,7 @@ export function crmOwnerLabel(v) {
   const k = String(v || '').toLowerCase()
   if (k === 'alex') return 'Alex'
   if (k === 'dj') return 'DJ'
-  if (k === 'tanner') return 'Tanner (reassign — silent partner)'
+  if (k === 'tanner') return 'Tanner (reassign: silent partner)'
   if (k === 'kyle') return 'Kyle'
   return v || '—'
 }

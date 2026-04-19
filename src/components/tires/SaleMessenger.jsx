@@ -167,7 +167,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
       await sendTireSaleSms(payload)
       setStatus({
         type: 'ok',
-        text: 'Team notified (Slack webhook — check the channel).',
+        text: 'Team notified via Slack. Check the channel for the message.',
       })
     } catch (err) {
       setStatus({
@@ -314,8 +314,8 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
             {contactRow ? (
               <div className="mt-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
                 <span className="font-medium text-zinc-300">👤 {contactRow.name || '—'}</span>
-                {' — '}
-                {contactRow.orderCount ?? 0} orders ·{' '}
+                {' · '}
+                {contactRow.orderCount ?? 0} {contactRow.orderCount === 1 ? 'order' : 'orders'} ·{' '}
                 {formatCurrency(Number(contactRow.totalSpend) || 0)}{' '}
                 lifetime
                 <br />
@@ -330,7 +330,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
                 </span>
                 {ghostRow?.repeatGhost ? (
                   <p className="mt-1 text-amber-400/90">
-                    👻 Repeat ghost — flagged {Number(ghostRow.ghostCount) || 0} times
+                    👻 Repeat ghost. Flagged {Number(ghostRow.ghostCount) || 0} times.
                   </p>
                 ) : null}
               </div>

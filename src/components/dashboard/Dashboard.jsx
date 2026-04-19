@@ -216,7 +216,7 @@ export function Dashboard() {
     if (tireSku.loading || priceIntelResearched.loading) return 'Syncing catalog…'
     const n = priceIntelResearched.count ?? 0
     if (n === 0) {
-      return `${formatQty(catalogSkuDisplay)} SKUs · price intel active — researching nightly`
+      return `${formatQty(catalogSkuDisplay)} SKUs · price intel active · researching nightly`
     }
     return `${formatQty(catalogSkuDisplay)} SKUs · ${formatQty(n)} prices researched · intel active`
   }, [tireSku, priceIntelResearched, catalogSkuDisplay])
@@ -226,15 +226,15 @@ export function Dashboard() {
     const a = crm.accounts ?? 0
     const l = crm.leads ?? 0
     const j = crm.openJobs ?? 0
-    if (a === 0 && l === 0 && j === 0) return 'Pipeline empty — add your first VIP client'
-    return `${a} accounts · ${l} leads · ${j} open jobs`
+    if (a === 0 && l === 0 && j === 0) return 'Pipeline empty. Add your first VIP client.'
+    return `${a} ${a === 1 ? 'account' : 'accounts'} · ${l} ${l === 1 ? 'lead' : 'leads'} · ${j} open ${j === 1 ? 'job' : 'jobs'}`
   }, [crm])
 
   const peopleSignal = useMemo(() => {
     if (people.loading) return 'Counting crew and customers…'
     const u = people.users ?? 0
     const c = people.contacts ?? 0
-    return `${u} crew · ${c} customers`
+    return `${u} crew · ${c} ${c === 1 ? 'customer' : 'customers'}`
   }, [people])
 
   const analyticsSignal = useMemo(() => {
@@ -242,14 +242,14 @@ export function Dashboard() {
     const n = completedOrders.count ?? 0
     const rev = completedOrders.revenue ?? 0
     if (n === 0) return 'No completed orders yet'
-    return `${n} orders completed · ${formatCurrency(rev)} total`
+    return `${n} ${n === 1 ? 'order' : 'orders'} completed · ${formatCurrency(rev)} total`
   }, [completedOrders])
 
   const modules = [
     {
       title: 'Skedaddle Tires',
       description:
-        'Margin catalog, tire orders, and listing generator — Catalog, Orders, and generate listings from the Tires workspace.',
+        'Margin catalog, tire orders, and listing generator. Catalog, Orders, and generate listings from the Tires workspace.',
       stat: tireSignal,
       statLabel: 'Catalog',
       ctaLabel: 'Open Catalog',
@@ -263,7 +263,7 @@ export function Dashboard() {
     {
       title: 'Rubber CRM',
       description:
-        'Lead pipeline, VIP clients, and DJ dispatch for northern Colorado tire operations.',
+        'Lead pipeline, VIP clients, and field dispatch for northern Colorado tire operations.',
       stat: crmSignal,
       statLabel: 'Pipeline',
       ctaLabel: 'View Pipeline',
@@ -505,7 +505,7 @@ export function Dashboard() {
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Crew</h2>
             {crewPreview.hasMore ? (
               <Link to="/people" className="text-xs font-medium text-amber-300/90 hover:underline">
-                View all →
+                View all
               </Link>
             ) : null}
           </div>

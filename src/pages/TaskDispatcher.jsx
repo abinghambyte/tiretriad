@@ -197,7 +197,7 @@ export function TaskDispatcherPage() {
     <div className="mx-auto max-w-6xl px-4 py-6 text-zinc-100 sm:px-6 sm:py-8">
       <ModuleSubheader
         title="AI Task Dispatcher"
-        subtitle="Route work to the named workforce — reads MODEL-REGISTRY and TEAM-BLUEPRINT on each run."
+        subtitle="Route work to the named workforce. Reads MODEL-REGISTRY and TEAM-BLUEPRINT on each run."
         maxWidthClass="max-w-6xl"
       />
 
@@ -293,7 +293,7 @@ export function TaskDispatcherPage() {
                 </span>
               </div>
               <p className="text-zinc-400">
-                <span className="text-zinc-500">Note</span> — {String(result.costCheckNote || '—')}
+                <span className="text-zinc-500">Note:</span> {String(result.costCheckNote || '—')}
               </p>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Context to load</p>

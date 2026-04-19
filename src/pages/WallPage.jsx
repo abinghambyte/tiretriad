@@ -20,7 +20,7 @@ function logisticsLine(o) {
     f === 'pickup' ? 'Customer pickup' : f === 'delivery' ? 'Delivery to customer' : f || '—'
   const m = o.logisticsMethod
   const bridge =
-    m === 'dropoff' ? 'Drop-off (Source → Field)' : m === 'pickup' ? 'Pickup (Field → Source)' : ''
+    m === 'dropoff' ? 'Drop-off (Source to Field)' : m === 'pickup' ? 'Pickup (Field to Source)' : ''
   return [bridge, cust].filter(Boolean).join(' · ')
 }
 
@@ -28,7 +28,7 @@ function crewLine(o) {
   const hb = o.handledBy || {}
   const s = hb.supplier || 'Source'
   const m = hb.mechanic || 'Field'
-  return `Source (${s}) → Field (${m})`
+  return `Source (${s}) to Field (${m})`
 }
 
 function isCatalogMspn(mspn) {
@@ -219,7 +219,7 @@ export function WallPage({ embedded = false }) {
       <div className="text-zinc-100">
         <div className="mb-4 border-b border-zinc-800/80 pb-3">
           <h2 className="text-sm font-semibold text-zinc-200">The Wall</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">Live completed orders — read only</p>
+          <p className="mt-0.5 text-xs text-zinc-500">Live completed orders. Read-only view.</p>
         </div>
         {body}
       </div>
@@ -235,7 +235,7 @@ export function WallPage({ embedded = false }) {
               ← Dashboard
             </Link>
             <h1 className="mt-2 text-xl font-semibold text-white">The Wall</h1>
-            <p className="mt-1 text-sm text-zinc-500">Live completed orders — read only</p>
+            <p className="mt-1 text-sm text-zinc-500">Live completed orders. Read-only view.</p>
             <div className="mt-2 sm:hidden">
               <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
             </div>

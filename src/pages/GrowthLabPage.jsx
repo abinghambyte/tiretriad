@@ -24,7 +24,7 @@ function adaptTaskDispatcherResult(raw) {
     return { ok: false, error: o.error }
   }
   const worker = String(o.assignedWorker || '')
-  const credit = [o.costCheckResult, o.costCheckNote].filter(Boolean).join(' — ')
+  const credit = [o.costCheckResult, o.costCheckNote].filter(Boolean).join(' · ')
   return {
     ok: true,
     model: String(o.modelVersion || o.platform || ''),
@@ -141,7 +141,7 @@ function GrowthLabRoutingForm() {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          placeholder="Context for the next visit — decisions, file paths, blockers…"
+          placeholder="Context for the next visit: decisions, file paths, blockers…"
           className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40 focus:ring-1 focus:ring-amber-500/30"
         />
         <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -237,7 +237,7 @@ export function GrowthLabPage() {
     <div className="mx-auto max-w-4xl px-4 py-6 text-zinc-100 sm:px-6 sm:py-8">
       <ModuleSubheader
         title="Growth Lab"
-        subtitle="Internal tools and experiments — Overwatch only."
+        subtitle="Internal tools and experiments. Overwatch only."
         maxWidthClass="max-w-4xl"
       />
       <div className="mt-6">

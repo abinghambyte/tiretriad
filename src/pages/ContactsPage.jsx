@@ -543,7 +543,7 @@ export function ContactsPage({ embedded = false }) {
                 ) : null}
                 {ghostCount != null && ghostCount >= 2 ? (
                   <p className="mt-2 text-xs font-medium text-amber-300/90">
-                    👻 Repeat ghost — flagged {ghostCount} times
+                    👻 Repeat ghost. Flagged {ghostCount} times.
                   </p>
                 ) : null}
               </div>

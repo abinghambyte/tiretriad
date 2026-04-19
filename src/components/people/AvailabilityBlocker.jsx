@@ -338,7 +338,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
             onClick={() => setWeekOffset((w) => w + 1)}
             className="max-sm:min-h-[44px] rounded-lg border border-zinc-600 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800/80 sm:py-1"
           >
-            Next →
+            Next
           </button>
         </div>
       </div>
@@ -365,7 +365,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
       ) : null}
 
       {!canEdit ? (
-        <p className="mt-3 text-xs text-zinc-600">View only — you can edit your own availability.</p>
+        <p className="mt-3 text-xs text-zinc-600">View only. You can edit your own availability.</p>
       ) : null}
 
       {err ? <p className="mt-2 text-xs text-red-400">{err}</p> : null}

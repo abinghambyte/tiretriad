@@ -13,7 +13,7 @@ export const CRM_ACCOUNT_SEGMENTS = [
 
 /** Primary vehicle type category (stored on `vehicleProfile.vehicleTypeCategory`). */
 export const CRM_VEHICLE_TYPE_CATEGORIES = [
-  { value: '', label: '— Select category —' },
+  { value: '', label: 'Select a category' },
   { value: 'half_ton_pickup', label: '½-ton pickup / light truck' },
   { value: 'three_quarter_ton', label: '¾-ton pickup' },
   { value: 'one_ton_plus', label: '1-ton+ / medium duty' },

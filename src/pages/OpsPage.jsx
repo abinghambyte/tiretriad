@@ -99,6 +99,7 @@ export function OpsPage() {
   const [taxBusy, setTaxBusy] = useState(false)
 
   const [priceResearchBusy, setPriceResearchBusy] = useState(false)
+  const [showWebhook, setShowWebhook] = useState(false)
 
   const region = import.meta.env.VITE_FUNCTIONS_REGION || 'us-central1'
   const inboundSmsUrl = `https://${region}-${firebaseProjectId}.cloudfunctions.net/inboundSms`
@@ -433,7 +434,7 @@ export function OpsPage() {
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Reorder queue</h2>
-          <p className="mt-1 text-sm text-zinc-500">From Slack `/reorder` — fulfilled or dismiss to clear.</p>
+          <p className="mt-1 text-sm text-zinc-500">From Slack `/reorder`. Mark as fulfilled or dismiss to clear.</p>
           <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
             <table className="w-full max-sm:min-w-0 border-collapse text-left text-sm sm:min-w-[800px]">
               <thead>
@@ -496,13 +497,11 @@ export function OpsPage() {
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Price research</h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Runs the Gemini-backed wholesale-price check against up to 100 tires. Same job the nightly 2 AM cron
-            runs; use this to test after setting <code className="text-zinc-300">GEMINI_API_KEY</code> or to pull a
-            fresh batch on demand.
+            Runs the wholesale-price check against up to 100 tires. Same job that runs nightly at 2 AM; use this to
+            test the job or to pull a fresh batch on demand.
           </p>
           <p className="mt-2 text-xs text-zinc-600">
-            Writes only to <code className="text-zinc-400">priceIntel.*</code>. Tires with{' '}
-            <code className="text-zinc-400">priceIntel.kyleConfirmed = true</code> are skipped. Large deltas (more
+            Writes only to the price intel fields. Tires with a confirmed buy price are skipped. Large deltas (more
             than 15%) are flagged in Slack for review rather than accepted automatically.
           </p>
           <button
@@ -523,10 +522,21 @@ export function OpsPage() {
             deploy. Replies post to #fleet-ops with a Slack <span className="text-zinc-300">Reply</span> button (uses
             existing Slack interactivity + Sinch outbound).
           </p>
-          <p className="mt-3 break-all font-mono text-xs text-cyan-300/90">{inboundSmsUrl}</p>
+          <div className="mt-3">
+            {showWebhook ? (
+              <code className="break-all font-mono text-xs text-cyan-300/90">{inboundSmsUrl}</code>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowWebhook(true)}
+                className="text-xs text-zinc-400 underline decoration-zinc-600 underline-offset-2 hover:text-zinc-200"
+              >
+                Show webhook URL
+              </button>
+            )}
+          </div>
           <p className="mt-2 text-xs text-zinc-600">
-            Optional: set <code className="text-zinc-400">SINCH_INBOUND_SHARED_SECRET</code> in Functions env and send
-            matching <code className="text-zinc-400">Authorization: Bearer …</code> header.
+            Optional: set a shared secret and send a matching Authorization header.
           </p>
         </section>
       </main>

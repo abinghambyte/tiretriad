@@ -34,11 +34,11 @@ const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
 
 const POKE_MESSAGES = {
   1: (name) =>
-    `Hey ${name}, checking in — still interested in the tires? Let us know and we can have them ready.`,
+    `Hey ${name}, checking in. Still interested in the tires? Let us know and we can have them ready.`,
   2: (name) =>
-    `Hey ${name}, following up one more time. We're holding them for you but can't indefinitely — let us know either way.`,
+    `Hey ${name}, following up one more time. We're holding them for you but can't indefinitely. Let us know either way.`,
   3: (name) =>
-    `Hey ${name}, last check — tires are still available but we'll need to move on soon.`,
+    `Hey ${name}, last check. Tires are still available but we'll need to move on soon.`,
 }
 
 const CANCEL_DISPOSITIONS = [
@@ -397,13 +397,13 @@ export function OrdersList({ highlightId }) {
     try {
       await navigator.clipboard.writeText(body)
     } catch {
-      toast('Could not copy — select the text manually.', 'error')
+      toast('Could not copy. Select the text manually.', 'error')
     }
     try {
       await persistCustomerNotified(notifyModalOrder)
     } catch (e) {
       console.error(e)
-      toast('Copied. Firestore save failed — check rules.', 'error')
+      toast('Copied. Could not save notification log.', 'error')
     }
   }, [notifyModalOrder, persistCustomerNotified, toast])
 
@@ -416,7 +416,7 @@ export function OrdersList({ highlightId }) {
       await persistCustomerNotified(notifyModalOrder)
     } catch (e) {
       console.error(e)
-      toast('SMS opened. Firestore save failed — check rules.', 'error')
+      toast('SMS opened. Could not save notification log.', 'error')
     }
   }, [notifyModalOrder, persistCustomerNotified, toast])
 
@@ -444,7 +444,7 @@ export function OrdersList({ highlightId }) {
       })
     } catch (e) {
       console.error(e)
-      toast('SMS opened. Poke save failed — check rules.', 'error')
+      toast('SMS opened. Could not log the follow-up.', 'error')
     } finally {
       setPokingId(null)
     }
@@ -655,7 +655,7 @@ export function OrdersList({ highlightId }) {
                       {o.priceDiscrepancy != null ? (
                         <span
                           className="text-amber-400"
-                          title="Kyle's price differs from system — check before charging."
+                          title="Sourcer's price differs from system. Check before charging."
                           aria-label="Price discrepancy"
                         >
                           ⚠️
