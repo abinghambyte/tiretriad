@@ -134,8 +134,7 @@ export function TopOpportunities({ tires, haggleDiscount, onJumpToTire }) {
           </h2>
           {!collapsed ? (
             <p className="mt-0.5 text-[11px] text-zinc-500">
-              Top {top.length} by expected profit per tire after haggle {'\u00b7'} weighted by
-              market-price confidence {'\u00b7'} {haggleDisplay} haggle assumed
+              Top {top.length} tires {'\u00b7'} all amounts per tire {'\u00b7'} profit after {haggleDisplay} haggle, weighted by market-price confidence
             </p>
           ) : null}
         </div>
@@ -167,19 +166,19 @@ export function TopOpportunities({ tires, haggleDiscount, onJumpToTire }) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">
-                      <span className="font-semibold text-zinc-100">{tire.brand || '\u2014'}</span>
-                      <span className="ml-1.5 font-mono text-[12px] text-zinc-300">{size || tire.description || '\u2014'}</span>
+                      <span className="font-semibold text-zinc-100">{tire.brand || ''}</span>
+                      <span className="ml-1.5 font-mono text-[12px] text-zinc-300">{size || tire.description || ''}</span>
                       {tread ? (
                         <span className="ml-2 text-[11px] text-zinc-500">{tread}</span>
                       ) : null}
                     </span>
                     <span className="mt-0.5 block truncate font-mono text-[11px] text-zinc-400 tabular-nums">
-                      Buy {formatCurrency(op.buy)} {'\u2192'} List{' '}
+                      Buy {formatCurrency(op.buy)} to list{' '}
                       <span className="text-zinc-200">{formatCurrency(op.retail)}</span>
                       {' '}({' '}
                       <span className={netPositive ? 'text-emerald-300' : 'text-rose-300'}>
                         {netPositive ? '+' : ''}
-                        {formatCurrency(op.netPerTire)}/tire
+                        {formatCurrency(op.netPerTire)} profit
                       </span>
                       {' '})
                     </span>
@@ -190,7 +189,7 @@ export function TopOpportunities({ tires, haggleDiscount, onJumpToTire }) {
                       aria-label={confidenceLabel(op.confidence)}
                     />
                     <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-                      {op.confidence === 'estimated' ? 'est' : op.confidence === 'high' ? 'high' : op.confidence === 'medium' ? 'med' : '\u2014'}
+                      {op.confidence === 'estimated' ? 'est' : op.confidence === 'high' ? 'high' : op.confidence === 'medium' ? 'med' : ''}
                     </span>
                   </span>
                 </button>
