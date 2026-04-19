@@ -5,8 +5,8 @@ import { crewTagFromRole, permissionMeets } from '../../constants/peoplePermissi
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 import { timeAgo } from '../../utils/timeAgo'
-import { CreditTrackerCard } from './CreditTrackerCard.jsx'
 import { ProjectCard } from './ProjectCard'
+import { CreditTrackerCard } from './CreditTrackerCard'
 
 const ORDER_ACTIVITY_STATUS = {
   pending: 'Pending',
@@ -170,25 +170,46 @@ function IconOpsCommand() {
   )
 }
 
-function SignalCard({ label, value, warn, to, loading }) {
+function orderIdShort(id) {
+  const s = String(id || '').replace(/\s/g, '')
+  if (!s) return ''
+  return `#${s.slice(0, 8)}`
+}
+
+/**
+ * @param {object} props
+ * @param {'qty' | 'currency'} [props.valueFormat]
+ * @param {string} [props.cardTitle] — native tooltip (threshold + meaning)
+ */
+function SignalCard({ label, value, warn, to, loading, valueFormat = 'qty', cardTitle, tone = 'amber' }) {
   const n = value == null ? null : Number(value)
   const show = !loading && n != null
-  const amber = warn && show && n > 0
+  const highlight = warn && show && n > 0
+  let borderClasses =
+    'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/90'
+  if (highlight) {
+    borderClasses =
+      tone === 'rose'
+        ? 'border-rose-800/40 bg-rose-950/10 hover:border-rose-700/50 hover:bg-rose-950/20'
+        : 'border-amber-700/40 bg-amber-950/10 hover:border-amber-600/50 hover:bg-amber-950/20'
+  }
+  const display =
+    show && valueFormat === 'currency'
+      ? formatCurrency(n)
+      : show
+        ? formatQty(n)
+        : '—'
   return (
     <Link
       to={to}
-      className={[
-        'block rounded-xl border p-4 transition-colors duration-200',
-        amber
-          ? 'border-amber-700/40 bg-amber-950/10 hover:border-amber-600/50 hover:bg-amber-950/20'
-          : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/90',
-      ].join(' ')}
+      title={cardTitle}
+      className={['block rounded-xl border p-4 transition-colors duration-200', borderClasses].join(' ')}
     >
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
       {loading ? (
         <div className="mt-2 h-8 w-16 animate-pulse rounded-md bg-zinc-800/80" />
       ) : (
-        <p className="sk-figures mt-1 text-2xl font-semibold tabular-nums text-zinc-50">{show ? formatQty(n) : '—'}</p>
+        <p className="sk-figures mt-1 text-2xl font-semibold tabular-nums text-zinc-50">{display}</p>
       )}
     </Link>
   )
@@ -392,6 +413,7 @@ export function Dashboard() {
               warn
               to="/orders"
               loading={sigLoading}
+              cardTitle="Orders in active pipeline stages (not completed or cancelled). Amber when count is greater than zero."
             />
             <SignalCard
               label="Needs Reposting"
@@ -399,20 +421,25 @@ export function Dashboard() {
               warn
               to="/tires?needsReposting=true"
               loading={tireSku.loading}
+              cardTitle="Tires that were posted but are stale on all platforms. Amber when there is at least one."
             />
             <SignalCard
-              label="Catalog size"
-              value={signalBar.catalogSize}
+              label="Today revenue"
+              value={signalBar.todayRevenue}
               warn={false}
-              to="/tires"
+              valueFormat="currency"
+              to="/analytics?tab=revenue"
               loading={sigLoading}
+              cardTitle="Denver-day revenue total from meta/revenueStats (same rollup as Analytics)."
             />
             <SignalCard
               label="Crew alerts"
               value={signalBar.crewAlerts}
               warn
+              tone="rose"
               to="/people"
               loading={sigLoading}
+              cardTitle="Pending crew invites (not accepted yet) plus locked accounts. Highlighted when count is greater than zero."
             />
           </div>
         </section>
@@ -438,18 +465,54 @@ export function Dashboard() {
               <ul className="mt-4 divide-y divide-zinc-800/80">
                 {recentActivity.orders.map(({ id, data }) => {
                   const createdAt = data.createdAt
+                  const hasTireDescription = Boolean(String(data.description || '').trim())
+                  const idLabel = orderIdShort(id) || '—'
+                  const statusLabel = activityStatusLabel(data.status)
+                  const when = timeAgo(createdAt) || '—'
+                  if (!hasTireDescription) {
+                    return (
+                      <li key={id} className="py-3 first:pt-0">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-300">
+                          <Link
+                            to={`/orders?highlight=${encodeURIComponent(id)}`}
+                            className="font-mono text-zinc-200 underline-offset-2 hover:underline"
+                          >
+                            {idLabel}
+                          </Link>
+                          <span className="text-zinc-600" aria-hidden>
+                            ·
+                          </span>
+                          <span className="rounded-full bg-zinc-800/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
+                            {statusLabel}
+                          </span>
+                          <span className="text-zinc-600" aria-hidden>
+                            ·
+                          </span>
+                          <span className="text-[11px] text-zinc-500">{when}</span>
+                        </div>
+                      </li>
+                    )
+                  }
                   return (
                     <li key={id} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-zinc-200">{activityTireLine(data)}</p>
+                        <p className="text-xs text-zinc-500">
+                          <Link
+                            to={`/orders?highlight=${encodeURIComponent(id)}`}
+                            className="font-mono text-zinc-300 underline-offset-2 hover:underline"
+                          >
+                            {idLabel}
+                          </Link>
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-zinc-200">{activityTireLine(data)}</p>
                         <p className="mt-0.5 text-xs text-zinc-500">{activityCustomerLine(data)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 text-right">
                         <span className="rounded-full bg-zinc-800/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
-                          {activityStatusLabel(data.status)}
+                          {statusLabel}
                         </span>
                         <span className="font-mono text-xs text-zinc-500">{activityMarginDisplay(data)}</span>
-                        <span className="text-[10px] text-zinc-600">{timeAgo(createdAt) || '—'}</span>
+                        <span className="text-[10px] text-zinc-600">{when}</span>
                       </div>
                     </li>
                   )
@@ -467,34 +530,38 @@ export function Dashboard() {
                 ))}
               </div>
             ) : (
-              <dl className="mt-4 space-y-3 text-sm">
+              <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3">
-                  <dt className="text-zinc-400">Total tires</dt>
-                  <dd className="font-mono font-semibold tabular-nums text-zinc-100">
+                  <span className="text-zinc-400">Total tires</span>
+                  <span className="font-mono font-semibold tabular-nums text-zinc-100">
                     {formatQty(catalogHealth.total ?? 0)}
-                  </dd>
+                  </span>
                 </div>
-                <div className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3">
-                  <dt className="text-zinc-400">Missing overhead</dt>
-                  <dd
-                    className={`font-mono font-semibold tabular-nums ${
-                      (catalogHealth.missingOverhead ?? 0) > 0 ? 'text-amber-300' : 'text-zinc-100'
-                    }`}
-                  >
+                <Link
+                  to="/tires?risk=missingOverhead"
+                  className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3 transition-colors duration-200 hover:bg-amber-950/15"
+                >
+                  <span className="text-base font-medium text-amber-100/95">Missing overhead</span>
+                  <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-amber-200">
                     {formatQty(catalogHealth.missingOverhead ?? 0)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-zinc-400">Below 15% margin</dt>
-                  <dd
-                    className={`font-mono font-semibold tabular-nums ${
-                      (catalogHealth.lowMargin ?? 0) > 0 ? 'text-red-400' : 'text-zinc-100'
-                    }`}
-                  >
+                    <span className="text-amber-500/90" aria-hidden>
+                      →
+                    </span>
+                  </span>
+                </Link>
+                <Link
+                  to="/tires?risk=lowMargin"
+                  className="-mx-1 flex items-center justify-between gap-3 rounded-lg border border-red-900/35 bg-red-950/20 px-2 py-2.5 text-base transition-colors duration-200 hover:border-red-800/50 hover:bg-red-950/35"
+                >
+                  <span className="font-semibold text-red-100/95">Below 15% margin</span>
+                  <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-red-300">
                     {formatQty(catalogHealth.lowMargin ?? 0)}
-                  </dd>
-                </div>
-              </dl>
+                    <span className="text-red-400/90" aria-hidden>
+                      →
+                    </span>
+                  </span>
+                </Link>
+              </div>
             )}
           </section>
         </div>
@@ -540,12 +607,6 @@ export function Dashboard() {
             </ul>
           )}
         </section>
-
-        {!profileGate && profile?.role === 'admin' ? (
-          <section aria-label="Credit tracker" className="rounded-xl border border-zinc-800/90 bg-zinc-950/60 p-1">
-            <CreditTrackerCard compact />
-          </section>
-        ) : null}
 
         {/*
           Module tiles: secondary navigation. Bottom nav + sidebar already cover most routes on mobile,

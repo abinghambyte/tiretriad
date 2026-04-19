@@ -16,6 +16,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { auth, db, functions } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
+import { CreditTrackerCard } from '../components/dashboard/CreditTrackerCard.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
@@ -252,6 +253,10 @@ export function OpsPage() {
       />
 
       <main className="mx-auto max-w-6xl space-y-10 px-6 py-10 sm:py-12">
+        <section aria-label="Credit tracker" className="rounded-2xl border border-zinc-800/90 bg-zinc-950/60 p-1">
+          <CreditTrackerCard compact />
+        </section>
+
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Expense tracker</h2>
           <p className="mt-1 text-sm text-zinc-500">

@@ -136,6 +136,7 @@ export function TiresDashboard() {
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
   const ordersHighlight = searchParams.get('highlight') || undefined
+  const catalogRisk = searchParams.get('risk') || ''
   const canViewOrders = permissionMeets(permissionFor('orders'), 'view')
 
   const [minMargin, setMinMargin] = useState(0)
@@ -170,6 +171,12 @@ export function TiresDashboard() {
   useEffect(() => {
     writeFiltersOpen(filtersOpen)
   }, [filtersOpen])
+
+  useEffect(() => {
+    if (catalogRisk === 'lowMargin' || catalogRisk === 'missingOverhead') {
+      setFiltersOpen(true)
+    }
+  }, [catalogRisk])
 
   // Sync `q` search param with URL for shareable deep-links.
   useEffect(() => {
@@ -275,6 +282,17 @@ export function TiresDashboard() {
 
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
+      if (catalogRisk === 'lowMargin') {
+        const m = row.margin
+        if (m == null || Number.isNaN(m) || m >= 15) return false
+      }
+      if (catalogRisk === 'missingOverhead') {
+        const mount = Number(row.mountCost) || 0
+        const delivery = Number(row.deliveryCost) || 0
+        const other = Number(row.otherCost) || 0
+        const cts = Number(row.cts) || 0
+        if (cts !== 0 || mount !== 0 || delivery !== 0 || other !== 0) return false
+      }
       if (brand && row.brand !== brand) return false
       if (lrFilters.length > 0) {
         const l = String(row.lr || '')
@@ -307,7 +325,7 @@ export function TiresDashboard() {
       }
       return true
     })
-  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, qLower])
+  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, qLower, catalogRisk])
 
   const sortedRows = useMemo(() => {
     const rows = [...filtered]

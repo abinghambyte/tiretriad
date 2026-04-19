@@ -1,0 +1,83 @@
+# Phase 5: Dashboard + Closing Details (Cursor Brief)
+
+Paste this whole file into Cursor Composer / Agent.
+
+## Context
+
+You are finishing Phase 5 of a portal polish roadmap. Phases 1 through 4 already landed as these commits on the current branch:
+
+- `ebf6ccb` Phase 1: credibility sprint (light mode, copy hygiene, backend leak cleanup)
+- `5f40513` Phase 2: structural navigation (desktop nav, breadcrumbs, CRM URL unification, CTA normalization)
+- `593f68c` Phase 3: tires catalog hardening (search, sort, columns, filter collapse, listing chips)
+- `ece73bc` Phase 4: module polish (order cards, CRM summaries, Ops/Admin split, icon toggles)
+
+Working directory: `C:\Users\Alex\Desktop\skedaddle-portal\.claude\worktrees\exciting-jennings-125349`
+
+Build and lint are currently green. Run `npm run build` and `npm run lint` after every logical batch; keep them green. No new external dependencies.
+
+## Items to complete
+
+### Item 3. Collapse color tokens
+Audit className usage across `src/components/**` and `src/pages/**` for inconsistent neutral ramps. Right now the app mixes `zinc-*` with occasional `neutral-*` and `stone-*`. Pick **zinc** as the sole neutral ramp and replace any stray `neutral-*` or `stone-*` with the closest zinc equivalent. Do not touch semantic colors (amber, emerald, rose, red, sky). Quick command to inventory:
+
+```bash
+grep -rE "\b(neutral|stone)-[0-9]{2,3}\b" src/ --include="*.jsx" --include="*.js"
+```
+
+Keep the diff surgical. If a component already leans on a semantic palette intentionally, leave it alone and note it in your report.
+
+### Item 5. Canonical domain
+Any hardcoded URLs in `src/**` pointing at `skedaddleinc.com` or `www.skedaddleinc.com` should resolve to one canonical. Prefer `https://www.skedaddleinc.com` (matches the Firebase hosting config and what the deployed app redirects to). Files to check: meta tags in `index.html`, OpenGraph / canonical tags, any absolute URLs in `src/utils/**`, any sharelink helpers.
+
+### Item 26. Clickable Recent Activity order IDs
+In `src/components/dashboard/Dashboard.jsx` (the Recent Activity block), wrap each order ID in a `<Link>` to `/orders?highlight=<id>` so clicking jumps straight to the order card. Hover/focus style: underline. Preserve the existing row layout.
+
+### Item 27. Remove em-dash placeholders in empty activity rows
+When an activity row has no description text, the current layout shows a `—` placeholder on both sides. Collapse that row to a single-line `{id} · {status} · {time}` format when the description is empty. Keep the two-line format when a description exists.
+
+### Item 28. Crew alerts hover explanation
+The `CREW ALERTS` KPI card on the dashboard shows a red number with no context. Add a `title` attribute (and/or a small helper tooltip) explaining what the alert is. For the current state, it's a pending invite; the copy should be: `1 crew invite pending for {name}` or, if data isn't easily accessible, simply `Pending crew invites`.
+
+### Item 29. KPI card accent legend or removal
+The four `TODAY` KPI cards have orange/red accent borders that imply urgency (Pending orders = orange, Crew alerts = red). The rules are invisible. Either:
+(a) Tie the accent to a real threshold (e.g. Pending orders turns amber at >0, Crew alerts turns rose at >0) and leave a short tooltip explaining it, or
+(b) Remove the accent entirely so the cards look uniform.
+Pick (a) if the existing code already has the threshold logic; otherwise pick (b) and strip the conditional border classes.
+
+### Item 30. Relocate Credit tracker band
+Today the Credit tracker (`AVAILABLE $5,000.00 · Balance · Limit · Pending & refunds`) sits between Crew and Modules on the dashboard. Move it to one of:
+(a) A small chip in the top bar (right side, next to the user pill), OR
+(b) The new `/admin` page or an `/ops` section.
+Pick (b) if the top bar is too crowded. In your report, say which you chose and why.
+
+### Item 31. Revenue KPI on the dashboard
+Replace or complement the `CATALOG SIZE` KPI with an outcome-focused KPI. Use whatever data is available: `TODAY REVENUE` or `MTD REVENUE`. If you can pull `meta/revenueStats` from the existing analytics query, good; otherwise fall back to the same "Total revenue (sample)" used in the Analytics Metrics tab.
+
+### Item 32. Promote Catalog Health links
+The `Below 15% margin` row currently reads like a footnote. Make the whole row more prominent: slightly larger text, a subtle red tint, an arrow indicator, and a more prominent hover state. It's one of the most actionable signals in the app. The `Missing overhead` row can keep its current amber treatment but also gets a stronger hover state.
+
+## Constraints
+
+- Do not regress Phase 1-4 work.
+- Keep all new light/dark parity. Bare `bg-zinc-*` / `border-zinc-*` / `text-zinc-*` already render correctly in both themes thanks to the index.css override layer.
+- No new deps.
+- Run `npm run lint` and `npm run build` before finishing.
+- No emojis. No AI-attribution / "Generated by" comments.
+
+## Deliverable
+
+A final report listing:
+1. Files changed with one-line descriptions.
+2. Decisions made on items 29 and 30.
+3. Build + lint status.
+
+After your report, commit with:
+
+```
+git add -A
+git commit -m "Phase 5: dashboard and closing details
+
+<your summary>"
+```
+
+Do not push.
