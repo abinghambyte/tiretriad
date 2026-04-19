@@ -10,6 +10,7 @@ import { useTires } from '../../hooks/useTires'
 import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
+import { deriveTireTags } from '../../utils/deriveTireTags'
 import { listingStatus } from '../../utils/listingStatus'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
@@ -271,21 +272,22 @@ export function TiresDashboard() {
     [tires],
   )
   const lrs = useMemo(() => uniqueSorted(tires.map((t) => t.lr)), [tires])
-  const useTags = useMemo(() => {
-    const tags = []
-    for (const t of tires) {
-      if (Array.isArray(t.useTags)) tags.push(...t.useTags)
-    }
-    return uniqueSorted(tags)
-  }, [tires])
-
   const enriched = useMemo(() => {
     return tires.map((t) => ({
       ...t,
       margin: computeMargin(t),
       listingMargin: computeListingMargin(t),
+      derivedUseTags: deriveTireTags(t),
     }))
   }, [tires])
+
+  const useTags = useMemo(() => {
+    const tags = []
+    for (const row of enriched) {
+      if (Array.isArray(row.derivedUseTags)) tags.push(...row.derivedUseTags)
+    }
+    return uniqueSorted(tags)
+  }, [enriched])
 
   const qLower = query.trim().toLowerCase()
 
@@ -309,7 +311,9 @@ export function TiresDashboard() {
         if (!lrFilters.includes(l)) return false
       }
       if (useTagFilters.length > 0) {
-        const tags = Array.isArray(row.useTags) ? row.useTags.map(String) : []
+        const tags = Array.isArray(row.derivedUseTags)
+          ? row.derivedUseTags
+          : []
         const hit = useTagFilters.some((t) => tags.includes(t))
         if (!hit) return false
       }
