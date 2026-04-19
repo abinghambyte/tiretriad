@@ -479,40 +479,38 @@ async function deliverInvite(p) {
   }
 
   if (deliveryMethod === 'sms') {
-    const sid = process.env.TWILIO_ACCOUNT_SID
-    const tok = process.env.TWILIO_AUTH_TOKEN
-    const from = process.env.TWILIO_FROM_NUMBER
+    const planId = String(process.env.SINCH_SERVICE_PLAN_ID || '').trim()
+    const apiToken = String(process.env.SINCH_API_TOKEN || '').trim()
+    const from = String(process.env.SINCH_FROM_NUMBER || '').trim()
+    const region = String(process.env.SINCH_REGION || 'us').trim().toLowerCase()
     const digits = String(phone || '').replace(/\D/g, '')
-    if (!sid || !tok || !from || digits.length < 10) {
-      console.warn('deliverInvite SMS: missing Twilio configuration or phone')
+    if (!planId || !apiToken || !from || digits.length < 10) {
+      console.warn('deliverInvite SMS: missing Sinch configuration or phone')
       return { sent: false, reason: 'missing-env' }
     }
-    let to = digits
-    if (to.length === 10) to = `1${to}`
-    to = `+${to}`
-    const auth = Buffer.from(`${sid}:${tok}`).toString('base64')
+    const to = digits.length === 10 ? `1${digits}` : digits
     const body = buildSmsBody(greetingLine, firstName, inviteUrl) || fallbackBody(firstName, inviteUrl)
-    const params = new URLSearchParams({ To: to, From: from, Body: body })
+    const host = region === 'eu' ? 'eu.sms.api.sinch.com' : 'us.sms.api.sinch.com'
     try {
       const res = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,
+        `https://${host}/xms/v1/${encodeURIComponent(planId)}/batches`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
           },
-          body: params.toString(),
+          body: JSON.stringify({ from, to: [to], body }),
         },
       )
       const txt = await res.text()
       if (!res.ok) {
-        console.error('Twilio SMS failed', res.status, txt)
+        console.error('Sinch SMS failed', res.status, txt)
         return { sent: false, reason: 'provider-error' }
       }
       return { sent: true }
     } catch (e) {
-      console.error('Twilio SMS threw', e)
+      console.error('Sinch SMS threw', e)
       return { sent: false, reason: 'provider-error' }
     }
   }
