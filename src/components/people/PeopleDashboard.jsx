@@ -20,6 +20,7 @@ import {
 } from '../../constants/peoplePermissions'
 import { PermissionMatrix } from './PermissionMatrix'
 import { AvailabilityBlocker } from './AvailabilityBlocker.jsx'
+import { NfcWriterModal } from './NfcWriterModal.jsx'
 import { cmdEnterInvokeKeyDown } from '../../utils/cmdEnterSubmit.js'
 import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../../utils/formatPhone.js'
 import {
@@ -311,6 +312,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [accessDate, setAccessDate] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [lastInviteUrl, setLastInviteUrl] = useState('')
+  const [nfcModalOpen, setNfcModalOpen] = useState(false)
+  const [nfcModalUrl, setNfcModalUrl] = useState('')
+  const [nfcModalName, setNfcModalName] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewGreeting, setPreviewGreeting] = useState('')
@@ -552,6 +556,14 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
     setCreateBusy(true)
     setLastInviteUrl('')
+    // Snapshot the form values before the async call so the toast copy stays
+    // accurate even if the form resets before the resolution.
+    const snapshot = {
+      firstName: fn.trim(),
+      email: email.trim(),
+      phone: normalizePhoneToE164(phone),
+      deliveryMethod: delivery,
+    }
     try {
       let accessExpiryMs = null
       if (accessDate) {
@@ -562,9 +574,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         firstName: fn,
         lastName: ln,
         email,
-        phone: normalizePhoneToE164(phone),
+        phone: snapshot.phone,
         role,
-        inviteDelivery: delivery,
+        inviteDelivery: snapshot.deliveryMethod,
         accessExpiryMs,
       })
       const data = res.data
@@ -582,12 +594,63 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         setPreviewShowCreatedUrl(false)
       }
       setCreateDrawerOpen(false)
+      handleDeliveryResult({
+        delivery: data.delivery,
+        inviteUrl: createdUrl,
+        firstName: snapshot.firstName,
+        email: snapshot.email,
+        phone: snapshot.phone,
+      })
     } catch (err) {
       console.error(err)
       toast(err?.message || 'Action failed.', 'error')
     } finally {
       setCreateBusy(false)
     }
+  }
+
+  /**
+   * Surface the SMS/email/NFC delivery outcome to the admin and, for NFC,
+   * open the tag writer modal. Leaves the backup URL card in place either way.
+   */
+  function handleDeliveryResult({ delivery: deliveryResult, inviteUrl, firstName, email: emailAddr, phone: phoneNum }) {
+    const attempted = deliveryResult?.attempted || ''
+    const sent = Boolean(deliveryResult?.sent)
+    const reason = deliveryResult?.reason || ''
+
+    if (attempted === 'nfc') {
+      setNfcModalUrl(inviteUrl)
+      setNfcModalName(firstName)
+      setNfcModalOpen(true)
+      toast('Invite ready for NFC programming.', 'info')
+      return
+    }
+    if (attempted === 'sms' && sent) {
+      toast(`SMS invite sent to ${phoneNum || 'the recipient'}.`, 'success')
+      return
+    }
+    if (attempted === 'email' && sent) {
+      toast(`Email invite sent to ${emailAddr || 'the recipient'}.`, 'success')
+      return
+    }
+    if (!sent && reason === 'missing-env') {
+      const channel = attempted === 'sms' ? 'SMS' : 'Email'
+      toast(
+        `Invite created. ${channel} provider not configured. Use the backup URL below.`,
+        'info',
+      )
+      return
+    }
+    if (!sent && reason === 'provider-error') {
+      const channel = attempted === 'sms' ? 'SMS' : 'Email'
+      toast(
+        `Invite created. ${channel} failed to send. Use the backup URL below.`,
+        'error',
+      )
+      return
+    }
+    // Fallback for any unknown shape: still acknowledge the create.
+    toast('Invite created. Use the backup URL below.', 'info')
   }
 
   async function openInvitePreview() {
@@ -1407,6 +1470,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           </div>
         </div>
       ) : null}
+
+      <NfcWriterModal
+        open={nfcModalOpen}
+        onClose={() => setNfcModalOpen(false)}
+        inviteUrl={nfcModalUrl}
+        firstName={nfcModalName}
+      />
     </>
   )
 

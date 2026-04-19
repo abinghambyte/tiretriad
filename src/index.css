@@ -489,7 +489,9 @@ html[data-theme='light'] .bg-amber-900\/60 {
 }
 html[data-theme='light'] .text-amber-100,
 html[data-theme='light'] .text-amber-200,
-html[data-theme='light'] .text-amber-300 {
+html[data-theme='light'] .text-amber-300,
+html[data-theme='light'] .text-amber-100\/95,
+html[data-theme='light'] .text-amber-500\/90 {
   color: #92400e !important;
 }
 html[data-theme='light'] .border-amber-900\/50,
@@ -564,7 +566,9 @@ html[data-theme='light'] .bg-rose-950\/40 {
 }
 html[data-theme='light'] .text-red-100,
 html[data-theme='light'] .text-red-200,
-html[data-theme='light'] .text-red-300 {
+html[data-theme='light'] .text-red-300,
+html[data-theme='light'] .text-red-100\/95,
+html[data-theme='light'] .text-red-400\/90 {
   color: #991b1b !important;
 }
 html[data-theme='light'] .text-rose-100,

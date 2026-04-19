@@ -67,6 +67,49 @@ function nextActionSummary(a) {
   return [task || '—', due].filter(Boolean).join(' · ')
 }
 
+/** Classify the Next action due date for color-coding. Returns 'overdue' | 'today' | 'future' | 'none'. */
+function nextActionDueStatus(a) {
+  const due = a?.nextAction?.dueDate
+  if (!due || typeof due.toDate !== 'function') return 'none'
+  let dueMs
+  try {
+    dueMs = due.toDate().getTime()
+  } catch {
+    return 'none'
+  }
+  const now = new Date()
+  const startOfTodayMs = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime()
+  const startOfTomorrowMs = startOfTodayMs + 24 * 60 * 60 * 1000
+  if (dueMs < startOfTodayMs) return 'overdue'
+  if (dueMs < startOfTomorrowMs) return 'today'
+  return 'future'
+}
+
+function nextActionClass(status) {
+  if (status === 'overdue') return 'text-rose-300'
+  if (status === 'today') return 'text-amber-300'
+  return 'text-zinc-500'
+}
+
+/** Days since the account's most recent activity timestamp, or null if no timestamp is available. */
+function daysSinceLastActivity(a) {
+  const candidates = [a?.updatedAt, a?.lastContactedAt]
+  let latestMs = 0
+  for (const ts of candidates) {
+    const ms = typeof ts?.toMillis === 'function' ? ts.toMillis() : 0
+    if (ms > latestMs) latestMs = ms
+  }
+  if (!latestMs) return null
+  const diffDays = Math.floor((Date.now() - latestMs) / (24 * 60 * 60 * 1000))
+  return diffDays >= 0 ? diffDays : 0
+}
+
+const STALE_DEAL_DAYS = 14
+
 function lastActivityNotePreview(a) {
   const e = lastActivityEntry(a)
   const text = String(e?.note || '').trim()
@@ -235,6 +278,8 @@ export function CrmPage() {
   const [detail, setDetail] = useState(null)
   const [vehicles, setVehicles] = useState([])
   const [addAccountOpen, setAddAccountOpen] = useState(false)
+  /** Pipeline stage used when the next Add-VIP submit fires. */
+  const [addAccountStage, setAddAccountStage] = useState(1)
   const [leadForm, setLeadForm] = useState({
     businessName: '',
     source: '',
@@ -389,9 +434,13 @@ export function CrmPage() {
     if (!canEdit) return
     const clean = String(name || '').trim()
     if (!clean) return
+    const stage =
+      Number.isFinite(addAccountStage) && addAccountStage >= 1 && addAccountStage <= 5
+        ? addAccountStage
+        : 1
     await addDoc(collection(db, 'crmAccounts'), {
       companyName: clean,
-      pipelineStage: 1,
+      pipelineStage: stage,
       pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
       fleetSize: 0,
       painScore: 1,
@@ -520,7 +569,10 @@ export function CrmPage() {
               {canEdit ? (
                 <button
                   type="button"
-                  onClick={() => setAddAccountOpen(true)}
+                  onClick={() => {
+                    setAddAccountStage(1)
+                    setAddAccountOpen(true)
+                  }}
                   className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
                 >
                   Add VIP client
@@ -671,37 +723,70 @@ export function CrmPage() {
                     return (
                     <div
                       key={stage}
-                      className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
+                      className="flex min-w-0 flex-col rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => void onDropStage(stage, e)}
                     >
-                      <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
-                        {CRM_STAGE_LABELS[stage]}
-                        <span className="font-normal text-zinc-500"> · {s.count}</span>
-                        {s.dollars > 0 ? (
-                          <span className="font-normal text-zinc-500">
-                            {' '}· {formatCurrency(s.dollars)}
-                            <span className="text-zinc-600"> est.</span>
-                          </span>
-                        ) : null}
-                      </p>
+                      <div className="mb-2 px-1">
+                        <p className="text-xs font-semibold leading-snug text-zinc-300">
+                          {CRM_STAGE_LABELS[stage]}
+                        </p>
+                        <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 ring-1 ring-zinc-700/60">
+                          <span className="tabular-nums text-zinc-300">{s.count}</span>
+                          {s.dollars > 0 ? (
+                            <>
+                              <span className="text-zinc-600">·</span>
+                              <span className="tabular-nums">{formatCurrency(s.dollars)}</span>
+                              <span className="text-zinc-600">est.</span>
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
                       <div className="space-y-2">
-                        {byStage(stage).map((a) => (
-                          <button
+                        {byStage(stage).map((a) => {
+                          const dueStatus = nextActionDueStatus(a)
+                          const staleDays = daysSinceLastActivity(a)
+                          const isStale = staleDays != null && staleDays >= STALE_DEAL_DAYS
+                          return (
+                          <div
                             key={a.id}
-                            type="button"
+                            role="button"
+                            tabIndex={0}
                             draggable={canEdit}
                             onDragStart={(e) => {
                               e.dataTransfer.setData('text/accountId', a.id)
                             }}
                             onClick={() => setDetail(a)}
-                            className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                setDetail(a)
+                                return
+                              }
+                              if (!canEdit) return
+                              const current = normalizePipelineStage(a.pipelineStage, a)
+                              if (e.key === 'ArrowRight' && current < 5) {
+                                e.preventDefault()
+                                void moveAccountStage(a.id, current + 1)
+                              } else if (e.key === 'ArrowLeft' && current > 1) {
+                                e.preventDefault()
+                                void moveAccountStage(a.id, current - 1)
+                              }
+                            }}
+                            className="relative w-full cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-950/80 p-2 text-left text-xs hover:border-violet-700/50 focus:outline-none focus:ring-1 focus:ring-violet-500/60"
                           >
+                            {isStale ? (
+                              <span
+                                className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-zinc-950/80"
+                                title={`No activity for ${staleDays} days`}
+                                aria-label={`No activity for ${staleDays} days`}
+                              />
+                            ) : null}
                             <span className="font-medium text-zinc-100">{a.companyName}</span>
                             <p className="mt-1 text-[10px] font-medium text-violet-300/90">
                               {crmStageLabel(a.pipelineStage, a)}
                             </p>
-                            <p className="mt-0.5 text-[10px] text-zinc-500">
+                            <p className={`mt-0.5 text-[10px] ${nextActionClass(dueStatus)}`}>
                               Next: {nextActionSummary(a)}
                             </p>
                             <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
@@ -723,9 +808,23 @@ export function CrmPage() {
                                 · Pain {a.painScore ?? '—'}
                               </span>
                             </div>
-                          </button>
-                        ))}
+                          </div>
+                          )
+                        })}
                       </div>
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddAccountStage(stage)
+                            setAddAccountOpen(true)
+                          }}
+                          className="mt-2 rounded-md border border-dashed border-zinc-700/70 px-2 py-1 text-[10px] font-medium text-zinc-500 hover:border-violet-700/60 hover:text-violet-300"
+                          title={`Add a VIP client in ${CRM_STAGE_LABELS[stage]}`}
+                        >
+                          + Add to {CRM_STAGE_LABELS[stage]}
+                        </button>
+                      ) : null}
                     </div>
                     )
                   })}
@@ -737,16 +836,21 @@ export function CrmPage() {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => void onDropStage(CRM_LOST_STAGE, e)}
                   >
-                    <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-500">
-                      {CRM_STAGE_LABELS[CRM_LOST_STAGE]}
-                      <span className="font-normal text-zinc-600"> · {s.count}</span>
-                      {s.dollars > 0 ? (
-                        <span className="font-normal text-zinc-600">
-                          {' '}· {formatCurrency(s.dollars)}
-                          <span> est.</span>
-                        </span>
-                      ) : null}
-                    </p>
+                    <div className="mb-2 px-1">
+                      <p className="text-xs font-semibold leading-snug text-zinc-500">
+                        {CRM_STAGE_LABELS[CRM_LOST_STAGE]}
+                      </p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-zinc-800/40 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-zinc-800/60">
+                        <span className="tabular-nums text-zinc-400">{s.count}</span>
+                        {s.dollars > 0 ? (
+                          <>
+                            <span>·</span>
+                            <span className="tabular-nums">{formatCurrency(s.dollars)}</span>
+                            <span>est.</span>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
                     <div className="space-y-2">
                       {lostAccounts.map((a) => (
                         <button

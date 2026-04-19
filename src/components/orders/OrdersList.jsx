@@ -662,12 +662,21 @@ export function OrdersList({ highlightId }) {
                   <p className="mt-1 font-mono text-xs text-zinc-500">
                     {mspn || '—'} × {formatQty(qty)}
                   </p>
-                  <p className="mt-2 text-sm text-zinc-300">
-                    <span className="text-zinc-500">Price </span>
-                    {ppt > 0 ? formatCurrency(ppt) : '—'}
-                    <span className="text-zinc-500"> each · </span>
-                    {total > 0 ? `${formatCurrency(total)} total` : '—'}
-                  </p>
+                  {ppt > 0 || total > 0 ? (
+                    <p className="mt-2 text-sm text-zinc-300">
+                      {ppt > 0 ? (
+                        <>
+                          <span className="text-zinc-500">Price </span>
+                          {formatCurrency(ppt)}
+                          <span className="text-zinc-500"> each</span>
+                        </>
+                      ) : null}
+                      {ppt > 0 && total > 0 ? (
+                        <span className="text-zinc-500"> · </span>
+                      ) : null}
+                      {total > 0 ? `${formatCurrency(total)} total` : null}
+                    </p>
+                  ) : null}
                   {noPriceRecorded ? (
                     <p className="mt-1 text-[11px] font-medium text-amber-300/90">No price recorded</p>
                   ) : null}

@@ -72,7 +72,11 @@ const COLUMN_TEMPLATE = {
   // select is always first and fixed-width
   select: '40px',
   brand: '6rem',
-  description: '2fr',
+  // Description flexes but never collapses below 14rem so short rows still
+  // have breathing room and wide rows don't squeeze the fixed columns to the
+  // right. See Fix 1 in the PR notes: the old `2fr` let the grid overflow its
+  // scroll parent and clipped the trailing Margin % column.
+  description: 'minmax(14rem, 2fr)',
   mspn: '5rem',
   lr: '3rem',
   listed: '6.25rem',
@@ -80,7 +84,26 @@ const COLUMN_TEMPLATE = {
   retail: '5rem',
   fet: '4.5rem',
   overhead: '5.5rem',
-  margin: '5.5rem',
+  // Slightly wider so "100.0%" never clips even with the mono `sk-figures`
+  // font.
+  margin: '6rem',
+}
+
+/** Approximate px width for each template token. Used to compute the grid's
+ * `minWidth` so the horizontal scroll wrapper always gives the table enough
+ * room for every fixed column + the description's own minimum. */
+const COLUMN_MIN_PX = {
+  select: 40,
+  brand: 96,
+  description: 224, // matches the 14rem floor above
+  mspn: 80,
+  lr: 48,
+  listed: 100,
+  buy: 96,
+  retail: 80,
+  fet: 72,
+  overhead: 88,
+  margin: 96,
 }
 
 /** Ordered list of columns as they appear in the grid. */
@@ -99,10 +122,13 @@ const COLUMN_ORDER = [
 
 function buildGridStyle(columnVisibility) {
   const parts = [COLUMN_TEMPLATE.select]
+  let minWidth = COLUMN_MIN_PX.select
   for (const k of COLUMN_ORDER) {
-    if (columnVisibility?.[k] !== false) parts.push(COLUMN_TEMPLATE[k])
+    if (columnVisibility?.[k] !== false) {
+      parts.push(COLUMN_TEMPLATE[k])
+      minWidth += COLUMN_MIN_PX[k]
+    }
   }
-  const minWidth = parts.includes('2fr') ? 900 : 720
   return {
     display: 'grid',
     width: '100%',
@@ -387,13 +413,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const marginCell =
     m != null && !Number.isNaN(m) ? (
       <span
-        className={`sk-figures inline-flex text-sm font-semibold ${marginPctTone(m)}`}
+        className={`sk-figures inline-flex whitespace-nowrap text-sm font-semibold ${marginPctTone(m)}`}
         title={marginTitle}
       >
         {formatPercent(m, 1)}
       </span>
     ) : (
-      <span className="text-sm font-semibold text-zinc-500" title={marginTitle}>
+      <span className="whitespace-nowrap text-sm font-semibold text-zinc-500" title={marginTitle}>
         —
       </span>
     )

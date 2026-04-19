@@ -48,6 +48,65 @@ export function marginPercent(referencePrice, overheadTotal) {
   return ((referencePrice - overheadTotal) / referencePrice) * 100
 }
 
+/**
+ * Bundle-level quote math for the quantity + sale price calculator. Powers
+ * the inline "Quote" modal in the tires catalog: pick one tire, pick qty +
+ * sale price, and see the total cost / revenue / margin across the bundle.
+ *
+ * Margin definition matches the way Skedaddle thinks about a completed deal:
+ *   cost   = qty × (buy + overhead + fet)
+ *   revenue = qty × salePrice
+ *   margin % = (revenue - cost) / revenue × 100
+ *
+ * Returns `null` for `marginPct` when revenue is 0 (so the UI can render a
+ * dash instead of NaN%). All totals are finite numbers, including 0 when
+ * inputs are missing; negative `marginPct` is allowed so the user can see
+ * that a given sale price is under-water vs. their all-in cost.
+ *
+ * @param {object} input
+ * @param {number} input.qty               Quantity of tires in the bundle (>= 0).
+ * @param {number} input.salePrice         Sale price per tire in USD (>= 0).
+ * @param {number} input.buyPerTire        Kyle buy cost per tire in USD.
+ * @param {number} input.overheadPerTire   Mount + delivery + other per tire in USD.
+ * @param {number} [input.fetPerTire=0]    FET per tire in USD. Already folded
+ *   into catalog buy; included here so the modal can show it on its own row
+ *   without double-counting, callers pass 0 if buy already includes FET.
+ * @returns {{ qty: number, salePrice: number, buyTotal: number, overheadTotal: number,
+ *            fetTotal: number, costTotal: number, revenueTotal: number,
+ *            profitTotal: number, marginPct: number | null }}
+ */
+export function computeBundleQuote({ qty, salePrice, buyPerTire, overheadPerTire, fetPerTire = 0 }) {
+  const n = (v) => {
+    const x = Number(v)
+    return Number.isFinite(x) ? x : 0
+  }
+  const q = Math.max(0, n(qty))
+  const sp = Math.max(0, n(salePrice))
+  const bp = Math.max(0, n(buyPerTire))
+  const op = Math.max(0, n(overheadPerTire))
+  const fp = Math.max(0, n(fetPerTire))
+
+  const buyTotal = q * bp
+  const overheadTotal = q * op
+  const fetTotal = q * fp
+  const costTotal = buyTotal + overheadTotal + fetTotal
+  const revenueTotal = q * sp
+  const profitTotal = revenueTotal - costTotal
+  const marginPct = revenueTotal > 0 ? (profitTotal / revenueTotal) * 100 : null
+
+  return {
+    qty: q,
+    salePrice: sp,
+    buyTotal,
+    overheadTotal,
+    fetTotal,
+    costTotal,
+    revenueTotal,
+    profitTotal,
+    marginPct,
+  }
+}
+
 export function marginBadgeClass(percent) {
   const base = 'inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 transition-colors duration-300 ease-out '
   if (percent == null || Number.isNaN(percent)) {

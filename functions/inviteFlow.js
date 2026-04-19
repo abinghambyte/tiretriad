@@ -214,6 +214,25 @@ exports.previewInviteGreeting = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (
   return { greeting }
 })
 
+/**
+ * Generate an invite greeting line server-side (for inclusion in the SMS/email body).
+ * Uses the same Anthropic path as `previewInviteGreeting`. Falls back to a safe line
+ * if generation fails or the Anthropic key is missing. Never throws.
+ * @param {{ firstName: string, role?: string, secretValue?: unknown }} opts
+ * @returns {Promise<string>}
+ */
+async function generateInviteGreetingLine({ firstName, role, secretValue }) {
+  const fn = String(firstName || '').trim() || 'there'
+  const crewTag = crewTagFromRole(normalizeRole(role))
+  try {
+    const key = anthropicKeyResolved(secretValue)
+    return await fetchInviteGreetingLine(fn, crewTag, key)
+  } catch (e) {
+    console.warn('generateInviteGreetingLine failed, falling back', e)
+    return `${fn}. We've been expecting this.`
+  }
+}
+
 exports.sendInviteRegistrationCode = onCall(async (request) => {
   const token = String(request.data?.token || '').trim()
   const email = String(request.data?.email || '').trim().toLowerCase()
@@ -414,15 +433,49 @@ exports.recordLogin = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   return { ok: true }
 })
 
+/** Fallback body when no greeting was generated. */
+function fallbackBody(firstName, inviteUrl) {
+  return `${firstName}. ${inviteUrl}`
+}
+
 /**
- * @param {{ firstName: string, email: string, phone: string, inviteUrl: string, deliveryMethod: string }} p
+ * Build the SMS body from a greeting + invite URL, keeping the total under 280 chars
+ * so it stays a single segment on most carriers. Truncates the greeting if required.
+ * @param {string} greeting
+ * @param {string} firstName
+ * @param {string} inviteUrl
+ */
+function buildSmsBody(greeting, firstName, inviteUrl) {
+  const url = String(inviteUrl || '').trim()
+  const rawGreeting = String(greeting || '').trim()
+  const fallback = `${firstName}.`
+  const MAX = 280
+  // Reserve one char for the space between greeting and URL.
+  const maxGreetingLen = Math.max(0, MAX - url.length - 1)
+  if (rawGreeting && rawGreeting.length <= maxGreetingLen) {
+    return `${rawGreeting} ${url}`
+  }
+  if (rawGreeting && maxGreetingLen > 0) {
+    return `${rawGreeting.slice(0, maxGreetingLen).trimEnd()} ${url}`
+  }
+  // No greeting, or not enough room: fall back to the first-name line.
+  if (fallback.length + 1 + url.length <= MAX) {
+    return `${fallback} ${url}`
+  }
+  return url
+}
+
+/**
+ * @param {{ firstName: string, email: string, phone: string, inviteUrl: string, deliveryMethod: string, greeting?: string }} p
+ * @returns {Promise<{ sent: boolean, reason?: string }>}
  */
 async function deliverInvite(p) {
-  const { firstName, email, phone, inviteUrl, deliveryMethod } = p
-  const body = `${firstName}. ${inviteUrl}`
+  const { firstName, email, phone, inviteUrl, deliveryMethod, greeting } = p
+  const greetingLine = String(greeting || '').trim()
+  const emailFirstPara = greetingLine || `${firstName}.`
 
   if (deliveryMethod === 'nfc') {
-    return
+    return { sent: false, reason: 'client-side-nfc' }
   }
 
   if (deliveryMethod === 'sms') {
@@ -431,63 +484,82 @@ async function deliverInvite(p) {
     const from = process.env.TWILIO_FROM_NUMBER
     const digits = String(phone || '').replace(/\D/g, '')
     if (!sid || !tok || !from || digits.length < 10) {
-      console.warn('deliverInvite SMS: missing Twilio env or phone')
-      return
+      console.warn('deliverInvite SMS: missing Twilio configuration or phone')
+      return { sent: false, reason: 'missing-env' }
     }
     let to = digits
     if (to.length === 10) to = `1${to}`
     to = `+${to}`
     const auth = Buffer.from(`${sid}:${tok}`).toString('base64')
+    const body = buildSmsBody(greetingLine, firstName, inviteUrl) || fallbackBody(firstName, inviteUrl)
     const params = new URLSearchParams({ To: to, From: from, Body: body })
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
+    try {
+      const res = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
         },
-        body: params.toString(),
-      },
-    )
-    const txt = await res.text()
-    if (!res.ok) {
-      console.error('Twilio SMS failed', res.status, txt)
+      )
+      const txt = await res.text()
+      if (!res.ok) {
+        console.error('Twilio SMS failed', res.status, txt)
+        return { sent: false, reason: 'provider-error' }
+      }
+      return { sent: true }
+    } catch (e) {
+      console.error('Twilio SMS threw', e)
+      return { sent: false, reason: 'provider-error' }
     }
-    return
   }
 
   if (deliveryMethod === 'email') {
     const apiKey = process.env.RESEND_API_KEY
     if (!apiKey) {
-      console.warn('deliverInvite email: RESEND_API_KEY not set')
-      return
+      console.warn('deliverInvite email: Resend configuration missing')
+      return { sent: false, reason: 'missing-env' }
     }
     const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
     const subjects = ['One step', 'This way', 'When you can', 'Quick link']
     const subject = subjects[Math.floor(Math.random() * subjects.length)]
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [email],
-        subject,
-        text: `${body}\n`,
-      }),
-    })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      console.error('Resend invite email failed', json)
+    const body = `${emailFirstPara}\n\n${inviteUrl}\n`
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from,
+          to: [email],
+          subject,
+          text: body,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        console.error('Resend invite email failed', json)
+        return { sent: false, reason: 'provider-error' }
+      }
+      return { sent: true }
+    } catch (e) {
+      console.error('Resend invite email threw', e)
+      return { sent: false, reason: 'provider-error' }
     }
   }
+
+  return { sent: false, reason: 'unknown-method' }
 }
 
 module.exports = {
   deliverInvite,
+  generateInviteGreetingLine,
+  buildSmsBody,
   resolveInvite: exports.resolveInvite,
   getInviteGreeting: exports.getInviteGreeting,
   previewInviteGreeting: exports.previewInviteGreeting,
