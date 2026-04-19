@@ -847,9 +847,8 @@ export function TiresDashboard() {
                   </label>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
+              <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm text-zinc-400">
@@ -1028,6 +1027,7 @@ export function TiresDashboard() {
                   </div>
                 </div>
               ) : null}
+              </div>
             </div>
 
             <MarginTable
