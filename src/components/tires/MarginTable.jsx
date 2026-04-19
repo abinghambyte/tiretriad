@@ -20,33 +20,45 @@ const ROW_BASE_PX = 56
 /** Taller rows on narrow viewports for touch targets. */
 const ROW_MOBILE_BASE_PX = 60
 /** Extra height when CTS inline editor is open (preview line + grid + actions). */
-const ROW_CTS_EDITOR_EXTRA_PX = 220
+const ROW_CTS_EDITOR_EXTRA_PX = 240
 /** Max list viewport height (px). */
 const LIST_MAX_H = 560
 const LIST_MIN_H = 200
 
 const LISTING_PLATFORM_META = [
-  { key: 'facebook', short: 'FB', name: 'Facebook' },
+  { key: 'facebook', short: 'FB', name: 'Facebook Marketplace' },
   { key: 'offerup', short: 'OU', name: 'OfferUp' },
   { key: 'craigslist', short: 'CL', name: 'Craigslist' },
 ]
 
+/**
+ * Listing chip: filled amber/emerald when the tire IS listed on that platform,
+ * dimmed outline when it isn't. Keeping the non-listed variant visible (not
+ * hidden) preserves at-a-glance scannability of row coverage.
+ */
 function ListedPlatformsCell({ row }) {
   return (
-    <span className="inline-flex gap-1.5 font-mono text-[11px] font-semibold tracking-tight">
+    <span className="inline-flex gap-1 font-mono text-[10px] font-semibold tracking-tight">
       {LISTING_PLATFORM_META.map(({ key, short, name }) => {
         const st = listingStatus(row, key)
         const ts = row?.platformListings?.[key]?.lastPostedAt
-        const cls =
-          st === 'active'
-            ? 'text-emerald-400'
-            : st === 'stale'
-              ? 'text-amber-500/70'
-              : 'text-zinc-700'
-        const title =
-          st === 'never' ? `${name}: never posted` : `${name}: posted ${timeAgo(ts) || '—'}`
+        let cls
+        let status
+        if (st === 'active') {
+          cls =
+            'rounded-md border border-emerald-800/70 bg-emerald-950/70 px-1.5 py-0.5 text-emerald-200 ring-1 ring-inset ring-emerald-900/50'
+          status = `listed · posted ${timeAgo(ts) || 'recently'}`
+        } else if (st === 'stale') {
+          cls =
+            'rounded-md border border-amber-800/60 bg-amber-950/50 px-1.5 py-0.5 text-amber-200 ring-1 ring-inset ring-amber-900/40'
+          status = `stale · posted ${timeAgo(ts) || 'a while ago'}`
+        } else {
+          cls =
+            'rounded-md border border-zinc-800 bg-transparent px-1.5 py-0.5 text-zinc-600'
+          status = 'never posted'
+        }
         return (
-          <span key={key} className={cls} title={title}>
+          <span key={key} className={cls} title={`${name}: ${status}`}>
             {short}
           </span>
         )
@@ -55,13 +67,50 @@ function ListedPlatformsCell({ row }) {
   )
 }
 
-const GRID_STYLE = {
-  display: 'grid',
-  width: '100%',
-  minWidth: 900,
-  gridTemplateColumns: '40px 6rem 2fr 5rem 3rem 5rem 6rem 5rem 4.5rem 5.5rem 5.5rem',
-  alignItems: 'center',
-  columnGap: 0,
+/** @type {Record<string, string>} */
+const COLUMN_TEMPLATE = {
+  // select is always first and fixed-width
+  select: '40px',
+  brand: '6rem',
+  description: '2fr',
+  mspn: '5rem',
+  lr: '3rem',
+  listed: '6.25rem',
+  buy: '6rem',
+  retail: '5rem',
+  fet: '4.5rem',
+  overhead: '5.5rem',
+  margin: '5.5rem',
+}
+
+/** Ordered list of columns as they appear in the grid. */
+const COLUMN_ORDER = [
+  'brand',
+  'description',
+  'mspn',
+  'lr',
+  'listed',
+  'buy',
+  'retail',
+  'fet',
+  'overhead',
+  'margin',
+]
+
+function buildGridStyle(columnVisibility) {
+  const parts = [COLUMN_TEMPLATE.select]
+  for (const k of COLUMN_ORDER) {
+    if (columnVisibility?.[k] !== false) parts.push(COLUMN_TEMPLATE[k])
+  }
+  const minWidth = parts.includes('2fr') ? 900 : 720
+  return {
+    display: 'grid',
+    width: '100%',
+    minWidth,
+    gridTemplateColumns: parts.join(' '),
+    alignItems: 'center',
+    columnGap: 0,
+  }
 }
 
 function buyPriceOf(row) {
@@ -105,14 +154,14 @@ function previewMarginWhileEditing(row, overheadDraft) {
   return ((buy - overhead) / buy) * 100
 }
 
-function TableSkeleton() {
+function TableSkeleton({ gridStyle, columnCount }) {
   return [...Array(8)].map((_, i) => (
     <div
       key={i}
       className="box-border grid border-b border-zinc-800/40 px-0 py-2"
-      style={{ ...GRID_STYLE, minHeight: ROW_BASE_PX }}
+      style={{ ...gridStyle, minHeight: ROW_BASE_PX }}
     >
-      {[...Array(10)].map((__, j) => (
+      {[...Array(columnCount)].map((__, j) => (
         <div key={j} className="px-3">
           <div className="h-3.5 animate-pulse rounded-md bg-zinc-800/65" />
         </div>
@@ -243,20 +292,39 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
   )
 })
 
-function SortButton({ label, active, dir, onClick, disabled, touchWide }) {
+/**
+ * Three-click header: ascending → descending → back to default. Parent owns
+ * state and decides what the default sort looks like. We just render the
+ * glyph + aria-sort based on `active` + `dir`.
+ */
+function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, touchWide }) {
+  const active = sortKey === columnKey
+  const dir = active ? sortDir : null
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => onClick(columnKey)}
       disabled={disabled}
+      title={
+        active
+          ? dir === 'asc'
+            ? `Sort ${label} descending (click again to clear)`
+            : `Clear sort (back to default)`
+          : `Sort by ${label}`
+      }
       className={`inline-flex items-center gap-1 font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
         active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
       } ${touchWide ? 'min-h-[44px] min-w-[44px] justify-center sm:min-h-0 sm:min-w-0' : ''}`}
     >
       {label}
-      {active ? (dir === 'asc' ? '↑' : '↓') : ''}
+      <span className="inline-block w-2.5 text-center">{active ? (dir === 'asc' ? '↑' : '↓') : ''}</span>
     </button>
   )
+}
+
+/** Pure-looking header cell that isn't sortable. */
+function StaticHeader({ label, className = '' }) {
+  return <span className={className}>{label}</span>
 }
 
 /**
@@ -278,25 +346,30 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   onToggle,
   setOverheadDraft,
   isMobile = false,
+  columnVisibility,
+  gridStyle,
 }) {
   const row = rows[index]
   if (!row) return null
 
+  // IMPORTANT: The row's visible margin stays locked to the saved margin (`m`)
+  // while the inline editor is open — editing drafts must NOT mutate the row
+  // value. We expose the projected margin in the editor section only.
   const m = computeMargin(row)
   const showCostEditor = editingCostsId === row.id
-  const previewMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : m
+  const projectedMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : null
 
   const marginTitle =
-    (previewMargin == null || Number.isNaN(previewMargin)) && (showCostEditor ? buyPriceOf(row) <= 0 : m == null)
+    m == null || Number.isNaN(m)
       ? 'No buy price on this catalog row.'
-      : marginBadgeLabel(previewMargin)
+      : marginBadgeLabel(m)
   const marginCell =
-    previewMargin != null && !Number.isNaN(previewMargin) ? (
+    m != null && !Number.isNaN(m) ? (
       <span
-        className={`sk-figures inline-flex text-sm font-semibold ${marginPctTone(previewMargin)}`}
+        className={`sk-figures inline-flex text-sm font-semibold ${marginPctTone(m)}`}
         title={marginTitle}
       >
-        {formatPercent(previewMargin, 1)}
+        {formatPercent(m, 1)}
       </span>
     ) : (
       <span className="text-sm font-semibold text-zinc-500" title={marginTitle}>
@@ -328,25 +401,36 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             onChange={(v) => setOverheadDraft((d) => ({ ...d, otherCost: v }))}
           />
         </div>
-        <p className="w-full font-mono text-[11px] leading-relaxed text-zinc-400">
-          Overhead = {formatCurrencyOrDash(Number(overheadDraft.mountCost) || 0)} mount +{' '}
-          {formatCurrencyOrDash(Number(overheadDraft.deliveryCost) || 0)} delivery +{' '}
-          {formatCurrencyOrDash(Number(overheadDraft.otherCost) || 0)} other ={' '}
-          <span className="text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
-          {' · '}
-          Margin ={' '}
-          <span
-            className={`font-semibold ${(() => {
-              const pm = previewMarginWhileEditing(row, overheadDraft)
-              return pm != null && !Number.isNaN(pm) ? marginPctTone(pm) : 'text-zinc-500'
-            })()}`}
-          >
-            {(() => {
-              const pm = previewMarginWhileEditing(row, overheadDraft)
-              return pm != null && !Number.isNaN(pm) ? formatPercent(pm, 1) : '—'
-            })()}
-          </span>
-        </p>
+        <div className="flex w-full flex-col gap-1 font-mono text-[11px] leading-relaxed text-zinc-400">
+          <p>
+            Overhead = {formatCurrencyOrDash(Number(overheadDraft.mountCost) || 0)} mount +{' '}
+            {formatCurrencyOrDash(Number(overheadDraft.deliveryCost) || 0)} delivery +{' '}
+            {formatCurrencyOrDash(Number(overheadDraft.otherCost) || 0)} other ={' '}
+            <span className="text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
+          </p>
+          <p className="flex flex-wrap items-center gap-x-3 text-zinc-500">
+            <span>
+              Current margin:{' '}
+              <span className={`font-semibold ${m != null && !Number.isNaN(m) ? marginPctTone(m) : 'text-zinc-500'}`}>
+                {m != null && !Number.isNaN(m) ? formatPercent(m, 1) : '—'}
+              </span>
+            </span>
+            <span>
+              Projected:{' '}
+              <span
+                className={`font-semibold ${
+                  projectedMargin != null && !Number.isNaN(projectedMargin)
+                    ? marginPctTone(projectedMargin)
+                    : 'text-zinc-500'
+                }`}
+              >
+                {projectedMargin != null && !Number.isNaN(projectedMargin)
+                  ? formatPercent(projectedMargin, 1)
+                  : '—'}
+              </span>
+            </span>
+          </p>
+        </div>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <p className="text-xs text-zinc-500">
             Overhead after save:{' '}
@@ -400,7 +484,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 <TireDescriptionCell description={row.description} />
               </span>
             </div>
-            <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300">
+            <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
               {row.mspn || '—'}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
@@ -422,12 +506,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-zinc-400">
               {row.lr || '—'}
             </div>
-            <div className="flex min-w-[5.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+            <div className="flex min-w-[6.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
               <ListedPlatformsCell row={row} />
             </div>
-            <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
-              {formatCurrencyOrDash(Number(row.fet) || 0)}
-            </div>
+            {columnVisibility?.fet !== false ? (
+              <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
+                {formatCurrencyOrDash(Number(row.fet) || 0)}
+              </div>
+            ) : null}
             <div className="flex min-w-[5rem] shrink-0 items-center justify-end whitespace-nowrap px-0.5 font-mono text-xs tabular-nums">
               <RetailPriceCell row={row} />
             </div>
@@ -449,12 +535,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
     )
   }
 
+  const vis = columnVisibility || {}
+
   return (
     <div
       style={style}
       className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
     >
-      <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...GRID_STYLE, height: ROW_BASE_PX }}>
+      <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...gridStyle, height: ROW_BASE_PX }}>
         <div className="flex items-center justify-center px-0.5">
           <input
             type="checkbox"
@@ -464,62 +552,82 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             className="rounded border-zinc-600"
           />
         </div>
-        <div className="truncate px-1.5 text-center font-medium text-zinc-200">
-          <span className="inline-flex min-w-0 items-center justify-center gap-0.5">
-            {isTireBeastMode(row) ? (
-              <span className="sk-beast-pulse inline-flex shrink-0" title="Sold within 24h of intake" aria-hidden>
-                🔥
-              </span>
-            ) : null}
-            <span className="min-w-0 truncate">{row.brand || '—'}</span>
-          </span>
-        </div>
-        <div className="min-w-0 px-3">
-          <span className="inline-flex min-w-0 items-start gap-1.5">
-            <TireDescriptionCell description={row.description} />
-          </span>
-        </div>
-        <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
-          {row.mspn || '—'}
-        </div>
-        <div className="whitespace-nowrap px-2 text-center text-zinc-400">{row.lr || '—'}</div>
-        <div className="flex min-w-0 items-center justify-center px-1">
-          <ListedPlatformsCell row={row} />
-        </div>
-        <div
-          className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
-          title="Buy price: catalog buy (includes FET component)"
-        >
-          <BuyPriceCell row={row} />
-        </div>
-        <div
-          className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm tabular-nums"
-          title={
-            tireRetailIsResearched(row)
-              ? 'Typical US retail (Gemini research)'
-              : 'Legacy catalog retail. Will be refreshed on the next research pass.'
-          }
-        >
-          <RetailPriceCell row={row} />
-        </div>
-        <div
-          className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
-          title="FET: shown for reference; already included in buy price"
-        >
-          {formatCurrencyOrDash(Number(row.fet) || 0)}
-        </div>
-        <div className="flex min-w-0 items-center justify-end px-2">
-          <button
-            type="button"
-            onClick={() => openCostEdit(row)}
-            className={`whitespace-nowrap text-right font-mono text-sm font-semibold tabular-nums underline-offset-2 hover:underline ${
-              editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
-            }`}
+        {vis.brand !== false ? (
+          <div className="truncate px-1.5 text-center font-medium text-zinc-200">
+            <span className="inline-flex min-w-0 items-center justify-center gap-0.5">
+              {isTireBeastMode(row) ? (
+                <span className="sk-beast-pulse inline-flex shrink-0" title="Sold within 24h of intake" aria-hidden>
+                  🔥
+                </span>
+              ) : null}
+              <span className="min-w-0 truncate">{row.brand || '—'}</span>
+            </span>
+          </div>
+        ) : null}
+        {vis.description !== false ? (
+          <div className="min-w-0 px-3">
+            <span className="inline-flex min-w-0 items-start gap-1.5">
+              <TireDescriptionCell description={row.description} />
+            </span>
+          </div>
+        ) : null}
+        {vis.mspn !== false ? (
+          <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
+            {row.mspn || '—'}
+          </div>
+        ) : null}
+        {vis.lr !== false ? (
+          <div className="whitespace-nowrap px-2 text-center text-zinc-400 tabular-nums">{row.lr || '—'}</div>
+        ) : null}
+        {vis.listed !== false ? (
+          <div className="flex min-w-0 items-center justify-center px-1">
+            <ListedPlatformsCell row={row} />
+          </div>
+        ) : null}
+        {vis.buy !== false ? (
+          <div
+            className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
+            title="Buy price: catalog buy (includes FET component)"
           >
-            {formatCurrencyOrDash(effectiveCts(row))}
-          </button>
-        </div>
-        <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">{marginCell}</div>
+            <BuyPriceCell row={row} />
+          </div>
+        ) : null}
+        {vis.retail !== false ? (
+          <div
+            className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm tabular-nums"
+            title={
+              tireRetailIsResearched(row)
+                ? 'Typical US retail (Gemini research)'
+                : 'Legacy catalog retail. Will be refreshed on the next research pass.'
+            }
+          >
+            <RetailPriceCell row={row} />
+          </div>
+        ) : null}
+        {vis.fet !== false ? (
+          <div
+            className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
+            title="FET: shown for reference; already included in buy price"
+          >
+            {formatCurrencyOrDash(Number(row.fet) || 0)}
+          </div>
+        ) : null}
+        {vis.overhead !== false ? (
+          <div className="flex min-w-0 items-center justify-end px-2">
+            <button
+              type="button"
+              onClick={() => openCostEdit(row)}
+              className={`whitespace-nowrap text-right font-mono text-sm font-semibold tabular-nums underline-offset-2 hover:underline ${
+                editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
+              }`}
+            >
+              {formatCurrencyOrDash(effectiveCts(row))}
+            </button>
+          </div>
+        ) : null}
+        {vis.margin !== false ? (
+          <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">{marginCell}</div>
+        ) : null}
       </div>
       {ctsEditorSection}
     </div>
@@ -530,19 +638,22 @@ export function MarginTable({
   rows,
   selectedIds,
   onToggle,
-  onSelectAllVisible,
-  onDeselectAllVisible,
+  onToggleAllFiltered,
   sortKey,
   sortDir,
   onSort,
   loading,
   emptyState,
+  columnVisibility,
+  sortColumnLabel,
+  sortDirLabel,
 }) {
   const { toast } = useToast()
   const listRef = useListRef(null)
   const scrollRef = useRef(null)
   const isMobileTable = useMediaQuery('(max-width: 767px)')
   const [scrollHintDismissed, setScrollHintDismissed] = useState(false)
+  const headerCheckboxRef = useRef(null)
 
   useEffect(() => {
     setScrollHintDismissed(false)
@@ -559,6 +670,13 @@ export function MarginTable({
 
   const allVisibleSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
   const anyVisibleSelected = rows.some((r) => selectedIds.has(r.id))
+  const indeterminate = anyVisibleSelected && !allVisibleSelected
+
+  // Imperative assignment — the DOM property isn't a React attribute.
+  useEffect(() => {
+    const el = headerCheckboxRef.current
+    if (el) el.indeterminate = indeterminate
+  }, [indeterminate])
 
   const openCostEdit = useCallback((row) => {
     setEditingCostsId(row.id)
@@ -600,6 +718,8 @@ export function MarginTable({
     [overheadDraft, toast, closeCostEdit],
   )
 
+  const gridStyle = useMemo(() => buildGridStyle(columnVisibility), [columnVisibility])
+
   const rowHeightFn = useCallback((index, rp) => {
     const base = rp.mobileRowBasePx ?? ROW_BASE_PX
     const r = rp.rows[index]
@@ -623,6 +743,8 @@ export function MarginTable({
       setOverheadDraft,
       isMobile: isMobileTable,
       mobileRowBasePx,
+      columnVisibility,
+      gridStyle,
     }),
     [
       rows,
@@ -638,6 +760,8 @@ export function MarginTable({
       setOverheadDraft,
       isMobileTable,
       mobileRowBasePx,
+      columnVisibility,
+      gridStyle,
     ],
   )
 
@@ -659,6 +783,27 @@ export function MarginTable({
     }
   }, [editingCostsId, rows, listRef])
 
+  const visibleColumnCount = useMemo(() => {
+    let count = 1 // select column
+    for (const k of COLUMN_ORDER) {
+      if (columnVisibility?.[k] !== false) count += 1
+    }
+    return count
+  }, [columnVisibility])
+
+  const vis = columnVisibility || {}
+
+  const summaryText = loading
+    ? 'Loading…'
+    : rows.length === 0
+      ? 'No tires shown'
+      : `Showing 1–${rows.length} of ${rows.length} · sorted by ${sortColumnLabel || 'Margin %'} ${sortDirLabel || 'descending'}`
+
+  const ariaSortFor = useCallback(
+    (key) => (sortKey === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'),
+    [sortKey, sortDir],
+  )
+
   return (
     <div>
       <div
@@ -672,117 +817,221 @@ export function MarginTable({
           </div>
         ) : null}
         <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1148px]'}`}>
+          {/* Per-view counter pinned inside the table's scroll container. Shows
+              filtered count and current sort state; updates whenever filters or
+              sort change. */}
+          {!loading && rows.length > 0 ? (
+            <div className="sticky top-0 z-[17] flex items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900/95 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur">
+              <span aria-live="polite">{summaryText}</span>
+            </div>
+          ) : null}
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
-            style={GRID_STYLE}
+            style={gridStyle}
+            role="row"
           >
-            <div className="flex flex-col items-stretch justify-center gap-0.5 px-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-0.5">
-              <button
-                type="button"
-                title="Select all rows in the current filtered view"
-                onClick={() => onSelectAllVisible(rows)}
-                disabled={loading || rows.length === 0 || allVisibleSelected}
-                className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+            <div className="flex items-center justify-center px-1" role="columnheader">
+              <input
+                ref={headerCheckboxRef}
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={() => onToggleAllFiltered(rows)}
+                disabled={loading || rows.length === 0}
+                aria-label={
+                  allVisibleSelected
+                    ? 'Deselect all filtered rows'
+                    : indeterminate
+                      ? 'Select all filtered rows'
+                      : 'Select all filtered rows'
+                }
+                title={
+                  allVisibleSelected
+                    ? 'Deselect all rows in the current filtered view'
+                    : 'Select all rows in the current filtered view'
+                }
+                className="h-4 w-4 rounded border-zinc-600 disabled:opacity-40"
+              />
+            </div>
+            {vis.brand !== false ? (
+              <div className="px-1.5 text-center" role="columnheader" aria-sort={ariaSortFor('brand')}>
+                <SortButton
+                  label="Brand"
+                  columnKey="brand"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                  touchWide={isMobileTable}
+                />
+              </div>
+            ) : null}
+            {vis.description !== false ? (
+              <div className="px-3" role="columnheader" aria-sort={ariaSortFor('description')}>
+                <SortButton
+                  label="Description"
+                  columnKey="description"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.mspn !== false ? (
+              <div className="px-3" role="columnheader" aria-sort={ariaSortFor('mspn')}>
+                <SortButton
+                  label="MSPN"
+                  columnKey="mspn"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.lr !== false ? (
+              <div className="whitespace-nowrap px-2 text-center" role="columnheader" aria-sort={ariaSortFor('lr')}>
+                <SortButton
+                  label="LR"
+                  columnKey="lr"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.listed !== false ? (
+              <div
+                className="whitespace-nowrap px-1 text-center"
+                role="columnheader"
+                aria-sort={ariaSortFor('listed')}
               >
-                All
-              </button>
-              <button
-                type="button"
-                title="Clear selection for rows in the current filtered view"
-                onClick={() => onDeselectAllVisible(rows)}
-                disabled={loading || rows.length === 0 || !anyVisibleSelected}
-                className="rounded border border-zinc-700 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                <SortButton
+                  label="Listed"
+                  columnKey="listed"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.buy !== false ? (
+              <div
+                className="min-w-0 whitespace-nowrap px-2 text-right"
+                role="columnheader"
+                aria-sort={ariaSortFor('buy')}
               >
-                None
-              </button>
-            </div>
-            <div className="px-1.5 text-center">
-              <SortButton
-                label="Brand"
-                active={sortKey === 'brand'}
-                dir={sortDir}
-                onClick={() => onSort('brand')}
-                disabled={loading}
-                touchWide={isMobileTable}
-              />
-            </div>
-            <div className="px-3">Description</div>
-            <div className="px-3">MSPN</div>
-            <div className="whitespace-nowrap px-2 text-center">LR</div>
-            <div className="w-[6rem] whitespace-nowrap px-1 text-center">Listed</div>
-            <div className="min-w-0 whitespace-nowrap px-2 text-right">
-              <SortButton
-                label="Buy Price"
-                active={sortKey === 'buy'}
-                dir={sortDir}
-                onClick={() => onSort('buy')}
-                disabled={loading}
-                touchWide={isMobileTable}
-              />
-            </div>
-            <div
-              className="min-w-0 whitespace-nowrap px-2 text-right"
-              title="Typical retail price from the nightly research job."
-            >
-              <SortButton
-                label="Retail"
-                active={sortKey === 'retail'}
-                dir={sortDir}
-                onClick={() => onSort('retail')}
-                disabled={loading}
-                touchWide={isMobileTable}
-              />
-            </div>
-            <div className="whitespace-nowrap px-2 text-center" title="Already included in buy price; shown for reference">
-              FET
-            </div>
-            <div className="whitespace-nowrap px-2 text-right">Overhead</div>
-            <div className="min-w-0 whitespace-nowrap px-2 text-right">
-              <SortButton
-                label="Margin %"
-                active={sortKey === 'margin'}
-                dir={sortDir}
-                onClick={() => onSort('margin')}
-                disabled={loading}
-                touchWide={isMobileTable}
-              />
-            </div>
+                <SortButton
+                  label="Buy Price"
+                  columnKey="buy"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                  touchWide={isMobileTable}
+                />
+              </div>
+            ) : null}
+            {vis.retail !== false ? (
+              <div
+                className="min-w-0 whitespace-nowrap px-2 text-right"
+                role="columnheader"
+                aria-sort={ariaSortFor('retail')}
+                title="Typical retail price from the nightly research job."
+              >
+                <SortButton
+                  label="Retail"
+                  columnKey="retail"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                  touchWide={isMobileTable}
+                />
+              </div>
+            ) : null}
+            {vis.fet !== false ? (
+              <div
+                className="whitespace-nowrap px-2 text-center"
+                role="columnheader"
+                aria-sort={ariaSortFor('fet')}
+                title="Already included in buy price; shown for reference"
+              >
+                <SortButton
+                  label="FET"
+                  columnKey="fet"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.overhead !== false ? (
+              <div
+                className="whitespace-nowrap px-2 text-right"
+                role="columnheader"
+                aria-sort={ariaSortFor('overhead')}
+              >
+                <SortButton
+                  label="Overhead"
+                  columnKey="overhead"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.margin !== false ? (
+              <div
+                className="min-w-0 whitespace-nowrap px-2 text-right"
+                role="columnheader"
+                aria-sort={ariaSortFor('margin')}
+              >
+                <SortButton
+                  label="Margin %"
+                  columnKey="margin"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                  touchWide={isMobileTable}
+                />
+              </div>
+            ) : null}
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
             <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
-                <div className="flex w-11 shrink-0 flex-col items-stretch justify-center gap-0.5 px-0.5 py-0.5">
-                  <button
-                    type="button"
-                    title="Select all visible"
-                    onClick={() => onSelectAllVisible(rows)}
-                    disabled={loading || rows.length === 0 || allVisibleSelected}
-                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-                  >
-                    All
-                  </button>
-                  <button
-                    type="button"
-                    title="Deselect all visible"
-                    onClick={() => onDeselectAllVisible(rows)}
-                    disabled={loading || rows.length === 0 || !anyVisibleSelected}
-                    className="rounded border border-zinc-700 bg-zinc-950/80 px-1 py-0.5 text-[8px] font-semibold uppercase leading-tight tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-                  >
-                    None
-                  </button>
+                <div className="flex w-11 shrink-0 items-center justify-center px-0.5 py-0.5">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = indeterminate
+                    }}
+                    onChange={() => onToggleAllFiltered(rows)}
+                    disabled={loading || rows.length === 0}
+                    aria-label={allVisibleSelected ? 'Deselect all filtered rows' : 'Select all filtered rows'}
+                    className="h-4 w-4 rounded border-zinc-600 disabled:opacity-40"
+                  />
                 </div>
                 <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">
-                  Desc
+                  <StaticHeader label="Desc" />
                 </div>
                 <div className="flex w-[70px] shrink-0 items-center border-r border-zinc-800/60 px-1">
-                  MSPN
+                  <StaticHeader label="MSPN" />
                 </div>
                 <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1">
                   <SortButton
                     label="Buy"
-                    active={sortKey === 'buy'}
-                    dir={sortDir}
-                    onClick={() => onSort('buy')}
+                    columnKey="buy"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onSort}
                     disabled={loading}
                     touchWide
                   />
@@ -790,9 +1039,10 @@ export function MarginTable({
                 <div className="flex w-20 shrink-0 items-center px-1">
                   <SortButton
                     label="Margin"
-                    active={sortKey === 'margin'}
-                    dir={sortDir}
-                    onClick={() => onSort('margin')}
+                    columnKey="margin"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onSort}
                     disabled={loading}
                     touchWide
                   />
@@ -802,34 +1052,38 @@ export function MarginTable({
                 <div className="w-[76px] shrink-0 px-1">
                   <SortButton
                     label="Brand"
-                    active={sortKey === 'brand'}
-                    dir={sortDir}
-                    onClick={() => onSort('brand')}
+                    columnKey="brand"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onSort}
                     disabled={loading}
                     touchWide
                   />
                 </div>
                 <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
-                  LR
+                  <StaticHeader label="LR" />
                 </div>
                 <div className="flex min-w-[5.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 text-[10px]">
-                  Listed
+                  <StaticHeader label="Listed" />
                 </div>
-                <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
-                  FET
-                </div>
+                {vis.fet !== false ? (
+                  <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                    <StaticHeader label="FET" />
+                  </div>
+                ) : null}
                 <div className="flex min-w-[5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
                   <SortButton
                     label="Retail"
-                    active={sortKey === 'retail'}
-                    dir={sortDir}
-                    onClick={() => onSort('retail')}
+                    columnKey="retail"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onSort}
                     disabled={loading}
                     touchWide
                   />
                 </div>
                 <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
-                  OH
+                  <StaticHeader label="OH" />
                 </div>
               </div>
             </div>
@@ -842,7 +1096,7 @@ export function MarginTable({
                 ))}
               </div>
             ) : (
-              <TableSkeleton />
+              <TableSkeleton gridStyle={gridStyle} columnCount={visibleColumnCount} />
             )
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">

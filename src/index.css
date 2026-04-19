@@ -121,8 +121,26 @@
 @layer utilities {
   .sk-figures {
     font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 0;
+  }
+
+  /*
+   * Force un-slashed zero on any number-only surface that uses the mono font
+   * (buy, retail, FET, overhead, margin %, KPI counters). JetBrains Mono ships
+   * with slashed-zero enabled via its `zero` stylistic feature — the slash makes
+   * numbers like "1,160" read as "1,1Ø0" in the catalog. We keep tabular-nums
+   * for column alignment but override the slashed zero on everything tagged
+   * `tabular-nums` inside a mono surface.
+   */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'zero' 0;
+  }
+
+  .font-mono.tabular-nums,
+  .font-mono .tabular-nums {
+    font-feature-settings: 'tnum' 1, 'zero' 0;
   }
 }
 
