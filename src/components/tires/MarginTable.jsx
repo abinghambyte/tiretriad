@@ -6,6 +6,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeListingMargin, marginBadgeLabel } from '../../utils/marginCalc'
+import { confidenceTier, computeFloor } from '../../utils/opportunityScore'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import Spinner from '../ui/Spinner.jsx'
@@ -85,6 +86,11 @@ const COLUMN_TEMPLATE = {
   retail: '5rem',
   fet: '4.5rem',
   overhead: '5.5rem',
+  // Net $ and Floor are opt-in columns hidden by default (see TiresDashboard
+  // initial columnVisibility). Kept tight so the grid total with FET hidden
+  // stays under the 1152px `max-w-6xl` content container.
+  net: '5rem',
+  floor: '5rem',
   // Slightly wider so "100.0%" never clips even with the mono `sk-figures`
   // font.
   margin: '6rem',
@@ -109,6 +115,8 @@ const COLUMN_MIN_PX = {
   retail: 80,
   fet: 72,
   overhead: 88,
+  net: 88,
+  floor: 88,
   margin: 96,
 }
 
@@ -123,6 +131,8 @@ const COLUMN_ORDER = [
   'retail',
   'fet',
   'overhead',
+  'net',
+  'floor',
   'margin',
 ]
 
@@ -160,6 +170,13 @@ function BuyPriceCell({ row }) {
   )
 }
 
+function confidenceDotClass(tier) {
+  if (tier === 'high') return 'bg-emerald-400'
+  if (tier === 'medium') return 'bg-amber-300'
+  if (tier === 'estimated') return 'bg-zinc-400'
+  return ''
+}
+
 function RetailPriceCell({ row }) {
   const n = tireCatalogRetailNumber(row)
   if (!(n > 0 && Number.isFinite(n))) {
@@ -167,6 +184,7 @@ function RetailPriceCell({ row }) {
   }
   const estimated = tireRetailIsEstimated(row)
   const researched = tireRetailIsResearched(row)
+  const tier = confidenceTier(row)
   // Three-state styling so Alex can tell at a glance where each retail came
   // from: cyan = real Gemini research, muted amber = catalog-median estimate
   // (approximate), grey = legacy pre-research.
@@ -180,10 +198,58 @@ function RetailPriceCell({ row }) {
     : researched
       ? 'Researched retail from the nightly Gemini price intel job.'
       : ''
+  const dotCls = confidenceDotClass(tier)
+  // Dot only for researched / estimated. Manual firm values (no retail here
+  // means `researched` is false anyway; we still gate on tier to be explicit).
+  const showDot = Boolean(dotCls) && (researched || estimated)
   return (
-    <span className={className} title={title}>
+    <span className="inline-flex items-center gap-1">
+      <span className={className} title={title}>
+        {formatCurrency(n)}
+        {estimated ? <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-amber-400/80">est</span> : null}
+      </span>
+      {showDot ? (
+        <span
+          className={`inline-block h-[6px] w-[6px] shrink-0 rounded-full ${dotCls}`}
+          aria-hidden
+          title={title}
+        />
+      ) : null}
+    </span>
+  )
+}
+
+function netToneClass(net) {
+  if (net == null || Number.isNaN(net)) return 'text-zinc-500'
+  if (net < 5) return 'text-rose-300'
+  if (net <= 20) return 'text-amber-300'
+  return 'text-emerald-300'
+}
+
+function NetCell({ row }) {
+  const op = row?.opportunity
+  if (!op || op.netPerTire == null) return <span className="font-mono text-sm text-zinc-600">—</span>
+  const n = op.netPerTire
+  return (
+    <span
+      className={`inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums ${netToneClass(n)}`}
+      title={`Retail ${formatCurrency(op.retail)} minus buy ${formatCurrency(op.buy)} minus overhead ${formatCurrency(op.overhead)}${op.fet > 0 ? ` minus FET ${formatCurrency(op.fet)}` : ''} at current haggle.`}
+    >
+      {n >= 0 ? '+' : ''}
       {formatCurrency(n)}
-      {estimated ? <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-amber-400/80">est</span> : null}
+    </span>
+  )
+}
+
+function FloorCell({ row }) {
+  const fl = row?.opportunity?.floor != null ? row.opportunity.floor : computeFloor(row)
+  if (fl == null) return <span className="font-mono text-sm text-zinc-600">—</span>
+  return (
+    <span
+      className="inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-400"
+      title="All-in per-tire floor: buy + overhead + FET"
+    >
+      {formatCurrency(fl)}
     </span>
   )
 }
@@ -435,9 +501,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   isMobile = false,
   columnVisibility,
   gridStyle,
+  justJumpedToId,
 }) {
   const row = rows[index]
   if (!row) return null
+  const jumpHighlight = justJumpedToId && justJumpedToId === row?.id
+  const jumpHighlightClass = jumpHighlight
+    ? 'ring-2 ring-amber-500 ring-inset'
+    : ''
 
   // Default display: listing margin at researched street retail (PR #34,
   // retail-based listing margin). Returns null when no retail is known yet
@@ -564,7 +635,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
     return (
       <div
         style={style}
-        className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
+        className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${jumpHighlightClass}`}
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
@@ -639,7 +710,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   return (
     <div
       style={style}
-      className="box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25"
+      className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${jumpHighlightClass}`}
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...gridStyle, height: ROW_BASE_PX }}>
         <div className="flex items-center justify-center px-0.5">
@@ -724,6 +795,16 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             </button>
           </div>
         ) : null}
+        {vis.net !== false ? (
+          <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">
+            <NetCell row={row} />
+          </div>
+        ) : null}
+        {vis.floor !== false ? (
+          <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">
+            <FloorCell row={row} />
+          </div>
+        ) : null}
         {vis.margin !== false ? (
           <div className="flex min-w-0 items-center justify-end whitespace-nowrap px-2">{marginCell}</div>
         ) : null}
@@ -746,9 +827,12 @@ export function MarginTable({
   columnVisibility,
   sortColumnLabel,
   sortDirLabel,
+  externalListRef,
+  justJumpedToId,
 }) {
   const { toast } = useToast()
-  const listRef = useListRef(null)
+  const internalListRef = useListRef(null)
+  const listRef = externalListRef || internalListRef
   const scrollRef = useRef(null)
   const isMobileTable = useMediaQuery('(max-width: 767px)')
   const [scrollHintDismissed, setScrollHintDismissed] = useState(false)
@@ -844,6 +928,7 @@ export function MarginTable({
       mobileRowBasePx,
       columnVisibility,
       gridStyle,
+      justJumpedToId,
     }),
     [
       rows,
@@ -861,6 +946,7 @@ export function MarginTable({
       mobileRowBasePx,
       columnVisibility,
       gridStyle,
+      justJumpedToId,
     ],
   )
 
@@ -1077,6 +1163,40 @@ export function MarginTable({
                 <SortButton
                   label="Overhead"
                   columnKey="overhead"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.net !== false ? (
+              <div
+                className="whitespace-nowrap px-2 text-right"
+                role="columnheader"
+                aria-sort={ariaSortFor('net')}
+                title="Projected net per tire at the current haggle discount"
+              >
+                <SortButton
+                  label="Net $"
+                  columnKey="net"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onSort}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
+            {vis.floor !== false ? (
+              <div
+                className="whitespace-nowrap px-2 text-right"
+                role="columnheader"
+                aria-sort={ariaSortFor('floor')}
+                title="All-in per-tire floor: buy + overhead + FET"
+              >
+                <SortButton
+                  label="Floor"
+                  columnKey="floor"
                   sortKey={sortKey}
                   sortDir={sortDir}
                   onClick={onSort}
