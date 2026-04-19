@@ -18,91 +18,85 @@ export function MarginFilters({
   onClearAll,
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 sm:gap-4 sm:p-4">
-      {hasActiveFilters && onClearAll ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
-          <p className="text-xs text-zinc-500">Filters are narrowing the table.</p>
-          <button
-            type="button"
-            onClick={onClearAll}
-            className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-white"
-          >
-            Clear all filters
-          </button>
+    <div className="flex flex-col gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 sm:gap-3 sm:p-3.5">
+      {/* Row 1: min margin, brand, needs-reposting, clear. One compact line on sm+. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <InlineMinMargin value={minMargin} onChange={onMinMargin} />
+        <InlineBrand value={brand} onChange={onBrand} options={brands} />
+        {onNeedsReposting != null ? (
+          <InlineToggle
+            checked={Boolean(needsReposting)}
+            onChange={onNeedsReposting}
+            label="Needs reposting"
+            title="Previously posted, now stale on all platforms"
+          />
+        ) : null}
+        <div className="sm:ml-auto">
+          {hasActiveFilters && onClearAll ? (
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="rounded-lg border border-zinc-700 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
-      ) : null}
-      <div>
-        <label
-          htmlFor="min-margin"
-          className="mb-2 flex flex-wrap items-baseline gap-2 text-sm font-normal text-zinc-300"
-        >
-          <span>Min margin:</span>
-          <span className="text-2xl font-semibold tabular-nums text-zinc-50">{minMargin}%</span>
-        </label>
-        <input
-          id="min-margin"
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={minMargin}
-          onChange={(e) => onMinMargin(Number(e.target.value))}
-          className="w-full accent-zinc-200"
+      </div>
+
+      {/* Row 2: chip pickers for LR and tags. Hidden when the option set is empty. */}
+      {lrs.length > 0 ? (
+        <ChipRow
+          label="LR"
+          options={lrs}
+          selected={lrFilters}
+          onChange={onLrFilters}
+          ariaLabel="Load range"
         />
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-        <div className="flex flex-col gap-3 sm:border-r sm:border-zinc-800 sm:pr-4 lg:pr-5">
-          <FilterSelect label="Brand" value={brand} onChange={onBrand} options={brands} />
-        </div>
-        <div className="flex flex-col gap-3">
-          <FilterMultiSelect
-            label="Load range (LR)"
-            hint="Check one or more values. A row is shown if its LR equals any of them (OR)."
-            searchPlaceholder="Search LR…"
-            options={lrs}
-            selected={lrFilters}
-            onChange={onLrFilters}
-          />
-          <FilterMultiSelect
-            label="Use tags"
-            hint="Check one or more tags. A row is shown if it has at least one of the checked tags (OR)."
-            searchPlaceholder="Search tags…"
-            options={useTags}
-            selected={useTagFilters}
-            onChange={onUseTagFilters}
-          />
-        </div>
-      </div>
-      {onNeedsReposting != null ? (
-        <div className="mt-1 border-t border-zinc-800/80 pt-3">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
-            <input
-              type="checkbox"
-              checked={Boolean(needsReposting)}
-              onChange={(e) => onNeedsReposting(e.target.checked)}
-              className="rounded border-zinc-600"
-            />
-            <span>
-              <span className="font-medium text-zinc-200">Needs reposting</span>
-              <span className="mt-0.5 block text-xs font-normal text-zinc-500">
-                Previously posted, now stale on all platforms
-              </span>
-            </span>
-          </label>
-        </div>
+      ) : null}
+      {useTags.length > 0 ? (
+        <ChipRow
+          label="Tags"
+          options={useTags}
+          selected={useTagFilters}
+          onChange={onUseTagFilters}
+          ariaLabel="Use tags"
+          collapseAfter={14}
+        />
       ) : null}
     </div>
   )
 }
 
-function FilterSelect({ label, value, onChange, options }) {
+function InlineMinMargin({ value, onChange }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-zinc-500">{label}</label>
+    <label htmlFor="min-margin" className="flex min-w-[14rem] items-center gap-2 text-xs text-zinc-400 sm:flex-1">
+      <span className="shrink-0">Min margin</span>
+      <input
+        id="min-margin"
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="min-w-0 flex-1 accent-zinc-200"
+      />
+      <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-100">
+        {value}%
+      </span>
+    </label>
+  )
+}
+
+function InlineBrand({ value, onChange, options }) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-zinc-400">
+      <span className="shrink-0">Brand</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-[44px] w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500 sm:min-h-0"
+        className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-zinc-500"
       >
         <option value="">All</option>
         {options.map((o) => (
@@ -111,33 +105,42 @@ function FilterSelect({ label, value, onChange, options }) {
           </option>
         ))}
       </select>
-    </div>
+    </label>
+  )
+}
+
+function InlineToggle({ checked, onChange, label, title }) {
+  return (
+    <label
+      className="flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+      title={title}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-3.5 rounded border-zinc-600"
+      />
+      <span>{label}</span>
+    </label>
   )
 }
 
 /**
- * @param {object} props
- * @param {string} props.label
- * @param {string} [props.hint]
- * @param {string} [props.searchPlaceholder]
- * @param {string[]} props.options
- * @param {string[]} props.selected
- * @param {(next: string[]) => void} props.onChange
+ * Horizontal chip picker. Shows all options as toggleable pills in a single
+ * wrap-aware row. Long lists collapse behind a "+N more" toggle so the filter
+ * bar never balloons vertically.
  */
-function FilterMultiSelect({ label, hint, searchPlaceholder, options, selected, onChange }) {
-  const [q, setQ] = useState('')
-  const qLower = q.trim().toLowerCase()
-  const filtered = useMemo(
-    () =>
-      options.filter((o) =>
-        qLower ? String(o || '').toLowerCase().includes(qLower) : true,
-      ),
-    [options, qLower],
-  )
+function ChipRow({ label, options, selected, onChange, ariaLabel, collapseAfter = 0 }) {
+  const [expanded, setExpanded] = useState(false)
+  const selectedSet = useMemo(() => new Set(selected.map(String)), [selected])
+  const shouldCollapse = collapseAfter > 0 && options.length > collapseAfter && !expanded
+  const visible = shouldCollapse ? options.slice(0, collapseAfter) : options
+  const hidden = shouldCollapse ? options.length - collapseAfter : 0
 
   function toggle(v) {
     const s = String(v)
-    if (selected.includes(s)) {
+    if (selectedSet.has(s)) {
       onChange(selected.filter((x) => x !== s))
     } else {
       onChange([...selected, s].sort((a, b) => String(a).localeCompare(String(b))))
@@ -145,55 +148,57 @@ function FilterMultiSelect({ label, hint, searchPlaceholder, options, selected, 
   }
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-medium text-zinc-500">{label}</span>
-        {selected.length > 0 ? (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="flex flex-wrap items-center gap-1.5 border-t border-zinc-800/60 pt-2 sm:pt-2.5"
+    >
+      <span className="shrink-0 text-xs font-medium text-zinc-500">{label}</span>
+      {visible.map((o) => {
+        const key = String(o)
+        const active = selectedSet.has(key)
+        return (
           <button
+            key={key}
             type="button"
-            onClick={() => onChange([])}
-            className="shrink-0 text-[10px] font-medium text-violet-400 hover:underline"
+            onClick={() => toggle(key)}
+            aria-pressed={active}
+            className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              active
+                ? 'bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/40'
+                : 'bg-zinc-800/60 text-zinc-300 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-100'
+            }`}
           >
-            Clear
+            {key || '—'}
           </button>
-        ) : null}
-      </div>
-      {hint ? <p className="text-[10px] leading-snug text-zinc-600">{hint}</p> : null}
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={searchPlaceholder || 'Filter list…'}
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
-        autoComplete="off"
-      />
-      <div className="max-h-44 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/80 p-2 sm:max-h-52">
-        {filtered.length === 0 ? (
-          <p className="px-1 py-2 text-xs text-zinc-500">No values match this search.</p>
-        ) : (
-          <ul className="space-y-0.5">
-            {filtered.map((o) => {
-              const key = String(o)
-              const checked = selected.includes(key)
-              return (
-                <li key={key}>
-                  <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1.5 text-sm text-zinc-200 hover:bg-zinc-800/70">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggle(key)}
-                      className="size-4 shrink-0 rounded border-zinc-600"
-                    />
-                    <span className="min-w-0 break-words">{key || '—'}</span>
-                  </label>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
+        )
+      })}
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="rounded-full px-2 py-0.5 text-[11px] font-medium text-zinc-400 hover:text-zinc-200"
+        >
+          +{hidden} more
+        </button>
+      ) : null}
+      {!shouldCollapse && collapseAfter > 0 && options.length > collapseAfter && expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="rounded-full px-2 py-0.5 text-[11px] font-medium text-zinc-400 hover:text-zinc-200"
+        >
+          Show less
+        </button>
+      ) : null}
       {selected.length > 0 ? (
-        <p className="text-[10px] text-zinc-500">{selected.length} value(s) checked</p>
+        <button
+          type="button"
+          onClick={() => onChange([])}
+          className="ml-auto shrink-0 text-[11px] font-medium text-violet-400 hover:underline"
+        >
+          Clear {label.toLowerCase()}
+        </button>
       ) : null}
     </div>
   )
