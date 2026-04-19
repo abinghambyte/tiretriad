@@ -57,6 +57,19 @@ function IconOps() {
   )
 }
 
+function IconAdmin() {
+  return (
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.88 1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.88.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.88V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.56 1Z"
+      />
+    </svg>
+  )
+}
+
 export function MobileBottomNav() {
   const { permissionFor, profile } = useUserProfile()
   const canTires = permissionMeets(permissionFor('tires'), 'view')
@@ -72,6 +85,7 @@ export function MobileBottomNav() {
     canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
     canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
     canOps ? { to: '/ops', label: 'Ops', icon: <IconOps /> } : null,
+    canOps ? { to: '/admin', label: 'Admin', icon: <IconAdmin /> } : null,
   ].filter(Boolean)
 
   if (items.length === 0) return null

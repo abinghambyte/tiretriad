@@ -576,10 +576,17 @@ export function AnalyticsPage() {
 }
 
 function LeaderBlock({ title, body }) {
+  const hasData = typeof body === 'string' ? body !== '—' && body.trim() !== '' : body != null
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-200">{body}</p>
+      {hasData ? (
+        <p className="mt-2 text-sm leading-relaxed text-zinc-200">{body}</p>
+      ) : (
+        <p className="mt-2 text-sm italic leading-relaxed text-zinc-600">
+          Not enough data yet
+        </p>
+      )}
     </div>
   )
 }

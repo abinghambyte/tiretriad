@@ -26,6 +26,7 @@ export function DesktopTopNav() {
     { to: '/people', label: 'People', show: canPeople },
     { to: '/analytics', label: 'Analytics', show: canAnalytics },
     { to: '/ops', label: 'Ops', show: canOps },
+    { to: '/admin', label: 'Admin', show: canOps },
   ].filter((i) => i.show)
 
   if (items.length === 0) return null

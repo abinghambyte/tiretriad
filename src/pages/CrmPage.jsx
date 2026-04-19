@@ -36,6 +36,7 @@ import {
 import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPicklists.js'
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../components/ui/buttonStyles.js'
 
 const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
@@ -191,19 +192,19 @@ function DispatchTab() {
             <div className="mt-4 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-2">
               <button
                 type="button"
-                disabled={j.completionStatus === 'In Progress' || j.completionStatus === 'Done'}
-                onClick={() => void setStatus(j, 'In Progress')}
-                className="min-h-[48px] w-full rounded-xl bg-cyan-900/50 px-4 py-3 text-sm font-semibold text-cyan-100 ring-1 ring-cyan-800/50 disabled:opacity-40 sm:w-auto sm:min-w-[120px]"
+                disabled={j.completionStatus === 'Done'}
+                onClick={() => void setStatus(j, 'Done')}
+                className={`${BTN_PRIMARY} w-full justify-center sm:w-auto sm:min-w-[120px]`}
               >
-                Start job
+                Complete job
               </button>
               <button
                 type="button"
-                disabled={j.completionStatus === 'Done'}
-                onClick={() => void setStatus(j, 'Done')}
-                className="min-h-[48px] w-full rounded-xl bg-emerald-900/50 px-4 py-3 text-sm font-semibold text-emerald-100 ring-1 ring-emerald-800/50 disabled:opacity-40 sm:w-auto sm:min-w-[120px]"
+                disabled={j.completionStatus === 'In Progress' || j.completionStatus === 'Done'}
+                onClick={() => void setStatus(j, 'In Progress')}
+                className={`${BTN_SECONDARY} w-full justify-center sm:w-auto sm:min-w-[120px]`}
               >
-                Complete job
+                Start job
               </button>
             </div>
           </div>
@@ -315,6 +316,38 @@ export function CrmPage() {
     () => filteredAccounts.filter((a) => Number(a.pipelineStage) === CRM_LOST_STAGE),
     [filteredAccounts],
   )
+
+  const stageTotal = useCallback(
+    (stage) => {
+      const rows = stage === CRM_LOST_STAGE ? lostAccounts : byStage(stage)
+      const sum = rows.reduce((acc, a) => {
+        const v = estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire)
+        return acc + (Number.isFinite(v) ? v : 0)
+      }, 0)
+      return { count: rows.length, dollars: sum }
+    },
+    [avgBuyPerTire, byStage, lostAccounts],
+  )
+
+  const pipelineSummary = useMemo(() => {
+    const activeAccounts = filteredAccounts.filter(
+      (a) => Number(a.pipelineStage) !== CRM_LOST_STAGE,
+    )
+    const closedCount = filteredAccounts.filter(
+      (a) => normalizePipelineStage(a.pipelineStage, a) === 5,
+    ).length
+    const dollars = activeAccounts.reduce((acc, a) => {
+      const v = estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire)
+      return acc + (Number.isFinite(v) ? v : 0)
+    }, 0)
+    const totalForRate = activeAccounts.length + lostAccounts.length
+    const conversionRate = totalForRate > 0 ? (100 * closedCount) / totalForRate : null
+    return {
+      totalAccounts: activeAccounts.length,
+      totalDollars: dollars,
+      conversionRate,
+    }
+  }, [avgBuyPerTire, filteredAccounts, lostAccounts])
 
   async function onDropStage(stage, e) {
     e.preventDefault()
@@ -603,8 +636,35 @@ export function CrmPage() {
               </div>
             ) : (
               <>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-xs text-zinc-400">
+                  <span>
+                    <span className="text-zinc-500">Total leads </span>
+                    <span className="font-semibold text-zinc-200 tabular-nums">
+                      {pipelineSummary.totalAccounts}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="text-zinc-500">Pipeline value </span>
+                    <span className="font-semibold text-amber-200 tabular-nums">
+                      {pipelineSummary.totalDollars > 0
+                        ? formatCurrency(pipelineSummary.totalDollars)
+                        : '—'}
+                    </span>
+                    <span className="ml-1 text-zinc-600">est.</span>
+                  </span>
+                  {pipelineSummary.conversionRate != null ? (
+                    <span>
+                      <span className="text-zinc-500">Conversion rate </span>
+                      <span className="font-semibold text-zinc-200 tabular-nums">
+                        {pipelineSummary.conversionRate.toFixed(1)}%
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
                 <div className="hidden gap-2 md:grid md:grid-cols-6 md:overflow-visible">
-                  {KANBAN_STAGES.map((stage) => (
+                  {KANBAN_STAGES.map((stage) => {
+                    const s = stageTotal(stage)
+                    return (
                     <div
                       key={stage}
                       className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
@@ -613,6 +673,13 @@ export function CrmPage() {
                     >
                       <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-300">
                         {CRM_STAGE_LABELS[stage]}
+                        <span className="font-normal text-zinc-500"> · {s.count}</span>
+                        {s.dollars > 0 ? (
+                          <span className="font-normal text-zinc-500">
+                            {' '}· {formatCurrency(s.dollars)}
+                            <span className="text-zinc-600"> est.</span>
+                          </span>
+                        ) : null}
                       </p>
                       <div className="space-y-2">
                         {byStage(stage).map((a) => (
@@ -641,19 +708,26 @@ export function CrmPage() {
                                 ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
                                 : '—'}
                             </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                                title="CRM score"
                               >
-                                {a.score ?? computeCrmScore(a)}
+                                Score {a.score ?? computeCrmScore(a)}
                               </span>
-                              <span className="text-zinc-500">pain {a.painScore ?? '—'}</span>
+                              <span className="text-[10px] text-zinc-500" title="Pain score">
+                                · Pain {a.painScore ?? '—'}
+                              </span>
                             </div>
                           </button>
                         ))}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
+                  {(() => {
+                    const s = stageTotal(CRM_LOST_STAGE)
+                    return (
                   <div
                     className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/20 p-2"
                     onDragOver={(e) => e.preventDefault()}
@@ -661,6 +735,13 @@ export function CrmPage() {
                   >
                     <p className="mb-2 px-1 text-xs font-semibold leading-snug text-zinc-500">
                       {CRM_STAGE_LABELS[CRM_LOST_STAGE]}
+                      <span className="font-normal text-zinc-600"> · {s.count}</span>
+                      {s.dollars > 0 ? (
+                        <span className="font-normal text-zinc-600">
+                          {' '}· {formatCurrency(s.dollars)}
+                          <span> est.</span>
+                        </span>
+                      ) : null}
                     </p>
                     <div className="space-y-2">
                       {lostAccounts.map((a) => (
@@ -686,10 +767,13 @@ export function CrmPage() {
                       ))}
                     </div>
                   </div>
+                    )
+                  })()}
                 </div>
                 <div className="space-y-2 md:hidden">
                   {[...KANBAN_STAGES, CRM_LOST_STAGE].map((stage) => {
                     const open = crmMobileStage === stage
+                    const s = stageTotal(stage)
                     return (
                       <div
                         key={stage}
@@ -703,6 +787,13 @@ export function CrmPage() {
                         >
                           <span className="text-xs font-semibold leading-snug text-zinc-300">
                             {CRM_STAGE_LABELS[stage] || `Stage ${stage}`}
+                            <span className="font-normal text-zinc-500"> · {s.count}</span>
+                            {s.dollars > 0 ? (
+                              <span className="font-normal text-zinc-500">
+                                {' '}· {formatCurrency(s.dollars)}
+                                <span className="text-zinc-600"> est.</span>
+                              </span>
+                            ) : null}
                           </span>
                           <span className="text-zinc-500">{open ? '▾' : '▸'}</span>
                         </button>
@@ -736,11 +827,18 @@ export function CrmPage() {
                                       ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
                                       : '—'}
                                   </p>
-                                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                     <span
                                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
+                                      title="CRM score"
                                     >
-                                      {a.score ?? computeCrmScore(a)}
+                                      Score {a.score ?? computeCrmScore(a)}
+                                    </span>
+                                    <span
+                                      className="text-[10px] text-zinc-500"
+                                      title="Pain score"
+                                    >
+                                      · Pain {a.painScore ?? '—'}
                                     </span>
                                   </div>
                                 </button>
@@ -876,15 +974,18 @@ export function CrmPage() {
                   onChange={(e) => setLeadForm((f) => ({ ...f, fleetSize: e.target.value }))}
                   className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
                 />
-                <select
-                  value={leadForm.urgency}
-                  onChange={(e) => setLeadForm((f) => ({ ...f, urgency: e.target.value }))}
-                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
-                >
-                  <option value="hot">Hot</option>
-                  <option value="warm">Warm</option>
-                  <option value="cold">Cold</option>
-                </select>
+                <label className="flex flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                  Urgency
+                  <select
+                    value={leadForm.urgency}
+                    onChange={(e) => setLeadForm((f) => ({ ...f, urgency: e.target.value }))}
+                    className="mt-0.5 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm font-normal normal-case text-zinc-100"
+                  >
+                    <option value="cold">Cold</option>
+                    <option value="warm">Warm</option>
+                    <option value="hot">Hot</option>
+                  </select>
+                </label>
                 <button
                   type="submit"
                   className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
