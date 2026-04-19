@@ -12,6 +12,7 @@ import Spinner from '../ui/Spinner.jsx'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber, tireRetailIsEstimated, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
 import { parseDescription } from '../../utils/parseTireDescription.js'
+import { copyToClipboard } from '../../utils/copyToClipboard.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
 
@@ -76,7 +77,7 @@ const COLUMN_TEMPLATE = {
   // have breathing room and wide rows don't squeeze the fixed columns to the
   // right. See Fix 1 in the PR notes: the old `2fr` let the grid overflow its
   // scroll parent and clipped the trailing Margin % column.
-  description: 'minmax(14rem, 2fr)',
+  description: 'minmax(11rem, 18rem)',
   mspn: '5rem',
   lr: '3rem',
   listed: '6.25rem',
@@ -89,13 +90,18 @@ const COLUMN_TEMPLATE = {
   margin: '6rem',
 }
 
+// Description track uses the first arg as its floor. Kept tight enough that
+// with every other fixed column visible, the total grid width sits inside a
+// standard 1152px (max-w-6xl) container so the Margin % cell never spills
+// past the viewport edge at default desktop widths.
+
 /** Approximate px width for each template token. Used to compute the grid's
  * `minWidth` so the horizontal scroll wrapper always gives the table enough
  * room for every fixed column + the description's own minimum. */
 const COLUMN_MIN_PX = {
   select: 40,
   brand: 96,
-  description: 224, // matches the 14rem floor above
+  description: 176, // matches the 11rem floor above
   mspn: 80,
   lr: 48,
   listed: 100,
@@ -315,17 +321,61 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
     }
   }
 
+  const fullText = secondary ? `${primary} ${secondary}` : primary
+
   return (
-    <div className="min-w-0 max-w-full overflow-hidden text-sm leading-snug text-zinc-300">
+    <div className="group/desc relative min-w-0 max-w-full overflow-hidden pr-6 text-sm leading-snug text-zinc-300">
       <div className="break-words font-mono font-semibold text-zinc-200 [overflow-wrap:anywhere]">{primary}</div>
       {secondary ? (
         <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
           {secondary}
         </div>
       ) : null}
+      <CopyDescriptionButton text={fullText} />
     </div>
   )
 })
+
+function CopyDescriptionButton({ text }) {
+  const { toast } = useToast()
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return undefined
+    const t = window.setTimeout(() => setCopied(false), 1200)
+    return () => window.clearTimeout(t)
+  }, [copied])
+
+  async function onClick(e) {
+    e.stopPropagation()
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setCopied(true)
+    } else {
+      toast('Copy failed. Select and copy manually.', 'error')
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Copy description"
+      title="Copy description"
+      className="absolute right-0 top-0 inline-flex h-5 w-5 items-center justify-center rounded text-zinc-600 opacity-0 transition-opacity hover:bg-zinc-800/60 hover:text-zinc-200 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-zinc-500 group-hover/desc:opacity-100"
+    >
+      {copied ? (
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5 text-emerald-400">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 10l4 4 8-8" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.5 w-3.5">
+          <rect x="6" y="6" width="10" height="10" rx="1.5" />
+          <path d="M4 12V5a1.5 1.5 0 0 1 1.5-1.5h7" />
+        </svg>
+      )}
+    </button>
+  )
+}
 
 /**
  * Three-click header: ascending → descending → back to default. Parent owns
@@ -347,12 +397,14 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
             : `Clear sort (back to default)`
           : `Sort by ${label}`
       }
-      className={`inline-flex items-center gap-1 font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
-        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+      className={`group inline-flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 font-medium transition-colors hover:bg-zinc-800/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
+        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-100'
       } ${touchWide ? 'min-h-[44px] min-w-[44px] justify-center sm:min-h-0 sm:min-w-0' : ''}`}
     >
       {label}
-      <span className="inline-block w-2.5 text-center">{active ? (dir === 'asc' ? '↑' : '↓') : ''}</span>
+      <span className="inline-block w-2.5 text-center text-zinc-500 group-hover:text-zinc-300">
+        {active ? (dir === 'asc' ? '↑' : '↓') : '⇅'}
+      </span>
     </button>
   )
 }
