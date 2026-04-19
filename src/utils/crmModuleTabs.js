@@ -1,5 +1,6 @@
 /**
- * Tab config for Rubber CRM (Board / Leads / DJ Dispatch) shared by CrmPage and CrmDispatchPage.
+ * Tab config for Rubber CRM (Board / Leads / DJ Dispatch). All tabs live on
+ * `/crm` with a `?tab=` selector so state and back-nav behave consistently.
  *
  * @param {object} opts
  * @param {{ role?: string } | null | undefined} opts.profile
@@ -8,28 +9,30 @@
  * @returns {Array<{ key: string, label: string, to: string, active: boolean }>}
  */
 export function buildCrmTabs({ profile, pathname, searchParams }) {
-  const tab = searchParams.get('tab') === 'leads' ? 'leads' : 'board'
+  const rawTab = searchParams.get('tab')
+  const tab = rawTab === 'leads' || rawTab === 'dispatch' ? rawTab : 'board'
   const canDispatch = profile?.role === 'mechanic' || profile?.role === 'admin'
+  const onCrm = pathname === '/crm'
   const tabs = [
     {
       key: 'board',
       label: 'Board',
       to: '/crm',
-      active: pathname === '/crm' && tab === 'board',
+      active: onCrm && tab === 'board',
     },
     {
       key: 'leads',
       label: 'Leads',
       to: '/crm?tab=leads',
-      active: pathname === '/crm' && tab === 'leads',
+      active: onCrm && tab === 'leads',
     },
   ]
   if (canDispatch) {
     tabs.push({
       key: 'dispatch',
       label: 'DJ Dispatch',
-      to: '/crm/dispatch',
-      active: pathname.startsWith('/crm/dispatch'),
+      to: '/crm?tab=dispatch',
+      active: onCrm && tab === 'dispatch',
     })
   }
   return tabs

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { OrderCompletionMilestones } from '../milestones/OrderCompletionMilestones.jsx'
 import { MobileBottomNav } from './MobileBottomNav.jsx'
+import { DesktopTopNav } from './DesktopTopNav.jsx'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -176,6 +177,7 @@ export function PortalChrome() {
   const { profile } = useUserProfile()
   const loc = useLocation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [paletteOpen, setPaletteOpen] = useState(false)
 
   const hideChrome = loc.pathname === '/' || loc.pathname.startsWith('/i/')
@@ -206,12 +208,14 @@ export function PortalChrome() {
         <SessionExpiryBanner />
         <PortalTopBar
           pathname={loc.pathname}
+          tab={searchParams.get('tab')}
           navigate={navigate}
           profile={profile}
           onOpenPalette={() => setPaletteOpen(true)}
           themeToggle={<ThemeToggle />}
           shortcutHint={<ShortcutHint />}
         />
+        <DesktopTopNav />
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <div

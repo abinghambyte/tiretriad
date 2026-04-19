@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useUserProfile } from '../../hooks/useUserProfile'
-import { WORKFORCE_URL } from '../../constants/externalUrls'
 import { crewTagFromRole, permissionMeets } from '../../constants/peoplePermissions'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
@@ -266,7 +265,7 @@ export function Dashboard() {
         'Lead pipeline, VIP clients, and field dispatch for northern Colorado tire operations.',
       stat: crmSignal,
       statLabel: 'Pipeline',
-      ctaLabel: 'View Pipeline',
+      ctaLabel: 'Open Pipeline',
       status: 'Live',
       accent: 'orange',
       icon: <IconCrm />,
@@ -280,7 +279,7 @@ export function Dashboard() {
         'Crew access, invites, permission matrix, and customer contacts (Customers tab).',
       stat: peopleSignal,
       statLabel: 'Crew',
-      ctaLabel: 'Manage Crew',
+      ctaLabel: 'Open People',
       status: 'Live',
       accent: 'slate',
       icon: <IconPeople />,
@@ -294,7 +293,7 @@ export function Dashboard() {
         'The Wall (completed orders), operational metrics from completions, and a revenue intelligence lane.',
       stat: analyticsSignal,
       statLabel: 'Outcomes',
-      ctaLabel: 'See the Numbers',
+      ctaLabel: 'Open Analytics',
       status: 'Live',
       accent: 'green',
       icon: <IconAnalytics />,
@@ -321,7 +320,7 @@ export function Dashboard() {
         'Expenses, tax-prep CSV export, reorder queue, and inbound SMS relay to Slack (#fleet-ops).',
       stat: 'Admin runway',
       statLabel: 'Runway',
-      ctaLabel: 'Run Ops',
+      ctaLabel: 'Open Ops',
       status: 'Live',
       accent: 'rose',
       icon: <IconOpsCommand />,
@@ -562,12 +561,6 @@ export function Dashboard() {
                 m.to &&
                 permissionMeets(perm, 'view') &&
                 !permissionMeets(perm, 'edit')
-              const isOverwatch =
-                profile?.role === 'admin' || String(profile?.crewTag || '').trim() === 'Overwatch'
-              const secondaryFooter =
-                m.title === 'Growth Lab' && isOverwatch
-                  ? { href: WORKFORCE_URL, label: 'Launch Dispatcher', external: true }
-                  : undefined
               return (
                 <ProjectCard
                   key={m.title}
@@ -581,7 +574,6 @@ export function Dashboard() {
                   icon={m.icon}
                   to={m.to}
                   locked={Boolean(lockedTires)}
-                  secondaryFooter={secondaryFooter}
                   compact
                 />
               )
