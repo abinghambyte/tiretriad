@@ -20,6 +20,8 @@ import { CreditTrackerCard } from '../components/dashboard/CreditTrackerCard.jsx
 import Spinner from '../components/ui/Spinner.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
+import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const EXPENSE_CATEGORIES = [
   { value: 'fuel', label: 'Fuel' },
@@ -354,16 +356,18 @@ export function OpsPage() {
               <tbody>
                 {expLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-zinc-500">
-                      Loading…
+                    <td colSpan={6}>
+                      <LoadingBlock label="Loading expenses…" variant="inline" />
                     </td>
                   </tr>
                 ) : expenses.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-3 py-6 text-zinc-500">
-                      No expenses yet.
-                    </td>
-                  </tr>
+                  <EmptyState
+                    variant="row"
+                    colSpan={6}
+                    icon={EmptyStateIcons.dollar}
+                    title="No expenses yet"
+                    description="Log fuel, supplies, and other costs here for tax prep. Expense entries flow straight into the Denver-dated CSV export."
+                  />
                 ) : (
                   expenses.map((r) => (
                     <tr key={r.id} className="border-b border-zinc-800/80">
@@ -434,11 +438,13 @@ export function OpsPage() {
               </thead>
               <tbody>
                 {reorderEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-3 py-6 text-zinc-500">
-                      Queue is empty.
-                    </td>
-                  </tr>
+                  <EmptyState
+                    variant="row"
+                    colSpan={6}
+                    icon={EmptyStateIcons.tag}
+                    title="Queue is empty"
+                    description="Kyle adds tires to reorder via Slack `/reorder`. Anything pending here shows up until marked fulfilled."
+                  />
                 ) : (
                   reorderEntries.map((row) => (
                     <tr key={row.id} className="border-b border-zinc-800/80">

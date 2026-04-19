@@ -13,6 +13,7 @@ import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatQty } from '../utils/format'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 function logisticsLine(o) {
   const f = String(o.fulfillment || '').toLowerCase()
@@ -148,7 +149,7 @@ export function WallPage({ embedded = false }) {
         </div>
 
         {loading ? (
-          <p className="text-sm text-zinc-500">Loading feed…</p>
+          <LoadingBlock label="Loading feed…" />
         ) : filtered.length === 0 ? (
           <p className="text-sm text-zinc-500">No completions in this range.</p>
         ) : (

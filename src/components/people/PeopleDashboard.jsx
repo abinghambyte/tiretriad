@@ -31,6 +31,9 @@ import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { useToast } from '../../context/ToastContext.jsx'
+import { copyToClipboard } from '../../utils/copyToClipboard'
+import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
+import { LoadingBlock } from '../shared/LoadingBlock.jsx'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -150,6 +153,7 @@ function InviteUrlToolkit({ url }) {
   const [nfcSuccess, setNfcSuccess] = useState('')
   const [nfcErr, setNfcErr] = useState('')
   const showHardware = shouldShowAndroidInviteHardwareActions()
+  const { toast: toastFn } = useToast()
 
   async function copyUrl() {
     try {
@@ -157,10 +161,13 @@ function InviteUrlToolkit({ url }) {
     } catch {
       /* ignore */
     }
-    try {
-      await navigator.clipboard.writeText(safeUrl)
-    } catch {
-      window.prompt('Copy URL:', safeUrl)
+    const ok = await copyToClipboard(safeUrl)
+    if (ok) {
+      toastFn?.('Invite URL copied', 'success')
+    } else {
+      // Fall back to surfacing the URL in a toast so the user can still copy
+      // it manually. Better than blocking the UI with a native prompt().
+      toastFn?.(`Copy this URL: ${safeUrl}`, 'info')
     }
   }
 
@@ -823,16 +830,18 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
-                    Loading crew…
+                  <td colSpan={8}>
+                    <LoadingBlock label="Loading crew…" variant="inline" />
                   </td>
                 </tr>
               ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-zinc-500">
-                    No user profiles yet.
-                  </td>
-                </tr>
+                <EmptyState
+                  variant="row"
+                  colSpan={8}
+                  icon={EmptyStateIcons.users}
+                  title="No user profiles yet"
+                  description="Invite crew via the panel above. Each accepted invite creates a portal user with the role-default permissions."
+                />
               ) : (
                 users.map((u) => {
                   const evLabel = elevationCountdownLabel(u, tick)

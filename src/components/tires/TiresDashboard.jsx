@@ -7,7 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
-import { computeMargin } from '../../utils/marginCalc'
+import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { listingStatus } from '../../utils/listingStatus'
@@ -275,6 +275,7 @@ export function TiresDashboard() {
     return tires.map((t) => ({
       ...t,
       margin: computeMargin(t),
+      listingMargin: computeListingMargin(t),
     }))
   }, [tires])
 
@@ -283,7 +284,8 @@ export function TiresDashboard() {
   const filtered = useMemo(() => {
     return enriched.filter((row) => {
       if (catalogRisk === 'lowMargin') {
-        const m = row.margin
+        // Uses listingMargin (researched-retail based) per PR #34.
+        const m = row.listingMargin
         if (m == null || Number.isNaN(m) || m >= 15) return false
       }
       if (catalogRisk === 'missingOverhead') {
@@ -291,7 +293,7 @@ export function TiresDashboard() {
         const delivery = Number(row.deliveryCost) || 0
         const other = Number(row.otherCost) || 0
         const cts = Number(row.cts) || 0
-        if (cts !== 0 || mount !== 0 || delivery !== 0 || other !== 0) return false
+        if (cts > 0 || mount > 0 || delivery > 0 || other > 0) return false
       }
       if (brand && row.brand !== brand) return false
       if (lrFilters.length > 0) {

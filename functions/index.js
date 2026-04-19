@@ -62,6 +62,7 @@ const { crmJobTrigger } = require('./crmJobTrigger')
 const { submitMechanicIntake } = require('./mechanicIntake')
 const { runCompletionTransaction } = require('./financeStats')
 const { taskDispatcher } = require('./taskDispatcher')
+const { auditFromCallable } = require('./adminAuditLog')
 admin.initializeApp()
 
 setGlobalOptions({ region: 'us-central1' })
@@ -829,7 +830,7 @@ exports.tirePriceResearchCatchup = onSchedule(
  * Manual admin trigger for the same price research the nightly cron runs.
  * Useful for testing after setting GEMINI_API_KEY or when buy prices look stale.
  * Admin-only. Respects `priceIntel.kyleConfirmed` as a freeze. Writes only to
- * `priceIntel.*` so CSV-sourced fields (price, cost, retailPrice) are untouched.
+ * `priceIntel.*` so CSV-sourced fields (price, cost) are untouched.
  */
 exports.runTirePriceResearchNow = onCall(
   {
@@ -858,6 +859,10 @@ exports.runTirePriceResearchNow = onCall(
     }
     try {
       await tirePriceResearchRun({ token, channel, geminiKey })
+      await auditFromCallable(db, request, {
+        action: 'price_research.run_now',
+        payload: { scheduled: false },
+      })
       return { ok: true }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -896,6 +901,10 @@ exports.crmStaleCheck = onSchedule(
 
 exports.crmAccountTrigger = crmAccountTrigger
 exports.crmJobTrigger = crmJobTrigger
+
+const { expenseAuditTrigger, reorderQueueAuditTrigger } = require('./adminAuditTriggers')
+exports.expenseAuditTrigger = expenseAuditTrigger
+exports.reorderQueueAuditTrigger = reorderQueueAuditTrigger
 exports.submitMechanicIntake = submitMechanicIntake
 
 /**

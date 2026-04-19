@@ -131,13 +131,14 @@ tread: string           // "XLEZ"
 mspn: string            // "03363"
 description: string     // "11R22.5 X LEZ LRG"
 lr: string              // "G" — store "" not null if empty
-fet: number             // strip $ and parse float, store 0 if blank
-retailPrice: number     // retail (CSV column `Price`); legacy `price` may exist
-cost: number            // buy price from Kyle (portal; defaults 0 until entered)
+fet: number             // strip $ and parse float, store 0 if blank (already in price, never subtracted)
+price: number           // Kyle's buy cost per tire (from CSV column `Price`); canonical buy-cost field
+cost: number            // legacy cost field, unused by new imports (defaults 0)
 mountCost: number       // mount / install allocation
-deliveryCost: number     // delivery allocation
+deliveryCost: number    // delivery allocation
 otherCost: number       // misc landed cost
-cts: number             // cost to sell = cost + fet + mountCost + deliveryCost + otherCost (written on save)
+cts: number             // cost to sell = mountCost + deliveryCost + otherCost (written on save; FET never included)
+priceIntel: object      // { retailPrice, confidence, activeBuyPrice, kyleConfirmed, sources[], ... }: Gemini-researched street retail + Kyle-confirmed buy
 grade: string           // "A" | "B" | "C" for margin table; "scrap" hidden from portal
 category: string        // "All Terrain" | "Highway" | "Commercial" etc.
 useTags: array          // ["highway", "commercial", "long-haul"]

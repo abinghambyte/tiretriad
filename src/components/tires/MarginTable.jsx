@@ -5,12 +5,12 @@ import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 import { computeCts, effectiveCts, tireOverheadParts } from '../../utils/ctsCalc'
-import { computeMargin, marginBadgeLabel } from '../../utils/marginCalc'
+import { computeListingMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import Spinner from '../ui/Spinner.jsx'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
-import { tireCatalogRetailNumber, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
+import { tireCatalogRetailNumber, tireRetailIsEstimated, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
@@ -133,16 +133,25 @@ function RetailPriceCell({ row }) {
   if (!(n > 0 && Number.isFinite(n))) {
     return <span className="font-mono text-sm text-zinc-600">—</span>
   }
+  const estimated = tireRetailIsEstimated(row)
   const researched = tireRetailIsResearched(row)
+  // Three-state styling so Alex can tell at a glance where each retail came
+  // from: cyan = real Gemini research, muted amber = catalog-median estimate
+  // (approximate), grey = legacy pre-research.
+  const className = estimated
+    ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-amber-300/70 italic max-sm:min-w-0'
+    : researched
+      ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-cyan-200/90 max-sm:min-w-0'
+      : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-500 max-sm:min-w-0'
+  const title = estimated
+    ? `Estimated from catalog-median markup × buy cost. Gemini could not find this tire; hover/click Refresh Price in the tire detail if you want to retry.`
+    : researched
+      ? 'Researched retail from the nightly Gemini price intel job.'
+      : ''
   return (
-    <span
-      className={
-        researched
-          ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-cyan-200/90 max-sm:min-w-0'
-          : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-500 max-sm:min-w-0'
-      }
-    >
+    <span className={className} title={title}>
       {formatCurrency(n)}
+      {estimated ? <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-amber-400/80">est</span> : null}
     </span>
   )
 }
@@ -352,17 +361,29 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   const row = rows[index]
   if (!row) return null
 
-  // IMPORTANT: The row's visible margin stays locked to the saved margin (`m`)
-  // while the inline editor is open — editing drafts must NOT mutate the row
-  // value. We expose the projected margin in the editor section only.
-  const m = computeMargin(row)
+  // Default display: listing margin at researched street retail (PR #34,
+  // retail-based listing margin). Returns null when no retail is known yet
+  // (unresearched or genuine not-found), which the cell renders as a dash.
+  // IMPORTANT: the row's visible margin stays locked to this saved value
+  // while the inline editor is open. Editing drafts must NOT mutate the
+  // row value. The projected margin is exposed in the editor section only.
+  const m = computeListingMargin(row)
   const showCostEditor = editingCostsId === row.id
   const projectedMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : null
 
-  const marginTitle =
-    m == null || Number.isNaN(m)
-      ? 'No buy price on this catalog row.'
-      : marginBadgeLabel(m)
+  const marginTitle = (() => {
+    if (showCostEditor) {
+      return buyPriceOf(row) <= 0
+        ? 'No buy price on this catalog row.'
+        : marginBadgeLabel(projectedMargin)
+    }
+    if (m == null) {
+      return buyPriceOf(row) <= 0
+        ? 'No buy price on this catalog row.'
+        : 'Retail not researched yet. Runs hourly; check back.'
+    }
+    return marginBadgeLabel(m)
+  })()
   const marginCell =
     m != null && !Number.isNaN(m) ? (
       <span

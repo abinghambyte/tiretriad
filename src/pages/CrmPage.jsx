@@ -37,6 +37,9 @@ import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPickli
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../components/ui/buttonStyles.js'
+import { InputPromptModal } from '../components/shared/InputPromptModal.jsx'
+import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
@@ -155,7 +158,7 @@ function DispatchTab() {
 
   return (
     <section className="space-y-4">
-      {loading ? <p className="text-sm text-zinc-500">Loading jobs…</p> : null}
+      {loading ? <LoadingBlock label="Loading jobs…" /> : null}
       {!loading && loadError ? (
         <p className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-200">
           {loadError}
@@ -231,6 +234,7 @@ export function CrmPage() {
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
   const [vehicles, setVehicles] = useState([])
+  const [addAccountOpen, setAddAccountOpen] = useState(false)
   const [leadForm, setLeadForm] = useState({
     businessName: '',
     source: '',
@@ -381,12 +385,12 @@ export function CrmPage() {
     }
   }
 
-  async function addAccount() {
+  async function createAccountWithName(name) {
     if (!canEdit) return
-    const name = window.prompt('Company name?')
-    if (!name?.trim()) return
+    const clean = String(name || '').trim()
+    if (!clean) return
     await addDoc(collection(db, 'crmAccounts'), {
-      companyName: name.trim(),
+      companyName: clean,
       pipelineStage: 1,
       pipelineSchemaVersion: CRM_PIPELINE_SCHEMA_VERSION,
       fleetSize: 0,
@@ -516,7 +520,7 @@ export function CrmPage() {
               {canEdit ? (
                 <button
                   type="button"
-                  onClick={() => void addAccount()}
+                  onClick={() => setAddAccountOpen(true)}
                   className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
                 >
                   Add VIP client
@@ -625,7 +629,7 @@ export function CrmPage() {
                 {canEdit ? (
                   <button
                     type="button"
-                    onClick={() => void addAccount()}
+                    onClick={() => setAddAccountOpen(true)}
                     className="mt-6 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
                   >
                     Add your first VIP client
@@ -1008,6 +1012,15 @@ export function CrmPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {leads.length === 0 ? (
+                    <EmptyState
+                      variant="row"
+                      colSpan={7}
+                      icon={EmptyStateIcons.clipboard}
+                      title="No leads yet"
+                      description="Raw leads from phone, SMS, and site inquiries show up here. Promote the strong ones to VIP clients to start tracking activity."
+                    />
+                  ) : null}
                   {leads.map((r) => (
                     <tr key={r.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2">{r.businessName}</td>
@@ -1075,6 +1088,17 @@ export function CrmPage() {
           onRefresh={(a) => setDetail(a)}
         />
       ) : null}
+
+      <InputPromptModal
+        isOpen={addAccountOpen}
+        title="Add VIP client"
+        label="Company name"
+        placeholder="Acme Freight"
+        submitLabel="Add client"
+        maxLength={100}
+        onSubmit={(name) => void createAccountWithName(name)}
+        onClose={() => setAddAccountOpen(false)}
+      />
     </div>
   )
 }

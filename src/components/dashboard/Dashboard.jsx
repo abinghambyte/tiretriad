@@ -540,6 +540,7 @@ export function Dashboard() {
                 <Link
                   to="/tires?risk=missingOverhead"
                   className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3 transition-colors duration-200 hover:bg-amber-950/15"
+                  title="Open the tires catalog filtered to rows still missing mount/delivery/other cost"
                 >
                   <span className="text-base font-medium text-amber-100/95">Missing overhead</span>
                   <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-amber-200">
@@ -552,6 +553,7 @@ export function Dashboard() {
                 <Link
                   to="/tires?risk=lowMargin"
                   className="-mx-1 flex items-center justify-between gap-3 rounded-lg border border-red-900/35 bg-red-950/20 px-2 py-2.5 text-base transition-colors duration-200 hover:border-red-800/50 hover:bg-red-950/35"
+                  title="Open the tires catalog filtered to rows under 15% listing margin"
                 >
                   <span className="font-semibold text-red-100/95">Below 15% margin</span>
                   <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-red-300">

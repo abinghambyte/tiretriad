@@ -3,6 +3,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const { anthropicKeyResolved, ANTHROPIC_API_KEY } = require('./slackSecrets')
+const { auditFromCallable } = require('./adminAuditLog')
 
 /** Matches Growth Lab / invite flows — Anthropic API id. */
 const MODEL = 'claude-sonnet-4-6'
@@ -153,11 +154,27 @@ async function taskDispatcherHandler(request) {
     : ''
   const stripped = stripJsonFences(text)
 
+  let routed = null
   try {
-    return JSON.parse(stripped)
+    routed = JSON.parse(stripped)
   } catch {
-    return { error: 'Routing failed', raw: stripped }
+    routed = { error: 'Routing failed', raw: stripped }
   }
+
+  // Audit trail: every Growth Lab dispatch burns Anthropic tokens, so an
+  // attacker with the owner's admin account could quietly run up a bill.
+  // Record who dispatched, the first 300 chars of the task, and the
+  // selected worker so forensics is easy.
+  await auditFromCallable(db, request, {
+    action: 'growth.task_dispatch',
+    payload: {
+      task: String(task).slice(0, 300),
+      modelHint,
+      resultWorker: routed?.assignedWorker || routed?.error || null,
+    },
+  })
+
+  return routed
 }
 
 exports.taskDispatcher = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
