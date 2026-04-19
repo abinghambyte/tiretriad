@@ -15,6 +15,24 @@ const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 /** Anthropic — `listingAdvisor` fallback (and optional `/hype` env elsewhere). Do not duplicate this name in `functions/.env` for the same Cloud Run service. */
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY')
 
+/** Sinch SMS outbound (invite delivery). Service plan + API token + from number. Set via `firebase functions:secrets:set`. */
+const SINCH_SERVICE_PLAN_ID = defineSecret('SINCH_SERVICE_PLAN_ID')
+const SINCH_API_TOKEN = defineSecret('SINCH_API_TOKEN')
+const SINCH_FROM_NUMBER = defineSecret('SINCH_FROM_NUMBER')
+
+/** Resend email (invite delivery). API key + from address. */
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
+const RESEND_FROM_EMAIL = defineSecret('RESEND_FROM_EMAIL')
+
+/** All invite-delivery secrets, bundled for Gen2 callables that send invites. */
+const INVITE_DELIVERY_SECRETS = [
+  SINCH_SERVICE_PLAN_ID,
+  SINCH_API_TOKEN,
+  SINCH_FROM_NUMBER,
+  RESEND_API_KEY,
+  RESEND_FROM_EMAIL,
+]
+
 const SLACK_SECRETS = [SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID]
 
 /** Gen2 `secrets` for `listingAdvisor` — both bound on deploy; use `-` for a key you want to skip. */
@@ -64,6 +82,12 @@ module.exports = {
   GEMINI_API_KEY,
   ANTHROPIC_API_KEY,
   LISTING_ADVISOR_SECRETS,
+  SINCH_SERVICE_PLAN_ID,
+  SINCH_API_TOKEN,
+  SINCH_FROM_NUMBER,
+  RESEND_API_KEY,
+  RESEND_FROM_EMAIL,
+  INVITE_DELIVERY_SECRETS,
   anthropicApiKeyFromEnv,
   anthropicKeyResolved,
   slackAdminUserIdsRawFromEnv,

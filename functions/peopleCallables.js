@@ -14,7 +14,7 @@ const {
   MODULE_MATRIX,
 } = require('./peopleSystem')
 const { deliverInvite, generateInviteGreetingLine } = require('./inviteFlow')
-const { ANTHROPIC_API_KEY } = require('./slackSecrets')
+const { ANTHROPIC_API_KEY, INVITE_DELIVERY_SECRETS } = require('./slackSecrets')
 
 /** E.164 — keep in sync with `normalizePhoneToE164` in `src/utils/formatPhone.js`. */
 function normalizePhoneToE164(raw) {
@@ -92,7 +92,7 @@ exports.ensureUserDocument = onCall(async (request) => {
   return { ok: true, created: true, role }
 })
 
-exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
+exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY_SECRETS] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
@@ -454,7 +454,7 @@ exports.revokeInvite = onCall(async (request) => {
  * Issue a new invite token for an existing (pre-registration) user.
  * Revokes any prior active token, generates a fresh one, and delivers it.
  */
-exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
+exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY_SECRETS] }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.')
   }
