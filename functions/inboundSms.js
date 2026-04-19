@@ -1,10 +1,63 @@
 /**
- * Sinch XMS incoming SMS webhook → #fleet-ops Block Kit + Reply (slackActions modal).
+ * Sinch XMS incoming SMS webhook to #fleet-ops Block Kit + Reply (slackActions modal).
  * @see https://developers.sinch.com/docs/sms/api-reference/sms/webhooks/incomingsms
  */
-const { SLACK_BOT_TOKEN, SLACK_CHANNEL_ID } = require('./slackSecrets')
+const crypto = require('crypto')
 const { e164DocIdFromContact } = require('./orderMetrics')
 const { ACTION_SMS_REPLY } = require('./smsReplySlack')
+
+/**
+ * Verify that an inbound POST came from Sinch. Sinch XMS offers several
+ * callback auth flavors depending on account tier; we accept any of them:
+ *
+ * 1. Query string: ?k=<shared>  (works on any plan; configure via URL)
+ * 2. Bearer token in Authorization: Bearer <shared>  (or X-Inbound-Secret)
+ * 3. Basic auth (Authorization: Basic base64(user:pass) — password is the secret)
+ * 4. HMAC-SHA256 of the raw body, hex-encoded, sent in X-Signature
+ *    (also X-Sinch-Signature / Signature for broader compatibility)
+ *
+ * 2-4 require the account manager to enable on your Service Plan per Sinch docs.
+ * If no secret is configured, all requests are accepted (backward compatible).
+ */
+function isAuthorizedInbound(req, rawBody, shared) {
+  if (!shared) return true
+  const qk = String((req.query && (req.query.k || req.query.key)) || '').trim()
+  const auth = String(req.get('Authorization') || '').trim()
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+  const basicSecret = (() => {
+    if (!auth.startsWith('Basic ')) return ''
+    try {
+      const decoded = Buffer.from(auth.slice(6).trim(), 'base64').toString('utf8')
+      const idx = decoded.indexOf(':')
+      return idx >= 0 ? decoded.slice(idx + 1) : decoded
+    } catch {
+      return ''
+    }
+  })()
+  const headerSecret = String(req.get('X-Inbound-Secret') || '').trim()
+  const sig = String(
+    req.get('X-Signature') || req.get('X-Sinch-Signature') || req.get('Signature') || '',
+  )
+    .trim()
+    .toLowerCase()
+
+  if (qk && timingSafeEq(qk, shared)) return true
+  if (bearer && timingSafeEq(bearer, shared)) return true
+  if (basicSecret && timingSafeEq(basicSecret, shared)) return true
+  if (headerSecret && timingSafeEq(headerSecret, shared)) return true
+  if (sig && rawBody) {
+    const expected = crypto.createHmac('sha256', shared).update(rawBody).digest('hex')
+    if (timingSafeEq(sig, expected)) return true
+  }
+  return false
+}
+
+function timingSafeEq(a, b) {
+  const ba = Buffer.from(String(a))
+  const bb = Buffer.from(String(b))
+  if (ba.length !== bb.length) return false
+  return crypto.timingSafeEqual(ba, bb)
+}
 
 function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -80,19 +133,23 @@ async function handleInboundSmsRequest(req, res, db) {
   }
 
   const shared = String(process.env.SINCH_INBOUND_SHARED_SECRET || '').trim()
-  if (shared) {
-    const got = String(req.get('Authorization') || req.get('X-Inbound-Secret') || '').trim()
-    const expected = got.startsWith('Bearer ') ? got.slice(7).trim() : got
-    if (expected !== shared) {
-      res.status(401).send('Unauthorized')
-      return
-    }
+  const rawBody = req.rawBody != null ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {})
+
+  if (!isAuthorizedInbound(req, rawBody, shared)) {
+    console.warn('inboundSms: unauthorized. headers:', {
+      hasAuth: !!req.get('Authorization'),
+      hasXSig: !!req.get('X-Signature'),
+      hasXSinchSig: !!req.get('X-Sinch-Signature'),
+      hasSig: !!req.get('Signature'),
+      hasXInboundSecret: !!req.get('X-Inbound-Secret'),
+    })
+    res.status(401).send('Unauthorized')
+    return
   }
 
   let parsed
   try {
-    const raw = req.rawBody != null ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {})
-    parsed = typeof req.body === 'object' && req.body && Object.keys(req.body).length ? req.body : JSON.parse(raw || '{}')
+    parsed = typeof req.body === 'object' && req.body && Object.keys(req.body).length ? req.body : JSON.parse(rawBody || '{}')
   } catch {
     res.status(400).send('Bad JSON')
     return
@@ -123,6 +180,7 @@ async function handleInboundSmsRequest(req, res, db) {
   const orderId = orderSnap ? orderSnap.id : ''
   const mspn = orderSnap ? String(orderSnap.get('mspn') || '').trim() : ''
 
+  const { SLACK_BOT_TOKEN, SLACK_CHANNEL_ID } = require('./slackSecrets')
   const token = SLACK_BOT_TOKEN.value()
   const channel = String(SLACK_CHANNEL_ID.value() || '').trim()
   if (!token || !channel) {
@@ -175,4 +233,4 @@ async function handleInboundSmsRequest(req, res, db) {
   res.status(200).send('ok')
 }
 
-module.exports = { handleInboundSmsRequest }
+module.exports = { handleInboundSmsRequest, isAuthorizedInbound }
