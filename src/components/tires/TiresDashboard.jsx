@@ -721,6 +721,38 @@ export function TiresDashboard() {
               haggleDiscount={haggleDiscount}
               onJumpToTire={jumpToTire}
             />
+
+            {filtersOpen ? (
+              <div id="tires-filter-panel" className="space-y-4">
+                <MarginFilters
+                  brands={brands}
+                  useTags={useTags}
+                  lrs={lrs}
+                  brand={brand}
+                  useTagFilters={useTagFilters}
+                  lrFilters={lrFilters}
+                  onBrand={setBrand}
+                  onUseTagFilters={setUseTagFilters}
+                  onLrFilters={setLrFilters}
+                  minMargin={minMargin}
+                  onMinMargin={setMinMargin}
+                  needsReposting={needsReposting}
+                  onNeedsReposting={setNeedsReposting}
+                  hasActiveFilters={hasActiveFilters}
+                  onClearAll={clearFilters}
+                />
+
+                <FilterPresetsBar
+                  brand={brand}
+                  useTagFilters={useTagFilters}
+                  lrFilters={lrFilters}
+                  minMargin={minMargin}
+                  needsReposting={needsReposting}
+                  onApplyPreset={applyFilterPreset}
+                />
+              </div>
+            ) : null}
+
             <div className="sticky top-[92px] z-10 -mx-2 rounded-xl border border-zinc-800 bg-zinc-950/90 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/75 sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
@@ -815,40 +847,8 @@ export function TiresDashboard() {
                   </label>
                 </div>
               </div>
-            </div>
 
-            {filtersOpen ? (
-              <div id="tires-filter-panel" className="space-y-4">
-                <MarginFilters
-                  brands={brands}
-                  useTags={useTags}
-                  lrs={lrs}
-                  brand={brand}
-                  useTagFilters={useTagFilters}
-                  lrFilters={lrFilters}
-                  onBrand={setBrand}
-                  onUseTagFilters={setUseTagFilters}
-                  onLrFilters={setLrFilters}
-                  minMargin={minMargin}
-                  onMinMargin={setMinMargin}
-                  needsReposting={needsReposting}
-                  onNeedsReposting={setNeedsReposting}
-                  hasActiveFilters={hasActiveFilters}
-                  onClearAll={clearFilters}
-                />
-
-                <FilterPresetsBar
-                  brand={brand}
-                  useTagFilters={useTagFilters}
-                  lrFilters={lrFilters}
-                  minMargin={minMargin}
-                  needsReposting={needsReposting}
-                  onApplyPreset={applyFilterPreset}
-                />
-              </div>
-            ) : null}
-
-            <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-4">
+              <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm text-zinc-400">
@@ -1027,6 +1027,7 @@ export function TiresDashboard() {
                   </div>
                 </div>
               ) : null}
+              </div>
             </div>
 
             <MarginTable
