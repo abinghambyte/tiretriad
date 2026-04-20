@@ -177,7 +177,7 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
   }, [])
 
   useEffect(() => {
-    const t = window.setTimeout(() => void runSearch(q), 280)
+    const t = window.setTimeout(() => void runSearch(q), 120)
     return () => window.clearTimeout(t)
   }, [q, runSearch])
 
