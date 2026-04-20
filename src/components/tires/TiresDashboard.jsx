@@ -300,8 +300,9 @@ export function TiresDashboard() {
     if (useTagFilters.length > 0) n += 1
     if (lrFilters.length > 0) n += 1
     if (needsReposting) n += 1
+    if (query.trim()) n += 1
     return n
-  }, [minMargin, brand, useTagFilters, lrFilters, needsReposting])
+  }, [minMargin, brand, useTagFilters, lrFilters, needsReposting, query])
 
   const clearFilters = useCallback(() => {
     setMinMargin(0)
@@ -327,7 +328,7 @@ export function TiresDashboard() {
       margin: computeMargin(t),
       listingMargin: computeListingMargin(t),
       derivedUseTags: deriveTireTags(t),
-      opportunity: computeOpportunityScore(t, haggleDiscount),
+      opportunity: computeOpportunityScore(t, { haggleDiscount }),
     }))
   }, [tires, haggleDiscount])
 

@@ -1348,12 +1348,24 @@ export function PeopleDashboard({ omitPageChrome = false }) {
               </>
             ) : (
               <>
-                <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
-                  Invite preview
-                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
+                    Invite preview
+                  </h2>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
+                    {delivery === 'sms' ? 'SMS link' : delivery === 'nfc' ? 'NFC tag' : 'Email link'}
+                  </span>
+                </div>
                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
                   <span className="font-medium text-zinc-300">Entrance:</span> Dark screen, bolt
                   animation, Skedaddle reveal. Then a short generative greeting, then registration.
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                  {delivery === 'sms'
+                    ? 'The recipient gets a text with a direct link and can open it on their phone.'
+                    : delivery === 'nfc'
+                      ? 'The NFC writer opens after the crew record is created so the invite URL can be written onto a physical tag.'
+                      : 'The recipient gets an email with a direct link.'}
                 </p>
                 <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">

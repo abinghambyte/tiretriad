@@ -175,12 +175,10 @@ export function TopOpportunities({ tires, haggleDiscount, onJumpToTire }) {
                     <span className="mt-0.5 block truncate font-mono text-[11px] text-zinc-400 tabular-nums">
                       Buy {formatCurrency(op.buy)} to list{' '}
                       <span className="text-zinc-200">{formatCurrency(op.retail)}</span>
-                      {' '}({' '}
-                      <span className={netPositive ? 'text-emerald-300' : 'text-rose-300'}>
-                        {netPositive ? '+' : ''}
-                        {formatCurrency(op.netPerTire)} profit
-                      </span>
-                      {' '})
+                    </span>
+                    <span className={`mt-0.5 block truncate font-mono text-[11px] font-semibold tabular-nums ${netPositive ? 'text-emerald-300' : 'text-rose-300'}`}>
+                      {netPositive ? '+' : ''}
+                      {formatCurrency(op.netPerTire)} profit
                     </span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-0.5">
