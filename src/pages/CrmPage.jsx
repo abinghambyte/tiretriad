@@ -35,7 +35,9 @@ import {
 } from '../utils/crmPipeline'
 import { CRM_ACCOUNT_SEGMENTS, crmSegmentLabel } from '../utils/crmAccountPicklists.js'
 import { CrmAccountDetailPanel } from '../components/crm/CrmAccountDetailPanel.jsx'
+import { CrmLeadDetailDrawer } from '../components/crm/CrmLeadDetailDrawer.jsx'
 import { CrmAccountsPipelineTable } from '../components/crm/CrmAccountsPipelineTable.jsx'
+import { LeadSourceBadge } from '../components/crm/leadSourceBadge.jsx'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../components/ui/buttonStyles.js'
 import { InputPromptModal } from '../components/shared/InputPromptModal.jsx'
 import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
@@ -50,6 +52,13 @@ function formatTs(ts) {
   } catch {
     return '—'
   }
+}
+
+function leadInquiryCell(inquiry) {
+  const full = String(inquiry ?? '').trim()
+  if (!full) return { display: '\u2014', title: undefined }
+  if (full.length <= 80) return { display: full, title: full }
+  return { display: `${full.slice(0, 80)}\u2026`, title: full }
 }
 
 function nextActionSummary(a) {
@@ -288,6 +297,7 @@ export function CrmPage() {
   const [minScore, setMinScore] = useState('')
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
+  const [leadDetail, setLeadDetail] = useState(null)
   const [vehicles, setVehicles] = useState([])
   const [addAccountOpen, setAddAccountOpen] = useState(false)
   /** Pipeline stage used when the next Add-VIP submit fires. */
@@ -541,6 +551,7 @@ export function CrmPage() {
       convertedToAccountId: ref.id,
       updatedAt: serverTimestamp(),
     })
+    setLeadDetail((cur) => (cur?.id === lead.id ? null : cur))
   }
 
   async function addLead(e) {
@@ -1126,6 +1137,7 @@ export function CrmPage() {
                     <th className="px-3 py-2">Business</th>
                     <th className="px-3 py-2 max-sm:hidden">Source</th>
                     <th className="px-3 py-2 max-sm:hidden">Segment</th>
+                    <th className="px-3 py-2 max-sm:hidden">Inquiry</th>
                     <th className="px-3 py-2">Vehicles</th>
                     <th className="px-3 py-2">Urgency</th>
                     <th className="px-3 py-2">Follow-up</th>
@@ -1136,17 +1148,28 @@ export function CrmPage() {
                   {leads.length === 0 ? (
                     <EmptyState
                       variant="row"
-                      colSpan={7}
+                      colSpan={8}
                       icon={EmptyStateIcons.clipboard}
                       title="No leads yet"
                       description="Raw leads from phone, SMS, and site inquiries show up here. Promote the strong ones to VIP clients to start tracking activity."
                     />
                   ) : null}
-                  {leads.map((r) => (
-                    <tr key={r.id} className="border-b border-zinc-800/80">
+                  {leads.map((r) => {
+                    const inquiryCell = leadInquiryCell(r.inquiry)
+                    return (
+                    <tr
+                      key={r.id}
+                      className="cursor-pointer border-b border-zinc-800/80 hover:bg-zinc-900/40"
+                      onClick={() => setLeadDetail(r)}
+                    >
                       <td className="px-3 py-2">{r.businessName}</td>
-                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{r.source || '—'}</td>
+                      <td className="px-3 py-2 max-sm:hidden">
+                        <LeadSourceBadge source={r.source} />
+                      </td>
                       <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{crmSegmentLabel(r.segment)}</td>
+                      <td className="max-w-[12rem] truncate px-3 py-2 text-zinc-300 max-sm:hidden" title={inquiryCell.title}>
+                        {inquiryCell.display}
+                      </td>
                       <td className="px-3 py-2">{r.fleetSize ?? '—'}</td>
                       <td className="px-3 py-2">
                         <span
@@ -1169,7 +1192,10 @@ export function CrmPage() {
                           <button
                             type="button"
                             className="text-xs text-violet-300 hover:underline"
-                            onClick={() => void convertLead(r)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void convertLead(r)
+                            }}
                           >
                             <span className="hidden sm:inline">Convert to VIP client</span>
                             <span className="sm:hidden">Convert</span>
@@ -1177,7 +1203,8 @@ export function CrmPage() {
                         ) : null}
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1207,6 +1234,16 @@ export function CrmPage() {
           avgBuyPerTire={avgBuyPerTire}
           onClose={() => setDetail(null)}
           onRefresh={(a) => setDetail(a)}
+        />
+      ) : null}
+
+      {leadDetail ? (
+        <CrmLeadDetailDrawer
+          key={leadDetail.id}
+          lead={leadDetail}
+          canEdit={canEdit}
+          onClose={() => setLeadDetail(null)}
+          onConvertToVip={(l) => void convertLead(l)}
         />
       ) : null}
 
