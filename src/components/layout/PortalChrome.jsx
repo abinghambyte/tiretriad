@@ -232,12 +232,7 @@ export function PortalChrome() {
         />
         <DesktopTopNav />
       </div>
-      <CommandPalette
-        open={paletteOpen}
-        onClose={closePalette}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <CommandPalette open={paletteOpen} onClose={closePalette} />
       <div
         className={
           hideMobileBottomNav ? '' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0'

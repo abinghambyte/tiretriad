@@ -7,9 +7,6 @@ function makeCtx(overrides = {}) {
     search: '',
     profile: { role: 'admin' },
     permissionFor: () => 'manage',
-    theme: 'dark',
-    onToggleTheme: vi.fn(),
-    onSignOut: vi.fn(),
     navigate: vi.fn(),
     closePalette: vi.fn(),
     ...overrides,
@@ -17,15 +14,17 @@ function makeCtx(overrides = {}) {
 }
 
 describe('buildPaletteActions', () => {
-  it('includes every nav entry plus the generic actions for an admin', () => {
+  it('includes every nav entry that matches the admin permission set', () => {
     const actions = buildPaletteActions(makeCtx())
     // The nav includes Dashboard but that's the current path so it should be suppressed.
     expect(actions.find((a) => a.id === 'nav-dashboard')).toBeUndefined()
     expect(actions.find((a) => a.id === 'nav-tires')).toBeDefined()
     expect(actions.find((a) => a.id === 'nav-admin')).toBeDefined()
     expect(actions.find((a) => a.id === 'nav-ops')).toBeDefined()
-    expect(actions.find((a) => a.id === 'action-toggle-theme')).toBeDefined()
-    expect(actions.find((a) => a.id === 'action-sign-out')).toBeDefined()
+    // Theme toggle and Sign out intentionally live only in the header now;
+    // palette must NOT list them.
+    expect(actions.find((a) => a.id === 'action-toggle-theme')).toBeUndefined()
+    expect(actions.find((a) => a.id === 'action-sign-out')).toBeUndefined()
   })
 
   it('hides admin-only nav from non-admin roles', () => {
@@ -48,8 +47,6 @@ describe('buildPaletteActions', () => {
     expect(actions.find((a) => a.id === 'nav-tires')).toBeUndefined()
     expect(actions.find((a) => a.id === 'nav-analytics')).toBeUndefined()
     expect(actions.find((a) => a.id === 'nav-people')).toBeUndefined()
-    // Generic actions always appear.
-    expect(actions.find((a) => a.id === 'action-sign-out')).toBeDefined()
   })
 
   it('suppresses the current-route nav entry when pathname + tab both match', () => {
@@ -103,25 +100,13 @@ describe('buildPaletteActions', () => {
     expect(closePalette).toHaveBeenCalledBefore(navigate)
   })
 
-  it('toggle theme action calls the toggle callback and closes', () => {
-    const onToggleTheme = vi.fn()
-    const closePalette = vi.fn()
-    const actions = buildPaletteActions(makeCtx({ onToggleTheme, closePalette }))
-    const toggle = actions.find((a) => a.id === 'action-toggle-theme')
-    expect(toggle.label).toMatch(/light/i) // dark mode shows "Switch to light mode"
-    toggle.run()
-    expect(onToggleTheme).toHaveBeenCalled()
-    expect(closePalette).toHaveBeenCalled()
-  })
-
-  it('sign-out action closes before calling onSignOut (so the unmount race stays stable)', () => {
-    const order = []
-    const closePalette = vi.fn(() => order.push('close'))
-    const onSignOut = vi.fn(() => order.push('signOut'))
-    const actions = buildPaletteActions(makeCtx({ closePalette, onSignOut }))
-    const signOut = actions.find((a) => a.id === 'action-sign-out')
-    signOut.run()
-    expect(order).toEqual(['close', 'signOut'])
+  it('does not surface theme or sign-out actions (they live only in the header)', () => {
+    const actions = buildPaletteActions(makeCtx())
+    expect(actions.find((a) => a.id === 'action-toggle-theme')).toBeUndefined()
+    expect(actions.find((a) => a.id === 'action-sign-out')).toBeUndefined()
+    // The palette also should not carry a bare `Actions` section after the
+    // removal since nothing else lives there today.
+    expect(actions.some((a) => a.section === 'Actions')).toBe(false)
   })
 })
 
@@ -167,14 +152,12 @@ describe('buildPaletteActions — tire selection entries', () => {
     expect(quote.label).toMatch(/quote/i)
   })
 
-  it('selection actions appear before nav and generic actions so the mid-workflow hit is first', () => {
+  it('selection actions appear before nav so the mid-workflow hit is first', () => {
     const actions = buildPaletteActions(makeCtx({ tireSelection: sel() }))
     const firstSelection = actions.findIndex((a) => a.section === 'Selection')
     const firstNav = actions.findIndex((a) => a.section === 'Navigation')
-    const firstGeneric = actions.findIndex((a) => a.section === 'Actions')
     expect(firstSelection).toBe(0)
     expect(firstSelection).toBeLessThan(firstNav)
-    expect(firstNav).toBeLessThan(firstGeneric)
   })
 
   it('selection-entry labels include the tire count with correct pluralization', () => {
@@ -235,9 +218,9 @@ describe('filterPaletteActions', () => {
   })
 
   it('matches by keyword', () => {
-    // 'logout' is a keyword on the sign-out action.
-    const hits = filterPaletteActions(actions, 'logout')
-    expect(hits.find((a) => a.id === 'action-sign-out')).toBeDefined()
+    // 'pipeline' is a keyword on the CRM nav entry.
+    const hits = filterPaletteActions(actions, 'pipeline')
+    expect(hits.find((a) => a.id === 'nav-crm')).toBeDefined()
   })
 
   it('matches by hint (the right-side supporting text)', () => {

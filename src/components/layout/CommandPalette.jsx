@@ -1,8 +1,7 @@
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
-import { auth, db } from '../../firebase/config'
+import { db } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import {
   getTireSelectionSnapshot,
@@ -12,8 +11,10 @@ import { buildPaletteActions, filterPaletteActions } from './paletteActions.js'
 
 /**
  * Universal command palette. Cmd+K / Ctrl+K opens it. Lists:
- *   - Actions (navigation, toggle theme, sign out) — filterable by label,
- *     keyword, or hint. Permission-gated at registry build time.
+ *   - Navigation + selection actions, filterable by label / keyword / hint.
+ *     Permission-gated at registry build time. Theme toggle and sign out
+ *     intentionally live only in the header since they are always visible
+ *     there and duplicating them here just inflated the list.
  *   - Tire / order / contact / CRM search hits (only shown when the query
  *     has 2+ characters so the palette opens clean instead of firing four
  *     unbounded collection reads immediately).
@@ -26,10 +27,8 @@ import { buildPaletteActions, filterPaletteActions } from './paletteActions.js'
  * @param {object} props
  * @param {boolean} props.open
  * @param {() => void} props.onClose
- * @param {'dark' | 'light'} props.theme
- * @param {() => void} props.onToggleTheme
  */
-export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
+export function CommandPalette({ open, onClose }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { profile, permissionFor } = useUserProfile()
@@ -61,16 +60,6 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
         search: location.search,
         profile,
         permissionFor,
-        theme,
-        onToggleTheme,
-        onSignOut: async () => {
-          try {
-            await signOut(auth)
-            navigate('/', { replace: true })
-          } catch (e) {
-            console.error('sign out failed', e)
-          }
-        },
         navigate,
         closePalette: onClose,
         tireSelection,
@@ -80,8 +69,6 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
       location.search,
       profile,
       permissionFor,
-      theme,
-      onToggleTheme,
       navigate,
       onClose,
       tireSelection,

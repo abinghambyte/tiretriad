@@ -41,9 +41,6 @@ function norm(s) {
  *   rather than reading stale values from `window.location`.
  * @param {Record<string, unknown> | null | undefined} ctx.profile
  * @param {(module: string) => string} ctx.permissionFor
- * @param {'dark' | 'light'} ctx.theme
- * @param {(next?: 'dark' | 'light') => void} ctx.onToggleTheme
- * @param {() => Promise<void> | void} ctx.onSignOut
  * @param {(path: string) => void} ctx.navigate
  * @param {() => void} ctx.closePalette
  * @param {object} [ctx.tireSelection] - published by TiresDashboard via the
@@ -59,9 +56,6 @@ export function buildPaletteActions(ctx) {
     search = '',
     profile,
     permissionFor,
-    theme,
-    onToggleTheme,
-    onSignOut,
     navigate,
     closePalette,
     tireSelection,
@@ -97,32 +91,6 @@ export function buildPaletteActions(ctx) {
     { id: 'nav-ops', label: 'Go to Ops Command', hint: '/ops', keywords: ['expenses', 'credit', 'reorder'], path: '/ops', show: isAdmin },
     { id: 'nav-admin', label: 'Go to Admin', hint: '/admin', keywords: ['settings'], path: '/admin', show: isAdmin },
     { id: 'nav-growth', label: 'Go to Growth Lab', hint: '/growth', keywords: ['experiments', 'tools'], path: '/growth', show: isAdmin },
-  ]
-
-  /** Running actions don't get path-suppression; they can fire on any page. */
-  const generic = [
-    {
-      id: 'action-toggle-theme',
-      section: 'Actions',
-      label: theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
-      hint: 'Theme',
-      keywords: ['dark', 'light', 'theme', 'mode'],
-      run: () => {
-        onToggleTheme()
-        closePalette()
-      },
-    },
-    {
-      id: 'action-sign-out',
-      section: 'Actions',
-      label: 'Sign out',
-      hint: 'End session',
-      keywords: ['logout', 'log out', 'signout', 'quit'],
-      run: () => {
-        closePalette()
-        void onSignOut()
-      },
-    },
   ]
 
   // Drop nav entries whose target matches the current pathname (with the
@@ -163,8 +131,10 @@ export function buildPaletteActions(ctx) {
   const selectionEntries = buildTireSelectionEntries(tireSelection, closePalette)
 
   // Selection actions come first so a user mid-workflow reaches them
-  // without scrolling past every nav entry. Nav next, then generic.
-  return [...selectionEntries, ...navEntries, ...generic]
+  // without scrolling past every nav entry. Nav second. Theme toggle and
+  // Sign out intentionally omitted: both are permanent header controls and
+  // duplicating them here just inflates the list.
+  return [...selectionEntries, ...navEntries]
 }
 
 /**

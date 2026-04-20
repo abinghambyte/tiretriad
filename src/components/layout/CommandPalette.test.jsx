@@ -63,7 +63,7 @@ describe('CommandPalette search debounce', () => {
   it('fires exactly one search batch (four getDocs) after three keystrokes within 120ms', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
-        <CommandPalette open theme="dark" onClose={() => {}} onToggleTheme={() => {}} />
+        <CommandPalette open onClose={() => {}} />
       </MemoryRouter>,
     )
 
