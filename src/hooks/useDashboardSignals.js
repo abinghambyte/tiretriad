@@ -9,14 +9,17 @@ import {
   query,
   where,
 } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 import { useEffect, useMemo, useState } from 'react'
-import { db } from '../firebase/config'
+import { db, functions } from '../firebase/config'
 import { useTires } from './useTires'
 import { computeMargin, computeListingMargin } from '../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
 import { listingStatus } from '../utils/listingStatus'
 
 const CATALOG_SKU_DISPLAY = 1160
+
+const getDashboardStatsCallable = httpsCallable(functions, 'getDashboardStats')
 
 /**
  * Firestore-backed dashboard: module card copy, briefing counts, recent orders, crew preview.
@@ -204,20 +207,12 @@ export function useDashboardSignals() {
     let cancelled = false
     ;(async () => {
       try {
-        const q = query(
-          collection(db, 'orders'),
-          where('status', '==', 'completed'),
-          limit(5000),
-        )
-        const snap = await getDocs(q)
+        const res = await getDashboardStatsCallable({ windowDays: 90 })
         if (cancelled) return
-        let revenue = 0
-        snap.forEach((d) => {
-          revenue += Number(d.data()?.paymentAmount) || 0
-        })
+        const payload = res.data || {}
         setCompletedOrders({
-          count: snap.size,
-          revenue,
+          count: Number(payload.orderCount) || 0,
+          revenue: Number(payload.totalRevenue) || 0,
           loading: false,
         })
       } catch (e) {

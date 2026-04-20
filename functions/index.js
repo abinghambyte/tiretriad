@@ -1067,3 +1067,5 @@ exports.slackActions = onRequest(
   }
   }
 )
+
+exports.getDashboardStats = require('./dashboardStats').getDashboardStats
