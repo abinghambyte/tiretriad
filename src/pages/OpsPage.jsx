@@ -443,7 +443,7 @@ export function OpsPage() {
                     colSpan={6}
                     icon={EmptyStateIcons.tag}
                     title="Queue is empty"
-                    description="Kyle adds tires to reorder via Slack `/reorder`. Anything pending here shows up until marked fulfilled."
+                    description="The Sourcer adds tires to reorder via Slack `/reorder`. Anything pending here shows up until marked fulfilled."
                   />
                 ) : (
                   reorderEntries.map((row) => (
