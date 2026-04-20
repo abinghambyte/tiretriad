@@ -754,6 +754,42 @@ export function TiresDashboard() {
               </div>
             ) : null}
 
+            {catalogRisk === 'missingOverhead' || catalogRisk === 'lowMargin' ? (
+              <div className="-mx-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-sm">
+                <span className="text-amber-100/95">
+                  <span className="text-zinc-400">Filtered from Dashboard: </span>
+                  <span className="font-medium">
+                    {catalogRisk === 'missingOverhead' ? 'tires missing overhead' : 'tires below 15% margin'}
+                  </span>
+                </span>
+                <div className="flex items-center gap-2">
+                  {catalogRisk === 'missingOverhead' && sortedRows.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectAllVisible(sortedRows)
+                        setBulkCtsOpen(true)
+                      }}
+                      className="rounded-md border border-amber-600/60 bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-100 transition-colors duration-200 hover:border-amber-500 hover:bg-amber-500/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+                    >
+                      Set overhead for all {sortedRows.length}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams)
+                      next.delete('risk')
+                      setSearchParams(next, { replace: true })
+                    }}
+                    className="rounded-md border border-amber-800/60 px-2 py-1 text-xs font-medium text-amber-200 transition-colors duration-200 hover:border-amber-700 hover:bg-amber-950/40 hover:text-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+                  >
+                    Clear filter
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="sticky top-[92px] z-10 -mx-2 rounded-xl border border-zinc-800 bg-zinc-950/90 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/75 sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
