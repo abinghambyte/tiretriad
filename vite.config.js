@@ -38,6 +38,10 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.{js,jsx}', 'tests/**/*.test.{js,jsx}'],
+    include: [
+      'src/**/*.test.{js,jsx}',
+      'tests/**/*.test.{js,jsx}',
+      'functions/**/*.test.mjs',
+    ],
   },
 })
