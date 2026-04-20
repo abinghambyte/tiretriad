@@ -10,5 +10,6 @@ Object.assign(exports, require('./orders'))
 Object.assign(exports, require('./people'))
 Object.assign(exports, require('./crm'))
 Object.assign(exports, require('./slack'))
+Object.assign(exports, require('./payoutConfig'))
 
 exports.getDashboardStats = require('./dashboardStats').getDashboardStats

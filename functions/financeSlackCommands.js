@@ -5,12 +5,11 @@
 const { SLACK_SECRETS } = require('./slackSecrets')
 const { Timestamp } = require('firebase-admin/firestore')
 const { formatCurrency, formatPercent } = require('./format')
+const { loadPayoutConfig } = require('./payoutConfig')
 const {
   REVENUE_REF,
   CREW_REF,
-  CREW_KEYS,
-  CREW_SPLIT,
-  computePoolDollars,
+  completedOrderMarginPool,
   denverYear,
   round2,
   defaultCrewDoc,
@@ -18,6 +17,9 @@ const {
   crewEarningsMetaDisplayName,
 } = require('./financeStats')
 const { slackViewsOpen, viewInputValue, viewStaticSelectValue, viewSubmissionErrorsBody } = require('./slackModalShared')
+
+/** Payout modal: active crew plus legacy member rows still payable from balances. */
+const PAYOUT_MODAL_MEMBER_KEYS = ['alex', 'dj', 'kyle', 'tanner']
 
 /** @see slackSlashModalSubmissions.js */
 const MODAL_PAYOUT_SUBMIT = 'payout_modal_submit'
@@ -118,6 +120,7 @@ async function handleSlashSpoils(db, token, channel, text) {
     }
   }
   const window = parseWindow(first)
+  const payoutCfg = await loadPayoutConfig(db)
   const rows = await fetchCompletedOrdersInWindow(db, window)
   const tires = await tireMapForOrders(db, rows)
   let poolSum = 0
@@ -130,12 +133,13 @@ async function handleSlashSpoils(db, token, channel, text) {
     }
     const mspn = String(data.mspn || '').trim()
     const tire = tires.get(mspn) || {}
-    poolSum += computePoolDollars(pay, data, tire)
+    poolSum += completedOrderMarginPool(pay, data, tire)
   }
   poolSum = round2(poolSum)
-  const lines = CREW_KEYS.map(
+  const splitKeys = Object.keys(payoutCfg.splits).sort()
+  const lines = splitKeys.map(
     (k) =>
-      `*${escapeSlackMrkdwn(crewSlackSplitDisplayName(k))}* (${(CREW_SPLIT[k] * 100).toFixed(0)}%): ${formatCurrency(round2(poolSum * (CREW_SPLIT[k] || 0)))}`,
+      `*${escapeSlackMrkdwn(crewSlackSplitDisplayName(k))}* (${(Number(payoutCfg.splits[k]) * 100).toFixed(0)}%): ${formatCurrency(round2(poolSum * (Number(payoutCfg.splits[k]) || 0)))}`,
   )
   const blocks = [
     {
@@ -144,7 +148,7 @@ async function handleSlashSpoils(db, token, channel, text) {
         type: 'mrkdwn',
         text: [
           `*💵 Spoils (${window})*`,
-          `_Completed orders in window · pool = payment − (buy + CTS) × qty_`,
+          `_Completed orders in window · pool = payment − (buy + CTS) × qty − buy-side taxes when recorded on the order_`,
           `*Pool total:* ${formatCurrency(poolSum)}`,
           skipped ? `_Skipped ${skipped} order(s) (no paymentAmount)._` : '',
           '',
@@ -171,10 +175,12 @@ async function handleSlashOwed(db, token, channel) {
   const snap = await CREW_REF(db).get()
   const data = snap.exists ? snap.data() || {} : defaultCrewDoc()
   const members = data.members || {}
-  const lines = CREW_KEYS.map((k) => {
-    const m = members[k] || {}
-    return `*${k}* — earned ${formatCurrency(Number(m.totalEarned) || 0)} · paid ${formatCurrency(Number(m.totalPaid) || 0)} · balance ${formatCurrency(Number(m.balance) || 0)}`
-  })
+  const lines = Object.keys(members)
+    .sort()
+    .map((k) => {
+      const m = members[k] || {}
+      return `*${escapeSlackMrkdwn(crewEarningsMetaDisplayName(k))}* — earned ${formatCurrency(Number(m.totalEarned) || 0)} · paid ${formatCurrency(Number(m.totalPaid) || 0)} · balance ${formatCurrency(Number(m.balance) || 0)}`
+    })
   const blocks = [
     {
       type: 'section',
@@ -208,7 +214,7 @@ function buildPayoutModalView() {
           type: 'static_select',
           action_id: 'payout_modal_crew_field',
           placeholder: { type: 'plain_text', text: 'Select' },
-          options: CREW_KEYS.map((k) => ({
+          options: PAYOUT_MODAL_MEMBER_KEYS.map((k) => ({
             text: { type: 'plain_text', text: crewEarningsMetaDisplayName(k) },
             value: k,
           })),
@@ -233,7 +239,7 @@ function buildPayoutModalView() {
  * @param {string} name — alex | dj | tanner | kyle
  */
 async function executePayoutFromModal(db, token, channel, name, amt, userName) {
-  if (!CREW_KEYS.includes(name) || !Number.isFinite(amt) || amt <= 0) {
+  if (!PAYOUT_MODAL_MEMBER_KEYS.includes(name) || !Number.isFinite(amt) || amt <= 0) {
     return { response_type: 'ephemeral', text: 'Invalid crew name or amount.' }
   }
 
@@ -410,7 +416,7 @@ async function tryHandleFinanceViewSubmission(db, token, envChannel, payload) {
     const ch = String(envChannel || '').trim()
     const userName = String(payload.user?.username || payload.user?.name || payload.user?.id || 'slack')
     const errors = {}
-    if (!CREW_KEYS.includes(name)) errors.payout_modal_crew = 'Select a crew member.'
+    if (!PAYOUT_MODAL_MEMBER_KEYS.includes(name)) errors.payout_modal_crew = 'Select a crew member.'
     if (!Number.isFinite(amt) || amt <= 0) errors.payout_modal_amount = 'Enter a valid positive amount.'
     if (Object.keys(errors).length) {
       return { handled: true, kind: 'json', body: { response_action: 'errors', errors } }
