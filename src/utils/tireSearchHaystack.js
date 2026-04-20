@@ -126,6 +126,12 @@ export function normalizeQuery(s) {
  */
 export function stripVerbosePhrases(raw) {
   let s = String(raw ?? '')
+  // Slash-attached sidewall codes (e.g. "265/70R17/BSW") — same vocabulary as
+  // standalone words but many retailer pastes glue them to the rim token.
+  s = s.replace(
+    /\/(?:(?:bsw|ww|rbl|owl|rowl|rwl|wwl|sbl|blk|bw))(?=[\s/]|$)/gi,
+    '',
+  )
   // Drop a lone leading 'P' on passenger metric. Anchored before 3-digit width
   // + aspect + construction letter so "P295/75R22" strips but arbitrary "P" in
   // tread names (e.g., "PRO-STREET") survives.
@@ -138,16 +144,46 @@ export function stripVerbosePhrases(raw) {
   s = s.replace(/\b\d+\s*[-\s]*ply(?:\s+rated)?\b/gi, '')
   // Standalone sidewall codes: BSW, OWL, ROWL, RBL, WOWL, WWL, SBL, BLK, BW, WW
   s = s.replace(/\b(?:bsw|owl|rowl|rbl|wowl|wwl|sbl|blk|bw|ww|rwl)\b/gi, '')
+  // Normalize LT + load-range letter ordering so pastes align with catalog LR-* haystack tokens.
+  // 225/75R16 LT E → LT225/75R16 LR-E
+  s = s.replace(/\b(\d{3}\/\d{2}R\d{2}(?:\.\d)?)\s+LT\s+([A-F])\b/gi, 'LT$1 LR-$2')
+  // LT225/75R16 E (single LR letter after size; not "110S" style load+speed)
+  s = s.replace(/\bLT\s*(\d{3}\/\d{2}R\d{2}(?:\.\d)?)\s+([A-F])(?!\d)\b/gi, 'LT$1 LR-$2')
+  // LT225/75R16E → LT225/75R16 LR-E (must run before the bare-metric glued pattern below)
+  s = s.replace(
+    /\bLT(\d{3}\/\d{2}R\d{2}(?:\.\d)?)([A-F])(?=\s|$|[^\w./])(?!\d)/gi,
+    'LT$1 LR-$2',
+  )
+  // 225/75R16E → 225/75R16 LR-E (load range glued to rim; A–F only; no leading LT)
+  s = s.replace(
+    /(\d{3}\/\d{2}R\d{2}(?:\.\d)?)([A-F])(?=\s|$|[^\w./])(?!\d)/gi,
+    '$1 LR-$2',
+  )
   // Collapse multi-spaces introduced by removals
   return s.replace(/\s+/g, ' ').trim()
 }
 
 function normalizeTokens(rawQuery) {
-  return stripVerbosePhrases(rawQuery)
+  const stripped = stripVerbosePhrases(rawQuery)
+  const pieces = stripped
     .toLowerCase()
     .split(/[\s/]+/)
     .map((t) => t.replace(/[^a-z0-9]+/g, ''))
     .filter((t) => t.length >= 2)
+
+  /** Isolated speed letter Q–Y after a 2–3 digit load index (regex-only; no dictionary). */
+  const speedLetters = new Set()
+  const spacedSpeed = /\b(\d{2,3})\s+([Q-Y])\b/gi
+  let sm
+  while ((sm = spacedSpeed.exec(stripped)) != null) {
+    speedLetters.add(sm[2].toLowerCase())
+  }
+
+  const out = [...pieces]
+  for (const letter of speedLetters) {
+    if (!out.includes(letter)) out.push(letter)
+  }
+  return out
 }
 
 /**

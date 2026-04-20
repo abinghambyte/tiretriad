@@ -5,6 +5,7 @@ import {
   normalizeQuery,
   stripVerbosePhrases,
 } from './tireSearchHaystack'
+import { PASTE_MATCH_FIXTURES } from './tireSearchHaystack.fixtures.js'
 
 describe('normalizeQuery', () => {
   it('strips every non-alphanumeric character and lowercases', () => {
@@ -43,6 +44,24 @@ describe('buildTireHaystack', () => {
   it('handles missing / non-object input without throwing', () => {
     expect(buildTireHaystack(null)).toBe('')
     expect(buildTireHaystack(undefined)).toBe('')
+  })
+
+  it('returns the same haystack string for the same object reference (WeakMap cache)', () => {
+    const tire = {
+      description: '265/70R17 115T',
+      brand: 'Michelin',
+      mspn: 'M1',
+      lr: 'E',
+    }
+    const a = buildTireHaystack(tire)
+    const b = buildTireHaystack(tire)
+    expect(a).toBe(b)
+  })
+
+  it('does not cross-cache different object identities with different fields', () => {
+    const a = { description: '265/70R17 115T', brand: 'Michelin', mspn: 'A', lr: 'E' }
+    const b = { description: '265/70R17 115T', brand: 'Michelin', mspn: 'B', lr: 'C' }
+    expect(buildTireHaystack(a)).not.toBe(buildTireHaystack(b))
   })
 })
 
@@ -239,5 +258,22 @@ describe('stripVerbosePhrases', () => {
     expect(stripVerbosePhrases(undefined)).toBe('')
     expect(stripVerbosePhrases(null)).toBe('')
     expect(stripVerbosePhrases('')).toBe('')
+  })
+
+  it('strips slash-attached sidewall codes', () => {
+    expect(stripVerbosePhrases('265/70R17/BSW')).toBe('265/70R17')
+    expect(stripVerbosePhrases('LT235/80R17/RWL extra')).toBe('LT235/80R17 extra')
+  })
+
+  it('normalizes load-range letter after metric size', () => {
+    expect(stripVerbosePhrases('225/75R16E')).toBe('225/75R16 LR-E')
+    expect(stripVerbosePhrases('225/75R16 LT E')).toBe('LT225/75R16 LR-E')
+    expect(stripVerbosePhrases('LT225/75R16 E')).toBe('LT225/75R16 LR-E')
+  })
+})
+
+describe.each(PASTE_MATCH_FIXTURES)('paste format: $name', ({ tire, pastes }) => {
+  it.each(pastes)('matches paste %s', (paste) => {
+    expect(matchesQuery(tire, paste)).toBe(true)
   })
 })
