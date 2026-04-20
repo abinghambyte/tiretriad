@@ -7,12 +7,15 @@ context to pick up cold. Move to a PR + delete the entry when shipped.
 
 These gate multiple items below. None are on deck yet.
 
-### Customer-facing auth
-The portal today is crew-only. `skedaddleinc.com` redirects here; there is no
-separate marketing site. A customer-facing, lightweight auth path is needed
-before VIP concierge, order-self-serve, or any authenticated customer surface
-can ship. Likely shape: signed short-lived links (`/vip/:token`) generated
-from CRM accounts, no password flow.
+### Customer-facing auth (v1 shipped)
+Signed short-lived `/vip/:token` links shipped in PR #73 (`vip-magic-link-v1`).
+`functions/vipLinks.js` signs and verifies HMAC-SHA256 tokens (72h TTL,
+admin-only generator callable, public verifier callable). Admin dispatches
+the URL out-of-band; the customer visits `/vip/:token` and the portal renders
+a VIP-branded Sinch shell. Still deferred: email/SMS delivery, signed-identity
+Sinch binding (so the conversation persists against a stable uuid across
+sessions), token revocation, and rate limiting on generation. Order
+self-serve still needs its own surface on top of this pattern.
 
 ### Public lead-capture page
 `<SinchChatMount />` exists but is not wired into any page. Candidates
@@ -84,21 +87,21 @@ Concrete next steps:
 4. Track eBay listing status in a new `priceIntel.ebay` field or a
    `tireListings` subcollection.
 
-### VIP concierge surface
-Gate the Sinch Chat widget behind a CRM account flag
-(`account.vipTier === 'platinum'`). VIP accounts see a premium-branded
-chat bubble with different copy and priority routing. Needs
-customer-facing auth (see Foundational blockers) before it can land.
-
-Design skeleton:
-- Add `vipTier` field to `crmAccounts` (enum: `none` | `standard` |
-  `platinum`).
-- New route `/vip/:token` where token is signed from the account id.
-- Signed-identity Sinch Chat (use `SINCH_CHAT_CLIENT_SECRET` which is
-  already in Secret Manager) so the conversation binds to the customer's
-  stable uuid across sessions.
-- Different `brandText` (`VIP concierge`), different initial-screen copy,
-  possibly a different queue in Sinch so VIP messages jump the line.
+### VIP concierge surface (v1 shipped)
+Shipped in PR #73 (`vip-magic-link-v1`). Admin clicks "Generate VIP link" on
+the CRM account detail panel, picks a tier, copies the signed URL, and sends
+it out-of-band. Customer lands on `/vip/:token` (public route) and sees a
+VIP-branded Sinch shell with the account context attached as metadata. Still
+deferred:
+- Email/SMS delivery pipeline (v1 is admin copy-paste only).
+- Signed-identity Sinch binding via `SINCH_CHAT_CLIENT_SECRET` so
+  conversations persist against a stable uuid across sessions. v1 stays
+  anonymous underneath the branded shell.
+- Priority routing / dedicated VIP queue on the Sinch side.
+- Token revocation (leaked URLs are reusable until the 72h TTL elapses).
+- Rate limiting on `generateVipLink` beyond the admin-role gate.
+- `vipTier` field on `crmAccounts` (v1 accepts `standard`/`platinum` on the
+  token payload but does not persist a tier on the account doc).
 
 ### Sinch Chat: surface new lead fields in Leads UI (resolved)
 Shipped in PR #69 (`sinch-lead-drawer`). Leads table gained a source pill,
@@ -107,13 +110,12 @@ inquiry, page URL, referrer, and `sinchConversationId`. The "open Sinch
 inbox" deep link was deliberately skipped because Sinch does not expose a
 stable conversation URL pattern; revisit if Sinch publishes one.
 
-### Description-search format mismatch
-Searching the Tires catalog for values like `X2L` or a full pasted
-description does not always match. The haystack normalizer handles some
-size formats (inch vs. metric) but not all. Queued fix: expand
-`src/utils/tireSearchHaystack.js` to normalize load-range suffixes
-(`LT225/75R16` vs `225/75R16 LT`), speed-rating letters, and the
-`/BSW`-style trailing codes.
+### Description-search format mismatch (resolved)
+Shipped in PR #71 (`tire-haystack-v2`). `src/utils/tireSearchHaystack.js`
+now strips slash-attached sidewall codes (`/BSW`, `/OWL`, etc.), normalizes
+load-range suffixes (collapses `225/75R16 E` into `LR-E` form), and
+preserves speed-rating letters through `normalizeTokens`. Regression
+fixtures live in `src/utils/tireSearchHaystack.fixtures.js`.
 
 ## Queued operational tasks (your action, not code)
 
@@ -157,35 +159,23 @@ conversion becomes a measured problem.
 
 ## Unfinished / ambiguous pieces surfaced during audit
 
-### `/dispatch` placeholder vs. external Workforce app
-`/dispatch` currently renders a stub (`DispatchRedirect`) that reads
-"Task Dispatcher is being extracted to a standalone application. This
-route will reconnect when the external deployment is live." The external
-app URL in `src/constants/externalUrls.ts` points at
-`workforce-abinghambyte.vercel.app`. Decide one of:
-- Finish the handoff: make `/dispatch` redirect to `WORKFORCE_URL`.
-- Kill the route: remove `/dispatch` + the stub component + the
-  constant if the external app is abandoned.
-- Rebuild in-portal: the old `src/pages/TaskDispatcher.jsx` was deleted
-  as dead code; a fresh in-portal version would need design.
+### `/dispatch` placeholder vs. external Workforce app (resolved)
+Killed in PR #70 (`dispatch-kill`). The `/dispatch` route and
+`DispatchRedirect.jsx` stub are gone; a permanent "coming back soon" sign
+reads worse than an honest 404. `WORKFORCE_URL` stays in
+`src/constants/externalUrls.ts` because Growth Lab still links to the
+external app. The `/crm/dispatch` redirect (CRM Field Dispatch tab) is
+unrelated and unchanged.
 
-Today it is a permanent "coming back soon" sign, which is worse than
-either decision.
-
-### "DJ streak" and "DJ dispatch" copy decision
-Prior commit `7834966` renamed first names to role nouns in system copy
-("Kyle to Sourcer, DJ to Field crew"). Two visible references still use
-"DJ":
-- `src/pages/AnalyticsPage.jsx` - "DJ streak (assigned orders)" metric
-  card.
-- `src/pages/CrmPage.jsx` - "DJ Dispatch" CRM tab name and the
-  "DJ dispatch is for Field crew and Overwatch" gate message on the
-  mobile view.
-
-Pick one:
-- Keep as product names with personality (DJ is a named streak, DJ
-  Dispatch is a branded tab). Document the exception.
-- Rename to role-neutral: "Field streak" / "Field Dispatch".
+### "DJ streak" and "DJ dispatch" copy decision (resolved)
+Role-neutral rename landed inline before batch 3. JS symbols in
+`src/pages/AnalyticsPage.jsx` went from `djStats` / `djStreakUi` /
+`djAssignedStreakDays` to `fieldStats` / `fieldStreakUi` /
+`fieldAssignedStreakDays`; the `meta/djStats` Firestore doc name was
+deliberately kept to avoid a schema migration (orderLifecycle,
+phase5Scheduled, orderWorkflow tests all read it). The CRM "DJ Dispatch"
+tab comment was rewritten to "Field dispatch tab". Any remaining
+user-visible "DJ" strings are intentional product copy.
 
 ### Listing advisor vs. invite greeting model drift (resolved)
 Functions had drifted: invite greeting on `claude-sonnet-4-6` (current),
