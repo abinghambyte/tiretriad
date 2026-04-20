@@ -4,18 +4,6 @@ Active Cursor agent handoff briefs. Each brief is a self-contained patch
 spec that a Cursor agent can pick up cold, implement, validate, and open
 a PR from - then stop.
 
-## Active rollout: April 20, batch 2
-
-Three small patches, all orthogonal. Paste one brief per agent.
-
-| Patch | Branch | Owns |
-| --- | --- | --- |
-| H | `sinch-lead-drawer` | `src/pages/CrmPage.jsx` (Leads table rows/columns only), NEW `src/components/crm/CrmLeadDetailDrawer.jsx` / `.test.jsx`, NEW `src/components/crm/leadSourceBadge.jsx` |
-| I | `revenue-stats-backfill` | NEW `scripts/backfill-revenue-stats.mjs` only |
-| J | `backdate-log-sale` | `src/components/tires/SaleMessenger.jsx`, `functions/orders.js`, NEW `functions/orders.backdate.test.mjs` |
-
-No merge coordination needed - zero file overlap across H / I / J. Merge in any order.
-
 ## When the folder is empty
 
 No active rollout in flight. Add new briefs here when dispatching one or
@@ -38,8 +26,18 @@ more agents in parallel.
 
 ## Last rollout
 
-April 20, 2026 - seven patches shipped in parallel via Cursor Background
-Agents. All merged.
+April 20, 2026 - batch 2. Three small patches shipped in parallel. All merged.
+
+| Patch | Scope | PR |
+| --- | --- | --- |
+| H `sinch-lead-drawer` | CRM Leads source pill + inquiry preview + detail drawer | #69 |
+| I `revenue-stats-backfill` | One-off script to rebuild `meta/revenueStats` | #67 |
+| J `backdate-log-sale` | Optional backdated completion timestamp on Log Sale | #68 |
+
+## Previous rollout
+
+April 20, 2026 - batch 1. Seven patches shipped in parallel via Cursor
+Background Agents. All merged.
 
 | Patch | Scope | PR |
 | --- | --- | --- |
