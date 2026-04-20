@@ -54,6 +54,7 @@ export function confidenceWeight(tier) {
 
 function fetNumber(tire) {
   if (!tire || typeof tire !== 'object') return 0
+  if (tire.hasFet === false) return 0
   const n = Number(tire.fet)
   return Number.isFinite(n) && n > 0 ? n : 0
 }

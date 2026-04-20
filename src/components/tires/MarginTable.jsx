@@ -27,6 +27,13 @@ const ROW_CTS_EDITOR_EXTRA_PX = 240
 const LIST_MAX_H = 560
 const LIST_MIN_H = 200
 
+/** FET column header `title` (desktop sortable header + mobile static header). */
+const FET_HEADER_TOOLTIP =
+  'FET per tire. Tires marked Not FET show -- (applied to tire categories that are FET-exempt). Already included in buy price; shown for reference.'
+/** FET data cell `title` (desktop grid + mobile horizontal row). */
+const FET_CELL_TOOLTIP =
+  'FET per tire. Tires marked Not FET show -- (applied to tire categories that are FET-exempt). Shown for reference; already included in buy price.'
+
 const LISTING_PLATFORM_META = [
   { key: 'facebook', short: 'FB', name: 'Facebook Marketplace' },
   { key: 'offerup', short: 'OU', name: 'OfferUp' },
@@ -475,8 +482,12 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
 }
 
 /** Pure-looking header cell that isn't sortable. */
-function StaticHeader({ label, className = '' }) {
-  return <span className={className}>{label}</span>
+function StaticHeader({ label, className = '', title: titleAttr }) {
+  return (
+    <span className={className} title={titleAttr || undefined}>
+      {label}
+    </span>
+  )
 }
 
 /**
@@ -679,8 +690,11 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               <ListedPlatformsCell row={row} />
             </div>
             {columnVisibility?.fet !== false ? (
-              <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300">
-                {formatCurrencyOrDash(Number(row.fet) || 0)}
+              <div
+                className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300"
+                title={FET_CELL_TOOLTIP}
+              >
+                {row.hasFet === false ? '--' : formatCurrencyOrDash(Number(row.fet) || 0)}
               </div>
             ) : null}
             <div className="flex min-w-[5rem] shrink-0 items-center justify-end whitespace-nowrap px-0.5 font-mono text-xs tabular-nums">
@@ -779,11 +793,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </div>
         ) : null}
         {vis.fet !== false ? (
-          <div
-            className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums"
-            title="FET: shown for reference; already included in buy price"
-          >
-            {formatCurrencyOrDash(Number(row.fet) || 0)}
+          <div className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums" title={FET_CELL_TOOLTIP}>
+            {row.hasFet === false ? '--' : formatCurrencyOrDash(Number(row.fet) || 0)}
           </div>
         ) : null}
         {vis.overhead !== false ? (
@@ -1163,7 +1174,7 @@ export function MarginTable({
                 className="whitespace-nowrap px-2 text-center"
                 role="columnheader"
                 aria-sort={ariaSortFor('fet')}
-                title="Already included in buy price; shown for reference"
+                title={FET_HEADER_TOOLTIP}
               >
                 <SortButton
                   label="FET"
@@ -1308,7 +1319,7 @@ export function MarginTable({
                 </div>
                 {vis.fet !== false ? (
                   <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
-                    <StaticHeader label="FET" />
+                    <StaticHeader label="FET" title={FET_HEADER_TOOLTIP} />
                   </div>
                 ) : null}
                 <div className="flex min-w-[5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
