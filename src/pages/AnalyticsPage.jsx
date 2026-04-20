@@ -44,8 +44,8 @@ function ymdUtcNoonMs(ymd) {
   return Date.UTC(y, mo - 1, da, 12, 0, 0)
 }
 
-/** Consecutive Denver days with ≥1 completed order assigned to DJ (grace: start from yesterday if today empty). */
-function djAssignedStreakDays(rows) {
+/** Consecutive Denver days with ≥1 completed order assigned to Field crew (data key: 'dj'). Grace: start from yesterday if today empty. */
+function fieldAssignedStreakDays(rows) {
   const daySet = new Set()
   for (const o of rows) {
     if (String(o.assignedTo || '').toLowerCase() !== 'dj') continue
@@ -96,7 +96,8 @@ export function AnalyticsPage() {
 
   const [completedRows, setCompletedRows] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
-  const [djStats, setDjStats] = useState(/** @type {Record<string, unknown> | null} */ (null))
+  // Reads meta/djStats (legacy doc name kept until a deliberate schema migration).
+  const [fieldStats, setFieldStats] = useState(/** @type {Record<string, unknown> | null} */ (null))
   const [revenueStats, setRevenueStats] = useState(/** @type {Record<string, unknown> | null} */ (null))
   const [pokeOrders, setPokeOrders] = useState([])
   const [pokeLoading, setPokeLoading] = useState(true)
@@ -141,9 +142,9 @@ export function AnalyticsPage() {
     return onSnapshot(
       ref,
       (snap) => {
-        setDjStats(snap.exists() ? snap.data() || {} : {})
+        setFieldStats(snap.exists() ? snap.data() || {} : {})
       },
-      () => setDjStats({}),
+      () => setFieldStats({}),
     )
   }, [])
 
@@ -218,8 +219,8 @@ export function AnalyticsPage() {
     }
   }, [completedRows])
 
-  const djStreakUi = useMemo(() => djAssignedStreakDays(completedRows), [completedRows])
-  const cleanStreakMeta = djStats ? Number(djStats.longestStreak) || 0 : 0
+  const fieldStreakUi = useMemo(() => fieldAssignedStreakDays(completedRows), [completedRows])
+  const cleanStreakMeta = fieldStats ? Number(fieldStats.longestStreak) || 0 : 0
 
   const pokeConversion = useMemo(() => {
     const rows = pokeOrders
@@ -437,15 +438,15 @@ export function AnalyticsPage() {
                     Field streak (assigned orders)
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <span className={flameSize(djStreakUi.current)} title="Streak heat">
+                    <span className={flameSize(fieldStreakUi.current)} title="Streak heat">
                       🔥
                     </span>
                     <div>
                       <p className="text-2xl font-semibold tabular-nums text-zinc-50">
-                        {djStreakUi.current} day{djStreakUi.current === 1 ? '' : 's'}
+                        {fieldStreakUi.current} day{fieldStreakUi.current === 1 ? '' : 's'}
                       </p>
                       <p className="text-xs text-zinc-500">
-                        Personal best this session: {formatQty(djStreakUi.best)} days · All-time record:{' '}
+                        Personal best this session: {formatQty(fieldStreakUi.best)} days · All-time record:{' '}
                         {formatQty(cleanStreakMeta)} days
                       </p>
                     </div>

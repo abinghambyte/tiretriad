@@ -151,7 +151,7 @@ function fmtJobTime(v) {
   return String(v)
 }
 
-/** Folded-in DJ Dispatch tab — previously `/crm/dispatch`. */
+/** Folded-in Field dispatch tab. Previously a separate `/crm/dispatch` route. */
 function DispatchTab() {
   const { toast } = useToast()
   const { user } = useAuth()
