@@ -166,6 +166,12 @@ export function PortalChrome() {
   const { profile } = useUserProfile()
   const loc = useLocation()
   const navigate = useNavigate()
+  const navigateStable = useCallback(
+    (to, options) => {
+      navigate(to, options)
+    },
+    [navigate],
+  )
   const [searchParams] = useSearchParams()
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [theme, setTheme] = useState(() => resolveInitialTheme())
@@ -218,7 +224,7 @@ export function PortalChrome() {
         <PortalTopBar
           pathname={loc.pathname}
           tab={searchParams.get('tab')}
-          navigate={navigate}
+          navigate={navigateStable}
           profile={profile}
           onOpenPalette={() => setPaletteOpen(true)}
           themeToggle={<ThemeToggle mode={theme} onToggle={toggleTheme} />}
