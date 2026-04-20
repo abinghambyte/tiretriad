@@ -22,13 +22,24 @@ const SDK_URL = 'https://cdn.sinch.com/sinch-chat/latest/sdk.js'
  * `createSinchChatLead`, which writes a Firestore `crmLeads` doc so the
  * conversation shows up in /crm?tab=leads alongside Sinch's own inbox.
  *
- * @param {{ brandText?: string, brandColor?: string, disabled?: boolean }} props
+ * @param {{
+ *   brandText?: string
+ *   brandColor?: string
+ *   disabled?: boolean
+ *   vipMode?: boolean
+ *   vipContext?: { accountId: string, displayName: string, tier: string } | null
+ * }} props
  */
 export function SinchChatMount({
   brandText = 'Skedaddle Tires',
   brandColor = '#f59e0b',
   disabled = false,
+  vipMode = false,
+  vipContext = null,
 } = {}) {
+  const resolvedBrandText = vipMode ? 'VIP concierge' : brandText
+  const vipCtxKey = vipContext ? JSON.stringify(vipContext) : ''
+
   useEffect(() => {
     if (disabled) return undefined
     if (typeof window === 'undefined') return undefined
@@ -68,7 +79,7 @@ export function SinchChatMount({
 
         const darkmode = readTheme()
         sdk.Chat.mount({
-          brandText,
+          brandText: resolvedBrandText,
           brandColor,
           darkmode,
           chatPosition: 'bottom-right',
@@ -105,21 +116,41 @@ export function SinchChatMount({
         sdk.Chat.setTranslation?.({
           typeMessageHere: 'Type your message…',
           initialScreen: {
-            title: 'Talk to Skedaddle',
-            description: 'Tell us what you need and we will come back fast.',
+            title: vipMode ? 'VIP concierge' : 'Talk to Skedaddle',
+            description: vipMode
+              ? 'We are here to help with priority support.'
+              : 'Tell us what you need and we will come back fast.',
             startButton: 'Start chat',
           },
         })
 
+        const vipOnce =
+          vipMode && vipContext
+            ? {
+                vip_account_id: String(vipContext.accountId || ''),
+                vip_tier: String(vipContext.tier || ''),
+                vip_display_name: String(vipContext.displayName || ''),
+                acquired_via: 'vip_concierge_link',
+              }
+            : {
+                acquired_via: 'sinch_chat_widget',
+              }
+
         sdk.Chat.setConversationMetadata?.({
           once: {
-            acquired_via: 'sinch_chat_widget',
+            ...vipOnce,
             referrer: document.referrer || '',
             landed_at: new Date().toISOString(),
           },
           eachMessage: {
             pageUrl: window.location.href,
             theme: darkmode ? 'dark' : 'light',
+            ...(vipMode && vipContext
+              ? {
+                  vip_account_id: String(vipContext.accountId || ''),
+                  vip_tier: String(vipContext.tier || ''),
+                }
+              : {}),
           },
         })
 
@@ -163,7 +194,7 @@ export function SinchChatMount({
       }
       window.__skedaddleSinchMounted = false
     }
-  }, [brandText, brandColor, disabled])
+  }, [resolvedBrandText, brandColor, disabled, vipMode, vipContext, vipCtxKey])
 
   return null
 }

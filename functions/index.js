@@ -13,3 +13,7 @@ Object.assign(exports, require('./slack'))
 Object.assign(exports, require('./payoutConfig'))
 
 exports.getDashboardStats = require('./dashboardStats').getDashboardStats
+
+const { generateVipLink, verifyVipLink } = require('./vipLinks')
+exports.generateVipLink = generateVipLink
+exports.verifyVipLink = verifyVipLink

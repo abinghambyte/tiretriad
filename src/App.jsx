@@ -5,6 +5,7 @@ import { PortalChrome } from './components/layout/PortalChrome.jsx'
 import Spinner from './components/ui/Spinner.jsx'
 import { LandingPage } from './pages/LandingPage'
 import { InvitePage } from './pages/InvitePage'
+import { VipConciergePage } from './pages/VipConciergePage.jsx'
 import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 
@@ -42,6 +43,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/i/:token" element={<InvitePage />} />
+      <Route path="/vip/:token" element={<VipConciergePage />} />
       <Route path="/intake/mechanic" element={<MechanicIntakePage />} />
       <Route
         element={
