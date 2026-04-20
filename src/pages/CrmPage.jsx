@@ -636,11 +636,11 @@ export function CrmPage() {
 
             {loading ? (
               <>
-                <div className="hidden gap-2 md:grid md:grid-cols-6">
+                <div className="hidden gap-2 md:flex md:overflow-x-auto md:pb-2">
                   {KANBAN_STAGES.map((stage) => (
                     <div
                       key={stage}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
+                      className="flex-shrink-0 basis-0 flex-1 rounded-xl border border-zinc-800 bg-zinc-900/30 p-2 md:min-w-[11rem]"
                     >
                       <div className="mb-2 h-3 w-24 animate-pulse rounded bg-zinc-700/40" />
                       <div className="space-y-2">
@@ -729,13 +729,13 @@ export function CrmPage() {
                     </span>
                   ) : null}
                 </div>
-                <div className="hidden gap-2 md:grid md:grid-cols-6 md:overflow-visible">
+                <div className="hidden gap-2 md:flex md:overflow-x-auto md:pb-2">
                   {KANBAN_STAGES.map((stage) => {
                     const s = stageTotal(stage)
                     return (
                     <div
                       key={stage}
-                      className="flex min-w-0 flex-col rounded-xl border border-zinc-800 bg-zinc-900/30 p-2"
+                      className="flex min-w-0 flex-shrink-0 basis-0 flex-1 flex-col rounded-xl border border-zinc-800 bg-zinc-900/30 p-2 md:min-w-[11rem]"
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => void onDropStage(stage, e)}
                     >
