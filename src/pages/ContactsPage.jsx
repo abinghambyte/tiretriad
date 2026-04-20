@@ -481,7 +481,7 @@ export function ContactsPage({ embedded = false }) {
 
     {selected ? (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter"
+          className="fixed inset-0 z-[130] flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter"
           role="dialog"
           aria-modal
           onClick={() => setSelected(null)}

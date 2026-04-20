@@ -1,10 +1,10 @@
 /** Centered modal backdrop: full-viewport on narrow screens, padded dialog from `sm`. */
 export const MODAL_CENTER_BACKDROP =
-  'fixed inset-0 z-50 flex min-h-0 flex-col bg-black/75 p-0 backdrop-blur-sm sk-modal-backdrop-enter sm:flex sm:items-center sm:justify-center sm:p-4'
+  'fixed inset-0 z-[130] flex min-h-0 flex-col bg-black/75 p-0 backdrop-blur-sm sk-modal-backdrop-enter sm:flex sm:items-center sm:justify-center sm:p-4'
 
 /** Same layout as {@link MODAL_CENTER_BACKDROP} but above other stacked dialogs (e.g. history on top of a drawer). */
 export const MODAL_CENTER_BACKDROP_TOP =
-  'fixed inset-0 z-[100] flex min-h-0 flex-col bg-black/75 p-0 backdrop-blur-sm sk-modal-backdrop-enter sm:flex sm:items-center sm:justify-center sm:p-4'
+  'fixed inset-0 z-[140] flex min-h-0 flex-col bg-black/75 p-0 backdrop-blur-sm sk-modal-backdrop-enter sm:flex sm:items-center sm:justify-center sm:p-4'
 
 /** Shared panel layout (add `max-w-*` for width). Full-screen below `sm`, capped dialog from `sm`. */
 export const MODAL_CENTER_PANEL_BASE =

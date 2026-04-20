@@ -292,6 +292,8 @@ export function CrmPage() {
   const [addAccountOpen, setAddAccountOpen] = useState(false)
   /** Pipeline stage used when the next Add-VIP submit fires. */
   const [addAccountStage, setAddAccountStage] = useState(1)
+  /** Stage currently being dragged over. Drives column highlight during drag. */
+  const [dragOverStage, setDragOverStage] = useState(null)
   const [leadForm, setLeadForm] = useState({
     businessName: '',
     source: '',
@@ -412,6 +414,7 @@ export function CrmPage() {
 
   async function onDropStage(stage, e) {
     e.preventDefault()
+    setDragOverStage(null)
     const id = e.dataTransfer.getData('text/accountId')
     if (!id || !canEdit) return
     try {
@@ -735,8 +738,9 @@ export function CrmPage() {
                     return (
                     <div
                       key={stage}
-                      className="flex min-w-0 flex-shrink-0 basis-0 flex-1 flex-col rounded-xl border border-zinc-800 bg-zinc-900/30 p-2 md:min-w-[11rem]"
-                      onDragOver={(e) => e.preventDefault()}
+                      className={`flex min-w-0 flex-shrink-0 basis-0 flex-1 flex-col rounded-xl border bg-zinc-900/30 p-2 transition-colors duration-150 md:min-w-[11rem] ${dragOverStage === stage ? 'border-amber-500/70 bg-amber-950/25 ring-1 ring-amber-500/40' : 'border-zinc-800'}`}
+                      onDragOver={(e) => { e.preventDefault(); if (dragOverStage !== stage) setDragOverStage(stage) }}
+                      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverStage((s) => (s === stage ? null : s)) }}
                       onDrop={(e) => void onDropStage(stage, e)}
                     >
                       <div className="mb-2 px-1">
@@ -844,8 +848,9 @@ export function CrmPage() {
                     const s = stageTotal(CRM_LOST_STAGE)
                     return (
                   <div
-                    className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/20 p-2"
-                    onDragOver={(e) => e.preventDefault()}
+                    className={`min-w-0 rounded-xl border bg-zinc-900/20 p-2 transition-colors duration-150 ${dragOverStage === CRM_LOST_STAGE ? 'border-rose-500/60 bg-rose-950/20 ring-1 ring-rose-500/40' : 'border-zinc-800'}`}
+                    onDragOver={(e) => { e.preventDefault(); if (dragOverStage !== CRM_LOST_STAGE) setDragOverStage(CRM_LOST_STAGE) }}
+                    onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverStage((s) => (s === CRM_LOST_STAGE ? null : s)) }}
                     onDrop={(e) => void onDropStage(CRM_LOST_STAGE, e)}
                   >
                     <div className="mb-2 px-1">
