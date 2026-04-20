@@ -16,6 +16,7 @@ import { effectiveCts } from '../../utils/ctsCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { computeOpportunityScore } from '../../utils/opportunityScore'
 import { matchesQuery } from '../../utils/tireSearchHaystack'
+import { setTireSelection } from '../../context/tireSelectionStore'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
 import { ListingGenerator } from './ListingGenerator'
@@ -666,6 +667,40 @@ export function TiresDashboard() {
 
   const visibleColumnLabel = SORT_LABELS[sortKey] || 'Margin %'
   const visibleDirLabel = sortDir === 'asc' ? 'ascending' : 'descending'
+
+  // Publish selection + action runners to the module-level store so the
+  // command palette (mounted in PortalChrome, outside this route tree) can
+  // offer context-aware actions. The runners close over current state via
+  // each render's fresh function identity — which is fine because the
+  // palette rebuilds its action registry whenever the snapshot changes.
+  // `logSelectedSale` and `clearSelection` are intentionally omitted from
+  // the dep array: they're re-created every render, and their behavior
+  // only depends on state we already track above.
+  useEffect(() => {
+    const count = selectedIds.size
+    if (count === 0) {
+      setTireSelection(null)
+      return undefined
+    }
+    setTireSelection({
+      count,
+      canQuote: !loading && selectedTires.length === 1,
+      canLogSale: !loading,
+      canGenerateListings: !loading && selectedTires.length > 0,
+      canBulkOverhead: !loading,
+      runQuote: () => setQuoteOpen(true),
+      runLogSale: () => logSelectedSale(),
+      runGenerateListings: () => setListingOpen(true),
+      runBulkOverhead: () => setBulkCtsOpen(true),
+      runClearSelection: () => clearSelection(),
+    })
+    return undefined
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, selectedTires, loading])
+
+  useEffect(() => {
+    return () => setTireSelection(null)
+  }, [])
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">

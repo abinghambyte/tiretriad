@@ -46,6 +46,11 @@ function norm(s) {
  * @param {() => Promise<void> | void} ctx.onSignOut
  * @param {(path: string) => void} ctx.navigate
  * @param {() => void} ctx.closePalette
+ * @param {object} [ctx.tireSelection] - published by TiresDashboard via the
+ *   tireSelectionStore. When tires are selected, corresponding context
+ *   actions (Log sale / Quote / Generate listings / Bulk overhead / Clear)
+ *   appear in a dedicated `Selection` section. Absent or count=0 hides
+ *   the whole section.
  * @returns {Array<{ id: string, section: string, label: string, hint?: string, keywords?: string[], run: () => void }>}
  */
 export function buildPaletteActions(ctx) {
@@ -59,6 +64,7 @@ export function buildPaletteActions(ctx) {
     onSignOut,
     navigate,
     closePalette,
+    tireSelection,
   } = ctx
   const role = String(profile?.role || '')
   const isAdmin = role === 'admin'
@@ -154,7 +160,83 @@ export function buildPaletteActions(ctx) {
       run: go(a.path),
     }))
 
-  return [...navEntries, ...generic]
+  const selectionEntries = buildTireSelectionEntries(tireSelection, closePalette)
+
+  // Selection actions come first so a user mid-workflow reaches them
+  // without scrolling past every nav entry. Nav next, then generic.
+  return [...selectionEntries, ...navEntries, ...generic]
+}
+
+/**
+ * Build the `Selection` section for the palette when tires are currently
+ * selected on the Tires page. Each run-handler closes the palette before
+ * invoking the published runner so the modal open transition isn't racing
+ * the palette unmount.
+ *
+ * @param {object | null | undefined} sel - snapshot from tireSelectionStore
+ * @param {() => void} closePalette
+ * @returns {Array<{ id: string, section: string, label: string, hint?: string, keywords?: string[], run: () => void }>}
+ */
+function buildTireSelectionEntries(sel, closePalette) {
+  if (!sel || !sel.count) return []
+  const plural = sel.count === 1 ? 'tire' : 'tires'
+  const suffix = `${sel.count} ${plural} selected`
+  const entries = []
+
+  const wrap = (fn) => () => {
+    closePalette()
+    if (typeof fn === 'function') fn()
+  }
+
+  // Labels already carry the tire count, so no redundant `hint` — except
+  // on the Quote entry where the single-tire constraint is worth flagging.
+  if (sel.canLogSale && sel.runLogSale) {
+    entries.push({
+      id: 'selection-log-sale',
+      section: 'Selection',
+      label: `Log sale for ${suffix}`,
+      keywords: ['log', 'sale', 'sell', 'sold', 'record', 'messenger'],
+      run: wrap(sel.runLogSale),
+    })
+  }
+  if (sel.canQuote && sel.runQuote) {
+    entries.push({
+      id: 'selection-quote',
+      section: 'Selection',
+      label: 'Open bundle Quote calculator',
+      hint: '1 tire',
+      keywords: ['quote', 'bundle', 'calculator', 'haggle'],
+      run: wrap(sel.runQuote),
+    })
+  }
+  if (sel.canGenerateListings && sel.runGenerateListings) {
+    entries.push({
+      id: 'selection-generate-listings',
+      section: 'Selection',
+      label: `Generate listings for ${suffix}`,
+      keywords: ['listing', 'listings', 'facebook', 'marketplace', 'craigslist', 'ebay', 'publish'],
+      run: wrap(sel.runGenerateListings),
+    })
+  }
+  if (sel.canBulkOverhead && sel.runBulkOverhead) {
+    entries.push({
+      id: 'selection-bulk-overhead',
+      section: 'Selection',
+      label: `Bulk overhead edit (${suffix})`,
+      keywords: ['bulk', 'overhead', 'cts', 'cost', 'shipping'],
+      run: wrap(sel.runBulkOverhead),
+    })
+  }
+  if (sel.runClearSelection) {
+    entries.push({
+      id: 'selection-clear',
+      section: 'Selection',
+      label: `Clear selection (${suffix})`,
+      keywords: ['clear', 'deselect', 'reset'],
+      run: wrap(sel.runClearSelection),
+    })
+  }
+  return entries
 }
 
 /**

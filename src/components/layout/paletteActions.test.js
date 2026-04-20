@@ -125,6 +125,101 @@ describe('buildPaletteActions', () => {
   })
 })
 
+describe('buildPaletteActions — tire selection entries', () => {
+  function sel(overrides = {}) {
+    return {
+      count: 2,
+      canLogSale: true,
+      canQuote: false,
+      canGenerateListings: true,
+      canBulkOverhead: true,
+      runLogSale: vi.fn(),
+      runQuote: vi.fn(),
+      runGenerateListings: vi.fn(),
+      runBulkOverhead: vi.fn(),
+      runClearSelection: vi.fn(),
+      ...overrides,
+    }
+  }
+
+  it('adds no selection section when no tires are selected', () => {
+    const actions = buildPaletteActions(makeCtx({ tireSelection: null }))
+    expect(actions.some((a) => a.section === 'Selection')).toBe(false)
+    const empty = buildPaletteActions(makeCtx({ tireSelection: { count: 0 } }))
+    expect(empty.some((a) => a.section === 'Selection')).toBe(false)
+  })
+
+  it('includes log-sale / generate-listings / bulk-overhead / clear when count ≥ 1 (but not quote at count=2)', () => {
+    const actions = buildPaletteActions(makeCtx({ tireSelection: sel() }))
+    expect(actions.find((a) => a.id === 'selection-log-sale')).toBeDefined()
+    expect(actions.find((a) => a.id === 'selection-generate-listings')).toBeDefined()
+    expect(actions.find((a) => a.id === 'selection-bulk-overhead')).toBeDefined()
+    expect(actions.find((a) => a.id === 'selection-clear')).toBeDefined()
+    expect(actions.find((a) => a.id === 'selection-quote')).toBeUndefined()
+  })
+
+  it('offers the Quote action only when canQuote is true (exactly one tire)', () => {
+    const actions = buildPaletteActions(
+      makeCtx({ tireSelection: sel({ count: 1, canQuote: true }) }),
+    )
+    const quote = actions.find((a) => a.id === 'selection-quote')
+    expect(quote).toBeDefined()
+    expect(quote.label).toMatch(/quote/i)
+  })
+
+  it('selection actions appear before nav and generic actions so the mid-workflow hit is first', () => {
+    const actions = buildPaletteActions(makeCtx({ tireSelection: sel() }))
+    const firstSelection = actions.findIndex((a) => a.section === 'Selection')
+    const firstNav = actions.findIndex((a) => a.section === 'Navigation')
+    const firstGeneric = actions.findIndex((a) => a.section === 'Actions')
+    expect(firstSelection).toBe(0)
+    expect(firstSelection).toBeLessThan(firstNav)
+    expect(firstNav).toBeLessThan(firstGeneric)
+  })
+
+  it('selection-entry labels include the tire count with correct pluralization', () => {
+    const one = buildPaletteActions(
+      makeCtx({ tireSelection: sel({ count: 1, canQuote: true }) }),
+    )
+    expect(one.find((a) => a.id === 'selection-log-sale').label).toMatch(/1 tire selected/)
+    const many = buildPaletteActions(makeCtx({ tireSelection: sel({ count: 5 }) }))
+    expect(many.find((a) => a.id === 'selection-log-sale').label).toMatch(/5 tires selected/)
+  })
+
+  it('running a selection action closes the palette first, then invokes the runner', () => {
+    const order = []
+    const closePalette = vi.fn(() => order.push('close'))
+    const runLogSale = vi.fn(() => order.push('logSale'))
+    const actions = buildPaletteActions(
+      makeCtx({ closePalette, tireSelection: sel({ runLogSale }) }),
+    )
+    const log = actions.find((a) => a.id === 'selection-log-sale')
+    log.run()
+    expect(order).toEqual(['close', 'logSale'])
+  })
+
+  it('hides an action when the matching can* flag is false even if the runner is present', () => {
+    const actions = buildPaletteActions(
+      makeCtx({ tireSelection: sel({ canLogSale: false, canBulkOverhead: false }) }),
+    )
+    expect(actions.find((a) => a.id === 'selection-log-sale')).toBeUndefined()
+    expect(actions.find((a) => a.id === 'selection-bulk-overhead')).toBeUndefined()
+    // Clear stays available regardless of the can* flags because it's a
+    // pure selection-reset with no backend work.
+    expect(actions.find((a) => a.id === 'selection-clear')).toBeDefined()
+  })
+
+  it('hides an action when the runner is missing even if the flag is true (defensive against partial snapshots)', () => {
+    const actions = buildPaletteActions(
+      makeCtx({
+        tireSelection: { count: 3, canLogSale: true, canGenerateListings: true },
+      }),
+    )
+    expect(actions.find((a) => a.id === 'selection-log-sale')).toBeUndefined()
+    expect(actions.find((a) => a.id === 'selection-generate-listings')).toBeUndefined()
+  })
+})
+
 describe('filterPaletteActions', () => {
   const actions = buildPaletteActions(makeCtx({ pathname: '/' }))
 
