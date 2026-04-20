@@ -6,7 +6,6 @@ import Spinner from './components/ui/Spinner.jsx'
 import { LandingPage } from './pages/LandingPage'
 import { InvitePage } from './pages/InvitePage'
 import { MechanicIntakePage } from './pages/MechanicIntakePage.jsx'
-import { DispatchRedirect } from './components/DispatchRedirect.jsx'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 
 // Lazy-load everything behind the portal chrome. Pages use named exports,
@@ -78,14 +77,6 @@ export default function App() {
               <Suspense fallback={<RouteFallback />}>
                 <GrowthLabPage />
               </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dispatch"
-          element={
-            <ProtectedRoute requireAdmin>
-              <DispatchRedirect />
             </ProtectedRoute>
           }
         />
