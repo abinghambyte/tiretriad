@@ -16,6 +16,7 @@ import { effectiveCts } from '../../utils/ctsCalc'
 import { exportMarginCsv } from '../../utils/exportMarginCsv'
 import { computeOpportunityScore } from '../../utils/opportunityScore'
 import { matchesQuery } from '../../utils/tireSearchHaystack'
+import { setTireSelection } from '../../context/tireSelectionStore'
 import { BulkCtsModal } from './BulkCtsModal'
 import { FilterPresetsBar } from './FilterPresetsBar'
 import { ListingGenerator } from './ListingGenerator'
@@ -666,6 +667,53 @@ export function TiresDashboard() {
 
   const visibleColumnLabel = SORT_LABELS[sortKey] || 'Margin %'
   const visibleDirLabel = sortDir === 'asc' ? 'ascending' : 'descending'
+
+  // Publish selection + action runners to the module-level store so the
+  // command palette (mounted in PortalChrome, outside this route tree) can
+  // offer context-aware actions. Runners read from a ref so they always see
+  // the latest `sortedRows` / selection helpers — omitting the function
+  // identities from the dep array would let `logSelectedSale` close over a
+  // stale `sortedRows` after the user re-sorts or re-filters, logging a
+  // sale against the wrong tires.
+  const runnersRef = useRef({
+    logSelectedSale,
+    clearSelection,
+    setQuoteOpen,
+    setListingOpen,
+    setBulkCtsOpen,
+  })
+  runnersRef.current = {
+    logSelectedSale,
+    clearSelection,
+    setQuoteOpen,
+    setListingOpen,
+    setBulkCtsOpen,
+  }
+
+  useEffect(() => {
+    const count = selectedIds.size
+    if (count === 0) {
+      setTireSelection(null)
+      return undefined
+    }
+    setTireSelection({
+      count,
+      canQuote: !loading && selectedTires.length === 1,
+      canLogSale: !loading,
+      canGenerateListings: !loading && selectedTires.length > 0,
+      canBulkOverhead: !loading,
+      runQuote: () => runnersRef.current.setQuoteOpen(true),
+      runLogSale: () => runnersRef.current.logSelectedSale(),
+      runGenerateListings: () => runnersRef.current.setListingOpen(true),
+      runBulkOverhead: () => runnersRef.current.setBulkCtsOpen(true),
+      runClearSelection: () => runnersRef.current.clearSelection(),
+    })
+    return undefined
+  }, [selectedIds, selectedTires, loading])
+
+  useEffect(() => {
+    return () => setTireSelection(null)
+  }, [])
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
