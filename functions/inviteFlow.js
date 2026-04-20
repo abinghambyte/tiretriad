@@ -131,7 +131,7 @@ async function fetchInviteGreetingLine(firstName, crewTag, apiKey) {
   const model =
     process.env.ANTHROPIC_MODEL ||
     process.env.ANTHROPIC_INVITE_MODEL ||
-    'claude-3-5-sonnet-20241022'
+    'claude-sonnet-4-6'
 
   const system = `You write a single short greeting line for someone joining a private operations platform called Skedaddle.
 Tone: understated, slightly cryptic, never corporate, never exclamatory.
