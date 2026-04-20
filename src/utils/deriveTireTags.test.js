@@ -18,8 +18,10 @@ describe('deriveTireTags', () => {
     const tags = deriveTireTags(tire)
     expect(tags).toContain('AT')
     expect(tags).toContain('LT')
-    expect(tags).toContain('LR-E')
     expect(tags).toContain('S')
+    // Load range is surfaced via a dedicated LR filter chip row, not the
+    // generic tag list, so LR-<letter> must NOT appear in derived tags.
+    expect(tags).not.toContain('LR-E')
     // Sorted alphabetically.
     expect([...tags].sort((a, b) => a.localeCompare(b))).toEqual(tags)
   })
@@ -55,7 +57,7 @@ describe('deriveTireTags', () => {
     expect(tags).toContain('Y')
   })
 
-  it('tags a commercial 22.5 tire with LR-H', () => {
+  it('tags a commercial 22.5 tire and leaves LR out of derived tags', () => {
     const tire = {
       brand: 'Goodyear',
       description: '11R22.5 16-ply TBR Commercial',
@@ -63,7 +65,7 @@ describe('deriveTireTags', () => {
     }
     const tags = deriveTireTags(tire)
     expect(tags).toContain('Commercial')
-    expect(tags).toContain('LR-H')
+    expect(tags).not.toContain('LR-H')
   })
 
   it('tags a mud-terrain (KM3) LT tire', () => {
@@ -75,8 +77,8 @@ describe('deriveTireTags', () => {
     const tags = deriveTireTags(tire)
     expect(tags).toContain('MT')
     expect(tags).toContain('LT')
-    expect(tags).toContain('LR-E')
-    // Not AT — KO2/KO3 are AT but KM3 is MT.
+    expect(tags).not.toContain('LR-E')
+    // Not AT. KO2/KO3 are AT, but KM3 is MT.
     expect(tags).not.toContain('AT')
   })
 
@@ -105,10 +107,10 @@ describe('deriveTireTags', () => {
     expect([...tags].sort((a, b) => a.localeCompare(b))).toEqual(tags)
   })
 
-  it('returns just an LR tag for a tire with only load range set', () => {
+  it('returns an empty tag array for a tire with only load range set (LR is a dedicated filter row)', () => {
     const tire = { description: '', lr: 'D' }
     const tags = deriveTireTags(tire)
-    expect(tags).toEqual(['LR-D'])
+    expect(tags).toEqual([])
   })
 
   it('tags a flotation tire (31X10.50R15)', () => {

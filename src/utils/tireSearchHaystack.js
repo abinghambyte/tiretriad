@@ -49,6 +49,11 @@ export function buildTireHaystack(tire) {
     str(tire.brand),
     str(tire.mspn),
     str(tire.lr),
+    // Include a "LR-<letter>" form so users can type "lr-c" in the search box
+    // and land on every tire with that load range, even though the derived-tag
+    // list intentionally omits LR-* entries (the dedicated LR filter chip row
+    // already covers that dimension).
+    tire.lr ? `LR-${str(tire.lr).trim().toUpperCase()}` : '',
   ]
 
   if (parsed) {

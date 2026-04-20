@@ -80,6 +80,10 @@ function InlineMinMargin({ value, onChange }) {
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={`Minimum margin filter, currently ${value}%`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={value}
         className="min-w-0 flex-1 accent-zinc-200"
       />
       <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-100">

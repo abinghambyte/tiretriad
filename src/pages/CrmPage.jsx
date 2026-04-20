@@ -209,6 +209,18 @@ function DispatchTab() {
       ) : null}
       {!loading && !loadError && jobs.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/25 px-6 py-16 text-center">
+          <svg
+            className="mb-3 h-10 w-10 text-zinc-700"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h13l3 4v6h-3a2 2 0 1 1-4 0H9a2 2 0 1 1-4 0H3V7z" />
+            <circle cx="7" cy="17" r="1.25" />
+            <circle cx="16" cy="17" r="1.25" />
+          </svg>
           <p className="text-sm text-zinc-400">No jobs dispatched yet.</p>
           <p className="mt-1 text-xs text-zinc-600">Jobs appear here when dispatched from a VIP client account.</p>
         </div>

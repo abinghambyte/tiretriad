@@ -19,7 +19,6 @@ export function deriveTireTags(tire) {
   const description = safeStr(tire.description)
   const tread = safeStr(tire.tread)
   const mspn = safeStr(tire.mspn)
-  const lr = safeStr(tire.lr).trim()
   const existing = Array.isArray(tire.useTags)
     ? tire.useTags.map((x) => safeStr(x).trim()).filter(Boolean)
     : []
@@ -64,11 +63,9 @@ export function deriveTireTags(tire) {
   if (RE_RUNFLAT.test(hay)) out.add('RunFlat')
   if (RE_STUDDABLE.test(hay)) out.add('Studdable')
 
-  // Load range as tag (e.g. LR-D, LR-E).
-  if (lr) {
-    const letter = lr.replace(/[^A-Za-z]/g, '').toUpperCase()
-    if (letter) out.add(`LR-${letter}`)
-  }
+  // Load range is its own dedicated filter chip row in the Tires filter panel
+  // (`lrs`), so intentionally NOT added as a `LR-<letter>` tag here. Emitting
+  // both duplicates every load range across two chip rows in the UI.
 
   // Speed rating — from parser if available, else fall back to text probe.
   const sr = parsed && parsed.speedRating
