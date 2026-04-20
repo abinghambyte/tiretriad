@@ -4,7 +4,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase/config'
-import { computeCts, effectiveCts, tireOverheadParts } from '../../utils/ctsCalc'
+import { computeCts, effectiveCts, hasOverheadRecorded, tireOverheadParts } from '../../utils/ctsCalc'
 import { computeListingMargin, marginBadgeLabel } from '../../utils/marginCalc'
 import { confidenceTier, computeFloor } from '../../utils/opportunityScore'
 import { isTireBeastMode } from '../../utils/tireBeastMode.js'
@@ -670,7 +670,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                     🔥
                   </span>
                 ) : null}
-                <span className="min-w-0 truncate">{row.brand || '—'}</span>
+                <span className="min-w-0 truncate" title={row.brand || ''}>{row.brand || ''}</span>
               </span>
             </div>
             <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-zinc-400">
@@ -691,11 +691,16 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               <button
                 type="button"
                 onClick={() => openCostEdit(row)}
+                title={hasOverheadRecorded(row) ? '' : 'Click to set mount, delivery, and other costs'}
                 className={`whitespace-nowrap text-left underline-offset-2 hover:underline ${
-                  editingCostsId === row.id ? 'text-amber-200' : 'text-zinc-200'
+                  editingCostsId === row.id
+                    ? 'text-amber-200'
+                    : hasOverheadRecorded(row)
+                      ? 'text-zinc-200'
+                      : 'text-zinc-500 italic'
                 }`}
               >
-                {formatCurrencyOrDash(effectiveCts(row))}
+                {hasOverheadRecorded(row) ? formatCurrencyOrDash(effectiveCts(row)) : 'not set'}
               </button>
             </div>
           </div>
@@ -730,7 +735,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                   🔥
                 </span>
               ) : null}
-              <span className="min-w-0 truncate">{row.brand || '—'}</span>
+              <span className="min-w-0 truncate" title={row.brand || ''}>{row.brand || ''}</span>
             </span>
           </div>
         ) : null}
@@ -982,7 +987,7 @@ export function MarginTable({
     ? 'Loading…'
     : rows.length === 0
       ? 'No tires shown'
-      : `Showing 1–${rows.length} of ${rows.length} · sorted by ${sortColumnLabel || 'Margin %'} ${sortDirLabel || 'descending'}`
+      : `Showing 1-${rows.length} of ${rows.length} · sorted by ${sortColumnLabel || 'Margin %'} ${sortDirLabel || 'descending'}`
 
   const ariaSortFor = useCallback(
     (key) => (sortKey === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'),

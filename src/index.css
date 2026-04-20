@@ -500,8 +500,20 @@ html[data-theme='light'] .text-amber-100,
 html[data-theme='light'] .text-amber-200,
 html[data-theme='light'] .text-amber-300,
 html[data-theme='light'] .text-amber-100\/95,
+html[data-theme='light'] .text-amber-200\/90,
+html[data-theme='light'] .text-amber-300\/70,
+html[data-theme='light'] .text-amber-300\/80,
+html[data-theme='light'] .text-amber-300\/90,
+html[data-theme='light'] .text-amber-400\/80,
 html[data-theme='light'] .text-amber-500\/90 {
   color: #92400e !important;
+}
+html[data-theme='light'] .text-cyan-100,
+html[data-theme='light'] .text-cyan-200,
+html[data-theme='light'] .text-cyan-300,
+html[data-theme='light'] .text-cyan-200\/90,
+html[data-theme='light'] .text-cyan-300\/90 {
+  color: #155e75 !important;
 }
 html[data-theme='light'] .border-amber-900\/50,
 html[data-theme='light'] .border-amber-900\/40,
@@ -591,6 +603,24 @@ html[data-theme='light'] .border-red-800\/60,
 html[data-theme='light'] .border-rose-900\/50,
 html[data-theme='light'] .border-rose-800\/50 {
   border-color: #fca5a5 !important;
+}
+
+/* Violet / purple (invite-preview button, occasional accent). */
+html[data-theme='light'] .bg-violet-950\/40,
+html[data-theme='light'] .bg-violet-950\/50,
+html[data-theme='light'] .bg-violet-900\/50 {
+  background-color: #ede9fe !important;
+}
+html[data-theme='light'] .text-violet-100,
+html[data-theme='light'] .text-violet-200,
+html[data-theme='light'] .text-violet-300,
+html[data-theme='light'] .text-violet-400 {
+  color: #5b21b6 !important;
+}
+html[data-theme='light'] .border-violet-500\/60,
+html[data-theme='light'] .border-violet-500\/40,
+html[data-theme='light'] .border-violet-600\/60 {
+  border-color: #7c3aed !important;
 }
 
 /* Force form controls back to light surfaces when the browser would auto-dark them */

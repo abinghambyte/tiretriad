@@ -678,7 +678,7 @@ export function OrdersList({ highlightId }) {
                     </p>
                   ) : null}
                   {noPriceRecorded ? (
-                    <p className="mt-1 text-[11px] font-medium text-amber-300/90">No price recorded</p>
+                    <p className="mt-1 text-[11px] font-medium text-amber-300/90">No payment recorded yet</p>
                   ) : null}
                   {missingCustomer ? (
                     <p className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-900/50 bg-amber-950/25 px-2 py-1 text-xs font-medium text-amber-200/95">
