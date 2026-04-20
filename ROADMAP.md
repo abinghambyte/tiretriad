@@ -15,10 +15,20 @@ can ship. Likely shape: signed short-lived links (`/vip/:token`) generated
 from CRM accounts, no password flow.
 
 ### Public lead-capture page
-`<SinchChatMount />` exists but is not wired into any page. When a
-customer-facing surface exists (marketing landing, VIP concierge, contact
-page), drop the component in. Until then the Cloud Function
-`createSinchChatLead` sits ready but unused.
+`<SinchChatMount />` exists but is not wired into any page. Candidates
+for a first mount point (all real public surfaces in the portal):
+
+- `/intake/mechanic`: existing 5-step mobile-mechanic onboarding form.
+  High-intent visitors, small audience but real. Best if the widget is
+  positioned bottom-left so it does not overlap the form's Next button.
+- `/i/:token`: invite landing after someone receives a crew invite SMS.
+  Very narrow audience; adding chat here only useful for
+  "my invite link is broken" support.
+- A new `/contact` or `/about` page built specifically for lead capture.
+  Zero exists today; would need design + copy.
+
+Until a mount lands, the Cloud Function `createSinchChatLead` sits ready
+but unused.
 
 ## Active queue
 
@@ -150,3 +160,62 @@ demand.
 "Your invite isn't working?" chat on `/invite/:code` /
 `/handshake/:code`. Small value add, hold unless invite-completion
 conversion becomes a measured problem.
+
+## Unfinished / ambiguous pieces surfaced during audit
+
+### `/dispatch` placeholder vs. external Workforce app
+`/dispatch` currently renders a stub (`DispatchRedirect`) that reads
+"Task Dispatcher is being extracted to a standalone application. This
+route will reconnect when the external deployment is live." The external
+app URL in `src/constants/externalUrls.ts` points at
+`workforce-abinghambyte.vercel.app`. Decide one of:
+- Finish the handoff: make `/dispatch` redirect to `WORKFORCE_URL`.
+- Kill the route: remove `/dispatch` + the stub component + the
+  constant if the external app is abandoned.
+- Rebuild in-portal: the old `src/pages/TaskDispatcher.jsx` was deleted
+  as dead code; a fresh in-portal version would need design.
+
+Today it is a permanent "coming back soon" sign, which is worse than
+either decision.
+
+### "DJ streak" and "DJ dispatch" copy decision
+Prior commit `7834966` renamed first names to role nouns in system copy
+("Kyle to Sourcer, DJ to Field crew"). Two visible references still use
+"DJ":
+- `src/pages/AnalyticsPage.jsx` - "DJ streak (assigned orders)" metric
+  card.
+- `src/pages/CrmPage.jsx` - "DJ Dispatch" CRM tab name and the
+  "DJ dispatch is for Field crew and Overwatch" gate message on the
+  mobile view.
+
+Pick one:
+- Keep as product names with personality (DJ is a named streak, DJ
+  Dispatch is a branded tab). Document the exception.
+- Rename to role-neutral: "Field streak" / "Field Dispatch".
+
+### Listing advisor vs. invite greeting model drift (resolved)
+Functions had drifted: invite greeting on `claude-sonnet-4-6` (current),
+listing advisor fallback on `claude-sonnet-4-5` (one version behind).
+Bumped advisor fallback to `claude-sonnet-4-6` for consistency in the
+same PR that created this ROADMAP entry. Any future model bumps should
+touch all four call sites: `functions/inviteFlow.js`,
+`functions/listingAdvisor.js`, `functions/taskDispatcher.js`,
+`functions/lookupUtilitySlackCommands.js`.
+
+### Analytics revenue weekly chart x-axis labels
+`MARGIN TREND (WEEKLY)` chart on the Revenue tab labels the x-axis with
+bare numbers (`06 07 08 ... 17`) which are ISO week numbers with no
+unit. Prefix with "W" or switch to first-of-week dates so readers do not
+have to guess ("week 6? of what year?").
+
+### Analytics MTD / WTD revenue tiles stuck on placeholder
+"MTD revenue" and "WTD revenue" tiles on the Revenue tab read from
+`meta/revenueStats` and display the em-dash placeholder until that doc
+is populated. If it stays empty through a full completed-order cycle,
+the `revenueStats` rollup Cloud Function may not be running on schedule.
+Verify the cron + the `sendTireSaleSms` / `completeOrder` updates land
+the rollup fields.
+
+### `crmLeads` new fields not yet surfaced in UI
+(Already called out under "Sinch Chat: surface new lead fields in
+Leads UI" above. Included here so the audit checklist is complete.)

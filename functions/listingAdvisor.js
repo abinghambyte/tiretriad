@@ -51,7 +51,7 @@ function buildUserPayload(input) {
 }
 
 /** Primary Haiku, then Sonnet if the first model or response handling fails. */
-const ANTHROPIC_LISTING_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-5']
+const ANTHROPIC_LISTING_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6']
 
 function parseModelJson(text) {
   let s = String(text || '').trim()
