@@ -56,6 +56,7 @@ const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
 const { buildTaxPrepCsv } = require('./taxPrepExport')
 const { handleInboundSmsRequest } = require('./inboundSms')
+const { handleCreateSinchChatLead } = require('./sinchChatLead')
 const { crmStaleCheckRun } = require('./crmStaleCheck')
 const { crmAccountTrigger } = require('./crmAccountTrigger')
 const { crmJobTrigger } = require('./crmJobTrigger')
@@ -921,6 +922,21 @@ exports.inboundSms = onRequest({ cors: true, secrets: SLACK_SECRETS }, async (re
   } catch (e) {
     console.error('inboundSms', e)
     if (!res.headersSent) res.status(500).send('error')
+  }
+})
+
+/**
+ * Sinch Chat initial-form submission → crmLeads Firestore doc.
+ * Called from SinchChatMount client-side on the `submitInitialForm` event.
+ * Unauthenticated; relies on CORS + payload validation to limit abuse.
+ * https://us-central1-skedaddle-inventory.cloudfunctions.net/createSinchChatLead
+ */
+exports.createSinchChatLead = onRequest({ cors: true }, async (req, res) => {
+  try {
+    await handleCreateSinchChatLead(req, res)
+  } catch (e) {
+    console.error('createSinchChatLead', e)
+    if (!res.headersSent) res.status(500).json({ error: 'error' })
   }
 })
 
