@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { OrderCompletionMilestones } from '../milestones/OrderCompletionMilestones.jsx'
 import { MobileBottomNav } from './MobileBottomNav.jsx'
@@ -99,23 +99,12 @@ function SessionExpiryBanner() {
   )
 }
 
-function ThemeToggle() {
-  const [mode, setMode] = useState(() => resolveInitialTheme())
-
-  useEffect(() => {
-    applyTheme(mode)
-    try {
-      localStorage.setItem(THEME_KEY, mode)
-    } catch {
-      /* ignore */
-    }
-  }, [mode])
-
+function ThemeToggle({ mode, onToggle }) {
   return (
     <button
       type="button"
       title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
-      onClick={() => setMode((m) => (m === 'dark' ? 'light' : 'dark'))}
+      onClick={onToggle}
       className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 sm:h-8 sm:min-h-0 sm:w-8 sm:min-w-0"
       aria-label="Toggle color theme"
     >
@@ -179,6 +168,26 @@ export function PortalChrome() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [theme, setTheme] = useState(() => resolveInitialTheme())
+
+  // Persist theme + apply the data-theme attribute. Lifted out of
+  // ThemeToggle so the CommandPalette can flip the same state.
+  useEffect(() => {
+    applyTheme(theme)
+    try {
+      localStorage.setItem(THEME_KEY, theme)
+    } catch {
+      /* ignore */
+    }
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((m) => (m === 'dark' ? 'light' : 'dark'))
+  }, [])
+
+  // Stable callback identity keeps `CommandPalette`'s `useMemo` for the
+  // action registry from reconciling on every parent render.
+  const closePalette = useCallback(() => setPaletteOpen(false), [])
 
   const hideChrome = loc.pathname === '/' || loc.pathname.startsWith('/i/')
   const hideMobileBottomNav = loc.pathname.startsWith('/handshake')
@@ -212,12 +221,17 @@ export function PortalChrome() {
           navigate={navigate}
           profile={profile}
           onOpenPalette={() => setPaletteOpen(true)}
-          themeToggle={<ThemeToggle />}
+          themeToggle={<ThemeToggle mode={theme} onToggle={toggleTheme} />}
           shortcutHint={<ShortcutHint />}
         />
         <DesktopTopNav />
       </div>
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={closePalette}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
       <div
         className={
           hideMobileBottomNav ? '' : 'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0'
