@@ -90,6 +90,25 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
 
   const filteredActions = useMemo(() => filterPaletteActions(actions, q), [actions, q])
 
+  // Group consecutive actions by section so Selection / Navigation / Actions
+  // each get their own header while the flat index stays stable for keyboard
+  // nav. Memo'd so hover / arrow-key re-renders don't redo the grouping.
+  const actionGroups = useMemo(() => {
+    /** @type {Array<{ section: string, items: Array<{ idx: number, action: (typeof filteredActions)[number] }> }>} */
+    const groups = []
+    filteredActions.forEach((a, i) => {
+      const section = a.section || 'Actions'
+      const last = groups[groups.length - 1]
+      const entry = { idx: i, action: a }
+      if (last && last.section === section) {
+        last.items.push(entry)
+      } else {
+        groups.push({ section, items: [entry] })
+      }
+    })
+    return groups
+  }, [filteredActions])
+
   const runSearch = useCallback(async (raw) => {
     const needle = raw.trim().toLowerCase()
     if (needle.length < 2) {
@@ -346,58 +365,42 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
           />
         </div>
         <div ref={listRef} className="max-h-[min(50vh,28rem)] overflow-y-auto px-2 py-3 text-sm sm:px-3">
-          {actionCount > 0
-            ? (() => {
-                // Group consecutive actions by section so Selection /
-                // Navigation / Actions each get their own header while the
-                // flat index remains consistent for keyboard nav.
-                /** @type {Array<{ section: string, items: Array<{ idx: number, action: (typeof filteredActions)[number] }> }>} */
-                const groups = []
-                filteredActions.forEach((a, i) => {
-                  const section = a.section || 'Actions'
-                  const last = groups[groups.length - 1]
-                  const entry = { idx: actionStart + i, action: a }
-                  if (last && last.section === section) {
-                    last.items.push(entry)
-                  } else {
-                    groups.push({ section, items: [entry] })
-                  }
-                })
-                return (
-                  <div className="space-y-3">
-                    {groups.map((g) => (
-                      <div key={g.section}>
-                        <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                          {g.section}
-                        </p>
-                        <ul className="mt-1 space-y-1">
-                          {g.items.map(({ idx: fi, action: a }) => (
-                            <li key={a.id}>
-                              <button
-                                type="button"
-                                data-palette-idx={fi}
-                                onMouseEnter={() => setSelectedIdx(fi)}
-                                className={rowClass(fi)}
-                                onClick={() => a.run()}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="text-zinc-100">{a.label}</span>
-                                  {a.hint ? (
-                                    <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
-                                      {a.hint}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()
-            : null}
+          {actionCount > 0 ? (
+            <div className="space-y-3">
+              {actionGroups.map((g) => (
+                <div key={g.section}>
+                  <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    {g.section}
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {g.items.map(({ idx: i, action: a }) => {
+                      const fi = actionStart + i
+                      return (
+                        <li key={a.id}>
+                          <button
+                            type="button"
+                            data-palette-idx={fi}
+                            onMouseEnter={() => setSelectedIdx(fi)}
+                            className={rowClass(fi)}
+                            onClick={() => a.run()}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-zinc-100">{a.label}</span>
+                              {a.hint ? (
+                                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
+                                  {a.hint}
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {busy ? (
             <div className="mt-2 space-y-2 px-2 py-2">
               {[1, 2, 3, 4].map((i) => (

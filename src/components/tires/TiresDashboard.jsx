@@ -670,12 +670,26 @@ export function TiresDashboard() {
 
   // Publish selection + action runners to the module-level store so the
   // command palette (mounted in PortalChrome, outside this route tree) can
-  // offer context-aware actions. The runners close over current state via
-  // each render's fresh function identity — which is fine because the
-  // palette rebuilds its action registry whenever the snapshot changes.
-  // `logSelectedSale` and `clearSelection` are intentionally omitted from
-  // the dep array: they're re-created every render, and their behavior
-  // only depends on state we already track above.
+  // offer context-aware actions. Runners read from a ref so they always see
+  // the latest `sortedRows` / selection helpers — omitting the function
+  // identities from the dep array would let `logSelectedSale` close over a
+  // stale `sortedRows` after the user re-sorts or re-filters, logging a
+  // sale against the wrong tires.
+  const runnersRef = useRef({
+    logSelectedSale,
+    clearSelection,
+    setQuoteOpen,
+    setListingOpen,
+    setBulkCtsOpen,
+  })
+  runnersRef.current = {
+    logSelectedSale,
+    clearSelection,
+    setQuoteOpen,
+    setListingOpen,
+    setBulkCtsOpen,
+  }
+
   useEffect(() => {
     const count = selectedIds.size
     if (count === 0) {
@@ -688,14 +702,13 @@ export function TiresDashboard() {
       canLogSale: !loading,
       canGenerateListings: !loading && selectedTires.length > 0,
       canBulkOverhead: !loading,
-      runQuote: () => setQuoteOpen(true),
-      runLogSale: () => logSelectedSale(),
-      runGenerateListings: () => setListingOpen(true),
-      runBulkOverhead: () => setBulkCtsOpen(true),
-      runClearSelection: () => clearSelection(),
+      runQuote: () => runnersRef.current.setQuoteOpen(true),
+      runLogSale: () => runnersRef.current.logSelectedSale(),
+      runGenerateListings: () => runnersRef.current.setListingOpen(true),
+      runBulkOverhead: () => runnersRef.current.setBulkCtsOpen(true),
+      runClearSelection: () => runnersRef.current.clearSelection(),
     })
     return undefined
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIds, selectedTires, loading])
 
   useEffect(() => {
