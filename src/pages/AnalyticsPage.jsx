@@ -233,10 +233,16 @@ export function AnalyticsPage() {
     const now = Date.now() // eslint-disable-line react-hooks/purity -- calendar vs meta/revenueStats windows
     const wk = isoWeekKey(now)
     const mo = denverYm(now)
-    const wtd = String(r.weeklyWindow || '') === wk ? Number(r.weeklyRevenue) || 0 : null
-    const mtd = String(r.monthlyWindow || '') === mo ? Number(r.monthlyRevenue) || 0 : null
     const allTime = Number(r.allTimeRevenue) || 0
-    return { wtd, mtd, allTime, wk, mo }
+    // docAlive: at least one completion has ever been rolled up. Used to
+    // distinguish "no sales yet this period" (show $0) from "rollup never
+    // fired" (show em-dash + hint).
+    const docAlive = allTime > 0 || Boolean(r.weeklyWindow) || Boolean(r.monthlyWindow)
+    const weekMatch = String(r.weeklyWindow || '') === wk
+    const monthMatch = String(r.monthlyWindow || '') === mo
+    const wtd = weekMatch ? Number(r.weeklyRevenue) || 0 : docAlive ? 0 : null
+    const mtd = monthMatch ? Number(r.monthlyRevenue) || 0 : docAlive ? 0 : null
+    return { wtd, mtd, allTime, wk, mo, weekMatch, monthMatch, docAlive }
   }, [revenueStats])
 
   const revenueSampleTotal = useMemo(
@@ -284,7 +290,9 @@ export function AnalyticsPage() {
       if (p <= 0) return null
       return (100 * (margin.get(k) || 0)) / p
     })
-    return { labels: keys.map((k) => k.replace(/^\d{4}-W/, '')), percents }
+    // Keep the "W" prefix so the chart x-axis reads "W06 W07 ... W15" instead of
+    // bare numbers that could be mistaken for days or months.
+    return { labels: keys.map((k) => k.replace(/^\d{4}-/, '')), percents }
   }, [completedRows, tiresByMspn])
 
   const topSkus = useMemo(() => {
@@ -480,18 +488,22 @@ export function AnalyticsPage() {
                 label="MTD revenue"
                 value={revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '—'}
                 hint={
-                  revenueWindows.mtd != null
+                  revenueWindows.monthMatch
                     ? `Month ${revenueWindows.mo}.`
-                    : `Refreshes after each completed order.`
+                    : revenueWindows.docAlive
+                      ? `No sales rolled up yet for ${revenueWindows.mo}.`
+                      : `No completions recorded yet. Refreshes after each completed order.`
                 }
               />
               <MetricCard
                 label="WTD revenue"
                 value={revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '—'}
                 hint={
-                  revenueWindows.wtd != null
+                  revenueWindows.weekMatch
                     ? `ISO week ${revenueWindows.wk}.`
-                    : `Refreshes after each completed order. Contact an admin if this stays stale.`
+                    : revenueWindows.docAlive
+                      ? `No sales rolled up yet for ISO week ${revenueWindows.wk}.`
+                      : `No completions recorded yet. Refreshes after each completed order.`
                 }
               />
             </div>

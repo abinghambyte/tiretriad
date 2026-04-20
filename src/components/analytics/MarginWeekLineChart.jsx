@@ -61,7 +61,7 @@ export function MarginWeekLineChart({ labels, percents }) {
         </p>
         {latest ? (
           <p className="text-xs text-zinc-400">
-            Week {latest.weekLabel}{' '}
+            {latest.weekLabel}{' '}
             <span className="font-semibold tabular-nums text-amber-300">
               {formatPercent(latest.value, 1)}
             </span>
@@ -119,7 +119,7 @@ export function MarginWeekLineChart({ labels, percents }) {
               <g key={`${labels[i] ?? 'w'}-${i}`}>
                 <circle cx={p.x} cy={p.y} r={isLatest ? 5 : 4} fill="currentColor">
                   <title>
-                    Week {labels[i]}: {formatPercent(p.raw, 1)}
+                    {labels[i]}: {formatPercent(p.raw, 1)}
                   </title>
                 </circle>
                 {isLatest ? (
