@@ -8,7 +8,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
  * PortalChrome directly beneath PortalTopBar, inside the same sticky wrapper.
  */
 const linkBase =
-  'relative -mb-px flex min-h-[40px] items-center border-b-2 border-transparent px-3 py-2 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:text-zinc-100'
+  'relative -mb-px flex min-h-[40px] items-center rounded-md border-b-2 border-transparent px-3 py-2 text-sm font-medium text-zinc-400 transition-colors duration-200 hover:text-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
 const linkActive = 'border-amber-500 text-amber-100'
 
 export function DesktopTopNav() {

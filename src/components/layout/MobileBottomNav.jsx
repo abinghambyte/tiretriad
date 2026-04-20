@@ -45,7 +45,7 @@ function IconAnalytics() {
 }
 
 const navCls =
-  'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[11px] font-medium text-zinc-500 transition-colors duration-200 hover:bg-zinc-800/60 hover:text-zinc-200 active:bg-zinc-800/80'
+  'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[11px] font-medium text-zinc-500 transition-colors duration-200 hover:bg-zinc-800/60 hover:text-zinc-200 active:bg-zinc-800/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
 const activeCls = 'bg-amber-500/12 text-amber-200 ring-1 ring-amber-600/35 hover:bg-amber-500/15 hover:text-amber-100'
 
 function IconOps() {
