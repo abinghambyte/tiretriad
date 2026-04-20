@@ -180,7 +180,7 @@ function DispatchTab() {
   if (!allowed) {
     return (
       <p className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-400">
-        DJ dispatch is for Field crew and Overwatch.
+        Field dispatch is for Field crew and Overwatch.
       </p>
     )
   }
@@ -571,7 +571,7 @@ export function CrmPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <ModuleSubheader
         title="Rubber CRM"
-        subtitle="Lead pipeline, VIP clients, and DJ dispatch"
+        subtitle="Lead pipeline, VIP clients, and field dispatch"
         tabs={crmTabs}
         maxWidthClass="max-w-[1600px]"
       />
