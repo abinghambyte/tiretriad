@@ -11,8 +11,12 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useMemo, useState, startTransition } from 'react'
-import { auth, db } from '../../firebase/config'
+import { auth, db, functions } from '../../firebase/config'
+import { useToast } from '../../context/ToastContext.jsx'
+import { useUserProfile } from '../../hooks/useUserProfile'
+import { copyToClipboard } from '../../utils/copyToClipboard'
 import { formatCurrency, formatQty } from '../../utils/format'
 import { phoneDocIdFromContact } from '../../utils/phoneDocId'
 import {
@@ -39,6 +43,8 @@ const OWNERS = [
   { value: 'dj', label: 'DJ' },
   { value: 'kyle', label: 'Kyle' },
 ]
+
+const generateVipLinkFn = httpsCallable(functions, 'generateVipLink')
 
 function tsToDateInput(ts) {
   if (!ts || typeof ts.toDate !== 'function') return ''
@@ -72,6 +78,8 @@ function fmtActivityAt(ts) {
  * @param {number} props.avgBuyPerTire
  */
 export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onRefresh, avgBuyPerTire }) {
+  const { profile } = useUserProfile()
+  const { toast } = useToast()
   const [draft, setDraft] = useState({ ...account })
   const [removeVehiclePendingId, setRemoveVehiclePendingId] = useState(null)
   const [removingVehicleId, setRemovingVehicleId] = useState(null)
@@ -84,6 +92,11 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
   const [savingNextAction, setSavingNextAction] = useState(false)
   const [savingVehicleProfile, setSavingVehicleProfile] = useState(false)
   const [linkedOrdersRows, setLinkedOrdersRows] = useState([])
+  const [vipTierPick, setVipTierPick] = useState('standard')
+  const [vipGenBusy, setVipGenBusy] = useState(false)
+  const [vipLinkUrl, setVipLinkUrl] = useState('')
+
+  const isAdmin = String(profile?.role || '').toLowerCase() === 'admin'
 
   const vp = useMemo(
     () => (draft.vehicleProfile && typeof draft.vehicleProfile === 'object' ? draft.vehicleProfile : {}),
@@ -252,6 +265,74 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             {computeCrmScore(draft)}
           </span>
         </p>
+
+        {isAdmin ? (
+          <div className="mt-4 rounded-xl border border-amber-500/25 bg-zinc-900/70 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-200/90">VIP concierge link</h3>
+            <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+              Generate a signed URL (72h). Copy and send it to the customer out of band.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="text-xs text-zinc-500">
+                Tier
+                <select
+                  value={vipTierPick}
+                  onChange={(e) => setVipTierPick(e.target.value)}
+                  className="ml-2 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm text-zinc-100"
+                >
+                  <option value="standard">standard</option>
+                  <option value="platinum">platinum</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={vipGenBusy}
+                onClick={async () => {
+                  setVipGenBusy(true)
+                  setVipLinkUrl('')
+                  try {
+                    const res = await generateVipLinkFn({ accountId: account.id, tier: vipTierPick })
+                    const url = String(res.data?.url || '').trim()
+                    if (!url) throw new Error('No URL returned')
+                    setVipLinkUrl(url)
+                  } catch (e) {
+                    const msg = e && typeof e.message === 'string' ? e.message : 'Could not generate VIP link'
+                    toast(msg, 'error')
+                  } finally {
+                    setVipGenBusy(false)
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-50"
+              >
+                {vipGenBusy && <Spinner className="h-4 w-4 text-zinc-900/90" />}
+                {vipGenBusy ? 'Generating…' : 'Generate VIP link'}
+              </button>
+            </div>
+            {vipLinkUrl ? (
+              <div className="mt-3 space-y-1">
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={vipLinkUrl}
+                    className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 font-mono text-[11px] text-zinc-200"
+                  />
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg border border-zinc-600 px-3 py-1.5 text-xs font-medium text-zinc-100 hover:bg-zinc-800"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(vipLinkUrl)
+                      if (ok) toast('VIP link copied', 'success')
+                      else toast('Copy failed', 'error')
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-500">Expires in 72 hours</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <label className="mt-4 block text-xs text-zinc-500">
           Pipeline stage

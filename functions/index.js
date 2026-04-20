@@ -12,3 +12,7 @@ Object.assign(exports, require('./crm'))
 Object.assign(exports, require('./slack'))
 
 exports.getDashboardStats = require('./dashboardStats').getDashboardStats
+
+const { generateVipLink, verifyVipLink } = require('./vipLinks')
+exports.generateVipLink = generateVipLink
+exports.verifyVipLink = verifyVipLink
