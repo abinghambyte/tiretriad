@@ -100,18 +100,12 @@ Design skeleton:
 - Different `brandText` (`VIP concierge`), different initial-screen copy,
   possibly a different queue in Sinch so VIP messages jump the line.
 
-### Sinch Chat: surface new lead fields in Leads UI
-`createSinchChatLead` writes `contactName`, `phone`, `email`, `inquiry`,
-`pageUrl`, `referrer`, `sinchConversationId` into the Firestore doc but
-the Leads table only renders the original `businessName`, `source`,
-`segment`, `fleetSize`, `urgency`, follow-up columns. Once the widget is
-live and real leads start coming in, add:
-- Inquiry preview column (truncate to 80 chars, full text on hover).
-- Detail drawer that shows all fields + a one-click
-  `Open Sinch conversation` button that opens the Sinch inbox to the
-  `sinchConversationId`.
-- Source badge styling (`sinch_chat` gets its own pill color so it's
-  visually distinct from walk-in / phone / referral).
+### Sinch Chat: surface new lead fields in Leads UI (resolved)
+Shipped in PR #69 (`sinch-lead-drawer`). Leads table gained a source pill,
+inquiry preview column, and a right-side detail drawer showing contact,
+inquiry, page URL, referrer, and `sinchConversationId`. The "open Sinch
+inbox" deep link was deliberately skipped because Sinch does not expose a
+stable conversation URL pattern; revisit if Sinch publishes one.
 
 ### Description-search format mismatch
 Searching the Tires catalog for values like `X2L` or a full pasted
@@ -208,33 +202,26 @@ touch all four call sites: `functions/inviteFlow.js`,
 dropped the redundant `Week` prefix so they read `W15 100.0%` instead
 of `Week W15 100.0%`.
 
-### Analytics MTD / WTD revenue tiles (resolved + backfill optional)
+### Analytics MTD / WTD revenue tiles (resolved + backfill shipped)
 Root-caused: the one existing completed order (April 12) pre-dated
 commit `a8dbec2` (April 13) which wired `runCompletionTransaction` to
 update `meta/revenueStats`. The doc is legitimately empty until the
 next completion fires. The UI now distinguishes "doc alive, this
 period is zero" (shows `$0.00` with clarifying hint) from "doc never
 populated" (shows em-dash with "No completions recorded yet").
-Optional follow-up: write a one-off backfill script that reads the
-small `orders` collection (`status == 'completed'`) and runs
-`bumpRevenueFields` for each one against a freshly-initialized
-revenueStats doc. Worth ~30 minutes if the historical line-item
-matters for the leaderboard / YTD tiles once more data accumulates.
+Backfill script shipped in PR #67 (`scripts/backfill-revenue-stats.mjs`).
+Ops runs it on demand with `GOOGLE_APPLICATION_CREDENTIALS` set; it
+folds every completed order through `bumpRevenueFields` and overwrites
+`meta/revenueStats`. Dry-run and confirmation flags included.
 
-### Backdate "Log sale" / completed order timestamps
-Today `Log sale` stamps `completedAt` as `serverTimestamp()` with no
-way to record a sale that happened earlier. A sale logged three days
-late still counts as today's revenue in analytics. Add an optional
-date-time field (default now, max: now, min: 30 days back) to the
-Log Sale / Sale Messenger modal; when set, pass it through the
-completion transaction instead of `serverTimestamp()`.
+### Backdate "Log sale" / completed order timestamps (resolved)
+Shipped in PR #68 (`backdate-log-sale`). Sale Messenger now has an
+optional `Completed at` datetime field (max: now, min: 30 days back).
+When set, the value rides through the `sendTireSaleSms` payload and
+`completeOrder` uses it to stamp `completedMs` and `completedAt`; the
+30-day lookback is enforced server-side with an `invalid-argument`
+HttpsError. `completedAtSource: 'backdated'` is written on meaningful
+backdates so analytics can distinguish real-time vs. backfilled
+completions later. Seven validation cases covered in
+`functions/orders.backdate.test.mjs`.
 
-Impact: the `meta/revenueStats` rollup already buckets by
-`completedMs`, so this just requires letting a callable override that
-timestamp. Audit-wise, also record `completedAtSource: 'backdated'`
-on the order doc so analytics can distinguish real-time vs.
-backfilled completions if that matters later.
-
-### `crmLeads` new fields not yet surfaced in UI
-(Already called out under "Sinch Chat: surface new lead fields in
-Leads UI" above. Included here so the audit checklist is complete.)
