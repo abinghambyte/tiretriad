@@ -6,15 +6,17 @@ a PR from - then stop.
 
 ## Active rollout: April 20, batch 3
 
-Three patches, all orthogonal. Paste one brief per agent.
+Five patches. K / L / M are fully orthogonal. N and O both touch `src/App.jsx` routing, so N merges first (pure removal of the `/dispatch` stub) and O rebases on top if needed (adds the public `/vip/:token` route).
 
 | Patch | Branch | Owns |
 | --- | --- | --- |
 | K | `payout-config` | `functions/financeStats.js`, `functions/financeSlackCommands.js`, `functions/lookupUtilitySlackCommands.js`, `functions/financeStats.test.mjs`, NEW `functions/payoutConfig.js` / `.test.mjs`, `src/pages/OpsPage.jsx` (new section only), NEW `src/components/ops/PayoutConfigPanel.jsx` / `.test.jsx` |
 | L | `fet-tag` | `src/components/tires/MarginTable.jsx`, NEW `scripts/migrate-tire-fet-tag.mjs` / `.test.mjs`, optional touch of `src/utils/opportunityScore.js` |
 | M | `tire-haystack-v2` | `src/utils/tireSearchHaystack.js`, `src/utils/tireSearchHaystack.test.js`, NEW `src/utils/tireSearchHaystack.fixtures.js` |
+| N | `dispatch-kill` | `src/App.jsx` (remove `/dispatch` route only), DELETE `src/components/DispatchRedirect.jsx` |
+| O | `vip-magic-link-v1` | `src/App.jsx` (add `/vip/:token` public route), NEW `src/pages/VipConciergePage.jsx` / `.test.jsx`, `src/components/chat/SinchChatMount.jsx` (two new optional props), `src/components/crm/CrmAccountDetailPanel.jsx` (Generate VIP link button), NEW `functions/vipLinks.js` / `.test.mjs`, `functions/index.js` (export new callables), `functions/.env.example` (new secret comment) |
 
-No merge coordination needed - zero file overlap across K / L / M. Merge in any order.
+Merge order: K / L / M / N in any order; O last (rebase onto post-N main if N merges while O is in flight).
 
 ## When the folder is empty
 
