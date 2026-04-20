@@ -202,19 +202,38 @@ touch all four call sites: `functions/inviteFlow.js`,
 `functions/listingAdvisor.js`, `functions/taskDispatcher.js`,
 `functions/lookupUtilitySlackCommands.js`.
 
-### Analytics revenue weekly chart x-axis labels
-`MARGIN TREND (WEEKLY)` chart on the Revenue tab labels the x-axis with
-bare numbers (`06 07 08 ... 17`) which are ISO week numbers with no
-unit. Prefix with "W" or switch to first-of-week dates so readers do not
-have to guess ("week 6? of what year?").
+### Analytics revenue weekly chart x-axis labels (resolved)
+`MARGIN TREND (WEEKLY)` chart on the Revenue tab now labels the x-axis
+`W06 W07 ... W17`. Chart tooltips and the top-right latest-week pill
+dropped the redundant `Week` prefix so they read `W15 100.0%` instead
+of `Week W15 100.0%`.
 
-### Analytics MTD / WTD revenue tiles stuck on placeholder
-"MTD revenue" and "WTD revenue" tiles on the Revenue tab read from
-`meta/revenueStats` and display the em-dash placeholder until that doc
-is populated. If it stays empty through a full completed-order cycle,
-the `revenueStats` rollup Cloud Function may not be running on schedule.
-Verify the cron + the `sendTireSaleSms` / `completeOrder` updates land
-the rollup fields.
+### Analytics MTD / WTD revenue tiles (resolved + backfill optional)
+Root-caused: the one existing completed order (April 12) pre-dated
+commit `a8dbec2` (April 13) which wired `runCompletionTransaction` to
+update `meta/revenueStats`. The doc is legitimately empty until the
+next completion fires. The UI now distinguishes "doc alive, this
+period is zero" (shows `$0.00` with clarifying hint) from "doc never
+populated" (shows em-dash with "No completions recorded yet").
+Optional follow-up: write a one-off backfill script that reads the
+small `orders` collection (`status == 'completed'`) and runs
+`bumpRevenueFields` for each one against a freshly-initialized
+revenueStats doc. Worth ~30 minutes if the historical line-item
+matters for the leaderboard / YTD tiles once more data accumulates.
+
+### Backdate "Log sale" / completed order timestamps
+Today `Log sale` stamps `completedAt` as `serverTimestamp()` with no
+way to record a sale that happened earlier. A sale logged three days
+late still counts as today's revenue in analytics. Add an optional
+date-time field (default now, max: now, min: 30 days back) to the
+Log Sale / Sale Messenger modal; when set, pass it through the
+completion transaction instead of `serverTimestamp()`.
+
+Impact: the `meta/revenueStats` rollup already buckets by
+`completedMs`, so this just requires letting a callable override that
+timestamp. Audit-wise, also record `completedAtSource: 'backdated'`
+on the order doc so analytics can distinguish real-time vs.
+backfilled completions if that matters later.
 
 ### `crmLeads` new fields not yet surfaced in UI
 (Already called out under "Sinch Chat: surface new lead fields in

@@ -102,8 +102,48 @@ export function normalizeQuery(s) {
     .replace(/[^a-z0-9]+/g, '')
 }
 
+/**
+ * Strip verbose spec phrases and cosmetic sidewall codes that retailers include
+ * in product titles but the Skedaddle catalog omits. Without this, pastes from
+ * Tire Rack / Discount Tire / eBay miss via the token-fallback path because
+ * tokens like "bsw" or "ply" do not appear in the catalog haystack.
+ *
+ * Handled:
+ *   - "Load Range E" / "load range e" → "E"
+ *   - "E-range" / "E Range" → "E"
+ *   - "10-ply" / "10 ply" / "10 Ply Rated" → ""
+ *   - Sidewall codes as standalone words: BSW, OWL, ROWL, RBL, WWL, SBL, etc.
+ *   - Leading "P" on passenger metric: "P225/70R15" → "225/70R15"
+ *     (catalog drops the P for passenger metric so including it is a miss).
+ *     "LT" prefix is intentionally preserved since it distinguishes
+ *     light-truck sizes and catalog entries carry it.
+ *
+ * Preserves all other content (including load-range letters, speed ratings,
+ * and tread names).
+ *
+ * @param {unknown} raw
+ * @returns {string}
+ */
+export function stripVerbosePhrases(raw) {
+  let s = String(raw ?? '')
+  // Drop a lone leading 'P' on passenger metric. Anchored before 3-digit width
+  // + aspect + construction letter so "P295/75R22" strips but arbitrary "P" in
+  // tread names (e.g., "PRO-STREET") survives.
+  s = s.replace(/\bP(?=\d{3}\/\d{2}[A-Z])/gi, '')
+  // "Load Range E" → "E" (keeps the letter that actually matters)
+  s = s.replace(/\bload\s+range\s+/gi, '')
+  // "E-range" / "E Range" → "E"
+  s = s.replace(/\b([A-Z])[\s-]*range\b/gi, '$1')
+  // "10-ply", "10 ply", "10-Ply Rated", "10 ply rated"
+  s = s.replace(/\b\d+\s*[-\s]*ply(?:\s+rated)?\b/gi, '')
+  // Standalone sidewall codes: BSW, OWL, ROWL, RBL, WOWL, WWL, SBL, BLK, BW, WW
+  s = s.replace(/\b(?:bsw|owl|rowl|rbl|wowl|wwl|sbl|blk|bw|ww|rwl)\b/gi, '')
+  // Collapse multi-spaces introduced by removals
+  return s.replace(/\s+/g, ' ').trim()
+}
+
 function normalizeTokens(rawQuery) {
-  return String(rawQuery ?? '')
+  return stripVerbosePhrases(rawQuery)
     .toLowerCase()
     .split(/[\s/]+/)
     .map((t) => t.replace(/[^a-z0-9]+/g, ''))
@@ -132,13 +172,14 @@ function normalizeTokens(rawQuery) {
  * @returns {boolean}
  */
 export function matchesQuery(tire, rawQuery) {
-  const q = normalizeQuery(rawQuery)
+  const stripped = stripVerbosePhrases(rawQuery)
+  const q = normalizeQuery(stripped)
   if (!q) return true
   const hay = normalizeQuery(buildTireHaystack(tire))
   if (!hay) return false
   if (hay.includes(q)) return true
   if (q.length < 4) return false
-  const tokens = normalizeTokens(rawQuery)
+  const tokens = normalizeTokens(stripped)
   if (tokens.length === 0) return false
   return tokens.every((t) => hay.includes(t))
 }
