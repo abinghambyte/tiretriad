@@ -222,7 +222,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter sm:p-0"
+      className="fixed inset-0 z-[130] flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter sm:p-0"
       role="dialog"
       aria-modal
       onClick={onClose}
