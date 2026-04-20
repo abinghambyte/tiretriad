@@ -699,15 +699,15 @@ export function CrmPage() {
                       {pipelineSummary.totalAccounts}
                     </span>
                   </span>
-                  <span>
-                    <span className="text-zinc-500">Pipeline value </span>
-                    <span className="font-semibold text-amber-200 tabular-nums">
-                      {pipelineSummary.totalDollars > 0
-                        ? formatCurrency(pipelineSummary.totalDollars)
-                        : '—'}
+                  {pipelineSummary.totalDollars > 0 ? (
+                    <span>
+                      <span className="text-zinc-500">Pipeline value </span>
+                      <span className="font-semibold text-amber-200 tabular-nums">
+                        {formatCurrency(pipelineSummary.totalDollars)}
+                      </span>
+                      <span className="ml-1 text-zinc-600">est.</span>
                     </span>
-                    <span className="ml-1 text-zinc-600">est.</span>
-                  </span>
+                  ) : null}
                   {pipelineSummary.conversionRate != null ? (
                     <span>
                       <span className="text-zinc-500">Conversion rate </span>
@@ -792,11 +792,11 @@ export function CrmPage() {
                             <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
                               Last note: {lastActivityNotePreview(a)}
                             </p>
-                            <p className="mt-1 text-[10px] font-semibold text-amber-200/90">
-                              {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
-                                ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
-                                : '—'}
-                            </p>
+                            {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null ? (
+                              <p className="mt-1 text-[10px] font-semibold text-amber-200/90">
+                                {formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))}
+                              </p>
+                            ) : null}
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
@@ -866,11 +866,11 @@ export function CrmPage() {
                           <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-600">
                             Last note: {lastActivityNotePreview(a)}
                           </p>
-                          <p className="mt-1 text-[10px] font-semibold text-amber-200/70">
-                            {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
-                              ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
-                              : '—'}
-                          </p>
+                          {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null ? (
+                            <p className="mt-1 text-[10px] font-semibold text-amber-200/70">
+                              {formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))}
+                            </p>
+                          ) : null}
                         </button>
                       ))}
                     </div>
@@ -930,11 +930,11 @@ export function CrmPage() {
                                   <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
                                     Last note: {lastActivityNotePreview(a)}
                                   </p>
-                                  <p className="mt-0.5 text-[10px] font-semibold text-amber-200/90">
-                                    {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null
-                                      ? formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))
-                                      : '—'}
-                                  </p>
+                                  {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null ? (
+                                    <p className="mt-0.5 text-[10px] font-semibold text-amber-200/90">
+                                      {formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))}
+                                    </p>
+                                  ) : null}
                                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                     <span
                                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}

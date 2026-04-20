@@ -109,7 +109,7 @@ export function AnalyticsPage() {
       orderBy('completedAt', 'desc'),
       limit(4000),
     )
-    return getDocs(q).then(
+    getDocs(q).then(
       (snap) => {
         setCompletedRows(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setOrdersLoading(false)
@@ -124,7 +124,7 @@ export function AnalyticsPage() {
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), where('pokeCount', '>=', 1), limit(800))
-    return getDocs(q).then(
+    getDocs(q).then(
       (snap) => {
         setPokeOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setPokeLoading(false)
