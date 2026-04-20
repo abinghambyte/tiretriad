@@ -4,6 +4,18 @@ Active Cursor agent handoff briefs. Each brief is a self-contained patch
 spec that a Cursor agent can pick up cold, implement, validate, and open
 a PR from - then stop.
 
+## Active rollout: April 20, batch 3
+
+Three patches, all orthogonal. Paste one brief per agent.
+
+| Patch | Branch | Owns |
+| --- | --- | --- |
+| K | `payout-config` | `functions/financeStats.js`, `functions/financeSlackCommands.js`, `functions/lookupUtilitySlackCommands.js`, `functions/financeStats.test.mjs`, NEW `functions/payoutConfig.js` / `.test.mjs`, `src/pages/OpsPage.jsx` (new section only), NEW `src/components/ops/PayoutConfigPanel.jsx` / `.test.jsx` |
+| L | `fet-tag` | `src/components/tires/MarginTable.jsx`, NEW `scripts/migrate-tire-fet-tag.mjs` / `.test.mjs`, optional touch of `src/utils/opportunityScore.js` |
+| M | `tire-haystack-v2` | `src/utils/tireSearchHaystack.js`, `src/utils/tireSearchHaystack.test.js`, NEW `src/utils/tireSearchHaystack.fixtures.js` |
+
+No merge coordination needed - zero file overlap across K / L / M. Merge in any order.
+
 ## When the folder is empty
 
 No active rollout in flight. Add new briefs here when dispatching one or
