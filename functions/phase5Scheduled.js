@@ -301,7 +301,7 @@ async function morningBriefRun(slackOpts) {
   }
 
   if (djStreak > 0) {
-    lines.push(`🔥  DJ streak: ${djStreak} clean orders`)
+    lines.push(`🔥  Field streak: ${djStreak} clean orders`)
   }
 
   if (flaggedPriceN > 0) {

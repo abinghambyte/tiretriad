@@ -6,7 +6,7 @@ export function moduleTitleFromPath(pathname) {
   const p = String(pathname || '')
   if (p === '/dashboard' || p === '/handshake') return 'Dashboard'
   if (p.startsWith('/tires')) return 'Skedaddle Tires'
-  if (p.startsWith('/crm/dispatch')) return 'DJ Dispatch'
+  if (p.startsWith('/crm/dispatch')) return 'Field Dispatch'
   if (p.startsWith('/crm')) return 'Rubber CRM'
   if (p.startsWith('/people')) return 'People Systems'
   if (p.startsWith('/analytics')) return 'Analytics'
@@ -43,7 +43,7 @@ function slugTitle(slug) {
 const TAB_LABELS = {
   '/crm?tab=board': 'Board',
   '/crm?tab=leads': 'Leads',
-  '/crm?tab=dispatch': 'DJ Dispatch',
+  '/crm?tab=dispatch': 'Field Dispatch',
   '/tires?tab=orders': 'Orders',
   '/tires?tab=catalog': 'Catalog',
   '/people?tab=customers': 'Customers',

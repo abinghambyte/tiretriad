@@ -1,6 +1,6 @@
 /**
- * Tab config for Rubber CRM (Board / Leads / DJ Dispatch). All tabs live on
- * `/crm` with a `?tab=` selector so state and back-nav behave consistently.
+ * Tab config for Rubber CRM (Board / Leads / Field Dispatch). All tabs live
+ * on `/crm` with a `?tab=` selector so state and back-nav behave consistently.
  *
  * @param {object} opts
  * @param {{ role?: string } | null | undefined} opts.profile
@@ -30,7 +30,7 @@ export function buildCrmTabs({ profile, pathname, searchParams }) {
   if (canDispatch) {
     tabs.push({
       key: 'dispatch',
-      label: 'DJ Dispatch',
+      label: 'Field Dispatch',
       to: '/crm?tab=dispatch',
       active: onCrm && tab === 'dispatch',
     })

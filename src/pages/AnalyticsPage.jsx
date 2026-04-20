@@ -426,7 +426,7 @@ export function AnalyticsPage() {
                 />
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                    DJ streak (assigned orders)
+                    Field streak (assigned orders)
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <span className={flameSize(djStreakUi.current)} title="Streak heat">
