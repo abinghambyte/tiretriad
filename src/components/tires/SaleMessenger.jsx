@@ -8,6 +8,12 @@ import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
 import { cmdEnterSubmitKeyDown } from '../../utils/cmdEnterSubmit.js'
 import { formatCurrency } from '../../utils/format'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { timeAgo } from '../../utils/timeAgo'
+
+function datetimeLocalValue(d) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 /** One callable instance — same reference as form submit and DEV test button. */
 const sendTireSaleSms = httpsCallable(functions, 'sendTireSaleSms')
@@ -28,6 +34,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
   const [customerContact, setCustomerContact] = useState('')
   const [fulfillment, setFulfillment] = useState('Pickup')
   const [fulfillmentNotes, setFulfillmentNotes] = useState('')
+  const [completedAtLocal, setCompletedAtLocal] = useState('')
   const [additionalNotes, setAdditionalNotes] = useState('')
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState(null)
@@ -151,6 +158,12 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
       setStatus({ type: 'error', text: 'Choose a SKU (MSPN).' })
       return
     }
+    const completedAtMs =
+      completedAtLocal.trim() === '' ? NaN : Date.parse(completedAtLocal)
+    if (completedAtLocal.trim() !== '' && !Number.isFinite(completedAtMs)) {
+      setStatus({ type: 'error', text: 'Completed at is not a valid date.' })
+      return
+    }
     setSending(true)
     try {
       const payload = {
@@ -163,6 +176,9 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
         fulfillment,
         fulfillmentNotes: fulfillmentNotes.trim(),
         additionalNotes: additionalNotes.trim(),
+      }
+      if (Number.isFinite(completedAtMs)) {
+        payload.completedAtMs = completedAtMs
       }
       await sendTireSaleSms(payload)
       setStatus({
@@ -371,6 +387,29 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
               rows={2}
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
             />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-zinc-500">
+              Completed at (optional)
+            </label>
+            <input
+              type="datetime-local"
+              value={completedAtLocal}
+              onChange={(e) => setCompletedAtLocal(e.target.value)}
+              min={datetimeLocalValue(new Date(Date.now() - 30 * 86_400_000))}
+              max={datetimeLocalValue(new Date())}
+              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+              placeholder="Defaults to now. Max: 30 days back."
+            />
+            <p className="mt-1 text-[11px] text-zinc-600">
+              Defaults to now. Max: 30 days back.
+            </p>
+            {completedAtLocal.trim() !== '' && Number.isFinite(Date.parse(completedAtLocal)) ? (
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Recording as {timeAgo(Date.parse(completedAtLocal)) || '—'}
+              </p>
+            ) : null}
           </div>
 
           <div>

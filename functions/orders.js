@@ -35,6 +35,62 @@ const { ensureRepeatCustomerVip } = require('./contactVip')
 const { buildTaxPrepCsv } = require('./taxPrepExport')
 const { runCompletionTransaction } = require('./financeStats')
 
+const THIRTY_DAYS_MS = 30 * 86_400_000
+const FUTURE_SKEW_MS = 60_000
+/** Omit `completedAtSource` when the chosen time is within this many ms of `now` ("same-now"). */
+const SAME_NOW_MAX_MS = 120_000
+
+/**
+ * Pure completion timestamp resolution for `completeOrder` / `sendTireSaleSms`.
+ *
+ * @internal Exported only for unit tests (non-enumerable so it is not merged into the deployed
+ * Cloud Functions entry surface). Do not import outside tests.
+ * @param {{ completedAtMs?: unknown }|undefined|null} input
+ * @param {number} nowMs
+ * @returns {{ completedMs: number, completedAt: Timestamp | null, completedAtSource?: 'backdated' }}
+ *   When `completedAt` is null, write `FieldValue.serverTimestamp()` to the order; always use
+ *   `completedMs` for minute / revenue math.
+ */
+function resolveCompletionTimestamp(input, nowMs) {
+  if (!Number.isFinite(nowMs)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Internal clock reference invalid (rule: finite now).',
+    )
+  }
+  const raw = input && typeof input === 'object' ? input.completedAtMs : undefined
+  if (raw === undefined || raw === null) {
+    return { completedMs: nowMs, completedAt: null }
+  }
+  const n = typeof raw === 'string' ? Number(raw) : Number(raw)
+  if (!Number.isFinite(n)) {
+    throw new HttpsError(
+      'invalid-argument',
+      'completedAtMs must be a finite number (rule: finite number).',
+    )
+  }
+  const completedAtMs = n
+  if (completedAtMs > nowMs + FUTURE_SKEW_MS) {
+    throw new HttpsError(
+      'invalid-argument',
+      'completedAtMs must not be more than one minute in the future (rule: future skew).',
+    )
+  }
+  if (completedAtMs < nowMs - THIRTY_DAYS_MS) {
+    throw new HttpsError(
+      'invalid-argument',
+      'completedAtMs must be within the last 30 days (rule: minimum window).',
+    )
+  }
+  const completedAt = Timestamp.fromMillis(completedAtMs)
+  /** @type {{ completedMs: number, completedAt: Timestamp, completedAtSource?: 'backdated' }} */
+  const out = { completedMs: completedAtMs, completedAt }
+  if (nowMs - completedAtMs > SAME_NOW_MAX_MS) {
+    out.completedAtSource = 'backdated'
+  }
+  return out
+}
+
 function formatSaleMessage(d) {
   const notes = [d.fulfillmentNotes, d.additionalNotes]
     .filter(Boolean)
@@ -116,7 +172,7 @@ async function notifyTeamSlackBot(db, d, slack) {
   const orderRef = db.collection('orders').doc()
   const orderId = orderRef.id
 
-  await orderRef.set({
+  const initialOrder = {
     status: 'pending',
     mspn: d.mspn,
     quantity: d.quantity,
@@ -133,7 +189,11 @@ async function notifyTeamSlackBot(db, d, slack) {
     updatedAt: FieldValue.serverTimestamp(),
     slackMessageTs: '',
     slackChannelId: '',
-  })
+  }
+  if (Number.isFinite(Number(d.logSaleCompletedAtMs))) {
+    initialOrder.logSaleCompletedAtMs = Number(d.logSaleCompletedAtMs)
+  }
+  await orderRef.set(initialOrder)
 
   const fallback = formatSaleMessage(d)
   const blocks = buildStage1Blocks(orderId, d)
@@ -217,6 +277,13 @@ exports.sendTireSaleSms = onCall({ secrets: SLACK_SECRETS }, async (request) => 
     fulfillment,
     fulfillmentNotes: String(data.fulfillmentNotes || '').trim(),
     additionalNotes: String(data.additionalNotes || '').trim(),
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(data, 'completedAtMs') &&
+    data.completedAtMs != null
+  ) {
+    const r = resolveCompletionTimestamp({ completedAtMs: data.completedAtMs }, Date.now())
+    sale.logSaleCompletedAtMs = r.completedMs
   }
 
   const db = admin.firestore()
@@ -342,7 +409,24 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     )
   }
 
-  const completedMs = Date.now()
+  const nowMs = Date.now()
+  const tsInput = {}
+  if (
+    Object.prototype.hasOwnProperty.call(data, 'completedAtMs') &&
+    data.completedAtMs != null
+  ) {
+    tsInput.completedAtMs = data.completedAtMs
+  } else if (
+    before.logSaleCompletedAtMs != null &&
+    Number.isFinite(Number(before.logSaleCompletedAtMs))
+  ) {
+    tsInput.completedAtMs = Number(before.logSaleCompletedAtMs)
+  }
+  const resolvedTs = resolveCompletionTimestamp(
+    Object.keys(tsInput).length ? tsInput : undefined,
+    nowMs,
+  )
+  const completedMs = resolvedTs.completedMs
   const createdAt = before.createdAt
   const djPossessionAt = before.djPossessionAt
   const firstNotifiedAt = before.firstNotifiedAt
@@ -382,7 +466,8 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     }
   }
 
-  const completedAt = FieldValue.serverTimestamp()
+  const completedAt =
+    resolvedTs.completedAt != null ? resolvedTs.completedAt : FieldValue.serverTimestamp()
   const phoneKey = e164DocIdFromContact(before.customerContact)
   const completionPatch = {
     status: 'completed',
@@ -400,6 +485,9 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     frictionScore,
     handledBy: { supplier: 'Kyle', mechanic: 'DJ' },
     updatedAt: FieldValue.serverTimestamp(),
+  }
+  if (resolvedTs.completedAtSource === 'backdated') {
+    completionPatch.completedAtSource = 'backdated'
   }
   if (phoneKey) {
     completionPatch.contactPhoneKey = phoneKey
@@ -600,4 +688,11 @@ exports.createProspectiveOrder = onCall(async (request) => {
     createdByUid: request.auth.uid,
   })
   return { ok: true, orderId: orderRef.id }
+})
+
+Object.defineProperty(module.exports, 'resolveCompletionTimestamp', {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: resolveCompletionTimestamp,
 })
