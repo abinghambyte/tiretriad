@@ -1,37 +1,40 @@
-# Parallel rollout handoffs
+# docs/handoffs
 
-Seven independent patches designed to be shipped simultaneously by separate Cursor agents.
-Each `patch-*.md` in this directory is a complete, self-contained brief. Paste one file
-into a Cursor agent and it has everything it needs to open a PR.
+Active Cursor agent handoff briefs. Each brief is a self-contained patch
+spec that a Cursor agent can pick up cold, implement, validate, and open
+a PR from - then stop.
 
-## How to hand off
+## When the folder is empty
 
-1. Open a new Cursor agent session.
-2. Paste the full contents of the patch file (e.g. `patch-a-palette-polish.md`).
-3. The agent branches, implements, validates, and opens the PR. It stops after PR open.
-4. Merge PRs in any order, with one exception below.
+No active rollout in flight. Add new briefs here when dispatching one or
+more agents in parallel.
 
-## Branch / file ownership map
+## Conventions
 
-| Patch | Branch | Owns |
-|---|---|---|
-| A | `palette-polish` | `src/components/layout/CommandPalette.jsx`, `src/components/layout/PortalChrome.jsx` |
-| B | `shared-utils` | NEW: `src/utils/localStorage.js`, `src/hooks/useFirestoreQuery.js` (+ tests) |
-| C | `dashboard-pagination` | `src/hooks/useDashboardSignals.js`, NEW `functions/dashboardStats.js`, one export line in `functions/index.js` |
-| D | `tires-memo-perf` | `src/components/tires/TiresDashboard.jsx`, `src/components/tires/MarginTable.jsx` |
-| E | `people-split` | `src/components/people/PeopleDashboard.jsx`, NEW siblings in `src/components/people/` |
-| F | `functions-domain-split` | `functions/index.js`, NEW `functions/{orders,crm,people,slack}.js` |
-| G | `integration-tests-pass-1` | NEW `*.test.*` files only |
+- One file per patch: `patch-<letter>-<short-name>.md`.
+- First line of each brief is the H1 title (no em dashes anywhere).
+- Brief body covers: branch name, scope (files touched), tasks,
+  out-of-scope, validation commands, PR title.
+- Briefs end with the dispatch line:
+  `Execute this brief exactly. Branch from main, run all validation
+  commands before opening the PR, and stop after the PR is open.`
+- When a rollout bundles multiple patches, the README should carry the
+  branch / file ownership map and any merge-coordination notes for that
+  rollout.
+- Delete a brief once its PR merges. Keep the folder as narrow as
+  possible so an agent opening it sees only active work.
 
-## Merge coordination
+## Last rollout
 
-* C and F both touch `functions/index.js`. If C merges first, F rebases and keeps C's one-line export. If F merges first, C adds its export to the new split index. Either order works; just not both merging without rebase.
-* Everything else is orthogonal. Order is free.
+April 20, 2026 - seven patches shipped in parallel via Cursor Background
+Agents. All merged.
 
-## Guardrails every agent follows
-
-* Branch from latest `main` at start.
-* Touch only files listed in the brief's scope.
-* Run the brief's validation commands before opening PR.
-* Open PR with the exact title given, then stop.
-* Any bug found outside scope goes into the PR body under "Found but not fixed:" - not a code fix.
+| Patch | Scope | PR |
+| --- | --- | --- |
+| A `palette-polish` | Command palette debounce + stable callbacks | #62 |
+| B `shared-utils` | `src/utils/localStorage.js` + `useFirestoreQuery` | #57 |
+| C `dashboard-pagination` | `getDashboardStats` callable + hook rewrite | #55 |
+| D `tires-memo-perf` | TiresDashboard / MarginTable memoization | #54 |
+| E `people-split` | Split PeopleDashboard into focused components | #56 |
+| F `functions-domain-split` | Split `functions/index.js` into domain files | #60 |
+| G `integration-tests-pass-1` | Order workflow + People permission tests | #61 |
