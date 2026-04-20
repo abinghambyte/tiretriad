@@ -658,6 +658,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       toast('Enter first name, last name, and email before preview.', 'error')
       return
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast('Enter a valid email address before preview.', 'error')
+      return
+    }
     if (isTannerPortalBlocked(fn, ln, email)) {
       toast('This partner is not provisioned in the People system.', 'error')
       return
