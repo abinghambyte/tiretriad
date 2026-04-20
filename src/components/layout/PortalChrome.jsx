@@ -185,6 +185,10 @@ export function PortalChrome() {
     setTheme((m) => (m === 'dark' ? 'light' : 'dark'))
   }, [])
 
+  // Stable callback identity keeps `CommandPalette`'s `useMemo` for the
+  // action registry from reconciling on every parent render.
+  const closePalette = useCallback(() => setPaletteOpen(false), [])
+
   const hideChrome = loc.pathname === '/' || loc.pathname.startsWith('/i/')
   const hideMobileBottomNav = loc.pathname.startsWith('/handshake')
 
@@ -224,7 +228,7 @@ export function PortalChrome() {
       </div>
       <CommandPalette
         open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
+        onClose={closePalette}
         theme={theme}
         onToggleTheme={toggleTheme}
       />

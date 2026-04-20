@@ -45,6 +45,7 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
     () =>
       buildPaletteActions({
         pathname: location.pathname,
+        search: location.search,
         profile,
         permissionFor,
         theme,
@@ -60,7 +61,16 @@ export function CommandPalette({ open, onClose, theme, onToggleTheme }) {
         navigate,
         closePalette: onClose,
       }),
-    [location.pathname, profile, permissionFor, theme, onToggleTheme, navigate, onClose],
+    [
+      location.pathname,
+      location.search,
+      profile,
+      permissionFor,
+      theme,
+      onToggleTheme,
+      navigate,
+      onClose,
+    ],
   )
 
   const filteredActions = useMemo(() => filterPaletteActions(actions, q), [actions, q])

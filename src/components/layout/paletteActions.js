@@ -2,13 +2,17 @@ import { permissionMeets } from '../../constants/peoplePermissions'
 
 /**
  * Normalize a label / keyword set for substring matching against a palette
- * query. Lowercase and drop diacritics so "Analytics" matches "analytics".
+ * query. Decomposes accents (NFD) and strips the combining marks, then
+ * lowercases, so "análytics" and "Analytics" both match "analytics".
  *
  * @param {string} s
  * @returns {string}
  */
 function norm(s) {
-  return String(s || '').toLowerCase()
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 }
 
 /**
@@ -31,6 +35,10 @@ function norm(s) {
  * @param {object} ctx
  * @param {string} ctx.pathname - current route; nav actions for the current
  *   page are dropped so the palette does not offer redundant navigation.
+ * @param {string} [ctx.search] - current location.search (including the
+ *   leading `?`). Used for tab-aware suppression of nav entries; passed
+ *   explicitly so the registry stays reactive to in-route tab changes
+ *   rather than reading stale values from `window.location`.
  * @param {Record<string, unknown> | null | undefined} ctx.profile
  * @param {(module: string) => string} ctx.permissionFor
  * @param {'dark' | 'light'} ctx.theme
@@ -43,6 +51,7 @@ function norm(s) {
 export function buildPaletteActions(ctx) {
   const {
     pathname,
+    search = '',
     profile,
     permissionFor,
     theme,
@@ -114,17 +123,19 @@ export function buildPaletteActions(ctx) {
   // same query tab) so users don't see redundant "Go to Dashboard" while on
   // Dashboard. Keep non-tab paths even when already open so the user can
   // quickly cycle back to the default view.
-  // Read live query string via a guarded accessor so the registry can be
-  // exercised in node tests (where `window` is absent) without crashing.
-  const currentSearch =
-    typeof window !== 'undefined' && window.location ? window.location.search || '' : ''
-
+  // `search` comes through the context (fed from `useLocation().search` in
+  // the palette) so the registry stays reactive to tab changes and the
+  // module can be unit-tested without a `window` shim.
   const pathMatches = (target) => {
     if (!target) return false
     const [tPath, tQuery] = target.split('?')
     if (pathname !== tPath) return false
-    if (!tQuery) return true
-    const cur = new URLSearchParams(currentSearch)
+    const cur = new URLSearchParams(search || '')
+    // A tab-less target like `/tires` should only suppress itself when the
+    // user is on the default tab (no `tab` query). If they're on
+    // `/tires?tab=orders`, keep `Go to Tires` visible so the palette can
+    // bounce them back to the default view.
+    if (!tQuery) return !cur.has('tab')
     const tgt = new URLSearchParams(tQuery)
     for (const [k, v] of tgt) {
       if (cur.get(k) !== v) return false

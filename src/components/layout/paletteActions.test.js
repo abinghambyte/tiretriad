@@ -4,6 +4,7 @@ import { buildPaletteActions, filterPaletteActions } from './paletteActions.js'
 function makeCtx(overrides = {}) {
   return {
     pathname: '/dashboard',
+    search: '',
     profile: { role: 'admin' },
     permissionFor: () => 'manage',
     theme: 'dark',
@@ -51,17 +52,42 @@ describe('buildPaletteActions', () => {
     expect(actions.find((a) => a.id === 'action-sign-out')).toBeDefined()
   })
 
-  it('suppresses the current-route nav entry including tab query', () => {
-    // jsdom's window.location.search defaults to "" — test non-tab path first.
+  it('suppresses the current-route nav entry when pathname + tab both match', () => {
+    // On /dashboard with no tab param, the bare "Go to Dashboard" entry is
+    // dropped since it would be a no-op navigation.
     const dashOnDash = buildPaletteActions(makeCtx({ pathname: '/dashboard' }))
     expect(dashOnDash.find((a) => a.id === 'nav-dashboard')).toBeUndefined()
 
-    // On /tires with no tab query, both "Go to Tires" (bare) and its tab
-    // variants should remain — the bare one is a no-op navigation but the
-    // tab-specific ones take the user somewhere new.
+    // On /tires with no tab query, the bare "Go to Tires" is dropped but
+    // tab-specific variants ("Go to Tires orders") remain.
     const onTires = buildPaletteActions(makeCtx({ pathname: '/tires' }))
     expect(onTires.find((a) => a.id === 'nav-tires')).toBeUndefined()
     expect(onTires.find((a) => a.id === 'nav-tires-orders')).toBeDefined()
+  })
+
+  it('keeps the bare nav entry visible when user is on a sub-tab so they can cycle back', () => {
+    // On /tires?tab=orders, "Go to Tires orders" is the no-op and should go
+    // away. "Go to Tires" (the default view) should stay so the palette can
+    // bounce the user back.
+    const onTiresOrders = buildPaletteActions(
+      makeCtx({ pathname: '/tires', search: '?tab=orders' }),
+    )
+    expect(onTiresOrders.find((a) => a.id === 'nav-tires-orders')).toBeUndefined()
+    expect(onTiresOrders.find((a) => a.id === 'nav-tires')).toBeDefined()
+  })
+
+  it('matches the exact tab value when multiple sub-tabs exist on the same pathname', () => {
+    // User on /analytics?tab=revenue: only the revenue variant should be
+    // hidden; the other analytics-tab entries (metrics, leaderboard) still
+    // show, and the bare /analytics entry also stays since the user is not
+    // on the default tab.
+    const onRevenue = buildPaletteActions(
+      makeCtx({ pathname: '/analytics', search: '?tab=revenue' }),
+    )
+    expect(onRevenue.find((a) => a.id === 'nav-analytics-revenue')).toBeUndefined()
+    expect(onRevenue.find((a) => a.id === 'nav-analytics-metrics')).toBeDefined()
+    expect(onRevenue.find((a) => a.id === 'nav-analytics-leaderboard')).toBeDefined()
+    expect(onRevenue.find((a) => a.id === 'nav-analytics')).toBeDefined()
   })
 
   it('nav run handlers close the palette then navigate', () => {
@@ -129,5 +155,11 @@ describe('filterPaletteActions', () => {
     expect(filterPaletteActions(actions, 'DASHBOARD').length).toBe(
       filterPaletteActions(actions, 'dashboard').length,
     )
+  })
+
+  it('is diacritic-insensitive so accented queries still hit plain labels', () => {
+    // A user typing "análytics" should still find the Analytics nav entry.
+    const hits = filterPaletteActions(actions, 'análytics')
+    expect(hits.find((a) => a.id === 'nav-analytics')).toBeDefined()
   })
 })
