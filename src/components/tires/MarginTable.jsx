@@ -445,8 +445,7 @@ function CopyDescriptionButton({ text }) {
 
 /**
  * Three-click header: ascending → descending → back to default. Parent owns
- * state and decides what the default sort looks like. We just render the
- * glyph + aria-sort based on `active` + `dir`.
+ * `sortKey` / `sortDir`; click handling applies the cycle and calls `onSortChange`.
  */
 function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, touchWide }) {
   const active = sortKey === columnKey
@@ -826,7 +825,7 @@ export function MarginTable({
   onToggleAllFiltered,
   sortKey,
   sortDir,
-  onSort,
+  onSortChange,
   loading,
   emptyState,
   columnVisibility,
@@ -840,6 +839,23 @@ export function MarginTable({
   const listRef = externalListRef || internalListRef
   const scrollRef = useRef(null)
   const isMobileTable = useMediaQuery('(max-width: 767px)')
+
+  // Tri-state header cycle lives here so the table stays stateless for sort;
+  // parent only applies (nextKey, nextDir).
+  const onHeaderSortClick = useCallback(
+    (columnKey) => {
+      if (sortKey !== columnKey) {
+        onSortChange(columnKey, 'asc')
+        return
+      }
+      if (sortDir === 'asc') {
+        onSortChange(columnKey, 'desc')
+        return
+      }
+      onSortChange('margin', 'desc')
+    },
+    [sortKey, sortDir, onSortChange],
+  )
   const [scrollHintDismissed, setScrollHintDismissed] = useState(false)
   const headerCheckboxRef = useRef(null)
 
@@ -1049,7 +1065,7 @@ export function MarginTable({
                   columnKey="brand"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                   touchWide={isMobileTable}
                 />
@@ -1062,7 +1078,7 @@ export function MarginTable({
                   columnKey="description"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1074,7 +1090,7 @@ export function MarginTable({
                   columnKey="mspn"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1086,7 +1102,7 @@ export function MarginTable({
                   columnKey="lr"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1102,7 +1118,7 @@ export function MarginTable({
                   columnKey="listed"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1118,7 +1134,7 @@ export function MarginTable({
                   columnKey="buy"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                   touchWide={isMobileTable}
                 />
@@ -1136,7 +1152,7 @@ export function MarginTable({
                   columnKey="retail"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                   touchWide={isMobileTable}
                 />
@@ -1154,7 +1170,7 @@ export function MarginTable({
                   columnKey="fet"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1170,7 +1186,7 @@ export function MarginTable({
                   columnKey="overhead"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1187,7 +1203,7 @@ export function MarginTable({
                   columnKey="net"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1204,7 +1220,7 @@ export function MarginTable({
                   columnKey="floor"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                 />
               </div>
@@ -1220,7 +1236,7 @@ export function MarginTable({
                   columnKey="margin"
                   sortKey={sortKey}
                   sortDir={sortDir}
-                  onClick={onSort}
+                  onClick={onHeaderSortClick}
                   disabled={loading}
                   touchWide={isMobileTable}
                 />
@@ -1255,7 +1271,7 @@ export function MarginTable({
                     columnKey="buy"
                     sortKey={sortKey}
                     sortDir={sortDir}
-                    onClick={onSort}
+                    onClick={onHeaderSortClick}
                     disabled={loading}
                     touchWide
                   />
@@ -1266,7 +1282,7 @@ export function MarginTable({
                     columnKey="margin"
                     sortKey={sortKey}
                     sortDir={sortDir}
-                    onClick={onSort}
+                    onClick={onHeaderSortClick}
                     disabled={loading}
                     touchWide
                   />
@@ -1279,7 +1295,7 @@ export function MarginTable({
                     columnKey="brand"
                     sortKey={sortKey}
                     sortDir={sortDir}
-                    onClick={onSort}
+                    onClick={onHeaderSortClick}
                     disabled={loading}
                     touchWide
                   />
@@ -1301,7 +1317,7 @@ export function MarginTable({
                     columnKey="retail"
                     sortKey={sortKey}
                     sortDir={sortDir}
-                    onClick={onSort}
+                    onClick={onHeaderSortClick}
                     disabled={loading}
                     touchWide
                   />

@@ -344,8 +344,10 @@ export function TiresDashboard() {
   const trimmedQuery = query.trim()
   const hasQuery = trimmedQuery.length > 0
 
-  const filtered = useMemo(() => {
-    return enriched.filter((row) => {
+  // Single memo for filter plus sort so MarginTable only sees a new rows
+  // reference when inputs that affect ordering or membership actually change.
+  const sortedRows = useMemo(() => {
+    const filtered = enriched.filter((row) => {
       if (catalogRisk === 'lowMargin') {
         // Uses listingMargin (researched-retail based) per PR #34.
         const m = row.listingMargin
@@ -390,9 +392,7 @@ export function TiresDashboard() {
       }
       return true
     })
-  }, [enriched, brand, lrFilters, useTagFilters, minMargin, needsReposting, hasQuery, trimmedQuery, catalogRisk])
 
-  const sortedRows = useMemo(() => {
     const rows = [...filtered]
     const dir = sortDir === 'asc' ? 1 : -1
     function numCmp(av, bv, { zeroLast = false } = {}) {
@@ -469,7 +469,19 @@ export function TiresDashboard() {
       return am < bm ? -dir : dir
     })
     return rows
-  }, [filtered, sortKey, sortDir])
+  }, [
+    enriched,
+    brand,
+    lrFilters,
+    useTagFilters,
+    minMargin,
+    needsReposting,
+    hasQuery,
+    trimmedQuery,
+    catalogRisk,
+    sortKey,
+    sortDir,
+  ])
 
   const emptyState = useMemo(() => {
     if (loading) return null
@@ -507,25 +519,10 @@ export function TiresDashboard() {
     return 'No rows to display.'
   }, [loading, tires.length, hasActiveFilters, hasQuery, clearFilters])
 
-  /**
-   * Tri-state sort cycle: first click ascending, second click descending, third click
-   * resets to the default sort (`margin` descending). Sort plumbing lives here so
-   * MarginTable stays presentational.
-   */
-  function handleSort(key) {
-    if (sortKey !== key) {
-      setSortKey(key)
-      setSortDir('asc')
-      return
-    }
-    if (sortDir === 'asc') {
-      setSortDir('desc')
-      return
-    }
-    // Third click clears back to the default sort.
-    setSortKey('margin')
-    setSortDir('desc')
-  }
+  const onSortChange = useCallback((nextKey, nextDir) => {
+    setSortKey(nextKey)
+    setSortDir(nextDir)
+  }, [])
 
   const jumpToTire = useCallback(
     (tireId) => {
@@ -1122,7 +1119,7 @@ export function TiresDashboard() {
               onToggleAllFiltered={toggleAllFilteredSelection}
               sortKey={sortKey}
               sortDir={sortDir}
-              onSort={handleSort}
+              onSortChange={onSortChange}
               loading={loading}
               emptyState={emptyState}
               columnVisibility={columnVisibility}
