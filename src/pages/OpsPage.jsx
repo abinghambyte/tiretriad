@@ -22,6 +22,7 @@ import { useUserProfile } from '../hooks/useUserProfile'
 import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
 import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
+import { PayoutConfigPanel } from '../components/ops/PayoutConfigPanel.jsx'
 
 const EXPENSE_CATEGORIES = [
   { value: 'fuel', label: 'Fuel' },
@@ -420,6 +421,8 @@ export function OpsPage() {
             </button>
           </div>
         </section>
+
+        <PayoutConfigPanel />
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Reorder queue</h2>

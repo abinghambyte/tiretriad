@@ -1,14 +1,12 @@
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
-// `functions/` has no package.json `type: module`, so its runtime is CommonJS.
-// Vitest requires ESM imports for itself, so we use createRequire to load the
-// CommonJS module under test without changing its runtime shape.
 const require = createRequire(import.meta.url)
+const { DEFAULT_CONFIG, computeOrderTaxes } = require('./payoutConfig')
 const {
-  CREW_SPLIT,
   CREW_KEYS,
   computePoolDollars,
+  completedOrderMarginPool,
   buyPerTireFromOrderAndTire,
   ctsPerTire,
   round2,
@@ -16,29 +14,27 @@ const {
   defaultCrewDoc,
   bumpRevenueFields,
   bumpCrewEarned,
+  runCompletionTransaction,
   isoWeekKey,
 } = require('./financeStats')
 
-describe('CREW_SPLIT invariants', () => {
-  it('has all four crew members', () => {
-    expect(CREW_KEYS).toEqual(['alex', 'dj', 'tanner', 'kyle'])
+describe('CREW_KEYS + default payout splits', () => {
+  it('has three active profit-share keys (legacy tanner may remain on stored crew docs)', () => {
+    expect(CREW_KEYS).toEqual(['alex', 'dj', 'kyle'])
   })
 
-  it('splits total to 100%', () => {
-    const sum = Object.values(CREW_SPLIT).reduce((a, b) => a + b, 0)
+  it('default splits total to 100%', () => {
+    const sum = Object.values(DEFAULT_CONFIG.splits).reduce((a, b) => a + b, 0)
     expect(sum).toBeCloseTo(1.0, 10)
   })
 
-  it('matches the documented percentages (Alex 50 / DJ 20 / Tanner 20 / Kyle 10)', () => {
-    expect(CREW_SPLIT).toEqual({ alex: 0.5, dj: 0.2, tanner: 0.2, kyle: 0.1 })
+  it('matches DEFAULT_CONFIG.splits (Alex / DJ / Kyle)', () => {
+    expect(DEFAULT_CONFIG.splits).toEqual({ alex: 0.35, dj: 0.35, kyle: 0.3 })
   })
 })
 
 describe('round2', () => {
   it('rounds to two decimals using Math.round', () => {
-    // `Math.round(n * 100) / 100` inherits IEEE-754 float quirks; callers
-    // that need deterministic .xx5 rounding have to handle it themselves.
-    // These values are all safe from that edge case.
     expect(round2(1.234)).toBe(1.23)
     expect(round2(1.236)).toBe(1.24)
     expect(round2(1)).toBe(1)
@@ -88,6 +84,25 @@ describe('ctsPerTire', () => {
   })
 })
 
+describe('completedOrderMarginPool', () => {
+  const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
+
+  it('subtracts taxesApplied.total when present on the order', () => {
+    const order = {
+      quantity: 4,
+      taxesApplied: { salesTax: 10, tireFee: 5, total: 15 },
+    }
+    const base = computePoolDollars(3800, order, tire)
+    expect(base).toBe(460)
+    expect(completedOrderMarginPool(3800, order, tire)).toBe(445)
+  })
+
+  it('matches computePoolDollars when taxesApplied is absent', () => {
+    const order = { quantity: 1 }
+    expect(completedOrderMarginPool(950, order, tire)).toBe(computePoolDollars(950, order, tire))
+  })
+})
+
 describe('computePoolDollars', () => {
   const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
 
@@ -114,15 +129,14 @@ describe('computePoolDollars', () => {
 })
 
 describe('bumpCrewEarned', () => {
-  it('adds Alex 50 / DJ 20 / Tanner 20 / Kyle 10 from a $100 pool', () => {
-    const next = bumpCrewEarned(defaultCrewDoc(), 100)
-    expect(next.members.alex.totalEarned).toBe(50)
-    expect(next.members.dj.totalEarned).toBe(20)
-    expect(next.members.tanner.totalEarned).toBe(20)
-    expect(next.members.kyle.totalEarned).toBe(10)
+  it('adds default split shares from a $100 pool', () => {
+    const next = bumpCrewEarned(defaultCrewDoc(), 100, DEFAULT_CONFIG.splits)
+    expect(next.members.alex.totalEarned).toBe(35)
+    expect(next.members.dj.totalEarned).toBe(35)
+    expect(next.members.kyle.totalEarned).toBe(30)
   })
 
-  it('accumulates on top of prior balances', () => {
+  it('accumulates on top of prior balances and leaves legacy members untouched', () => {
     const prev = {
       members: {
         alex: { totalEarned: 500, totalPaid: 200, balance: 300 },
@@ -132,39 +146,124 @@ describe('bumpCrewEarned', () => {
       },
       payoutLog: [],
     }
-    const next = bumpCrewEarned(prev, 100)
-    expect(next.members.alex.totalEarned).toBe(550)
-    expect(next.members.alex.totalPaid).toBe(200) // preserved
-    expect(next.members.alex.balance).toBe(350) // 550 - 200
-    expect(next.members.kyle.totalEarned).toBe(110)
-    expect(next.members.kyle.balance).toBe(60) // 110 - 50
+    const next = bumpCrewEarned(prev, 100, DEFAULT_CONFIG.splits)
+    expect(next.members.alex.totalEarned).toBe(535)
+    expect(next.members.alex.totalPaid).toBe(200)
+    expect(next.members.alex.balance).toBe(335)
+    expect(next.members.kyle.totalEarned).toBe(130)
+    expect(next.members.kyle.balance).toBe(80)
+    expect(next.members.tanner.totalEarned).toBe(200)
+    expect(next.members.tanner.balance).toBe(200)
   })
 
   it('preserves payoutLog across bumps', () => {
     const prev = defaultCrewDoc()
     prev.payoutLog = [{ at: '2026-01-15', amount: 500, member: 'alex' }]
-    const next = bumpCrewEarned(prev, 100)
+    const next = bumpCrewEarned(prev, 100, DEFAULT_CONFIG.splits)
     expect(next.payoutLog).toHaveLength(1)
     expect(next.payoutLog[0].amount).toBe(500)
   })
 
   it('handles negative pool (loss-making order)', () => {
-    const next = bumpCrewEarned(defaultCrewDoc(), -100)
-    expect(next.members.alex.totalEarned).toBe(-50)
-    expect(next.members.alex.balance).toBe(-50)
+    const next = bumpCrewEarned(defaultCrewDoc(), -100, DEFAULT_CONFIG.splits)
+    expect(next.members.alex.totalEarned).toBe(-35)
+    expect(next.members.alex.balance).toBe(-35)
   })
 
   it('rounds each share to cents independently', () => {
-    // Pool of 33.33; Alex gets 16.665 -> 16.67; DJ gets 6.666 -> 6.67
-    const next = bumpCrewEarned(defaultCrewDoc(), 33.33)
-    expect(next.members.alex.totalEarned).toBe(16.67)
-    expect(next.members.dj.totalEarned).toBe(6.67)
-    expect(next.members.kyle.totalEarned).toBe(3.33)
+    const next = bumpCrewEarned(defaultCrewDoc(), 33.33, DEFAULT_CONFIG.splits)
+    expect(next.members.alex.totalEarned).toBe(11.67)
+    expect(next.members.dj.totalEarned).toBe(11.67)
+    expect(next.members.kyle.totalEarned).toBe(10)
+  })
+})
+
+describe('completion cost with buy-side taxes', () => {
+  it('adds tax bundle to costTotal for known $100 × 4 case', () => {
+    const buy = 100
+    const cts = 0
+    const qty = 4
+    const taxesBundle = computeOrderTaxes(buy, qty, DEFAULT_CONFIG.taxes)
+    expect(taxesBundle).toEqual({ salesTax: 28.92, tireFee: 8, total: 36.92 })
+    const costTotal = round2((buy + cts) * qty + taxesBundle.total)
+    expect(costTotal).toBe(436.92)
+  })
+})
+
+describe('runCompletionTransaction', () => {
+  it('merges taxesApplied onto the order patch', async () => {
+    const refSnapshots = {
+      'meta/payoutConfig': { exists: false },
+      'orders/o1': {
+        exists: true,
+        data: () => ({
+          status: 'in_transit',
+          quantity: 4,
+          mspn: 'M1',
+        }),
+      },
+      'tires/M1': {
+        exists: true,
+        data: () => ({
+          price: 100,
+          mountCost: 0,
+          deliveryCost: 0,
+          otherCost: 0,
+          weeklyVelocityWeek: '',
+          weeklyVelocity: 0,
+        }),
+      },
+      'meta/revenueStats': { exists: false },
+      'meta/crewEarnings': { exists: false },
+    }
+    let orderPatch
+    const db = {
+      collection: (name) => ({
+        doc: (id) => {
+          const path = `${name}/${id}`
+          return {
+            path,
+            get: async () => refSnapshots[path] || { exists: false },
+          }
+        },
+      }),
+      runTransaction: async (fn) => {
+        const tx = {
+          get: async (ref) => {
+            const snap = refSnapshots[ref.path]
+            if (!snap) return { exists: false, data: () => ({}) }
+            return {
+              exists: snap.exists,
+              data: () => (typeof snap.data === 'function' ? snap.data() : {}),
+            }
+          },
+          update: (ref, patch) => {
+            if (ref.path === 'orders/o1') orderPatch = patch
+          },
+          set: () => {},
+        }
+        await fn(tx)
+      },
+    }
+
+    await runCompletionTransaction(db, {
+      orderRef: { path: 'orders/o1' },
+      completionPatch: { status: 'completed' },
+      paymentAmount: 500,
+      completedMs: Date.UTC(2026, 3, 15, 19),
+    })
+
+    expect(orderPatch.status).toBe('completed')
+    expect(orderPatch.taxesApplied).toEqual({
+      salesTax: 28.92,
+      tireFee: 8,
+      total: 36.92,
+    })
   })
 })
 
 describe('bumpRevenueFields', () => {
-  const MS_2026_04_15_19UTC = Date.UTC(2026, 3, 15, 19, 0, 0) // a Wednesday afternoon
+  const MS_2026_04_15_19UTC = Date.UTC(2026, 3, 15, 19, 0, 0)
   const fresh = () => defaultRevenueDoc()
 
   it('accumulates revenue/cost/margin into the rolling windows on first write', () => {
@@ -177,11 +276,10 @@ describe('bumpRevenueFields', () => {
 
   it('resets daily/weekly/monthly when window key changes, preserves all-time', () => {
     const day1 = bumpRevenueFields(fresh(), 1000, 800, 200, Date.UTC(2026, 3, 15, 19))
-    // Jump forward a week
     const day2 = bumpRevenueFields(day1, 500, 400, 100, Date.UTC(2026, 3, 23, 19))
-    expect(day2.dailyRevenue).toBe(500) // reset + added
-    expect(day2.weeklyRevenue).toBe(500) // different ISO week
-    expect(day2.allTimeRevenue).toBe(1500) // accumulated
+    expect(day2.dailyRevenue).toBe(500)
+    expect(day2.weeklyRevenue).toBe(500)
+    expect(day2.allTimeRevenue).toBe(1500)
   })
 
   it('stamps the correct ytd year', () => {
@@ -196,14 +294,14 @@ describe('bumpRevenueFields', () => {
 
     const jan = bumpRevenueFields(dec, 500, 400, 100, Date.UTC(2026, 0, 5, 12))
     expect(jan.ytdYear).toBe(2026)
-    expect(jan.ytdRevenue).toBe(500) // reset for new year
+    expect(jan.ytdRevenue).toBe(500)
     expect(jan.allTimeRevenue).toBe(1500)
   })
 })
 
 describe('isoWeekKey', () => {
   it('formats as YYYY-Www with zero padding', () => {
-    const week = isoWeekKey(Date.UTC(2026, 0, 5, 12)) // Mon Jan 5, week 2
+    const week = isoWeekKey(Date.UTC(2026, 0, 5, 12))
     expect(week).toMatch(/^\d{4}-W\d{2}$/)
   })
 

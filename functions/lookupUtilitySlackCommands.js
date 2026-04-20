@@ -15,7 +15,8 @@ const {
   slackAdminUserIdsRawFromEnv,
 } = require('./slackSecrets')
 const { e164DocIdFromContact } = require('./orderMetrics')
-const { CREW_KEYS, CREW_SPLIT, ctsPerTire, round2 } = require('./financeStats')
+const { loadPayoutConfig } = require('./payoutConfig')
+const { ctsPerTire, round2 } = require('./financeStats')
 const { slackViewsOpen, viewInputValue, viewStaticSelectValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
 const MODAL_STOCK_SUBMIT = 'stock_modal_submit'
@@ -376,6 +377,7 @@ function buildDispatchModalView() {
 }
 
 async function handleSlashStock(db, token, fleetChannel, text) {
+  const payoutCfg = await loadPayoutConfig(db)
   const parts = String(text || '')
     .trim()
     .split(/\s+/)
@@ -420,9 +422,10 @@ async function handleSlashStock(db, token, fleetChannel, text) {
   if (salePrice != null && salePrice > 0) {
     const marginPct = ((salePrice - buy - mount - delivery - other) / salePrice) * 100
     const pool = round2(salePrice - buy - mount - delivery - other)
-    const splitLines = CREW_KEYS.map(
+    const splitKeys = Object.keys(payoutCfg.splits).sort()
+    const splitLines = splitKeys.map(
       (k) =>
-        `*${k}* (${formatPercent((CREW_SPLIT[k] || 0) * 100, 0)}): ${formatCurrency(round2(pool * (CREW_SPLIT[k] || 0)))}`,
+        `*${k}* (${formatPercent((Number(payoutCfg.splits[k]) || 0) * 100, 0)}): ${formatCurrency(round2(pool * (Number(payoutCfg.splits[k]) || 0)))}`,
     )
     lines.push(
       '',
@@ -440,6 +443,7 @@ async function handleSlashStock(db, token, fleetChannel, text) {
 }
 
 async function handleSlashMargins(db, token, fleetChannel, text) {
+  const payoutCfg = await loadPayoutConfig(db)
   const parts = String(text || '')
     .trim()
     .split(/\s+/)
@@ -464,9 +468,10 @@ async function handleSlashMargins(db, token, fleetChannel, text) {
   const qty = 1
   const paymentAmount = salePrice
   const profit = round2((paymentAmount - buy - mount - delivery - other) * qty)
-  const splitLines = CREW_KEYS.map(
+  const splitKeys = Object.keys(payoutCfg.splits).sort()
+  const splitLines = splitKeys.map(
     (k) =>
-      `*${k}* (${formatPercent((CREW_SPLIT[k] || 0) * 100, 0)}): ${formatCurrency(round2(profit * (CREW_SPLIT[k] || 0)))}`,
+      `*${k}* (${formatPercent((Number(payoutCfg.splits[k]) || 0) * 100, 0)}): ${formatCurrency(round2(profit * (Number(payoutCfg.splits[k]) || 0)))}`,
   )
   const lines = [
     `*📐 Margins ·* \`${escapeSlackMrkdwn(mspn)}\` @ ${formatCurrency(salePrice)} (qty ${formatQty(qty)})`,

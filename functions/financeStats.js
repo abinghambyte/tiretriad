@@ -4,25 +4,21 @@
  */
 const { FieldValue } = require('firebase-admin/firestore')
 const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
+const { loadPayoutConfig, computeOrderTaxes, DEFAULT_CONFIG } = require('./payoutConfig')
 
 const REVENUE_REF = (db) => db.collection('meta').doc('revenueStats')
 const CREW_REF = (db) => db.collection('meta').doc('crewEarnings')
 
-const CREW_KEYS = ['alex', 'dj', 'tanner', 'kyle']
-const CREW_SPLIT = { alex: 0.5, dj: 0.2, tanner: 0.2, kyle: 0.1 }
+const CREW_KEYS = ['alex', 'dj', 'kyle']
 
-/** Slack /spoils + /owed pool/balance lines — Tanner is a silent partner (profit share only, no ops role). */
+/** Slack /spoils split labels (active profit-share keys only). */
 function crewSlackSplitDisplayName(key) {
-  const k = String(key || '').toLowerCase()
-  if (k === 'tanner') return "Tanner (Silent partner)"
-  return k
+  return String(key || '').toLowerCase()
 }
 
 /** meta/crewEarnings UI (portal + Slack confirmations tied to stored balances). */
 function crewEarningsMetaDisplayName(key) {
-  const k = String(key || '').toLowerCase()
-  if (k === 'tanner') return "Tanner — Silent partner"
-  return k
+  return String(key || '').toLowerCase()
 }
 
 function denverYmd(ms = Date.now()) {
@@ -101,6 +97,19 @@ function computePoolDollars(paymentAmount, order, tire) {
   const cost = (buy + cts) * qty
   const rev = Number(paymentAmount) || 0
   return round2(rev - cost)
+}
+
+/**
+ * Margin pool for a completed order: matches completion when `taxesApplied` is present;
+ * otherwise pay − (buy + CTS) × qty (pre–buy-side-tax orders).
+ */
+function completedOrderMarginPool(paymentAmount, order, tire) {
+  const base = computePoolDollars(paymentAmount, order, tire)
+  const ta = order && typeof order === 'object' ? order.taxesApplied : null
+  if (ta != null && typeof ta === 'object' && Number.isFinite(Number(ta.total))) {
+    return round2(base - Number(ta.total))
+  }
+  return base
 }
 
 function round2(n) {
@@ -205,12 +214,13 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
   return next
 }
 
-function bumpCrewEarned(prev, pool) {
+function bumpCrewEarned(prev, pool, splits = DEFAULT_CONFIG.splits) {
   const base = prev && typeof prev === 'object' ? prev : {}
   const members = { ...(base.members || {}) }
-  for (const k of CREW_KEYS) {
+  const shareKeys = splits && typeof splits === 'object' ? Object.keys(splits) : []
+  for (const k of shareKeys) {
     const cur = members[k] && typeof members[k] === 'object' ? members[k] : {}
-    const add = round2(pool * (CREW_SPLIT[k] || 0))
+    const add = round2(pool * (Number(splits[k]) || 0))
     const earned = round2((Number(cur.totalEarned) || 0) + add)
     const paid = Number(cur.totalPaid) || 0
     members[k] = {
@@ -229,6 +239,7 @@ function bumpCrewEarned(prev, pool) {
  */
 async function runCompletionTransaction(db, params) {
   const { orderRef, completionPatch, paymentAmount, completedMs } = params
+  const payoutCfg = await loadPayoutConfig(db)
   await db.runTransaction(async (tx) => {
     const orderSnap = await tx.get(orderRef)
     if (!orderSnap.exists) {
@@ -246,12 +257,21 @@ async function runCompletionTransaction(db, params) {
     const qty = Number(orderData.quantity) || 0
     const buy = buyPerTireFromOrderAndTire(orderData, tireData)
     const cts = ctsPerTire(tireData)
-    const costTotal = round2((buy + cts) * qty)
+    const taxesBundle = computeOrderTaxes(buy, qty, payoutCfg.taxes)
+    const costTotal = round2((buy + cts) * qty + taxesBundle.total)
     const pay = round2(Number(paymentAmount) || 0)
     const marginTotal = round2(pay - costTotal)
     const pool = marginTotal
 
-    tx.update(orderRef, completionPatch)
+    const orderPatch = {
+      ...completionPatch,
+      taxesApplied: {
+        salesTax: taxesBundle.salesTax,
+        tireFee: taxesBundle.tireFee,
+        total: taxesBundle.total,
+      },
+    }
+    tx.update(orderRef, orderPatch)
 
     if (tireRef && tireSnap?.exists) {
       const weekKey = isoWeekKey(completedMs)
@@ -276,7 +296,7 @@ async function runCompletionTransaction(db, params) {
     const crewRef = CREW_REF(db)
     const crewSnap = await tx.get(crewRef)
     const cPrev = crewSnap.exists ? crewSnap.data() || {} : defaultCrewDoc()
-    const nextCrew = bumpCrewEarned(cPrev, pool)
+    const nextCrew = bumpCrewEarned(cPrev, pool, payoutCfg.splits)
     tx.set(crewRef, nextCrew, { merge: true })
   })
 }
@@ -285,7 +305,6 @@ module.exports = {
   REVENUE_REF,
   CREW_REF,
   CREW_KEYS,
-  CREW_SPLIT,
   crewSlackSplitDisplayName,
   crewEarningsMetaDisplayName,
   denverYmd,
@@ -293,6 +312,7 @@ module.exports = {
   denverYear,
   denverYtdStartMs,
   computePoolDollars,
+  completedOrderMarginPool,
   buyPerTireFromOrderAndTire,
   ctsPerTire,
   round2,
