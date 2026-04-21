@@ -357,36 +357,75 @@ Stitch returned four iterations. Accepted artifacts live alongside this brief in
 - **Hover = bloom.** State changes on hover are implemented by increasing a soft outer glow and (optionally) lifting the surface one tonal step, not by border-color shifts.
 - **Glassmorphism is reserved for floating elements only** (modals, tooltips, the command palette overlay). Cards on the dashboard stay fully opaque against surface stacks.
 
-### 11.2 Owner amendments to the Catalog Health section (override earlier section 5.3)
+### 11.2 Owner amendments - two surfaces, not one (supersedes the earlier Catalog Health framing)
 
-The Catalog Health detail surface (v2 screen) is accepted with these changes. These override the terminology and actions described in section 5.3 of this brief.
+The v2 mockup ("Catalog Health detail") was initially read as a rename of the existing margin-floor indicator. That read is wrong. In the final design there are **two separate surfaces** doing different jobs, and the original margin-floor row disappears from the dashboard entirely.
 
-1. **Section title renames from "Catalog Health" to "Unutilized Inventory"** (or a similar phrase that communicates "money sitting still"). The heading should reflect the economic frame, not a technical-health frame. Subheading copy should echo the same angle - e.g. "Tires that aren't moving weight yet." The implementer should confirm the final wording with the owner before shipping.
+#### 11.2.a Margin floor row - removed from the dashboard
 
-2. **Row actions change from "Silence / Archive" to "List Now / Research."** This is a workflow-forward reframe: we're not acknowledging failure, we're routing the tire into the next action.
+The "Below 15% margin" red row in the current dashboard's Catalog Health section is **deleted**. Rationale: owner never changes the buy-side floor from the dashboard; the only legitimate response to a below-floor tire is "verify the retail price is accurate," which is a Kyle task, not an owner task. Red-flagging it on every dashboard load is noise.
 
-   - **List Now** - primary action. Uses the **teal** accent (our Tires / catalog semantic color). Triggers the existing listing-generation flow for that tire (same path as the bulk "Generate listings" toolbar elsewhere in the app). No new persistent state required; the action fires a one-shot.
-   - **Research** - secondary action. Uses **muted zinc** (quieter, less assertive). Moves the tire into the research queue with a persistent flag. Owner-facing framing: "Kyle (or whoever handles pricing) re-verifies retail before this returns to the catalog." The existing Stitch mockup shows this as a chip / pill on the row; keep that treatment.
+Replacement workflow (backend-driven, no dashboard UI):
 
-3. **Row badge states update to match.** The badge on a row that has been routed to the research queue reads `RESEARCH` in a muted zinc pill, not `ARCHIVED`. There is no persistent `LIST NOW` badge because List Now is a one-shot action - once fired, the row either returns to normal (listing succeeded) or surfaces an error state (listing failed).
+- A nightly scheduled function sweeps tires where `computedMargin < marginFloor` and auto-enqueues each into Kyle's verification queue by writing `researchQueue: { at, by: 'system', reason: 'below-margin-floor', resolvedAt: null }` on the tire.
+- Kyle works the queue from a dedicated `/my-queue` surface (his role-gated page), not from the dashboard. Resolution options: "Retail was wrong" (corrects retail, clears queue entry, re-scores), "Confirm and archive" (terminal - tire is genuinely sub-floor; marks `marginConfirmed: true` and archives), or "Punt" (leaves in queue with updated `at`).
+- Tires that reach the terminal archived state are only visible in the Analytics archive ledger (`/analytics?tab=margin-archive`, admin-only) and in Kyle's own queue history. They do not reappear on the dashboard.
+- Overwatch (admin) can inspect the pending queue via `/analytics?tab=verification-queue`. This pairs the live pending queue and the resolved archive under one oversight section.
 
-4. **Footer counts update to match the new vocabulary.** The "12 silenced · 8 archived" footer line becomes "12 in research · 8 listed this week" (or similar). Implementer can iterate on exact phrasing.
+The dashboard gets no red row for this. At most, Kyle's crew-widget pill in the Today section shows his pending count ("Kyle · 7 in queue") as a calm numeric, not an amber alert.
 
-5. **Visual consistency preserved.** Density, card radius, type scale, and surface stacking stay identical to the rest of the dashboard. The Unutilized Inventory section is a feature, not a new aesthetic.
+#### 11.2.b Unutilized Inventory - new surface in place of Catalog Health
+
+The v2 screen ("Catalog Health detail") is re-purposed as a brand-new **Unutilized Inventory** section. It is *not* a rename of the margin-floor row. It answers a different question: *"Which of our highest-potential tires are not currently being marketed?"*
+
+Data axis:
+
+- **Opportunity side.** `computeOpportunityScore(tire)` already returns `{ opportunity, netPerTire, confidence, confidenceWeight, ... }`. Unutilized Inventory only considers tires where `opportunity > 0` and `confidence` is `'high'` or `'medium'`. Low-confidence tires are filtered out so the surface stays actionable.
+- **Listing side.** `tire.platformListings[platform].lastPostedAt` exists for `facebook`, `offerup`, and `craigslist`. `listingStatus(tire, platform)` returns `'active' | 'stale' | 'never'` (stale = older than 7 days). A tire is "unutilized" when it has no `'active'` platform. (eBay is intentionally excluded - that integration is still on the roadmap; once it ships, add it to the platform list with no other changes needed.)
+- **Exclusions.** Tires currently in `researchQueue` (Kyle is already looking at them) and tires with `marginConfirmed === true` (terminal sub-floor) are filtered out. This keeps the two surfaces from double-counting.
+
+Row actions:
+
+- **List Now** - primary, **teal** accent. Opens the existing listing-generator preloaded with the tire and a suggested platform set (the top-N platforms where the tire is `'never'` or `'stale'`). No dedicated callable; re-uses the generator path already wired for the bulk toolbar.
+- **Research** - secondary, **muted zinc**. Writes `researchQueue: { at, by: <uid>, reason: 'unutilized-needs-research', resolvedAt: null }` on the tire. This moves it off the Unutilized Inventory surface and into Kyle's queue, same field, same resolution workflow. The multi-reason shape means Kyle's queue is a single ordered list regardless of how the tire got there.
+
+Badge + footer treatment:
+
+- No persistent `LIST NOW` badge (the action is a one-shot; success returns the row to baseline, failure surfaces an error state on the row).
+- A `RESEARCH` pill in muted zinc on any row that has `researchQueue != null` with reason `'unutilized-needs-research'`. Kyle's below-margin-floor entries do not appear on this surface at all, so there's no `BELOW FLOOR` pill to design for here.
+- Footer tally: "N in research · M listed this week" (listed-this-week is derived from `platformListings[*].lastPostedAt` within the last 7 days across the current result set).
+
+Section header copy: "Unutilized Inventory" with subhead "High-potential tires not currently on a marketplace." The implementer should confirm final wording with the owner before shipping.
+
+Visual consistency preserved - density, radius, type scale, and surface stacking match the rest of the dashboard. This is a feature surface, not a new aesthetic.
 
 ### 11.3 Implementation implications
 
-These amendments ripple into the implementation plan:
+These amendments ripple into the implementation plan as two separate patches:
 
-- The field the tire doc carries is called `researchQueue: { at, by, reason, resolvedAt }` rather than the previously-planned `archived`. Semantically cleaner. The field `lowMarginAck` is dropped entirely - "silence" is no longer a concept.
-- The "List Now" action uses whatever listing-generation callable already powers the bulk toolbar. No new callable required unless we want a per-tire fast-path.
-- The dashboard Unutilized Inventory row counts tires where `belowMarginFloor === true AND researchQueue == null`. Tires in the research queue leave the headline count and show up in the footer tally instead.
-- The tires catalog needs a "Research queue" tab or filter (not "Archived") matching the new language.
+**Margin floor queue backend** (Patch Q in the rollout plan):
+
+- New Firestore field on tire docs: `marginFloor` (number, buy-side floor; owner-configurable default), `researchQueue` (subdoc shape: `{ at, by, reason, resolvedAt }`), `marginConfirmed` (boolean, terminal).
+- Scheduled function `enqueueBelowMarginFloor` (nightly, idempotent) sets `researchQueue` with `reason: 'below-margin-floor'` on matching tires that are not already in the queue.
+- New callables `enqueueToResearch(tireId, reason)` and `resolveQueueItem(tireId, outcome)`. Outcomes: `'retail-wrong' | 'confirm-archive' | 'punt'`.
+- Dashboard change: remove the red "Below 15% margin" row from `src/components/dashboard/Dashboard.jsx` and the `lowMargin` signal from `src/hooks/useDashboardSignals.js`. Replace with a single numeric pill on Kyle's crew-widget entry ("N in queue") fed by a new `kylesQueueCount` signal.
+
+**Unutilized Inventory backend** (Patch Qa):
+
+- Classifier `isUnutilized(tire)` in `src/utils/unutilizedClassifier.js`: `opportunity > 0 && confidence in {high, medium} && every platform is not 'active' && researchQueue == null && marginConfirmed == null`. eBay is explicitly excluded via an inline code comment calling out the roadmap integration.
+- New selector hook `useUnutilizedSignals()` in `src/hooks/useUnutilizedSignals.js` returning ranked rows (sorted by `opportunity` desc) plus the footer tallies.
+- `List Now` dispatches the existing listing-generator; `Research` writes the queue entry via `enqueueToResearch(tireId, 'unutilized-needs-research')`.
+
+Other downstream:
+
+- The tires catalog gets a "Research queue" filter chip (role-gated to Kyle + admin) so a tire in the queue can be found from the master catalog too. The term "Archived" is reserved for the terminal `marginConfirmed` state and is analytics-only.
+- The old `lowMarginAck` "silence" concept is dropped entirely. There is no silencing; there is only enqueueing and resolving.
 
 ### 11.4 Open questions for follow-up (non-blocking)
 
-- Does "List Now" need a confirm step? If the listing generator requires inputs (price, platform targets, photos), this might be a button that opens the existing generator preloaded for that tire, rather than a one-click fire. Clarify with the owner before wiring.
-- Research queue SLA - is there a stale threshold after which a researched tire automatically returns to the main catalog? (E.g. "if Kyle hasn't resolved in 14 days, auto-restore.") Leave unspecified for v1; observe behavior.
+- Does "List Now" need a confirm step? If the generator requires inputs (price, platform targets, photos), this is a button that opens the generator preloaded, not a one-click fire. Clarify with the owner before wiring.
+- Research queue SLA - is there a stale threshold after which an unresolved queue item automatically escalates? (E.g. "if Kyle hasn't resolved in 14 days, surface it on the admin analytics tab.") Leave unspecified for v1; observe behavior.
 - Whether the neon-lime active-nav treatment conflicts with the amber attention semantic already in the codebase. The two colors are distinct enough on screen, but a color-blind pass should confirm they read as different states.
+- Once the eBay integration ships (see `ROADMAP.md`), add `'ebay'` to the platform list in the Unutilized classifier. No other change should be necessary.
 
 All other sections of this brief remain in force.
