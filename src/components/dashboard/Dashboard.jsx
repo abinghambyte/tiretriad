@@ -550,19 +550,7 @@ export function Dashboard() {
                     </span>
                   </span>
                 </Link>
-                <Link
-                  to="/tires?risk=lowMargin"
-                  className="-mx-1 flex items-center justify-between gap-3 rounded-lg border border-red-900/35 bg-red-950/20 px-2 py-2.5 text-base transition-colors duration-200 hover:border-red-800/50 hover:bg-red-950/35"
-                  title="Open the tires catalog filtered to rows under 15% listing margin"
-                >
-                  <span className="font-semibold text-red-100/95">Below 15% margin</span>
-                  <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-red-300">
-                    {formatQty(catalogHealth.lowMargin ?? 0)}
-                    <span className="text-red-400/90" aria-hidden>
-                      →
-                    </span>
-                  </span>
-                </Link>
+                {/* removed margin-floor row: auto-enqueued to research queue by scheduled sweep */}
               </div>
             )}
           </section>
