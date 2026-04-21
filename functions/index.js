@@ -17,3 +17,14 @@ exports.getDashboardStats = require('./dashboardStats').getDashboardStats
 const { generateVipLink, verifyVipLink } = require('./vipLinks')
 exports.generateVipLink = generateVipLink
 exports.verifyVipLink = verifyVipLink
+
+exports.updatePresence = require('./presence').updatePresence
+
+const {
+  enqueueBelowMarginFloor,
+  enqueueToResearch,
+  resolveQueueItem,
+} = require('./researchQueue')
+exports.enqueueBelowMarginFloor = enqueueBelowMarginFloor
+exports.enqueueToResearch = enqueueToResearch
+exports.resolveQueueItem = resolveQueueItem

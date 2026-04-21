@@ -56,6 +56,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || canManagePeople());
       allow create, delete: if false;
+      // Self-service profile fields the client may edit. Identity fields
+      // (role, email, permissions, etc.) are omitted intentionally — those
+      // transitions only come from the Admin SDK via `people` callables.
+      // `presence` is written by the `updatePresence` callable, but is listed
+      // here so a direct client merge of `presence.{lastSeenAt,userAgent}`
+      // would still be accepted for the authenticated user.
       allow update: if signedIn() && request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'lastLoginAt',
@@ -65,6 +71,7 @@ service cloud.firestore {
           'loginStreak',
           'recentLogins',
           'handshakeSeen',
+          'presence',
         ]);
 
       // Crew availability — day docs keyed YYYY-MM-DD (Denver), blockedSlots array.
@@ -102,6 +109,9 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create, delete: if false;
       // Portal: CTS stack + listing tracking (catalog import uses Admin SDK).
+      // The `researchQueue`, `marginConfirmed`, and `marginFloor` fields are
+      // server-owned (nightly sweep + enqueueToResearch/resolveQueueItem
+      // callables via Admin SDK). Clients can read them but never write.
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'cost',
@@ -111,7 +121,9 @@ service cloud.firestore {
           'cts',
           'grade',
           'platformListings',
-        ]);
+        ])
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['researchQueue', 'marginConfirmed', 'marginFloor']);
     }
 
     match /portal/{docId} {
