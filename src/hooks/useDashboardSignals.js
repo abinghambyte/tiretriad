@@ -75,6 +75,30 @@ function addDaysToYmd(ymd, delta) {
  * @param {Array<Record<string, unknown>>} tires catalog rows (post `researchQueue`)
  * @param {number} nowMs
  */
+/**
+ * Count open research-queue entries across the tire catalog. Any tire with a
+ * `researchQueue` object whose `resolvedAt` is null counts, regardless of
+ * reason or assignee. Matches the filter `MyQueuePage` uses to render rows,
+ * so the nav badge and the page never disagree.
+ *
+ * @param {Array<Record<string, unknown>>} tires
+ * @param {boolean} loading pass-through from the source hook; returns null
+ *   while loading so consumers can render a placeholder instead of a misleading 0
+ * @returns {number | null}
+ */
+export function deriveKylesQueueCount(tires, loading) {
+  if (loading) return null
+  if (!Array.isArray(tires)) return 0
+  let n = 0
+  for (const t of tires) {
+    const rq = t?.researchQueue
+    if (!rq || typeof rq !== 'object') continue
+    if (rq.resolvedAt != null) continue
+    n += 1
+  }
+  return n
+}
+
 export function deriveCrewSignals(users, orders, tires, nowMs) {
   const now = Number.isFinite(nowMs) ? nowMs : Date.now()
   const todayYmd = localYmdFromMs(now)
@@ -208,20 +232,14 @@ export function useDashboardSignals() {
     return { total: tires.length, missingOverhead, loading: false }
   }, [tires, tiresLoading])
 
-  // Count of open research-queue entries routed to Kyle (below-margin-floor
-  // reason, regardless of assignee in v1). Feeds his crew-widget pill.
-  const kylesQueueCount = useMemo(() => {
-    if (tiresLoading) return null
-    let n = 0
-    for (const t of tires) {
-      const rq = t?.researchQueue
-      if (!rq || typeof rq !== 'object') continue
-      if (rq.resolvedAt != null) continue
-      if (rq.reason !== 'below-margin-floor') continue
-      n += 1
-    }
-    return n
-  }, [tires, tiresLoading])
+  // Count of open research-queue entries. Feeds Kyle's crew-widget pill and
+  // the `My Queue` nav badge, so it must match what `MyQueuePage` renders:
+  // every tire with an unresolved `researchQueue` entry, regardless of reason
+  // (`below-margin-floor` or `unutilized-needs-research`) or assignee in v1.
+  const kylesQueueCount = useMemo(
+    () => deriveKylesQueueCount(tires, tiresLoading),
+    [tires, tiresLoading],
+  )
 
   const [crm, setCrm] = useState({
     accounts: null,
