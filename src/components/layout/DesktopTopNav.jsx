@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
+import { useDashboardSignals } from '../../hooks/useDashboardSignals.js'
 
 /**
  * Desktop-only primary navigation strip. Mirrors the link set + permission
@@ -13,15 +14,20 @@ const linkActive = 'border-amber-500 text-amber-100'
 
 export function DesktopTopNav() {
   const { permissionFor, profile } = useUserProfile()
+  const { kylesQueueCount } = useDashboardSignals()
+  const role = String(profile?.role || '').toLowerCase()
   const canTires = permissionMeets(permissionFor('tires'), 'view')
   const canCrm = permissionMeets(permissionFor('crm'), 'view')
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
   const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
   const canOps = profile?.role === 'admin'
+  const canMyQueue = role === 'sourcer' || role === 'admin'
+  const queueBadge = Number.isFinite(Number(kylesQueueCount)) ? Number(kylesQueueCount) : 0
 
   const items = [
     { to: '/dashboard', label: 'Dashboard', show: true },
     { to: '/tires', label: 'Tires', show: canTires },
+    { to: '/my-queue', label: 'My Queue', show: canMyQueue, badge: queueBadge },
     { to: '/crm', label: 'CRM', show: canCrm },
     { to: '/people', label: 'People', show: canPeople },
     { to: '/analytics', label: 'Analytics', show: canAnalytics },
@@ -43,7 +49,15 @@ export function DesktopTopNav() {
           end={item.to === '/dashboard'}
           className={({ isActive }) => `${linkBase} ${isActive ? linkActive : ''}`}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {item.badge && item.badge > 0 ? (
+            <span
+              className="ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200 ring-1 ring-amber-600/40"
+              aria-label={`${item.badge} pending`}
+            >
+              {item.badge}
+            </span>
+          ) : null}
         </NavLink>
       ))}
     </nav>

@@ -29,6 +29,9 @@ const OpsPage = lazy(() => import('./pages/OpsPage').then((m) => ({ default: m.O
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
 const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
 const TiresPage = lazy(() => import('./pages/TiresPage').then((m) => ({ default: m.TiresPage })))
+const MyQueuePage = lazy(() =>
+  import('./pages/MyQueuePage').then((m) => ({ default: m.MyQueuePage })),
+)
 
 function RouteFallback() {
   return (
@@ -155,6 +158,16 @@ export default function App() {
           }
         />
         <Route path="/crm/dispatch" element={<Navigate to="/crm?tab=dispatch" replace />} />
+        <Route
+          path="/my-queue"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<RouteFallback />}>
+                <MyQueuePage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

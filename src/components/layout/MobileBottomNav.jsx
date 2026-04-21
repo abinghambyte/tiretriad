@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
+import { useDashboardSignals } from '../../hooks/useDashboardSignals.js'
 
 function IconTires() {
   return (
@@ -57,6 +58,16 @@ function IconOps() {
   )
 }
 
+function IconQueue() {
+  return (
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <rect x="4" y="5" width="16" height="4" rx="1" />
+      <rect x="4" y="11" width="16" height="4" rx="1" />
+      <rect x="4" y="17" width="10" height="2.5" rx="1" />
+    </svg>
+  )
+}
+
 function IconAdmin() {
   return (
     <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
@@ -72,15 +83,22 @@ function IconAdmin() {
 
 export function MobileBottomNav() {
   const { permissionFor, profile } = useUserProfile()
+  const { kylesQueueCount } = useDashboardSignals()
+  const role = String(profile?.role || '').toLowerCase()
   const canTires = permissionMeets(permissionFor('tires'), 'view')
   const canCrm = permissionMeets(permissionFor('crm'), 'view')
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
   const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
+  const canMyQueue = role === 'sourcer' || role === 'admin'
+  const queueBadge = Number.isFinite(Number(kylesQueueCount)) ? Number(kylesQueueCount) : 0
 
   const canOps = profile?.role === 'admin'
 
   const items = [
     canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
+    canMyQueue
+      ? { to: '/my-queue', label: 'My Queue', icon: <IconQueue />, badge: queueBadge }
+      : null,
     canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
     canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
     canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
@@ -102,7 +120,17 @@ export function MobileBottomNav() {
           end={item.to === '/analytics'}
           className={({ isActive }) => `${navCls} ${isActive ? activeCls : ''}`}
         >
-          {item.icon}
+          <span className="relative">
+            {item.icon}
+            {item.badge && item.badge > 0 ? (
+              <span
+                className="absolute -right-2 -top-1 inline-flex min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-zinc-950"
+                aria-label={`${item.badge} pending`}
+              >
+                {item.badge}
+              </span>
+            ) : null}
+          </span>
           <span>{item.label}</span>
         </NavLink>
       ))}
