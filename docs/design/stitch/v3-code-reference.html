@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Skedaddle Portal - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-secondary": "#2f3038",
+                "error": "#ffb4ab",
+                "secondary-container": "#4a4b53",
+                "tertiary-fixed-dim": "#fbbc00",
+                "on-primary-fixed": "#002201",
+                "on-primary": "#003a03",
+                "on-background": "#e5e1e4",
+                "inverse-on-surface": "#313032",
+                "tertiary-container": "#e2a900",
+                "surface-container-lowest": "#0e0e10",
+                "on-secondary-fixed": "#1a1b22",
+                "on-surface-variant": "#bccbb4",
+                "on-tertiary-container": "#594100",
+                "on-tertiary-fixed-variant": "#5c4300",
+                "secondary": "#c6c5cf",
+                "surface-container-highest": "#353437",
+                "inverse-surface": "#e5e1e4",
+                "surface-container": "#201f22",
+                "surface": "#131315",
+                "secondary-fixed-dim": "#c6c5cf",
+                "on-secondary-fixed-variant": "#46464e",
+                "outline-variant": "#3d4a39",
+                "on-primary-fixed-variant": "#005306",
+                "on-error-container": "#ffdad6",
+                "error-container": "#93000a",
+                "on-tertiary-fixed": "#261a00",
+                "secondary-fixed": "#e3e1ec",
+                "primary-fixed-dim": "#4ce346",
+                "surface-bright": "#39393b",
+                "on-error": "#690005",
+                "primary-container": "#32cd32",
+                "inverse-primary": "#006e0a",
+                "on-secondary-container": "#bcbbc5",
+                "background": "#131315",
+                "surface-container-low": "#1c1b1d",
+                "outline": "#869580",
+                "primary": "#55ea4d",
+                "tertiary-fixed": "#ffdfa0",
+                "on-tertiary": "#402d00",
+                "on-primary-container": "#005105",
+                "tertiary": "#ffc539",
+                "surface-container-high": "#2a2a2c",
+                "surface-tint": "#4ce346",
+                "surface-dim": "#131315",
+                "primary-fixed": "#75ff68",
+                "on-surface": "#e5e1e4",
+                "surface-variant": "#353437"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "2xl": "1rem",
+                "full": "9999px"
+        },
+        "spacing": {},
+        "fontFamily": {
+                "headline": [
+                        "Inter", "sans-serif"
+                ],
+                "body": [
+                        "Inter", "sans-serif"
+                ],
+                "label": [
+                        "Inter", "sans-serif"
+                ]
+        }
+},
+    },
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .bg-grid {
+    background-image: linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+</style>
+</head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<div class="fixed inset-0 pointer-events-none z-0 bg-grid"></div>
+<div class="fixed inset-0 pointer-events-none z-0 opacity-20">
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-tertiary blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-primary blur-[120px] opacity-30"></div>
+</div>
+<div class="relative z-10 flex min-h-screen max-w-[1440px] mx-auto">
+<!-- Floating Vertical Sidebar -->
+<aside class="fixed left-4 top-4 bottom-4 w-[240px] bg-surface-container-low/70 backdrop-blur-xl rounded-2xl flex flex-col justify-between py-6 z-50">
+<div class="flex flex-col gap-8 px-4">
+<div class="flex items-center gap-3 px-2">
+<div class="size-8 text-primary">
+<svg fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M42.1739 20.1739L27.8261 5.82609C29.1366 7.13663 28.3989 10.1876 26.2002 13.7654C24.8538 15.9564 22.9595 18.3449 20.6522 20.6522C18.3449 22.9595 15.9564 24.8538 13.7654 26.2002C10.1876 28.3989 7.13663 29.1366 5.82609 27.8261L20.1739 42.1739C21.4845 43.4845 24.5355 42.7467 28.1133 40.548C30.3042 39.2016 32.6927 37.3073 35 35C37.3073 32.6927 39.2016 30.3042 40.548 28.1133C42.7467 24.5355 43.4845 21.4845 42.1739 20.1739Z" fill="currentColor"></path>
+<path clip-rule="evenodd" d="M7.24189 26.4066C7.31369 26.4411 7.64204 26.5637 8.52504 26.3738C9.59462 26.1438 11.0343 25.5311 12.7183 24.4963C14.7583 23.2426 17.0256 21.4503 19.238 19.238C21.4503 17.0256 23.2426 14.7583 24.4963 12.7183C25.5311 11.0343 26.1438 9.59463 26.3738 8.52504C26.5637 7.64204 26.4411 7.31369 26.4066 7.24189C26.345 7.21246 26.143 7.14535 25.6664 7.1918C24.9745 7.25925 23.9954 7.5498 22.7699 8.14278C20.3369 9.32007 17.3369 11.4915 14.4142 14.4142C11.4915 17.3369 9.32007 20.3369 8.14278 22.7699C7.5498 23.9954 7.25925 24.9745 7.1918 25.6664C7.14534 26.143 7.21246 26.345 7.24189 26.4066ZM29.9001 10.7285C29.4519 12.0322 28.7617 13.4172 27.9042 14.8126C26.465 17.1544 24.4686 19.6641 22.0664 22.0664C19.6641 24.4686 17.1544 26.465 14.8126 27.9042C13.4172 28.7617 12.0322 29.4519 10.7285 29.9001L21.5754 40.747C21.6001 40.7606 21.8995 40.931 22.8729 40.7217C23.9424 40.4916 25.3821 39.879 27.0661 38.8441C29.1062 37.5904 31.3734 35.7982 33.5858 33.5858C35.7982 31.3734 37.5904 29.1062 38.8441 27.0661C39.879 25.3821 40.4916 23.9425 40.7216 22.8729C40.931 21.8995 40.7606 21.6001 40.747 21.5754L29.9001 10.7285ZM29.2403 4.41187L43.5881 18.7597C44.9757 20.1473 44.9743 22.1235 44.6322 23.7139C44.2714 25.3919 43.4158 27.2666 42.252 29.1604C40.8128 31.5022 38.8165 34.012 36.4142 36.4142C34.012 38.8165 31.5022 40.8128 29.1604 42.252C27.2666 43.4158 25.3919 44.2714 23.7139 44.6322C22.1235 44.9743 20.1473 44.9757 18.7597 43.5881L4.41187 29.2403C3.29027 28.1187 3.08209 26.5973 3.21067 25.2783C3.34099 23.9415 3.8369 22.4852 4.54214 21.0277C5.96129 18.0948 8.43335 14.7382 11.5858 11.5858C14.7382 8.43335 18.0948 5.9613 21.0277 4.54214C22.4852 3.8369 23.9415 3.34099 25.2783 3.21067C26.5973 3.08209 28.1187 3.29028 29.2403 4.41187Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-on-surface text-lg font-bold tracking-[-0.015em]">Skedaddle</h2>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-container-highest/50 border border-primary-container/30 shadow-[0_0_8px_rgba(50,205,50,0.15)] group relative overflow-hidden" href="#">
+<div class="absolute inset-0 bg-primary-container/10"></div>
+<span class="material-symbols-outlined text-primary-container z-10" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-on-surface text-sm font-medium z-10">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors">ecg_heart</span>
+<span class="text-outline group-hover:text-on-surface text-sm font-medium transition-colors">Catalog Health</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors">group</span>
+<span class="text-outline group-hover:text-on-surface text-sm font-medium transition-colors">Crew Activity</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors">grid_view</span>
+<span class="text-outline group-hover:text-on-surface text-sm font-medium transition-colors">Modules</span>
+</a>
+</nav>
+</div>
+<div class="px-4">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-container transition-colors group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors">settings</span>
+<span class="text-outline group-hover:text-on-surface text-sm font-medium transition-colors">Settings</span>
+</a>
+<div class="mt-4 pt-4 border-t border-outline-variant/30 flex items-center gap-3 px-2">
+<div class="size-8 rounded-full bg-surface-bright bg-cover bg-center" data-alt="minimalist avatar placeholder with subtle dark gray gradient" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAsXCF2h5EhK5JsxMY0Om_gGE7DfQUFXAEkOxh_kAySUbdUjfW4z6oaVYc-m_-yYlwJZWId2OshCgslKa3R4OOx5666DE1cbAkobf7UX35nRAqYRnTYiuX_y4rz6Rnh0MKlcxaJyu51bTt3hmnHRIdPDWrOAwW2vK4MUlfJwSZ6b9T_j4OJDts3tJ8Ac9IxfH_yuC3GqYmL4-WAdnIm3tyO0JISVXE0AVXXWN8FVEpNi4Ve7DuwITdFtiRzmxLzgQ90Vc3t92JyVKsa');"></div>
+<div class="flex flex-col">
+<span class="text-on-surface text-sm font-medium leading-tight">Admin User</span>
+<span class="text-outline text-xs tabular-nums">ID: 8492</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="ml-[272px] flex-1 max-w-[1152px] py-8 px-8 flex flex-col gap-8">
+<!-- 1. Conditional Header Notice -->
+<div class="flex items-center justify-between bg-surface-container-low border border-tertiary/20 rounded-xl px-5 py-3 shadow-[0_4px_24px_rgba(255,197,57,0.05)]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary text-sm">warning</span>
+<p class="text-on-surface text-sm font-medium">Gated module access restricted.</p>
+</div>
+<button class="text-xs text-tertiary hover:text-tertiary-fixed font-medium uppercase tracking-wider transition-colors">Dismiss</button>
+</div>
+<!-- 2. "Today" Signal Strip -->
+<section class="grid grid-cols-4 gap-4">
+<!-- Pending Orders -->
+<div class="bg-surface-container-high rounded-2xl p-6 border border-tertiary/30 shadow-[0_0_16px_rgba(255,197,57,0.1)] relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-tertiary"></div>
+<h3 class="text-outline text-xs font-semibold uppercase tracking-wider mb-2">Pending Orders</h3>
+<div class="text-[3.5rem] font-bold leading-none text-on-surface tabular-nums tracking-[-0.02em]">3</div>
+<div class="absolute bottom-6 right-6 text-tertiary opacity-50">
+<span class="material-symbols-outlined text-4xl">local_shipping</span>
+</div>
+</div>
+<!-- Needs Reposting -->
+<div class="bg-surface-container rounded-2xl p-6 border border-outline-variant/15 relative">
+<h3 class="text-outline text-xs font-semibold uppercase tracking-wider mb-2">Needs Reposting</h3>
+<div class="flex items-end gap-3">
+<div class="text-[3.5rem] font-bold leading-none text-on-surface tabular-nums tracking-[-0.02em]">0</div>
+<span class="material-symbols-outlined text-primary mb-2 bg-primary/10 rounded-full p-1 text-sm">check</span>
+</div>
+</div>
+<!-- Today Revenue -->
+<div class="bg-surface-container-high rounded-2xl p-6 border border-primary/20 shadow-[0_0_16px_rgba(50,205,50,0.05)] relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright/50 to-transparent pointer-events-none"></div>
+<h3 class="text-outline text-xs font-semibold uppercase tracking-wider mb-2 relative z-10">Today Revenue</h3>
+<div class="text-[2.5rem] font-bold leading-tight text-on-surface tabular-nums tracking-[-0.02em] relative z-10">$1,420.50</div>
+<div class="mt-4 h-8 flex items-end gap-1 opacity-60">
+<div class="w-full bg-primary/20 rounded-t-sm h-[30%]"></div>
+<div class="w-full bg-primary/40 rounded-t-sm h-[50%]"></div>
+<div class="w-full bg-primary/60 rounded-t-sm h-[80%]"></div>
+<div class="w-full bg-primary/80 rounded-t-sm h-[60%]"></div>
+<div class="w-full bg-primary rounded-t-sm h-[100%] shadow-[0_0_8px_rgba(50,205,50,0.5)]"></div>
+</div>
+</div>
+<!-- Crew Alerts -->
+<div class="bg-surface-container rounded-2xl p-6 border border-error/20 bg-error/5 relative">
+<h3 class="text-outline text-xs font-semibold uppercase tracking-wider mb-2">Crew Alerts</h3>
+<div class="text-[3.5rem] font-bold leading-none text-error tabular-nums tracking-[-0.02em]">1</div>
+<div class="absolute top-6 right-6">
+<span class="material-symbols-outlined text-error animate-pulse">notifications_active</span>
+</div>
+</div>
+</section>
+<!-- 3. Mid Section (2 columns) -->
+<section class="grid grid-cols-2 gap-6">
+<!-- Left: Catalog Health -->
+<div class="bg-surface-container rounded-xl flex flex-col overflow-hidden">
+<div class="bg-surface-container-highest px-6 py-4 flex items-center justify-between border-b border-surface">
+<h2 class="text-on-surface font-semibold text-lg">Catalog Health</h2>
+<button class="text-xs text-outline hover:text-on-surface uppercase tracking-wider">View All</button>
+</div>
+<div class="p-6 flex flex-col gap-4">
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/15">
+<span class="text-outline text-sm">Total Tires</span>
+<span class="text-on-surface tabular-nums font-medium">1,160</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/15">
+<span class="text-outline text-sm">Overhead not set</span>
+<span class="text-outline tabular-nums">0</span>
+</div>
+<div class="flex flex-col gap-3 py-2">
+<div class="flex justify-between items-center cursor-pointer group">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-sm transition-transform group-hover:translate-y-[2px]">expand_more</span>
+<span class="text-error text-sm font-medium">Below margin floor</span>
+</div>
+<span class="text-error tabular-nums font-bold">96</span>
+</div>
+<!-- Expanded Content -->
+<div class="bg-surface-container-lowest rounded-lg p-3 flex flex-col gap-3 border border-outline-variant/15">
+<div class="flex items-center justify-between group/item">
+<div class="flex flex-col">
+<span class="text-on-surface text-sm font-medium tabular-nums">SKU: 849-B2</span>
+<span class="text-outline text-xs tabular-nums">Margin: 4.2%</span>
+</div>
+<div class="flex gap-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
+<button class="px-2 py-1 text-[10px] uppercase tracking-wider border border-outline-variant/30 text-outline hover:text-on-surface rounded">Silence</button>
+<button class="px-2 py-1 text-[10px] uppercase tracking-wider bg-surface-tint/10 text-primary-container rounded">Archive</button>
+</div>
+</div>
+<div class="h-px bg-outline-variant/15 w-full"></div>
+<div class="flex items-center justify-between group/item">
+<div class="flex flex-col">
+<span class="text-on-surface text-sm font-medium tabular-nums">SKU: 112-X9</span>
+<span class="text-outline text-xs tabular-nums">Margin: -1.5%</span>
+</div>
+<div class="flex gap-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
+<button class="px-2 py-1 text-[10px] uppercase tracking-wider border border-outline-variant/30 text-outline hover:text-on-surface rounded">Silence</button>
+<button class="px-2 py-1 text-[10px] uppercase tracking-wider bg-surface-tint/10 text-primary-container rounded">Archive</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Recent Activity -->
+<div class="bg-surface-container rounded-xl flex flex-col overflow-hidden">
+<div class="bg-surface-container-highest px-6 py-4 flex items-center justify-between border-b border-surface">
+<h2 class="text-on-surface font-semibold text-lg">Recent Activity</h2>
+</div>
+<div class="p-2 flex flex-col">
+<!-- Row 1 -->
+<div class="flex items-center justify-between px-4 py-3 hover:bg-surface-container-highest/50 rounded-lg transition-colors group cursor-pointer">
+<div class="flex flex-col gap-1">
+<span class="text-on-surface text-sm font-medium tabular-nums">Order #88492</span>
+<span class="text-outline text-xs">Dallas Hub • 12 mins ago</span>
+</div>
+<span class="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/20">Complete</span>
+</div>
+<!-- Row 2 -->
+<div class="flex items-center justify-between px-4 py-3 hover:bg-surface-container-highest/50 rounded-lg transition-colors group cursor-pointer">
+<div class="flex flex-col gap-1">
+<span class="text-on-surface text-sm font-medium tabular-nums">Route Transfer TR-99</span>
+<span class="text-outline text-xs">Austin to Houston • 45 mins ago</span>
+</div>
+<span class="px-2 py-1 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-bold uppercase tracking-wider border border-cyan-500/20">In Transit</span>
+</div>
+<!-- Row 3 -->
+<div class="flex items-center justify-between px-4 py-3 hover:bg-surface-container-highest/50 rounded-lg transition-colors group cursor-pointer">
+<div class="flex flex-col gap-1">
+<span class="text-on-surface text-sm font-medium tabular-nums">Inventory Sync</span>
+<span class="text-outline text-xs">System • 1 hr ago</span>
+</div>
+<span class="px-2 py-1 rounded bg-tertiary/10 text-tertiary text-[10px] font-bold uppercase tracking-wider border border-tertiary/20">Pending</span>
+</div>
+<!-- Row 4 -->
+<div class="flex items-center justify-between px-4 py-3 hover:bg-surface-container-highest/50 rounded-lg transition-colors group cursor-pointer">
+<div class="flex flex-col gap-1">
+<span class="text-on-surface text-sm font-medium tabular-nums">Order #88491</span>
+<span class="text-outline text-xs">Dallas Hub • 2 hrs ago</span>
+</div>
+<span class="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/20">Complete</span>
+</div>
+<!-- Row 5 -->
+<div class="flex items-center justify-between px-4 py-3 hover:bg-surface-container-highest/50 rounded-lg transition-colors group cursor-pointer">
+<div class="flex flex-col gap-1">
+<span class="text-on-surface text-sm font-medium tabular-nums">Order #88490</span>
+<span class="text-outline text-xs">San Antonio Hub • 3 hrs ago</span>
+</div>
+<span class="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/20">Complete</span>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Crew Widget -->
+<section class="bg-surface-container rounded-xl border border-outline-variant/15 p-6 flex flex-col gap-4">
+<h2 class="text-on-surface font-semibold text-lg mb-2">Active Crew</h2>
+<div class="grid grid-cols-3 gap-4">
+<!-- Crew Member 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant/15 rounded-lg p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="relative">
+<div class="size-10 rounded-full bg-surface-bright bg-cover bg-center" data-alt="minimalist dark gray avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCF9ylTuryB78qViMDDDjlIT29hW-UbFf8fyVRRSsfBiRJwtTMe4lJpJyJWuM2bQXoYbSoez0GLR7e7bOcRy8XuZQ7bsLnXSnuUOwHJQZY-O5NE1tIile4RRyfsbYCNjWVIrNlJ8Z0nLzo52kMYptMYuzzBJ7JJ1_zZYGuOJARR1GRcMTUvXYHyYFah6tmNceJqfy4_9lYkP3aCVOV5yfGe6-94CnMTxApmuP6PnVwppfq1LbjiaNoaQGcxFEOeIyIaTHBI97lcAl6J');"></div>
+<div class="absolute bottom-0 right-0 size-3 rounded-full bg-primary border-2 border-surface-container-lowest"></div>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface text-sm font-medium">Alex Bingham</span>
+<span class="text-outline text-xs">Picker • Zone A</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-outline text-[10px] uppercase font-bold tracking-wider tabular-nums border border-outline-variant/30">WIP: 3</span>
+<div class="flex items-center gap-1 text-xs text-on-surface tabular-nums">
+<span>🔥 6</span>
+<span class="text-outline mx-1">|</span>
+<span class="text-primary font-medium">42 Done</span>
+</div>
+</div>
+</div>
+<!-- Crew Member 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant/15 rounded-lg p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="relative">
+<div class="size-10 rounded-full bg-surface-bright bg-cover bg-center" data-alt="minimalist dark gray avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAVSAabX1STh4Xzw6gKTJnT6N1G03HoNZ60vdwMRKNX5Yl8rqWSBFveR7_mBto2enPHuaoq8PCIjGacfT22DqdSkKKN311_DcYzI-yqPk70AEuUnd_zuTnl37XzsHEfzIP5jkm5ANj7JspTmyOvdZPPNKh7eAGlvlC2uXuGoetGyJX_VD7kL_36_lPODDlYlqWn6-2B2AFmZv-LZ_EPw5Uq-IFM8ChWJCXdSUDEI0AMVOnlbWRv6WhcsvLseurEPzMF5VDmYUrZgoU-');"></div>
+<div class="absolute bottom-0 right-0 size-3 rounded-full bg-primary border-2 border-surface-container-lowest"></div>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface text-sm font-medium">Sarah Chen</span>
+<span class="text-outline text-xs">Loader • Dock 4</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-outline text-[10px] uppercase font-bold tracking-wider tabular-nums border border-outline-variant/30">WIP: 1</span>
+<div class="flex items-center gap-1 text-xs text-on-surface tabular-nums">
+<span>🔥 12</span>
+<span class="text-outline mx-1">|</span>
+<span class="text-primary font-medium">89 Done</span>
+</div>
+</div>
+</div>
+<!-- Crew Member 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant/15 rounded-lg p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="relative">
+<div class="size-10 rounded-full bg-surface-bright bg-cover bg-center" data-alt="minimalist dark gray avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfVeO1UjRvlozanl8fDMrp48ZZ_EA7mCP_rNNjF9a2w8yC1zGqfkRNpfT5cOTtewdGDC1T8jkRWednr3K4z-GebFOomCxeoo619vlGmIQWjkJhFdvWFWZUUnd26PgxoOMBI7WXTKcs5XYlfITjBxlSyaL63Cj9C-7qfPkUwrIPljwVuHtSyHo9IAwCPJtzbcw7YUStYAXrzwiJA_PPIFYiL-Az8OrhRpsLGs-bvS-NcAtPSKJ3YCcfIJ3g2SE7iwmodLbWenfDk2F-');"></div>
+<div class="absolute bottom-0 right-0 size-3 rounded-full bg-tertiary border-2 border-surface-container-lowest"></div>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface text-sm font-medium">Marcus Johnson</span>
+<span class="text-outline text-xs">Driver • R-44</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<span class="px-2 py-0.5 rounded-full bg-tertiary/10 text-tertiary text-[10px] uppercase font-bold tracking-wider tabular-nums border border-tertiary/20">Break</span>
+<div class="flex items-center gap-1 text-xs text-on-surface tabular-nums">
+<span>🔥 2</span>
+<span class="text-outline mx-1">|</span>
+<span class="text-primary font-medium">14 Done</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 5. Modules Section -->
+<section class="flex flex-col gap-4">
+<h2 class="text-on-surface font-semibold text-lg">System Modules</h2>
+<div class="grid grid-cols-3 gap-4">
+<!-- Module 1 -->
+<a class="bg-surface-container rounded-xl p-5 border border-outline-variant/15 hover:bg-surface-container-highest transition-all hover:-translate-y-1 group relative overflow-hidden" href="#">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary transition-colors">tire_repair</span>
+<span class="px-2 py-1 bg-surface-container-lowest rounded text-[10px] uppercase font-bold text-outline border border-outline-variant/30 tabular-nums">Core</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<h3 class="text-on-surface font-semibold">Skedaddle Tires</h3>
+<span class="text-outline text-sm tabular-nums">1,160 SKUs</span>
+</div>
+</a>
+<!-- Module 2 -->
+<a class="bg-surface-container rounded-xl p-5 border border-outline-variant/15 hover:bg-surface-container-highest transition-all hover:-translate-y-1 group relative overflow-hidden" href="#">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary transition-colors">route</span>
+<span class="px-2 py-1 bg-violet-500/10 rounded text-[10px] uppercase font-bold text-violet-400 border border-violet-500/20 tabular-nums">Admin</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<h3 class="text-on-surface font-semibold">Ops Command</h3>
+<span class="text-outline text-sm tabular-nums">Active Routes: 14</span>
+</div>
+</a>
+<!-- Module 3 -->
+<a class="bg-surface-container rounded-xl p-5 border border-outline-variant/15 hover:bg-surface-container-highest transition-all hover:-translate-y-1 group relative overflow-hidden" href="#">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary transition-colors">trending_up</span>
+<span class="px-2 py-1 bg-violet-500/10 rounded text-[10px] uppercase font-bold text-violet-400 border border-violet-500/20 tabular-nums">Admin</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<h3 class="text-on-surface font-semibold">Growth Lab</h3>
+<span class="text-outline text-sm tabular-nums">3 Campaigns</span>
+</div>
+</a>
+<!-- Module 4 -->
+<a class="bg-surface-container rounded-xl p-5 border border-outline-variant/15 hover:bg-surface-container-highest transition-all hover:-translate-y-1 group relative overflow-hidden" href="#">
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary transition-colors">receipt_long</span>
+<span class="px-2 py-1 bg-surface-container-lowest rounded text-[10px] uppercase font-bold text-outline border border-outline-variant/30 tabular-nums">Finance</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<h3 class="text-on-surface font-semibold">Invoicing</h3>
+<span class="text-outline text-sm tabular-nums">42 Pending</span>
+</div>
+</a>
+<!-- Module 5 -->
+<a class="bg-surface-container rounded-xl p-5 border border-outline-variant/15 hover:bg-surface-container-highest transition-all hover:-translate-y-1 group relative overflow-hidden" href="#">
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary transition-colors">inventory_2</span>
+<span class="px-2 py-1 bg-surface-container-lowest rounded text-[10px] uppercase font-bold text-outline border border-outline-variant/30 tabular-nums">Logistics</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<h3 class="text-on-surface font-semibold">Warehouse</h3>
+<span class="text-outline text-sm tabular-nums">Capacity: 84%</span>
+</div>
+</a>
+<!-- Module 6 -->
+<a class="bg-surface-container rounded-xl p-5 border border-outline-variant/15 hover:bg-surface-container-highest transition-all hover:-translate-y-1 group relative overflow-hidden" href="#">
+<div class="flex justify-between items-start mb-6">
+<span class="material-symbols-outlined text-3xl text-outline group-hover:text-primary transition-colors">support_agent</span>
+<span class="px-2 py-1 bg-surface-container-lowest rounded text-[10px] uppercase font-bold text-outline border border-outline-variant/30 tabular-nums">Support</span>
+</div>
+<div class="flex flex-col gap-1 relative z-10">
+<h3 class="text-on-surface font-semibold">Helpdesk</h3>
+<span class="text-outline text-sm tabular-nums">2 Open Tickets</span>
+</div>
+</a>
+</div>
+</section>
+</main>
+</div>
+</body></html>

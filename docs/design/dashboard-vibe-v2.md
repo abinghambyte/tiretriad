@@ -335,3 +335,58 @@ Designs that disrespect these boundaries (e.g. require us to rebuild the nav bar
 ---
 
 Questions while designing should come back to the Skedaddle owner (not implemented in Stitch's flow; ping via the delivery channel). Prefer to show two variants where you are unsure rather than commit to one.
+
+---
+
+## 11. Addendum: Stitch delivery + owner amendments (2026-04-20)
+
+Stitch returned four iterations. Accepted artifacts live alongside this brief in `docs/design/stitch/`:
+
+- `v3-dashboard-composed.png` - the full composed dashboard (accepted as the layout reference)
+- `v2-catalog-health-detail.png` - the Catalog Health detail screen (accepted with the amendments below)
+- `v0-overview-first.png`, `v1-overview-iteration.png` - earlier iterations, kept for history
+- `stitch-design-system.md` - Stitch's own "Precision Cockpit" / Tactical Industrialism write-up. This supersedes sections 6.1 to 6.5 of this brief where the two conflict.
+- `v3-code-reference.html` - Tailwind-based HTML reference for the composed dashboard. Implementers should treat this as a visual fidelity target, not a literal source to copy, because our app uses React Router + our own component primitives.
+
+### 11.1 Adopted design direction
+
+- **"Precision Cockpit" / Tactical Industrialism** becomes the working name for the dashboard aesthetic.
+- **Surface stacking over borders.** Boundaries are tonal (different zinc levels) rather than 1px lines. The existing `border-zinc-800` card outlines in `Dashboard.jsx` and `ProjectCard.jsx` should fall away during implementation; use `surface-container` / `surface-container-low` / `surface-container-highest` tonal nesting instead.
+- **Neon-Lime (`#32CD32`) as the "active signal."** Reserved for the currently-active nav item, the active-state pip in inputs, and very sparing UI flourishes. The rule is "less than 3 percent of total screen real estate." Do not use it for generic success / in-flight states - semantic amber, teal, rose, emerald from the original palette still own those meanings.
+- **Hero metric treatment.** The "Today revenue" card gets the 3.5 rem display-weight number, a tiny 7-day sparkline, and a soft gradient surface. Other three signal cards stay smaller to keep the asymmetry Stitch called for.
+- **Hover = bloom.** State changes on hover are implemented by increasing a soft outer glow and (optionally) lifting the surface one tonal step, not by border-color shifts.
+- **Glassmorphism is reserved for floating elements only** (modals, tooltips, the command palette overlay). Cards on the dashboard stay fully opaque against surface stacks.
+
+### 11.2 Owner amendments to the Catalog Health section (override earlier section 5.3)
+
+The Catalog Health detail surface (v2 screen) is accepted with these changes. These override the terminology and actions described in section 5.3 of this brief.
+
+1. **Section title renames from "Catalog Health" to "Unutilized Inventory"** (or a similar phrase that communicates "money sitting still"). The heading should reflect the economic frame, not a technical-health frame. Subheading copy should echo the same angle - e.g. "Tires that aren't moving weight yet." The implementer should confirm the final wording with the owner before shipping.
+
+2. **Row actions change from "Silence / Archive" to "List Now / Research."** This is a workflow-forward reframe: we're not acknowledging failure, we're routing the tire into the next action.
+
+   - **List Now** - primary action. Uses the **teal** accent (our Tires / catalog semantic color). Triggers the existing listing-generation flow for that tire (same path as the bulk "Generate listings" toolbar elsewhere in the app). No new persistent state required; the action fires a one-shot.
+   - **Research** - secondary action. Uses **muted zinc** (quieter, less assertive). Moves the tire into the research queue with a persistent flag. Owner-facing framing: "Kyle (or whoever handles pricing) re-verifies retail before this returns to the catalog." The existing Stitch mockup shows this as a chip / pill on the row; keep that treatment.
+
+3. **Row badge states update to match.** The badge on a row that has been routed to the research queue reads `RESEARCH` in a muted zinc pill, not `ARCHIVED`. There is no persistent `LIST NOW` badge because List Now is a one-shot action - once fired, the row either returns to normal (listing succeeded) or surfaces an error state (listing failed).
+
+4. **Footer counts update to match the new vocabulary.** The "12 silenced · 8 archived" footer line becomes "12 in research · 8 listed this week" (or similar). Implementer can iterate on exact phrasing.
+
+5. **Visual consistency preserved.** Density, card radius, type scale, and surface stacking stay identical to the rest of the dashboard. The Unutilized Inventory section is a feature, not a new aesthetic.
+
+### 11.3 Implementation implications
+
+These amendments ripple into the implementation plan:
+
+- The field the tire doc carries is called `researchQueue: { at, by, reason, resolvedAt }` rather than the previously-planned `archived`. Semantically cleaner. The field `lowMarginAck` is dropped entirely - "silence" is no longer a concept.
+- The "List Now" action uses whatever listing-generation callable already powers the bulk toolbar. No new callable required unless we want a per-tire fast-path.
+- The dashboard Unutilized Inventory row counts tires where `belowMarginFloor === true AND researchQueue == null`. Tires in the research queue leave the headline count and show up in the footer tally instead.
+- The tires catalog needs a "Research queue" tab or filter (not "Archived") matching the new language.
+
+### 11.4 Open questions for follow-up (non-blocking)
+
+- Does "List Now" need a confirm step? If the listing generator requires inputs (price, platform targets, photos), this might be a button that opens the existing generator preloaded for that tire, rather than a one-click fire. Clarify with the owner before wiring.
+- Research queue SLA - is there a stale threshold after which a researched tire automatically returns to the main catalog? (E.g. "if Kyle hasn't resolved in 14 days, auto-restore.") Leave unspecified for v1; observe behavior.
+- Whether the neon-lime active-nav treatment conflicts with the amber attention semantic already in the codebase. The two colors are distinct enough on screen, but a color-blind pass should confirm they read as different states.
+
+All other sections of this brief remain in force.
