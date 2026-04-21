@@ -1,3 +1,12 @@
+---
+id: P
+title: Payout panel polish
+branch: payout-panel-polish
+depends_on: []
+touches_shared: []
+frontend_only: true
+---
+
 # Patch P: Payout panel polish
 
 Branch: `payout-panel-polish`

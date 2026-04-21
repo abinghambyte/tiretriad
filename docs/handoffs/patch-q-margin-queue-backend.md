@@ -1,3 +1,22 @@
+---
+id: Q
+title: Margin floor verification queue backend
+branch: margin-queue-backend
+depends_on: []
+touches_shared:
+  - src/hooks/useDashboardSignals.js
+frontend_only: false
+deploy:
+  functions:
+    - enqueueBelowMarginFloor
+    - enqueueToResearch
+    - resolveQueueItem
+  firestore_rules: true
+  scripts:
+    - scripts/backfill-margin-floor.mjs --dry-run
+    - scripts/backfill-margin-floor.mjs --confirm
+---
+
 # Patch Q: Margin floor verification queue backend
 
 Branch: `margin-queue-backend`

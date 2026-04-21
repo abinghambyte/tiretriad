@@ -1,3 +1,12 @@
+---
+id: Qa
+title: Unutilized inventory classifier + selector hook
+branch: unutilized-inventory-backend
+depends_on: []
+touches_shared: []
+frontend_only: true
+---
+
 # Patch Qa: Unutilized inventory classifier + selector hook
 
 Branch: `unutilized-inventory-backend`

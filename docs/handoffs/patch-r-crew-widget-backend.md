@@ -1,3 +1,18 @@
+---
+id: R
+title: Crew widget v2 backend (presence + per-user signals)
+branch: crew-widget-backend
+depends_on: []
+touches_shared:
+  - src/hooks/useDashboardSignals.js
+frontend_only: false
+deploy:
+  functions:
+    - updatePresence
+  firestore_rules: true
+  scripts: []
+---
+
 # Patch R: Crew widget v2 backend (presence + per-user signals)
 
 Branch: `crew-widget-backend`

@@ -1,3 +1,13 @@
+---
+id: S
+title: My Queue page + Analytics oversight tabs
+branch: my-queue-page
+depends_on:
+  - Q
+touches_shared: []
+frontend_only: true
+---
+
 # Patch S: My Queue page + Analytics oversight tabs
 
 Branch: `my-queue-page`

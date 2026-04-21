@@ -32,7 +32,8 @@ Merge coordination:
 ## Conventions
 
 - One file per patch: `patch-<letter>-<short-name>.md`.
-- First line of each brief is the H1 title (no em dashes anywhere).
+- Every brief starts with a YAML frontmatter block (see schema below),
+  then a blank line, then the H1 title (no em dashes anywhere).
 - Brief body covers: branch name, scope (files touched), tasks,
   out-of-scope, validation commands, PR title.
 - Briefs end with the dispatch line:
@@ -43,6 +44,38 @@ Merge coordination:
   rollout.
 - Delete a brief once its PR merges. Keep the folder as narrow as
   possible so an agent opening it sees only active work.
+
+## Frontmatter schema (required)
+
+Every `patch-*.md` opens with YAML frontmatter. The `dispatch-handoffs`
+skill parses this as data; prose inference is explicitly disallowed, so
+malformed or missing frontmatter halts dispatch loudly.
+
+```yaml
+---
+id: Q                             # patch letter (matches filename)
+title: Margin floor queue backend # short human-readable title
+branch: margin-queue-backend      # exact branch name the Cursor agent will create
+depends_on: []                    # list of patch ids that must merge first; [] if none
+touches_shared:                   # files also edited by OTHER patches in the same batch
+  - src/hooks/useDashboardSignals.js
+frontend_only: false              # true iff the brief touches zero backend state
+deploy:                           # required unless frontend_only: true
+  functions:
+    - enqueueBelowMarginFloor
+    - enqueueToResearch
+    - resolveQueueItem
+  firestore_rules: true           # true iff firestore.rules is edited
+  scripts:                        # post-merge one-offs; empty list ok
+    - scripts/backfill-margin-floor.mjs --dry-run
+    - scripts/backfill-margin-floor.mjs --confirm
+---
+```
+
+Required fields: `id`, `title`, `branch`, `depends_on`, `touches_shared`,
+and EITHER `frontend_only: true` OR a non-empty `deploy` block. A brief
+with neither a `deploy` block nor `frontend_only: true` is invalid and
+halts dispatch.
 
 ## Last rollout
 
