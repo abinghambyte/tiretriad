@@ -18,7 +18,7 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('firebase/functions', () => ({ httpsCallable: () => () => Promise.resolve({}) }))
 vi.mock('./useTires', () => ({ useTires: () => ({ tires: [], loading: false }) }))
 
-const { deriveCrewSignals } = await import('./useDashboardSignals.js')
+const { deriveCrewSignals, deriveKylesQueueCount } = await import('./useDashboardSignals.js')
 
 function ts(ms) {
   return { toMillis: () => ms }
@@ -106,5 +106,44 @@ describe('deriveCrewSignals', () => {
     }
     const map = deriveCrewSignals(users, orders, [], now)
     expect(map.dj.streakDays).toBe(99)
+  })
+})
+
+describe('deriveKylesQueueCount', () => {
+  it('returns null while loading so consumers can render a placeholder', () => {
+    expect(deriveKylesQueueCount([{ researchQueue: { resolvedAt: null } }], true)).toBeNull()
+  })
+
+  it('returns 0 when given a non-array tires input', () => {
+    expect(deriveKylesQueueCount(null, false)).toBe(0)
+    expect(deriveKylesQueueCount(undefined, false)).toBe(0)
+  })
+
+  it('counts open entries across every reason so the badge matches /my-queue', () => {
+    const tires = [
+      { researchQueue: { resolvedAt: null, reason: 'below-margin-floor' } },
+      { researchQueue: { resolvedAt: null, reason: 'unutilized-needs-research' } },
+      { researchQueue: { resolvedAt: null, reason: 'below-margin-floor' } },
+    ]
+    expect(deriveKylesQueueCount(tires, false)).toBe(3)
+  })
+
+  it('ignores resolved entries and tires with no queue', () => {
+    const tires = [
+      { researchQueue: { resolvedAt: ts(123), reason: 'below-margin-floor' } },
+      { researchQueue: null },
+      {},
+      { researchQueue: { resolvedAt: null, reason: 'unutilized-needs-research' } },
+    ]
+    expect(deriveKylesQueueCount(tires, false)).toBe(1)
+  })
+
+  it('treats non-object researchQueue values as absent', () => {
+    const tires = [
+      { researchQueue: 'corrupted' },
+      { researchQueue: 42 },
+      { researchQueue: { resolvedAt: null } },
+    ]
+    expect(deriveKylesQueueCount(tires, false)).toBe(1)
   })
 })
