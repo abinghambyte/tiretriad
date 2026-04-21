@@ -4,16 +4,9 @@ Active Cursor agent handoff briefs. Each brief is a self-contained patch
 spec that a Cursor agent can pick up cold, implement, validate, and open
 a PR from - then stop.
 
-## Active rollout - batch 4 tail (2026-04-21)
+## Active rollout
 
-Four briefs (P, Q, Qa, R) landed as a single consolidated PR after a
-Cursor file-watcher race caused the crew-widget commit to absorb shared
-margin-queue edits mid-dispatch. See Last rollout for the PR link. Only
-Patch S remains; it depends on the consolidated PR merging first.
-
-| Patch | Branch | Scope |
-| --- | --- | --- |
-| S `my-queue-page` | `my-queue-page` | `/my-queue` page (sourcer/admin), `QueueRow`, Analytics `verification-queue` + `margin-archive` tabs (admin-only). Depends on the batch-4 consolidated PR. |
+None. Batch 4 is fully merged and deployed.
 
 ## Conventions
 
@@ -65,16 +58,19 @@ halts dispatch.
 
 ## Last rollout
 
-April 21, 2026 - batch 4. Four briefs consolidated into one PR after a
-Cursor file-watcher race blended shared-file edits across the Q and R
-commits. Content matches each brief's acceptance criteria.
+April 21, 2026 - batch 4. Five patches total. P, Q, Qa, R consolidated
+into PR #75 after a Cursor file-watcher race blended shared-file edits
+across the Q and R commits. Patch S shipped separately in PR #76. A
+follow-up fix for the `kylesQueueCount` badge shipped in PR #77.
 
 | Patch | Scope | PR |
 | --- | --- | --- |
-| P `payout-panel-polish` | Live Buy/Qty/Retail ledger preview in `PayoutConfigPanel.jsx` | see consolidated PR |
-| Q `margin-queue-backend` | `functions/researchQueue.js` + scheduled nightly sweep + `enqueueToResearch` / `resolveQueueItem` callables; replaces red margin row with `kylesQueueCount` signal | see consolidated PR |
-| Qa `unutilized-inventory-backend` | `unutilizedClassifier` + `useUnutilizedSignals` hook; eBay deferred to the sell-side integration | see consolidated PR |
-| R `crew-widget-backend` | `updatePresence` callable + heartbeat client + `crewSignals` map on `useDashboardSignals` | see consolidated PR |
+| P `payout-panel-polish` | Live Buy/Qty/Retail ledger preview in `PayoutConfigPanel.jsx` | #75 |
+| Q `margin-queue-backend` | `functions/researchQueue.js` + scheduled nightly sweep + `enqueueToResearch` / `resolveQueueItem` callables; replaces red margin row with `kylesQueueCount` signal | #75 |
+| Qa `unutilized-inventory-backend` | `unutilizedClassifier` + `useUnutilizedSignals` hook; eBay deferred to the sell-side integration | #75 |
+| R `crew-widget-backend` | `updatePresence` callable + heartbeat client + `crewSignals` map on `useDashboardSignals` | #75 |
+| S `my-queue-page` | `/my-queue` page, `QueueRow`, Analytics `verification-queue` + `margin-archive` tabs | #76 |
+| Queue-count fix | `deriveKylesQueueCount` counts every open queue entry, not just margin-floor | #77 |
 
 ## Previous rollout
 
