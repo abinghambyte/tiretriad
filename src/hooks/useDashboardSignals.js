@@ -7,19 +7,149 @@ import {
   limit,
   orderBy,
   query,
+  Timestamp,
   where,
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { useEffect, useMemo, useState } from 'react'
 import { db, functions } from '../firebase/config'
 import { useTires } from './useTires'
-import { computeMargin, computeListingMargin } from '../utils/marginCalc'
+import { computeMargin } from '../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
 import { listingStatus } from '../utils/listingStatus'
 
 const CATALOG_SKU_DISPLAY = 1160
 
+/** Status values considered "work in progress" for a given user's WIP count. */
+const WIP_ORDER_STATUSES = new Set([
+  'pending',
+  'available',
+  'scheduled',
+  'in_transit',
+  'ready',
+  'prospective',
+])
+
+/** Max streak value surfaced to the UI. */
+const STREAK_CAP = 99
+
 const getDashboardStatsCallable = httpsCallable(functions, 'getDashboardStats')
+
+function toMillisSafe(value) {
+  if (!value) return null
+  if (typeof value.toMillis === 'function') return value.toMillis()
+  if (typeof value.seconds === 'number') {
+    return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6)
+  }
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number') return value
+  return null
+}
+
+function localYmdFromMs(ms) {
+  const d = new Date(ms)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${da}`
+}
+
+function ymdUtcNoonMs(ymd) {
+  const [y, mo, da] = String(ymd).split('-').map(Number)
+  return Date.UTC(y, (mo || 1) - 1, da || 1, 12, 0, 0)
+}
+
+function addDaysToYmd(ymd, delta) {
+  const ms = ymdUtcNoonMs(ymd) + delta * 86400000
+  const d = new Date(ms)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+/**
+ * Pure crew-signals selector. Returns a map keyed by user uid with per-user
+ * pill metrics derived from the passed-in Firestore documents. Existing
+ * signals in the hook are untouched.
+ *
+ * @param {Array<{ id: string, data: Record<string, unknown> }>} users
+ * @param {Array<{ id: string, data: Record<string, unknown> }>} orders
+ * @param {Array<Record<string, unknown>>} tires catalog rows (post `researchQueue`)
+ * @param {number} nowMs
+ */
+export function deriveCrewSignals(users, orders, tires, nowMs) {
+  const now = Number.isFinite(nowMs) ? nowMs : Date.now()
+  const todayYmd = localYmdFromMs(now)
+
+  // Normalise user list to a role lookup. Role may live on `data.role`.
+  const userRole = new Map()
+  for (const u of users || []) {
+    userRole.set(u.id, String(u?.data?.role || '').toLowerCase())
+  }
+
+  // Pre-index orders by assignee for cheap aggregation.
+  /** @type {Map<string, { wip: number, today: number, daySet: Set<string> }>} */
+  const perUid = new Map()
+  function ensure(uid) {
+    let slot = perUid.get(uid)
+    if (!slot) {
+      slot = { wip: 0, today: 0, daySet: new Set() }
+      perUid.set(uid, slot)
+    }
+    return slot
+  }
+
+  for (const o of orders || []) {
+    const data = o?.data || {}
+    const uid = String(data.assignedTo || '').trim()
+    if (!uid) continue
+    const status = String(data.status || '').trim()
+    if (WIP_ORDER_STATUSES.has(status)) {
+      ensure(uid).wip += 1
+    }
+    if (status === 'completed') {
+      const ms = toMillisSafe(data.completedAt)
+      if (ms != null) {
+        const ymd = localYmdFromMs(ms)
+        const slot = ensure(uid)
+        slot.daySet.add(ymd)
+        if (ymd === todayYmd) slot.today += 1
+      }
+    }
+  }
+
+  // Sourcer queue counts — Patch Q introduces `researchQueue`; until Q ships
+  // we treat the field as absent and default to zero for everyone. Once Q is
+  // merged, `researchQueue.resolvedAt == null` means an open row.
+  let perSourcerQueue = 0
+  for (const t of tires || []) {
+    const rq = t?.researchQueue
+    if (rq && rq.resolvedAt == null) perSourcerQueue += 1
+  }
+
+  const result = {}
+  for (const u of users || []) {
+    const uid = u.id
+    const slot = perUid.get(uid) || { wip: 0, today: 0, daySet: new Set() }
+    // Streak: consecutive prior days ending at today (or yesterday if today
+    // empty, matching Analytics grace), capped at STREAK_CAP.
+    let streakDays = 0
+    let cursor = slot.daySet.has(todayYmd) ? todayYmd : addDaysToYmd(todayYmd, -1)
+    while (slot.daySet.has(cursor) && streakDays < STREAK_CAP) {
+      streakDays += 1
+      cursor = addDaysToYmd(cursor, -1)
+    }
+    const role = userRole.get(uid) || ''
+    const isSourcer = role === 'sourcer'
+    const lastSeenAt = toMillisSafe(u?.data?.presence?.lastSeenAt)
+    result[uid] = {
+      wipCount: slot.wip,
+      todayCompletions: slot.today,
+      streakDays,
+      queueCount: isSourcer ? perSourcerQueue : 0,
+      lastSeenAt,
+    }
+  }
+  return result
+}
 
 /**
  * Firestore-backed dashboard: module card copy, briefing counts, recent orders, crew preview.
@@ -58,28 +188,39 @@ export function useDashboardSignals() {
   }, [tires, tiresLoading])
 
   const catalogHealth = useMemo(() => {
+    // Below-15%-margin count has been removed: the nightly sweep
+    // (`enqueueBelowMarginFloor`) now routes those tires straight into
+    // Kyle's research queue. See `kylesQueueCount` below for the replacement.
     if (tiresLoading) {
-      return { total: null, missingOverhead: null, lowMargin: null, loading: true }
+      return { total: null, missingOverhead: null, loading: true }
     }
     if (!tires.length) {
-      return { total: 0, missingOverhead: 0, lowMargin: 0, loading: false }
+      return { total: 0, missingOverhead: 0, loading: false }
     }
     let missingOverhead = 0
-    let lowMargin = 0
     for (const t of tires) {
       const mount = Number(t.mountCost) || 0
       const delivery = Number(t.deliveryCost) || 0
       const other = Number(t.otherCost) || 0
       const cts = Number(t.cts) || 0
       if (cts === 0 && mount === 0 && delivery === 0 && other === 0) missingOverhead += 1
-      // "Below 15% margin" card measures listing margin at researched retail
-      // (what the catalog Margin % column shows). Unresearched tires are
-      // excluded from the count because null margin is not a "low" signal;
-      // it is a "not yet researched" signal surfaced elsewhere.
-      const m = computeListingMargin(t)
-      if (m != null && !Number.isNaN(m) && m < 15) lowMargin += 1
     }
-    return { total: tires.length, missingOverhead, lowMargin, loading: false }
+    return { total: tires.length, missingOverhead, loading: false }
+  }, [tires, tiresLoading])
+
+  // Count of open research-queue entries routed to Kyle (below-margin-floor
+  // reason, regardless of assignee in v1). Feeds his crew-widget pill.
+  const kylesQueueCount = useMemo(() => {
+    if (tiresLoading) return null
+    let n = 0
+    for (const t of tires) {
+      const rq = t?.researchQueue
+      if (!rq || typeof rq !== 'object') continue
+      if (rq.resolvedAt != null) continue
+      if (rq.reason !== 'below-margin-floor') continue
+      n += 1
+    }
+    return n
   }, [tires, tiresLoading])
 
   const [crm, setCrm] = useState({
@@ -124,6 +265,11 @@ export function useDashboardSignals() {
     hasMore: false,
     loading: true,
   })
+
+  const [crewSignalsState, setCrewSignalsState] = useState(
+    /** @type {{ map: Record<string, { wipCount: number, todayCompletions: number, streakDays: number, queueCount: number, lastSeenAt: number | null }>, loading: boolean }} */
+    ({ map: {}, loading: true }),
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -340,6 +486,44 @@ export function useDashboardSignals() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const startTs = Timestamp.fromMillis(Date.now() - STREAK_CAP * 86400000)
+        const [usersSnap, wipSnap, completedSnap] = await Promise.all([
+          getDocs(query(collection(db, 'users'), limit(200))),
+          getDocs(
+            query(collection(db, 'orders'), where('status', 'not-in', ['completed', 'cancelled'])),
+          ),
+          getDocs(
+            query(
+              collection(db, 'orders'),
+              where('status', '==', 'completed'),
+              where('completedAt', '>=', startTs),
+              orderBy('completedAt', 'desc'),
+              limit(2000),
+            ),
+          ),
+        ])
+        if (cancelled) return
+        const users = usersSnap.docs.map((d) => ({ id: d.id, data: d.data() }))
+        const orders = [
+          ...wipSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
+          ...completedSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
+        ]
+        const map = deriveCrewSignals(users, orders, tires || [], Date.now())
+        setCrewSignalsState({ map, loading: false })
+      } catch (e) {
+        console.error('dashboard crew signals', e)
+        if (!cancelled) setCrewSignalsState({ map: {}, loading: false })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tires])
+
   return {
     catalogSkuDisplay: CATALOG_SKU_DISPLAY,
     needsRepostingCount,
@@ -352,5 +536,7 @@ export function useDashboardSignals() {
     recentActivity,
     catalogHealth,
     crewPreview,
+    crewSignals: crewSignalsState,
+    kylesQueueCount,
   }
 }

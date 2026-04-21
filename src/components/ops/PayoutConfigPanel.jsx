@@ -34,6 +34,11 @@ export function PayoutConfigPanel() {
     stateTaxPct: '3.02',
     tireFeePerTire: '2.00',
   })
+  const [preview, setPreview] = useState({
+    buy: '100.00',
+    qty: '4',
+    retail: '',
+  })
 
   const load = useCallback(async () => {
     if (!auth.currentUser) return
@@ -83,22 +88,50 @@ export function PayoutConfigPanel() {
     return { countyTaxPct, localTaxPct, stateTaxPct, tireFeePerTire }
   }, [taxes])
 
-  const example = useMemo(() => {
-    const buy = 100
-    const qty = 4
-    const rate =
-      (Number(taxRatesFrac.countyTaxPct) || 0) +
-      (Number(taxRatesFrac.localTaxPct) || 0) +
-      (Number(taxRatesFrac.stateTaxPct) || 0)
-    const base = Math.round(buy * qty * 100) / 100
-    const salesTax = Math.round(base * rate * 100) / 100
+  const ledger = useMemo(() => {
+    const round = (n) => Math.round(n * 100) / 100
+    const buy = Number(preview.buy)
+    const qty = Number(preview.qty)
+    const retailRaw = String(preview.retail).trim()
+    const hasRetail = retailRaw !== '' && Number.isFinite(Number(retailRaw))
+    const retail = hasRetail ? Number(retailRaw) : 0
+
+    const safeBuy = Number.isFinite(buy) ? buy : 0
+    const safeQty = Number.isFinite(qty) ? qty : 0
+
+    const buySubtotal = round(safeBuy * safeQty)
+    const county = round(buySubtotal * (Number(taxRatesFrac.countyTaxPct) || 0))
+    const local = round(buySubtotal * (Number(taxRatesFrac.localTaxPct) || 0))
+    const state = round(buySubtotal * (Number(taxRatesFrac.stateTaxPct) || 0))
     const tireFee =
       Number.isFinite(taxRatesFrac.tireFeePerTire) && taxRatesFrac.tireFeePerTire >= 0
-        ? Math.round(taxRatesFrac.tireFeePerTire * qty * 100) / 100
+        ? round(taxRatesFrac.tireFeePerTire * safeQty)
         : 0
-    const total = Math.round((salesTax + tireFee) * 100) / 100
-    return { salesTax, tireFee, total }
-  }, [taxRatesFrac])
+    const costTotal = round(buySubtotal + county + local + state + tireFee)
+
+    const retailSubtotal = hasRetail ? round(retail * safeQty) : null
+    const pool = hasRetail ? round(retailSubtotal - costTotal) : null
+    const shares = hasRetail
+      ? {
+          alex: round(pool * (Number(splitFrac.alex) || 0)),
+          dj: round(pool * (Number(splitFrac.dj) || 0)),
+          kyle: round(pool * (Number(splitFrac.kyle) || 0)),
+        }
+      : null
+
+    return {
+      hasRetail,
+      buySubtotal,
+      county,
+      local,
+      state,
+      tireFee,
+      costTotal,
+      retailSubtotal,
+      pool,
+      shares,
+    }
+  }, [preview, taxRatesFrac, splitFrac])
 
   const submit = async () => {
     setSaving(true)
@@ -216,22 +249,135 @@ export function PayoutConfigPanel() {
                 />
               </label>
             </div>
-            <p className="mt-3 text-sm text-zinc-400">
-              For a buy cost of $100/tire × 4 tires, taxes add {formatCurrency(example.total)} (sales tax{' '}
-              {formatCurrency(example.salesTax)} + tire fee {formatCurrency(example.tireFee)}).
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              disabled={!splitOk || saving}
-              onClick={() => void submit()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          <div>
+            <h3 className="text-sm font-medium text-zinc-300">Live preview</h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              Try values below to see how the current rates and splits would apply. Values are not saved.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="block text-xs font-medium text-zinc-500">
+                Buy cost per tire ($)
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={preview.buy}
+                  onChange={(ev) => setPreview((p) => ({ ...p, buy: ev.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+              <label className="block text-xs font-medium text-zinc-500">
+                Quantity
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={preview.qty}
+                  onChange={(ev) => setPreview((p) => ({ ...p, qty: ev.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+              <label className="block text-xs font-medium text-zinc-500">
+                Retail per tire ($)
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="optional"
+                  value={preview.retail}
+                  onChange={(ev) => setPreview((p) => ({ ...p, retail: ev.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+            </div>
+
+            <table
+              className="mt-4 w-full text-sm text-zinc-200"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              {saving && <Spinner className="h-4 w-4 text-zinc-700" />}
-              Save payout config
-            </button>
+              <tbody className="divide-y divide-zinc-800">
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    Buy subtotal
+                  </th>
+                  <td className="py-1.5 text-right">{formatCurrency(ledger.buySubtotal)}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    County tax
+                  </th>
+                  <td className="py-1.5 text-right">{formatCurrency(ledger.county)}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    Local tax
+                  </th>
+                  <td className="py-1.5 text-right">{formatCurrency(ledger.local)}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    State tax
+                  </th>
+                  <td className="py-1.5 text-right">{formatCurrency(ledger.state)}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    Tire fee
+                  </th>
+                  <td className="py-1.5 text-right">{formatCurrency(ledger.tireFee)}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-medium text-zinc-200">
+                    Cost total
+                  </th>
+                  <td className="py-1.5 text-right font-medium text-zinc-100">
+                    {formatCurrency(ledger.costTotal)}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    Retail subtotal
+                  </th>
+                  <td className="py-1.5 text-right">
+                    {ledger.hasRetail ? formatCurrency(ledger.retailSubtotal) : '-'}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                    Pool (retail - cost)
+                  </th>
+                  <td className="py-1.5 text-right">
+                    {ledger.hasRetail ? formatCurrency(ledger.pool) : '-'}
+                  </td>
+                </tr>
+                {SPLIT_ORDER.map((key) => (
+                  <tr key={`share-${key}`}>
+                    <th scope="row" className="py-1.5 text-left font-normal text-zinc-400">
+                      {key === 'alex' ? 'Alex' : key === 'dj' ? 'DJ' : 'Kyle'} share
+                    </th>
+                    <td className="py-1.5 text-right">
+                      {ledger.hasRetail && ledger.shares ? formatCurrency(ledger.shares[key]) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs text-zinc-500">
+              Preview uses the values in the form; saving writes them to meta/payoutConfig.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={!splitOk || saving}
+                onClick={() => void submit()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving && <Spinner className="h-4 w-4 text-zinc-700" />}
+                Save payout config
+              </button>
+            </div>
           </div>
         </div>
       )}
