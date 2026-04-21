@@ -18,8 +18,16 @@ import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 import { WallPage } from './WallPage'
 import { addDaysToYmd, denverYm, isoWeekKey } from '../utils/isoWeekDenver.js'
 import { marginPercentOfPayment, poolDollarsForOrder } from '../utils/orderPoolMargin.js'
+import { useUserProfile } from '../hooks/useUserProfile.js'
+import { useTires } from '../hooks/useTires.js'
+import { QueueRow } from '../components/queue/QueueRow.jsx'
+import { selectOpenQueueRows } from '../utils/queueSelectors.js'
+import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail.js'
+import { computeListingMargin } from '../utils/marginCalc.js'
 
-const TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
+const BASE_TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
+const ADMIN_TAB_IDS = ['verification-queue', 'margin-archive']
+const ARCHIVE_PAGE_SIZE = 50
 
 function completedMs(o) {
   const t = o?.completedAt
@@ -87,12 +95,26 @@ function flameSize(days) {
   return 'text-sm opacity-70'
 }
 
-const TAB_LABELS = { wall: 'Wall', metrics: 'Metrics', revenue: 'Revenue', leaderboard: 'Leaderboard' }
+const TAB_LABELS = {
+  wall: 'Wall',
+  metrics: 'Metrics',
+  revenue: 'Revenue',
+  leaderboard: 'Leaderboard',
+  'verification-queue': 'Verification queue',
+  'margin-archive': 'Margin archive',
+}
 
 export function AnalyticsPage() {
   const [searchParams] = useSearchParams()
+  const { profile } = useUserProfile()
+  const isAdmin = String(profile?.role || '').toLowerCase() === 'admin'
+  const allowedTabs = isAdmin ? [...BASE_TAB_IDS, ...ADMIN_TAB_IDS] : BASE_TAB_IDS
   const rawTab = searchParams.get('tab') || 'wall'
-  const tab = TAB_IDS.includes(rawTab) ? rawTab : 'wall'
+  const tab = allowedTabs.includes(rawTab) ? rawTab : 'wall'
+
+  const { tires: allTires, loading: tiresLoadingForTabs } = useTires()
+  const [archiveQuery, setArchiveQuery] = useState('')
+  const [archivePage, setArchivePage] = useState(0)
 
   const [completedRows, setCompletedRows] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
@@ -371,12 +393,43 @@ export function AnalyticsPage() {
     return { bestAll, best30, topCrew, topSku }
   }, [completedRows, tiresByMspn])
 
-  const analyticsTabs = TAB_IDS.map((id) => ({
+  const analyticsTabs = allowedTabs.map((id) => ({
     key: id,
     label: TAB_LABELS[id] || id,
     to: id === 'wall' ? '/analytics' : `/analytics?tab=${id}`,
     active: tab === id,
   }))
+
+  const verificationRows = useMemo(() => selectOpenQueueRows(allTires || []), [allTires])
+
+  const archivedTires = useMemo(() => {
+    const rows = []
+    const q = archiveQuery.trim().toLowerCase()
+    for (const t of allTires || []) {
+      if (t?.marginConfirmed !== true) continue
+      if (q) {
+        const mspn = String(t.mspn || t.id || '').toLowerCase()
+        const desc = String(t.description || t.tread || '').toLowerCase()
+        if (!mspn.includes(q) && !desc.includes(q)) continue
+      }
+      rows.push(t)
+    }
+    rows.sort((a, b) => {
+      const am = a?.researchQueue?.resolvedAt
+      const bm = b?.researchQueue?.resolvedAt
+      const av = am && typeof am.toMillis === 'function' ? am.toMillis() : Number(am) || 0
+      const bv = bm && typeof bm.toMillis === 'function' ? bm.toMillis() : Number(bm) || 0
+      return bv - av
+    })
+    return rows
+  }, [allTires, archiveQuery])
+
+  const archiveTotalPages = Math.max(1, Math.ceil(archivedTires.length / ARCHIVE_PAGE_SIZE))
+  const archivePageSafe = Math.min(archivePage, archiveTotalPages - 1)
+  const archiveSlice = archivedTires.slice(
+    archivePageSafe * ARCHIVE_PAGE_SIZE,
+    archivePageSafe * ARCHIVE_PAGE_SIZE + ARCHIVE_PAGE_SIZE,
+  )
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -540,6 +593,95 @@ export function AnalyticsPage() {
           </div>
         ) : null}
 
+        {tab === 'verification-queue' && isAdmin ? (
+          <div className="space-y-4">
+            <p className="text-xs text-zinc-500">
+              Live view of pending verification items. Resolve from /my-queue.
+            </p>
+            {tiresLoadingForTabs ? (
+              <p className="text-sm text-zinc-500">Loading…</p>
+            ) : verificationRows.length === 0 ? (
+              <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
+                No pending items.
+              </p>
+            ) : (
+              <VerificationOversightList rows={verificationRows} />
+            )}
+          </div>
+        ) : null}
+
+        {tab === 'margin-archive' && isAdmin ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="search"
+                placeholder="Search MSPN or description"
+                value={archiveQuery}
+                onChange={(e) => {
+                  setArchiveQuery(e.target.value)
+                  setArchivePage(0)
+                }}
+                className="w-full max-w-xs rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+              />
+              <span className="text-xs text-zinc-500">
+                {formatQty(archivedTires.length)} archived
+              </span>
+            </div>
+            {tiresLoadingForTabs ? (
+              <p className="text-sm text-zinc-500">Loading…</p>
+            ) : archivedTires.length === 0 ? (
+              <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
+                No archived tires.
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/40">
+                  <table className="w-full text-left text-xs">
+                    <thead className="text-[10px] uppercase tracking-wide text-zinc-500">
+                      <tr>
+                        <th className="px-3 py-2">MSPN</th>
+                        <th className="px-3 py-2">Description</th>
+                        <th className="px-3 py-2">Retail</th>
+                        <th className="px-3 py-2">Margin</th>
+                        <th className="px-3 py-2">Archived</th>
+                        <th className="px-3 py-2">By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {archiveSlice.map((t) => (
+                        <ArchiveRow key={String(t.id)} tire={t} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-zinc-400">
+                  <button
+                    type="button"
+                    className="rounded-md border border-zinc-700 px-2 py-1 hover:border-zinc-500 disabled:opacity-40"
+                    disabled={archivePageSafe === 0}
+                    onClick={() => setArchivePage((p) => Math.max(0, p - 1))}
+                  >
+                    Prev
+                  </button>
+                  <span>
+                    Page {archivePageSafe + 1} of {archiveTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded-md border border-zinc-700 px-2 py-1 hover:border-zinc-500 disabled:opacity-40"
+                    disabled={archivePageSafe >= archiveTotalPages - 1}
+                    onClick={() =>
+                      setArchivePage((p) => Math.min(archiveTotalPages - 1, p + 1))
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+
         {tab === 'leaderboard' ? (
           <div className="space-y-6">
             {!ordersLoading && completedRows.length >= 4000 ? (
@@ -601,6 +743,76 @@ function LeaderBlock({ title, body }) {
         </p>
       )}
     </div>
+  )
+}
+
+function VerificationOversightList({ rows }) {
+  const groups = new Map()
+  for (const t of rows) {
+    const reason = String(t?.researchQueue?.reason || 'other')
+    if (!groups.has(reason)) groups.set(reason, [])
+    groups.get(reason).push(t)
+  }
+  const reasonOrder = ['below-margin-floor', 'unutilized-needs-research']
+  const reasonLabels = {
+    'below-margin-floor': 'Below margin floor',
+    'unutilized-needs-research': 'Needs research',
+  }
+  const keys = [...groups.keys()].sort((a, b) => {
+    const ai = reasonOrder.indexOf(a)
+    const bi = reasonOrder.indexOf(b)
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+  })
+  return (
+    <div className="space-y-6">
+      {keys.map((reason) => (
+        <section key={reason}>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            {reasonLabels[reason] || reason} · {groups.get(reason).length}
+          </h3>
+          <ul className="space-y-2">
+            {groups.get(reason).map((t) => (
+              <QueueRow
+                key={String(t.id)}
+                tire={t}
+                onResolve={() => undefined}
+                readOnly
+                resolvedBy={String(t?.researchQueue?.by || '') || undefined}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function toDate(value) {
+  if (!value) return null
+  if (typeof value.toDate === 'function') return value.toDate()
+  if (typeof value.toMillis === 'function') return new Date(value.toMillis())
+  if (typeof value === 'number') return new Date(value)
+  return null
+}
+
+function ArchiveRow({ tire }) {
+  const mspn = String(tire?.mspn || tire?.id || '')
+  const desc = String(tire?.description || tire?.tread || '')
+  const retail = tireCatalogRetailNumber(tire)
+  const margin = computeListingMargin(tire)
+  const resolvedAt = toDate(tire?.researchQueue?.resolvedAt)
+  const by = String(tire?.researchQueue?.resolvedBy || tire?.researchQueue?.by || '—')
+  return (
+    <tr className="border-t border-zinc-800/70 text-zinc-300">
+      <td className="px-3 py-2 font-mono text-amber-200">{mspn}</td>
+      <td className="px-3 py-2 text-zinc-400">{desc}</td>
+      <td className="px-3 py-2 tabular-nums">{retail > 0 ? formatCurrency(retail) : '—'}</td>
+      <td className="px-3 py-2 tabular-nums">{margin != null ? formatPercent(margin, 1) : '—'}</td>
+      <td className="px-3 py-2 text-zinc-500">
+        {resolvedAt ? resolvedAt.toISOString().slice(0, 10) : '—'}
+      </td>
+      <td className="px-3 py-2 text-zinc-400">{by}</td>
+    </tr>
   )
 }
 
