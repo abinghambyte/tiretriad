@@ -32,16 +32,16 @@ const gems = [
 ]
 
 describe('HiddenGemsSurface', () => {
-  it('renders the section label and each gem row', () => {
+  it('renders the section label and the first gem row', () => {
     render(<HiddenGemsSurface gems={gems} />)
     expect(screen.getByText(/hidden gems/i)).toBeTruthy()
     expect(screen.getByText('AAA')).toBeTruthy()
-    expect(screen.getByText('BBB')).toBeTruthy()
     expect(screen.getByText('All-season 205/55R16')).toBeTruthy()
   })
 
   it('shows "never" when lastPostedAt is null', () => {
-    render(<HiddenGemsSurface gems={gems} />)
+    const singleNull = [{ id: 'x1', sku: 'X1', description: 'No date', platforms: [], lastPostedAt: null }]
+    render(<HiddenGemsSurface gems={singleNull} />)
     expect(screen.getByText('never')).toBeTruthy()
   })
 
@@ -50,7 +50,7 @@ describe('HiddenGemsSurface', () => {
     expect(screen.getByText(/nothing hidden/i)).toBeTruthy()
   })
 
-  it('renders "View all N" when more than 5 gems exist', () => {
+  it('renders "Show more" when more than 1 gem exists', () => {
     const many = Array.from({ length: 8 }, (_, i) => ({
       id: `t${i}`,
       sku: `SKU${i}`,
@@ -60,7 +60,22 @@ describe('HiddenGemsSurface', () => {
       lastPostedAt: null,
     }))
     render(<HiddenGemsSurface gems={many} />)
-    expect(screen.getByText(/view all 8/i)).toBeTruthy()
+    expect(screen.getByText(/show more/i)).toBeTruthy()
+  })
+
+  it('opens modal with all gems when Show more is clicked', () => {
+    const many = Array.from({ length: 3 }, (_, i) => ({
+      id: `t${i}`,
+      sku: `SKU${i}`,
+      description: `desc ${i}`,
+      platformCount: 0,
+      platforms: [],
+      lastPostedAt: null,
+    }))
+    render(<HiddenGemsSurface gems={many} />)
+    fireEvent.click(screen.getByText(/show more/i))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('Hidden Gems (3)')).toBeTruthy()
   })
 
   it('invokes onPost with the gem id when Post it is clicked', () => {
@@ -71,19 +86,19 @@ describe('HiddenGemsSurface', () => {
     expect(onPost).toHaveBeenCalledWith('t1')
   })
 
-  it('invokes onPost with __all__ when View all is clicked', () => {
-    const onPost = vi.fn()
-    const many = Array.from({ length: 7 }, (_, i) => ({
+  it('modal closes on Escape key', () => {
+    const many = Array.from({ length: 3 }, (_, i) => ({
       id: `t${i}`,
       sku: `SKU${i}`,
       description: `desc ${i}`,
-      platformCount: 0,
       platforms: [],
       lastPostedAt: null,
     }))
-    render(<HiddenGemsSurface gems={many} onPost={onPost} />)
-    fireEvent.click(screen.getByText(/view all 7/i))
-    expect(onPost).toHaveBeenCalledWith('__all__')
+    render(<HiddenGemsSurface gems={many} />)
+    fireEvent.click(screen.getByText(/show more/i))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('renders missing-platform chips for platforms not in the gem', () => {
