@@ -704,7 +704,7 @@ export function OrdersList({ highlightId }) {
                 </div>
                 {refShort ? (
                   <div className="shrink-0 text-right">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Reference</p>
+                    <p className="pc-eyebrow">Reference</p>
                     <p className="mt-0.5 flex items-center justify-end gap-1.5 font-mono text-[10px] tracking-wide text-zinc-300">
                       <span>{refShort}</span>
                       {o.priceDiscrepancy != null ? (
@@ -732,24 +732,14 @@ export function OrdersList({ highlightId }) {
                       >
                         Mark complete
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={BTN_PRIMARY}
-                        onClick={() => openNotifyModal(o)}
-                      >
-                        Send update
-                      </button>
-                    )}
-                    {o.customerNotifiedAt ? (
-                      <button
-                        type="button"
-                        className={BTN_SECONDARY}
-                        onClick={() => openNotifyModal(o)}
-                      >
-                        Send update
-                      </button>
                     ) : null}
+                    <button
+                      type="button"
+                      className={o.customerNotifiedAt ? BTN_SECONDARY : BTN_PRIMARY}
+                      onClick={() => openNotifyModal(o)}
+                    >
+                      Send update
+                    </button>
                     {o.customerNotifiedAt ? (
                       <button
                         type="button"

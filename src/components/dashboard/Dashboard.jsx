@@ -151,7 +151,7 @@ export function Dashboard() {
             role="status"
             className="rounded-xl border border-rose-900/50 bg-rose-950/25 px-4 py-3 text-sm text-rose-100"
           >
-            Live counts unavailable right now - showing zeros. Refresh to retry.
+            Live counts unavailable. Showing zeros; refresh to retry.
           </div>
         ) : null}
 

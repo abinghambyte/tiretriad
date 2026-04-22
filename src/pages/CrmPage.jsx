@@ -604,7 +604,7 @@ export function CrmPage() {
                   Add VIP client
                 </button>
               ) : null}
-              <label className="flex min-w-[10rem] flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              <label className="pc-eyebrow flex min-w-[10rem] flex-col">
                 Segment
                 <select
                   value={segment}
@@ -619,7 +619,7 @@ export function CrmPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex min-w-[11rem] flex-1 flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              <label className="pc-eyebrow flex min-w-[11rem] flex-1 flex-col">
                 Location contains
                 <input
                   placeholder="City, region, metro…"
@@ -1036,7 +1036,7 @@ export function CrmPage() {
           <section className="space-y-6">
             <h2 className="text-sm font-semibold text-zinc-300">Leads</h2>
             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-              <label className="flex min-w-[10rem] flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              <label className="pc-eyebrow flex min-w-[10rem] flex-col">
                 Segment
                 <select
                   value={segment}
@@ -1051,7 +1051,7 @@ export function CrmPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex min-w-[11rem] flex-1 flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              <label className="pc-eyebrow flex min-w-[11rem] flex-1 flex-col">
                 Location contains
                 <input
                   placeholder="City, region, metro…"
@@ -1110,7 +1110,7 @@ export function CrmPage() {
                   onChange={(e) => setLeadForm((f) => ({ ...f, fleetSize: e.target.value }))}
                   className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
                 />
-                <label className="flex flex-col text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                <label className="pc-eyebrow flex flex-col">
                   Urgency
                   <select
                     value={leadForm.urgency}

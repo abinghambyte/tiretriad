@@ -18,6 +18,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Global focus-visible ring on form controls. Many call sites still use
+     focus:outline-none without declaring a replacement ring; this guarantees
+     keyboard users always get an amber ring they can actually see against
+     the dark surfaces. Component-level focus styles override as needed. */
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(245 158 11 / 0.6);
+    border-color: rgb(245 158 11);
+  }
 }
 
 @keyframes sk-fade-in {
@@ -116,6 +128,38 @@
 
 .sk-credit-flash {
   animation: sk-number-flash 0.65s ease-out both;
+}
+
+/* Unified eyebrow label. Three competing scales (9/10/11 px with varied
+   tracking) collapsed to one. 9 px was below the WCAG readable minimum. */
+.pc-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgb(113 113 122);
+}
+
+/* Activity ticker scroll. Pauses on hover OR focus-within. Respects
+   prefers-reduced-motion. Previously injected inline per mount. */
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .activity-ticker .activity-ticker__track {
+    animation: ticker-scroll 35s linear infinite;
+  }
+}
+
+.activity-ticker:hover .activity-ticker__track,
+.activity-ticker:focus-within .activity-ticker__track {
+  animation: none;
 }
 
 @layer utilities {

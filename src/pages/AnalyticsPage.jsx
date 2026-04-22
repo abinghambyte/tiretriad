@@ -24,6 +24,7 @@ import { QueueRow } from '../components/queue/QueueRow.jsx'
 import { selectOpenQueueRows } from '../utils/queueSelectors.js'
 import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail.js'
 import { computeListingMargin } from '../utils/marginCalc.js'
+import { SampleCapBanner } from '../components/ui/SampleCapBanner.jsx'
 
 const BASE_TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
 const ADMIN_TAB_IDS = ['verification-queue', 'margin-archive']
@@ -450,9 +451,7 @@ export function AnalyticsPage() {
         {tab === 'metrics' ? (
           <div className="space-y-6">
             {!ordersLoading && completedRows.length >= 4000 ? (
-              <p className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-400">
-                Showing the 4,000 most recent completed orders. Older orders are excluded from all calculations on this page.
-              </p>
+              <SampleCapBanner count={4000} />
             ) : null}
             {ordersLoading ? (
               <p className="text-sm text-zinc-500">Loading completed orders…</p>
@@ -487,11 +486,15 @@ export function AnalyticsPage() {
                   hint="Orders completed on a day when 3+ orders were all finished (hat trick)."
                 />
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <p className="pc-eyebrow">
                     Field streak (assigned orders)
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <span className={flameSize(fieldStreakUi.current)} title="Streak heat">
+                    <span
+                      className={flameSize(fieldStreakUi.current)}
+                      role="img"
+                      aria-label={`Streak heat, ${fieldStreakUi.current} day${fieldStreakUi.current === 1 ? '' : 's'}`}
+                    >
                       🔥
                     </span>
                     <div>
@@ -510,7 +513,7 @@ export function AnalyticsPage() {
                   </p>
                 </div>
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20 sm:col-span-2 lg:col-span-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <p className="pc-eyebrow">
                     Poke conversion
                   </p>
                   <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-50">
@@ -528,9 +531,7 @@ export function AnalyticsPage() {
         {tab === 'revenue' ? (
           <div className="space-y-6">
             {!ordersLoading && completedRows.length >= 4000 ? (
-              <p className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-400">
-                Showing the 4,000 most recent completed orders. Older orders are excluded from all calculations on this page.
-              </p>
+              <SampleCapBanner count={4000} />
             ) : null}
             <div className="grid gap-4 sm:grid-cols-3">
               <MetricCard
@@ -685,9 +686,7 @@ export function AnalyticsPage() {
         {tab === 'leaderboard' ? (
           <div className="space-y-6">
             {!ordersLoading && completedRows.length >= 4000 ? (
-              <p className="rounded-lg border border-amber-800/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-400">
-                Showing the 4,000 most recent completed orders. Older orders are excluded from all calculations on this page.
-              </p>
+              <SampleCapBanner count={4000} />
             ) : null}
             <div className="grid gap-6 sm:grid-cols-2">
             <LeaderBlock
@@ -819,7 +818,7 @@ function ArchiveRow({ tire }) {
 function MetricCard({ label, value, hint }) {
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 shadow-sm shadow-black/20">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="pc-eyebrow">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-50">{value}</p>
       {hint ? <p className="mt-2 text-xs leading-relaxed text-zinc-600">{hint}</p> : null}
     </div>
