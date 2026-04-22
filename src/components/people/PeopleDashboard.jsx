@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, db, functions } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { ROLE_DEFAULTS } from '../../constants/peoplePermissions'
@@ -41,6 +41,9 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const { toast } = useToast()
   const { profile } = useUserProfile()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const highlightUid = searchParams.get('highlight') || ''
+  const [highlightedUid, setHighlightedUid] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
@@ -111,6 +114,29 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     )
     return () => unsub()
   }, [])
+
+  // Deep-link: when `/people?highlight=<uid>` lands and the target user
+  // is in the loaded list, scroll their row into view and pulse it for
+  // a moment. The query param is cleared afterward so a reload does not
+  // re-trigger the scroll.
+  useEffect(() => {
+    if (!highlightUid) return
+    if (loading) return
+    if (!users.some((u) => u.id === highlightUid)) return
+    setHighlightedUid(highlightUid)
+    const node =
+      typeof document !== 'undefined'
+        ? document.querySelector(`[data-uid="${CSS.escape(highlightUid)}"]`)
+        : null
+    if (node && typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('highlight')
+    setSearchParams(next, { replace: true })
+    const timer = setTimeout(() => setHighlightedUid(''), 2000)
+    return () => clearTimeout(timer)
+  }, [highlightUid, loading, users, searchParams, setSearchParams])
 
   const openEditor = useCallback((u) => {
     setSelected(u)
@@ -578,6 +604,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                     tick={tick}
                     onHistory={openHistory}
                     onEdit={openEditor}
+                    highlighted={u.id === highlightedUid}
                   />
                 ))
               )}

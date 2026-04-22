@@ -171,8 +171,11 @@ export function TiresDashboard() {
   const { tires, loading, error } = useTires()
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
-  const ordersHighlight = searchParams.get('highlight') || undefined
+  const highlightParam = searchParams.get('highlight') || ''
+  const ordersHighlight = tab === 'orders' && highlightParam ? highlightParam : undefined
+  const catalogHighlight = tab === 'catalog' && highlightParam ? highlightParam : ''
   const catalogRisk = searchParams.get('risk') || ''
+  const hiddenGemsFilter = searchParams.get('hiddenGems') === 'true'
   const canViewOrders = permissionMeets(permissionFor('orders'), 'view')
 
   const [minMargin, setMinMargin] = useState(0)
@@ -292,7 +295,8 @@ export function TiresDashboard() {
     Boolean(brand) ||
     useTagFilters.length > 0 ||
     lrFilters.length > 0 ||
-    needsReposting
+    needsReposting ||
+    hiddenGemsFilter
 
   const activeFilterCount = useMemo(() => {
     let n = 0
@@ -301,9 +305,10 @@ export function TiresDashboard() {
     if (useTagFilters.length > 0) n += 1
     if (lrFilters.length > 0) n += 1
     if (needsReposting) n += 1
+    if (hiddenGemsFilter) n += 1
     if (query.trim()) n += 1
     return n
-  }, [minMargin, brand, useTagFilters, lrFilters, needsReposting, query])
+  }, [minMargin, brand, useTagFilters, lrFilters, needsReposting, hiddenGemsFilter, query])
 
   const clearFilters = useCallback(() => {
     setMinMargin(0)
@@ -311,7 +316,12 @@ export function TiresDashboard() {
     setUseTagFilters([])
     setLrFilters([])
     setNeedsReposting(false)
-  }, [])
+    if (hiddenGemsFilter) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('hiddenGems')
+      setSearchParams(next, { replace: true })
+    }
+  }, [hiddenGemsFilter, searchParams, setSearchParams])
 
   function clearSelection() {
     setSelectedIds(new Set())
@@ -386,6 +396,14 @@ export function TiresDashboard() {
           (p) => listingStatus(row, p) !== 'active',
         )
         if (!allInactive) return false
+      }
+      if (hiddenGemsFilter) {
+        if (!row?.marginConfirmed) return false
+        const listings = row.platformListings || {}
+        const activeCount = Object.keys(listings).filter(
+          (p) => listings[p]?.status === 'active',
+        ).length
+        if (activeCount >= 2) return false
       }
       if (hasQuery) {
         if (!matchesQuery(row, trimmedQuery)) return false
@@ -479,6 +497,7 @@ export function TiresDashboard() {
     hasQuery,
     trimmedQuery,
     catalogRisk,
+    hiddenGemsFilter,
     sortKey,
     sortDir,
   ])
@@ -542,6 +561,19 @@ export function TiresDashboard() {
     },
     [sortedRows],
   )
+
+  // Catalog deep-link: when `/tires?highlight=<id>` lands on the catalog
+  // tab, scroll that row into view once rows are resolved. Drops the
+  // param afterward so a page refresh does not re-trigger the jump.
+  useEffect(() => {
+    if (!catalogHighlight) return
+    if (loading) return
+    if (sortedRows.length === 0) return
+    jumpToTire(catalogHighlight)
+    const next = new URLSearchParams(searchParams)
+    next.delete('highlight')
+    setSearchParams(next, { replace: true })
+  }, [catalogHighlight, loading, sortedRows, jumpToTire, searchParams, setSearchParams])
 
   function toggle(id) {
     setSelectedIds((prev) => {

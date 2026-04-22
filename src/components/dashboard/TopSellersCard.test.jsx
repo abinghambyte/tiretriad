@@ -33,7 +33,7 @@ describe('TopSellersCard', () => {
 
   it('cycles to the next seller after the interval elapses', () => {
     vi.useFakeTimers()
-    render(<TopSellersCard sellers={sellers} intervalMs={3000} />)
+    render(<TopSellersCard sellers={sellers} />)
     expect(screen.getByText('AAA')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(3000)
@@ -43,7 +43,7 @@ describe('TopSellersCard', () => {
 
   it('pauses cycling while hovered', () => {
     vi.useFakeTimers()
-    const { container } = render(<TopSellersCard sellers={sellers} intervalMs={3000} />)
+    const { container } = render(<TopSellersCard sellers={sellers} />)
     fireEvent.mouseEnter(container.firstChild)
     act(() => {
       vi.advanceTimersByTime(9000)
