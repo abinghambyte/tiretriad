@@ -9,9 +9,10 @@ a PR from - then stop.
 Dashboard redesign scope B. Spec lives at
 `docs/superpowers/specs/2026-04-21-dashboard-redesign-design.md`; plan at
 `docs/superpowers/plans/2026-04-21-dashboard-redesign.md`. Six briefs,
-dispatched in three rounds: round 1 is T alone (data contract), round 2
-is U / V / W / X in parallel (presentational components), round 3 is Y
-(shell compose).
+dispatched in three rounds per the frontmatter graph: round 1 is T + W
+in parallel (T is the data contract and only backend deploy; W is a
+standalone presentational component with no T dependency), round 2 is
+U / V / X in parallel after T merges, round 3 is Y.
 
 | Patch | Branch | Scope |
 | --- | --- | --- |
@@ -24,10 +25,11 @@ is U / V / W / X in parallel (presentational components), round 3 is Y
 
 Merge coordination:
 
-- T is the only patch in this batch with a Cloud Function deploy. Land
-  it first.
-- U / V / W / X are four independent new component files with zero file
-  overlap. They can merge in any order after T.
+- T is the only patch in this batch with a Cloud Function deploy.
+- W has no dependency on T and can land in parallel with it.
+- U / V / X each consume fields that T adds to `useDashboardSignals`, so
+  they wait for T. They are three independent new component files with
+  zero file overlap and can merge in any order once T is in.
 - Y owns the only writes to `src/components/dashboard/Dashboard.jsx` in
   this rollout and must land last. Resolve any
   `src/components/dashboard/Dashboard.jsx` conflicts in favour of the

@@ -3,9 +3,7 @@ id: T
 title: Dashboard top-sellers data pipeline
 branch: dashboard-top-sellers-data
 depends_on: []
-touches_shared:
-  - src/hooks/useDashboardSignals.js
-  - functions/financeStats.js
+touches_shared: []
 frontend_only: false
 deploy:
   functions:
