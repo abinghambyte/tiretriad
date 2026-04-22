@@ -839,7 +839,6 @@ export function MarginTable({
   rows,
   selectedIds,
   onToggle,
-  onToggleAllFiltered,
   sortKey,
   sortDir,
   onSortChange,
@@ -874,7 +873,6 @@ export function MarginTable({
     [sortKey, sortDir, onSortChange],
   )
   const [scrollHintDismissed, setScrollHintDismissed] = useState(false)
-  const headerCheckboxRef = useRef(null)
 
   useEffect(() => {
     setScrollHintDismissed(false)
@@ -888,16 +886,6 @@ export function MarginTable({
     otherCost: 0,
   }))
   const [costSaving, setCostSaving] = useState(false)
-
-  const allVisibleSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
-  const anyVisibleSelected = rows.some((r) => selectedIds.has(r.id))
-  const indeterminate = anyVisibleSelected && !allVisibleSelected
-
-  // Imperative assignment — the DOM property isn't a React attribute.
-  useEffect(() => {
-    const el = headerCheckboxRef.current
-    if (el) el.indeterminate = indeterminate
-  }, [indeterminate])
 
   const openCostEdit = useCallback((row) => {
     setEditingCostsId(row.id)
@@ -1053,28 +1041,8 @@ export function MarginTable({
             style={gridStyle}
             role="row"
           >
-            <div className="flex items-center justify-center px-1" role="columnheader">
-              <input
-                ref={headerCheckboxRef}
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={() => onToggleAllFiltered(rows)}
-                disabled={loading || rows.length === 0}
-                aria-label={
-                  allVisibleSelected
-                    ? 'Deselect all filtered rows'
-                    : indeterminate
-                      ? 'Select all filtered rows'
-                      : 'Select all filtered rows'
-                }
-                title={
-                  allVisibleSelected
-                    ? 'Deselect all rows in the current filtered view'
-                    : 'Select all rows in the current filtered view'
-                }
-                className="h-4 w-4 rounded border-zinc-600 disabled:opacity-40"
-              />
-            </div>
+            {/* Empty cell to preserve grid alignment with per-row select checkbox column. */}
+            <div className="px-1" role="columnheader" aria-hidden="true" />
             {vis.brand !== false ? (
               <div className="px-1.5 text-center" role="columnheader" aria-sort={ariaSortFor('brand')}>
                 <SortButton
@@ -1263,19 +1231,8 @@ export function MarginTable({
           {isMobileTable && !loading && rows.length > 0 ? (
             <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
-                <div className="flex w-11 shrink-0 items-center justify-center px-0.5 py-0.5">
-                  <input
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    ref={(el) => {
-                      if (el) el.indeterminate = indeterminate
-                    }}
-                    onChange={() => onToggleAllFiltered(rows)}
-                    disabled={loading || rows.length === 0}
-                    aria-label={allVisibleSelected ? 'Deselect all filtered rows' : 'Select all filtered rows'}
-                    className="h-4 w-4 rounded border-zinc-600 disabled:opacity-40"
-                  />
-                </div>
+                {/* Empty spacer to preserve alignment with per-row pick column. */}
+                <div className="w-11 shrink-0 px-0.5 py-0.5" aria-hidden="true" />
                 <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">
                   <StaticHeader label="Desc" />
                 </div>
