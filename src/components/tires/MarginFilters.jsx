@@ -84,7 +84,7 @@ function InlineMinMargin({ value, onChange }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={value}
-        className="min-w-0 flex-1 accent-zinc-200"
+        className="min-w-0 flex-1 accent-amber-400"
       />
       <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-zinc-100">
         {value}%

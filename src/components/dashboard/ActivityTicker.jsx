@@ -35,18 +35,6 @@ export function ActivityTicker({ chips = [] }) {
       aria-atomic="false"
       className="pc-card activity-ticker relative w-full overflow-hidden rounded-xl bg-zinc-900/60 py-2"
     >
-      <style>{`
-        @keyframes ticker-scroll {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        .activity-ticker .activity-ticker__track {
-          animation: ticker-scroll 35s linear infinite;
-        }
-        .activity-ticker:hover .activity-ticker__track {
-          animation: none;
-        }
-      `}</style>
       <div className="activity-ticker__track flex min-w-max gap-3 whitespace-nowrap px-3">
         {doubled.map(({ chip, key }) => (
           <span key={key} className={chipClass(chip.kind)}>

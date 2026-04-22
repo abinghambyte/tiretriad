@@ -1002,7 +1002,7 @@ export function TiresDashboard() {
                         : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
                     }`}
                   >
-                    {sortKey === 'opportunity' ? 'Sort: Opportunity \u2713' : 'Sort: Opportunity'}
+                    Sort: Opportunity
                   </button>
                   <div className="relative">
                     <button

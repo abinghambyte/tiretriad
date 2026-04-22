@@ -3,32 +3,38 @@ import { paletteForRank } from './topSellersPalette'
 
 const FLIP_INTERVAL_MS = 3000
 
+function prefersReducedMotion() {
+  if (typeof window === 'undefined' || !window.matchMedia) return false
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 /**
  * Top Sellers card. Flips through the provided sellers list every
- * FLIP_INTERVAL_MS and pauses on hover. Left half: rank digit and sold
- * count share a baseline with a `SOLD` caption 8px below. Right half:
- * SKU / description / category for the current seller.
+ * FLIP_INTERVAL_MS and pauses on hover or focus. Respects prefers-
+ * reduced-motion (freezes on the current seller). Left half: rank digit
+ * and sold count share a baseline with a `SOLD` caption 8px below.
+ * Right half: SKU / description / category for the current seller.
  */
 export function TopSellersCard({ sellers = [] }) {
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
+  const [focused, setFocused] = useState(false)
   const sellersLength = Array.isArray(sellers) ? sellers.length : 0
 
   useEffect(() => {
-    if (paused) return undefined
+    if (paused || focused) return undefined
+    if (prefersReducedMotion()) return undefined
     if (sellersLength <= 1) return undefined
     const handle = setInterval(() => {
       setIdx((i) => (i + 1) % sellersLength)
     }, FLIP_INTERVAL_MS)
     return () => clearInterval(handle)
-  }, [paused, sellersLength])
+  }, [paused, focused, sellersLength])
 
   if (!sellers || sellers.length === 0) {
     return (
       <div className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
-        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-          Top Sellers
-        </p>
+        <p className="pc-eyebrow">Top Sellers</p>
         <p className="mt-2 text-sm text-zinc-500">No sales yet</p>
       </div>
     )
@@ -40,13 +46,17 @@ export function TopSellersCard({ sellers = [] }) {
 
   return (
     <div
-      className="pc-card relative rounded-xl bg-zinc-900/60 p-[14px]"
+      className="pc-card relative rounded-xl bg-zinc-900/60 p-[14px] focus-within:ring-1 focus-within:ring-amber-500/40"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      tabIndex={0}
+      role="region"
+      aria-label="Top sellers, rotating"
+      aria-live="polite"
     >
-      <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-        Top Sellers
-      </p>
+      <p className="pc-eyebrow mb-2">Top Sellers</p>
       <div
         className="grid items-center"
         style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 0 }}
@@ -56,7 +66,7 @@ export function TopSellersCard({ sellers = [] }) {
             className="text-center font-extrabold tabular-nums"
             style={{
               width: 96,
-              fontSize: 52,
+              fontSize: 'clamp(28px, 5vw, 52px)',
               color: palette.primary,
               lineHeight: 1,
             }}
@@ -78,7 +88,7 @@ export function TopSellersCard({ sellers = [] }) {
             <div
               className="text-center font-extrabold tabular-nums"
               style={{
-                fontSize: 52,
+                fontSize: 'clamp(28px, 5vw, 52px)',
                 color: palette.primary,
                 lineHeight: 1,
               }}

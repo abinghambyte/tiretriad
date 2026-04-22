@@ -17,3 +17,12 @@ export const BTN_SECONDARY =
 
 export const BTN_GHOST_DESTRUCTIVE =
   'inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50'
+
+/**
+ * Focus-visible ring token for form controls. Apply to individual inputs
+ * when the component needs to compose beyond the global base rule (e.g.
+ * selects inside dense filter rows, inputs that also want a hover-border
+ * swap). Pairs with index.css's input:focus-visible base rule.
+ */
+export const INPUT_FOCUS =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 focus-visible:border-amber-500'
