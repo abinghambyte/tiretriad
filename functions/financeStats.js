@@ -235,6 +235,53 @@ function bumpCrewEarned(prev, pool, splits = DEFAULT_CONFIG.splits) {
 }
 
 /**
+ * Build the top-10 sellers aggregate from a tires snapshot's docs array.
+ * Each input doc must expose `.id` and `.data()`. Rows with non-finite
+ * or non-positive `salesCount` are skipped. Returns `{ rank, sku,
+ * description, category, salesCount }` rows sorted desc by salesCount,
+ * rank 1-based, truncated to 10.
+ */
+function buildTopSellersAggregate(docs) {
+  const rows = []
+  for (const doc of docs || []) {
+    const data = (typeof doc?.data === 'function' ? doc.data() : null) || {}
+    const count = Number(data.salesCount)
+    if (!Number.isFinite(count) || count <= 0) continue
+    rows.push({
+      sku: String(data.mspn || doc.id || ''),
+      description: String(data.description || ''),
+      category: String(data.category || ''),
+      salesCount: count,
+    })
+  }
+  rows.sort((a, b) => b.salesCount - a.salesCount)
+  return rows.slice(0, 10).map((r, i) => ({ rank: i + 1, ...r }))
+}
+
+/**
+ * Refresh `meta/revenueStats.topSellers` with the current top-10 by
+ * salesCount desc. Cheap single read + merge write; safe to call after
+ * each completion transaction.
+ */
+async function refreshTopSellers(db) {
+  try {
+    const snap = await db
+      .collection('tires')
+      .orderBy('salesCount', 'desc')
+      .limit(10)
+      .get()
+    const topSellers = buildTopSellersAggregate(snap.docs)
+    await REVENUE_REF(db).set(
+      { topSellers, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    )
+  } catch (err) {
+    // Non-fatal; the main completion write already succeeded.
+    console.warn('[financeStats] refreshTopSellers failed', err?.message || err)
+  }
+}
+
+/**
  * Order completion + tire sales fields + revenue + crew in one transaction.
  */
 async function runCompletionTransaction(db, params) {
@@ -299,6 +346,10 @@ async function runCompletionTransaction(db, params) {
     const nextCrew = bumpCrewEarned(cPrev, pool, payoutCfg.splits)
     tx.set(crewRef, nextCrew, { merge: true })
   })
+
+  // Refresh the top-10 sellers aggregate outside the transaction (read
+  // of the whole tires collection + separate write merge; idempotent).
+  await refreshTopSellers(db)
 }
 
 module.exports = {
@@ -320,5 +371,7 @@ module.exports = {
   defaultCrewDoc,
   bumpRevenueFields,
   bumpCrewEarned,
+  buildTopSellersAggregate,
+  refreshTopSellers,
   runCompletionTransaction,
 }

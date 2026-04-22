@@ -20,6 +20,50 @@ import { listingStatus } from '../utils/listingStatus'
 
 const CATALOG_SKU_DISPLAY = 1160
 
+/**
+ * Selector: tires that are margin-confirmed but live on fewer than two
+ * active platform listings. Returns a list of "hidden gem" rows ready
+ * for the Hidden Gems surface on the dashboard.
+ */
+export function selectHiddenGems(tires) {
+  const out = []
+  for (const t of tires || []) {
+    if (!t?.marginConfirmed) continue
+    const listings = t.platformListings || {}
+    const active = Object.keys(listings).filter(
+      (p) => listings[p]?.status === 'active',
+    )
+    if (active.length >= 2) continue
+    let lastPostedAt = null
+    for (const p of Object.keys(listings)) {
+      const raw = listings[p]?.lastPostedAt
+      const ms = toMillisSafe(raw)
+      if (ms != null && (lastPostedAt === null || ms > lastPostedAt)) {
+        lastPostedAt = ms
+      }
+    }
+    out.push({
+      id: String(t.id || t.mspn || ''),
+      sku: String(t.mspn || t.sku || t.id || ''),
+      description: String(t.description || ''),
+      platformCount: active.length,
+      platforms: active,
+      lastPostedAt,
+    })
+  }
+  return out
+}
+
+/**
+ * Selector: pulls the `topSellers` array off a `meta/revenueStats`
+ * snapshot. Returns `[]` when the field is absent or not an array so
+ * consumers can render an empty-state without null-checking.
+ */
+export function selectTopSellersFromRevenueDoc(docData) {
+  const list = docData?.topSellers
+  return Array.isArray(list) ? list : []
+}
+
 /** Status values considered "work in progress" for a given user's WIP count. */
 const WIP_ORDER_STATUSES = new Set([
   'pending',
@@ -273,6 +317,11 @@ export function useDashboardSignals() {
     loading: true,
   })
 
+  /** Full `meta/revenueStats` doc snapshot; feeds topSellers + allTimeMargin. */
+  const [revenueStatsDoc, setRevenueStatsDoc] = useState(
+    /** @type {null | Record<string, unknown>} */ (null),
+  )
+
   const [recentActivity, setRecentActivity] = useState({
     orders: /** @type {Array<{ id: string, data: Record<string, unknown> }>} */ ([]),
     loading: true,
@@ -415,14 +464,17 @@ export function useDashboardSignals() {
           console.error('dashboard pending invite count', e)
         }
         let todayRevenue = 0
+        let revenueDocData = null
         try {
           const revenueSnap = await getDoc(doc(db, 'meta', 'revenueStats'))
           if (revenueSnap.exists()) {
-            todayRevenue = Number(revenueSnap.data()?.dailyRevenue) || 0
+            revenueDocData = revenueSnap.data() || null
+            todayRevenue = Number(revenueDocData?.dailyRevenue) || 0
           }
         } catch (e) {
           console.error('dashboard revenueStats read', e)
         }
+        if (!cancelled) setRevenueStatsDoc(revenueDocData)
         if (cancelled) return
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
@@ -542,6 +594,21 @@ export function useDashboardSignals() {
     }
   }, [tires])
 
+  const hiddenGems = useMemo(() => {
+    if (tiresLoading) return []
+    return selectHiddenGems(tires)
+  }, [tires, tiresLoading])
+
+  const topSellers = useMemo(
+    () => selectTopSellersFromRevenueDoc(revenueStatsDoc),
+    [revenueStatsDoc],
+  )
+
+  const allTimeMargin = useMemo(
+    () => Number(revenueStatsDoc?.allTimeMargin) || 0,
+    [revenueStatsDoc],
+  )
+
   return {
     catalogSkuDisplay: CATALOG_SKU_DISPLAY,
     needsRepostingCount,
@@ -556,5 +623,8 @@ export function useDashboardSignals() {
     crewPreview,
     crewSignals: crewSignalsState,
     kylesQueueCount,
+    hiddenGems,
+    topSellers,
+    allTimeMargin,
   }
 }
