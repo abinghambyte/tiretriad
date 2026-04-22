@@ -1065,8 +1065,12 @@ export function TiresDashboard() {
                 </div>
               </div>
               {selectedIds.size > 0 ? (
-                <div className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div
+                  role="toolbar"
+                  aria-label="Selected tire actions"
+                  className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap" role="group" aria-label="Selling actions">
                     <button
                       type="button"
                       disabled={selectedTires.length === 0 || loading}
@@ -1122,7 +1126,11 @@ export function TiresDashboard() {
                     </button>
                   </div>
                   <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+                  <div
+                    className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end"
+                    role="group"
+                    aria-label="Admin actions"
+                  >
                     <button
                       type="button"
                       onClick={clearSelection}
