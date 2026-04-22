@@ -14,10 +14,18 @@ export function TodayStrip({
   topSellers = [],
   todayRevenue,
   allTimeMargin,
+  rollingAverageRevenue = null,
   loading,
 }) {
   const pendingValue = loading ? null : Number(pendingOrders ?? 0)
   const pendingTone = pendingValue != null && pendingValue > 0 ? 'text-amber-200' : 'text-zinc-100'
+  const todayNum = Number(todayRevenue ?? 0)
+  const avgNum = Number(rollingAverageRevenue)
+  const hot =
+    !loading &&
+    Number.isFinite(avgNum) &&
+    avgNum > 0 &&
+    todayNum > avgNum
 
   return (
     <section
@@ -52,9 +60,20 @@ export function TodayStrip({
         ) : (
           <p
             data-testid="hero-revenue"
-            className="mt-1 text-[34px] font-bold tabular-nums tracking-[-0.02em] text-emerald-300"
+            data-hot={hot ? 'true' : 'false'}
+            className={[
+              'mt-1 text-[34px] font-bold tabular-nums tracking-[-0.02em]',
+              hot
+                ? 'text-[#32CD32] drop-shadow-[0_0_10px_rgba(50,205,50,0.35)]'
+                : 'text-emerald-300',
+            ].join(' ')}
+            title={
+              hot
+                ? 'Today is above the 7-day rolling average'
+                : undefined
+            }
           >
-            {formatCurrency(Number(todayRevenue ?? 0))}
+            {formatCurrency(todayNum)}
           </p>
         )}
       </div>

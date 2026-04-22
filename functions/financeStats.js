@@ -138,8 +138,31 @@ function defaultRevenueDoc() {
     monthlyMargin: 0,
     ytdMargin: 0,
     allTimeMargin: 0,
+    /**
+     * Map of Denver `YYYY-MM-DD` → that day's final revenue total. Written
+     * when the daily window rotates, then capped at DAILY_HISTORY_CAP entries
+     * so the doc cannot grow without bound. Feeds the dashboard 7-day
+     * rolling-average selector.
+     */
+    dailyHistory: {},
     updatedAt: FieldValue.serverTimestamp(),
   }
+}
+
+const DAILY_HISTORY_CAP = 14
+
+/**
+ * Cap `history` to the most recent `cap` day keys. Keys are Denver
+ * `YYYY-MM-DD` strings so lexical sort equals chronological.
+ */
+function capDailyHistory(history, cap = DAILY_HISTORY_CAP) {
+  const src = history && typeof history === 'object' ? history : {}
+  const keys = Object.keys(src).sort()
+  if (keys.length <= cap) return { ...src }
+  const kept = keys.slice(keys.length - cap)
+  const out = {}
+  for (const k of kept) out[k] = Number(src[k]) || 0
+  return out
 }
 
 function defaultCrewDoc() {
@@ -164,6 +187,16 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
 
   const next = { ...p }
   if (next.dailyWindow !== dayKey) {
+    // Rotate: archive the outgoing day's revenue (if any) into dailyHistory
+    // so the dashboard can compute a rolling average without re-scanning
+    // order docs. Empty initial window (first write ever) is skipped.
+    const history = { ...(p.dailyHistory && typeof p.dailyHistory === 'object' ? p.dailyHistory : {}) }
+    const prevKey = String(p.dailyWindow || '')
+    const prevRev = Number(p.dailyRevenue) || 0
+    if (prevKey && prevRev > 0) {
+      history[prevKey] = round2(prevRev)
+    }
+    next.dailyHistory = capDailyHistory(history)
     next.dailyWindow = dayKey
     next.dailyRevenue = 0
     next.dailyCost = 0
@@ -371,6 +404,7 @@ module.exports = {
   defaultCrewDoc,
   bumpRevenueFields,
   bumpCrewEarned,
+  capDailyHistory,
   buildTopSellersAggregate,
   refreshTopSellers,
   runCompletionTransaction,

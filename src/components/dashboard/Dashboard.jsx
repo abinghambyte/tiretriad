@@ -64,6 +64,7 @@ export function Dashboard() {
     hiddenGems,
     topSellers,
     allTimeMargin,
+    rollingAverageRevenue,
   } = useDashboardSignals()
 
   const tickerChips = useMemo(() => {
@@ -150,6 +151,7 @@ export function Dashboard() {
           topSellers={topSellers}
           todayRevenue={signalBar.todayRevenue}
           allTimeMargin={allTimeMargin}
+          rollingAverageRevenue={rollingAverageRevenue}
           loading={sigLoading}
         />
 

@@ -14,6 +14,7 @@ const {
   defaultCrewDoc,
   bumpRevenueFields,
   bumpCrewEarned,
+  capDailyHistory,
   buildTopSellersAggregate,
   runCompletionTransaction,
   isoWeekKey,
@@ -297,6 +298,57 @@ describe('bumpRevenueFields', () => {
     expect(jan.ytdYear).toBe(2026)
     expect(jan.ytdRevenue).toBe(500)
     expect(jan.allTimeRevenue).toBe(1500)
+  })
+
+  it('archives the prior day revenue into dailyHistory on day-boundary rotation', () => {
+    const day1 = bumpRevenueFields(fresh(), 1000, 800, 200, Date.UTC(2026, 3, 15, 19))
+    expect(day1.dailyHistory).toEqual({})
+    const day2 = bumpRevenueFields(day1, 500, 400, 100, Date.UTC(2026, 3, 16, 19))
+    expect(day2.dailyHistory[day1.dailyWindow]).toBe(1000)
+    expect(day2.dailyRevenue).toBe(500)
+  })
+
+  it('leaves dailyHistory untouched when the same day accumulates further', () => {
+    const a = bumpRevenueFields(fresh(), 1000, 800, 200, Date.UTC(2026, 3, 15, 19))
+    const b = bumpRevenueFields(a, 500, 400, 100, Date.UTC(2026, 3, 15, 22))
+    expect(b.dailyHistory).toEqual({})
+    expect(b.dailyRevenue).toBe(1500)
+  })
+
+  it('skips archiving a prior day that had zero revenue', () => {
+    let cur = fresh()
+    // seed a prior window marker with zero revenue
+    cur = { ...cur, dailyWindow: '2026-04-10', dailyRevenue: 0 }
+    const next = bumpRevenueFields(cur, 100, 50, 50, Date.UTC(2026, 3, 15, 19))
+    expect(next.dailyHistory).toEqual({})
+  })
+})
+
+describe('capDailyHistory', () => {
+  it('keeps the most recent DAILY_HISTORY_CAP day keys', () => {
+    const src = {}
+    for (let i = 0; i < 20; i += 1) {
+      const d = String(i + 1).padStart(2, '0')
+      src[`2026-04-${d}`] = i + 1
+    }
+    const capped = capDailyHistory(src, 14)
+    const keys = Object.keys(capped).sort()
+    expect(keys.length).toBe(14)
+    expect(keys[0]).toBe('2026-04-07')
+    expect(keys[keys.length - 1]).toBe('2026-04-20')
+  })
+
+  it('returns a shallow copy when below the cap', () => {
+    const src = { '2026-04-15': 100, '2026-04-16': 200 }
+    const out = capDailyHistory(src, 14)
+    expect(out).toEqual(src)
+    expect(out).not.toBe(src)
+  })
+
+  it('tolerates null / non-object input', () => {
+    expect(capDailyHistory(null)).toEqual({})
+    expect(capDailyHistory(undefined)).toEqual({})
+    expect(capDailyHistory(42)).toEqual({})
   })
 })
 

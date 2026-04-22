@@ -55,4 +55,19 @@ describe('TodayStrip', () => {
     const { container } = renderStrip({ loading: true })
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
   })
+
+  it('marks hero revenue hot when today exceeds the rolling average', () => {
+    renderStrip({ todayRevenue: 2000, rollingAverageRevenue: 1000 })
+    expect(screen.getByTestId('hero-revenue').dataset.hot).toBe('true')
+  })
+
+  it('leaves hero cool when today does not exceed the rolling average', () => {
+    renderStrip({ todayRevenue: 500, rollingAverageRevenue: 1000 })
+    expect(screen.getByTestId('hero-revenue').dataset.hot).toBe('false')
+  })
+
+  it('leaves hero cool when rollingAverageRevenue is null (warmup)', () => {
+    renderStrip({ todayRevenue: 5000, rollingAverageRevenue: null })
+    expect(screen.getByTestId('hero-revenue').dataset.hot).toBe('false')
+  })
 })
