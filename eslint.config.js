@@ -36,6 +36,14 @@ export default defineConfig([
     },
   },
   {
+    files: ['playwright.config.js', 'tests/e2e/**/*.{js,ts}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.node },
+      sourceType: 'module',
+    },
+  },
+  {
     files: ['scripts/**/*.js'],
     extends: [js.configs.recommended],
     languageOptions: {
@@ -46,7 +54,7 @@ export default defineConfig([
   },
   {
     files: ['**/*.{js,jsx}'],
-    ignores: ['functions/**', 'vite.config.js'],
+    ignores: ['functions/**', 'vite.config.js', 'playwright.config.js', 'tests/e2e/**'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
