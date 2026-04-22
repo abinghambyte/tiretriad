@@ -147,7 +147,7 @@ export function UserRow({ u, tick, onHistory, onEdit, highlighted = false }) {
       <td className="px-2 py-2 text-right sm:hidden">
         <PeopleRowActionsMenu u={u} onHistory={onHistory} onEdit={onEdit} />
       </td>
-      <td className="sticky right-0 z-[2] hidden whitespace-nowrap border-l border-zinc-800/90 bg-zinc-950 px-3 py-2 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] group-hover:bg-zinc-900/40 sm:table-cell">
+      <td className="sticky right-0 z-[2] hidden whitespace-nowrap border-l border-zinc-800/90 bg-zinc-950 px-3 py-2 text-right pc-sticky-col-shadow group-hover:bg-zinc-900/40 sm:table-cell">
         <div className="inline-flex shrink-0 flex-nowrap items-center justify-end gap-1">
           <button
             type="button"

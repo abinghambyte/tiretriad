@@ -576,7 +576,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 <th className="hidden px-3 py-3 sm:table-cell">Streak</th>
                 <th className="hidden px-3 py-3 sm:table-cell">Last seen</th>
                 <th className="px-3 py-3 text-right sm:hidden"> </th>
-                <th className="sticky right-0 z-[3] hidden border-l border-zinc-800/90 bg-zinc-900/95 px-3 py-3 text-right shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.45)] sm:table-cell">
+                <th className="sticky right-0 z-[3] hidden border-l border-zinc-800/90 bg-zinc-900/95 px-3 py-3 text-right pc-sticky-col-shadow sm:table-cell">
                   Actions
                 </th>
               </tr>

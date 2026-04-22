@@ -2,7 +2,6 @@ import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useState } from 'react'
 import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
-import { WORKFORCE_URL } from '../constants/externalUrls'
 import { formatPercent } from '../utils/format'
 import { copyToClipboard } from '../utils/copyToClipboard'
 
@@ -238,23 +237,7 @@ export function GrowthLabPage() {
         subtitle="Internal tools and experiments. Overwatch only."
         maxWidthClass="max-w-4xl"
       />
-      <div className="mt-6 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-green-900/40 bg-green-950/20 p-4">
-          <div>
-            <p className="text-sm font-semibold text-green-100">Task Dispatcher (standalone)</p>
-            <p className="mt-0.5 text-xs text-green-200/80">
-              Opens the external Workforce dispatcher in a new tab.
-            </p>
-          </div>
-          <a
-            href={WORKFORCE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-xl border border-green-600/70 bg-green-950/40 px-4 py-2.5 text-sm font-semibold text-green-100 ring-1 ring-green-600/30 transition hover:border-green-500/80 hover:bg-green-900/50"
-          >
-            Launch Dispatcher
-          </a>
-        </div>
+      <div className="mt-6">
         <GrowthLabRoutingForm />
       </div>
     </div>
