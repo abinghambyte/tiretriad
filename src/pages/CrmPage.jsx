@@ -772,22 +772,17 @@ export function CrmPage() {
                           const staleDays = daysSinceLastActivity(a)
                           const isStale = staleDays != null && staleDays >= STALE_DEAL_DAYS
                           return (
-                          <div
+                          <button
                             key={a.id}
-                            role="button"
-                            tabIndex={0}
+                            type="button"
                             draggable={canEdit}
                             onDragStart={(e) => {
                               e.dataTransfer.setData('text/accountId', a.id)
                             }}
                             onClick={() => setDetail(a)}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                setDetail(a)
-                                return
-                              }
                               if (!canEdit) return
+                              if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
                               const current = normalizePipelineStage(a.pipelineStage, a)
                               if (e.key === 'ArrowRight' && current < 5) {
                                 e.preventDefault()
@@ -828,7 +823,7 @@ export function CrmPage() {
                                 · Pain {a.painScore ?? '—'}
                               </span>
                             </div>
-                          </div>
+                          </button>
                           )
                         })}
                       </div>
