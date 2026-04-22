@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { crewTagFromRole } from '../../constants/peoplePermissions'
+import { EmptyState } from '../shared/EmptyState.jsx'
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000
 
@@ -32,9 +33,7 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
   if (loading) {
     return (
       <section className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
-        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-          Crew
-        </p>
+        <p className="pc-eyebrow">Crew</p>
         <div className="mt-3 space-y-2">
           {[0, 1, 2, 3].map((i) => (
             <div
@@ -53,9 +52,7 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
   return (
     <section className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
       <div className="flex items-center justify-between">
-        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-          Crew
-        </p>
+        <p className="pc-eyebrow">Crew</p>
         {hasMore ? (
           <Link
             to="/people"
@@ -66,7 +63,9 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
         ) : null}
       </div>
       {users.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">No crew rows loaded.</p>
+        <div className="mt-3">
+          <EmptyState variant="compact" title="No crew rows loaded." />
+        </div>
       ) : (
         <ul className="mt-3 divide-y divide-zinc-800/80">
           {users.map(({ id, data }) => {

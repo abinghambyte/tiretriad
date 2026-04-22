@@ -25,6 +25,7 @@ import { selectOpenQueueRows } from '../utils/queueSelectors.js'
 import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail.js'
 import { computeListingMargin } from '../utils/marginCalc.js'
 import { SampleCapBanner } from '../components/ui/SampleCapBanner.jsx'
+import { EmptyState } from '../components/shared/EmptyState.jsx'
 
 const BASE_TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
 const ADMIN_TAB_IDS = ['verification-queue', 'margin-archive']
@@ -456,9 +457,7 @@ export function AnalyticsPage() {
             {ordersLoading ? (
               <p className="text-sm text-zinc-500">Loading completed orders…</p>
             ) : completedRows.length === 0 ? (
-              <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
-                No completed orders in the sampled window yet.
-              </p>
+              <EmptyState title="No completed orders in the sampled window yet." />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <MetricCard
@@ -602,9 +601,7 @@ export function AnalyticsPage() {
             {tiresLoadingForTabs ? (
               <p className="text-sm text-zinc-500">Loading…</p>
             ) : verificationRows.length === 0 ? (
-              <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
-                No pending items.
-              </p>
+              <EmptyState title="No pending items." />
             ) : (
               <VerificationOversightList rows={verificationRows} />
             )}
@@ -631,9 +628,7 @@ export function AnalyticsPage() {
             {tiresLoadingForTabs ? (
               <p className="text-sm text-zinc-500">Loading…</p>
             ) : archivedTires.length === 0 ? (
-              <p className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
-                No archived tires.
-              </p>
+              <EmptyState title="No archived tires." />
             ) : (
               <>
                 <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/40">

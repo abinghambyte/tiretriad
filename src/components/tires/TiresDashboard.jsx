@@ -1071,7 +1071,7 @@ export function TiresDashboard() {
                       type="button"
                       disabled={selectedTires.length === 0 || loading}
                       onClick={() => setListingOpen(true)}
-                      className="min-h-[44px] rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                      className="min-h-[44px] rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                     >
                       Generate listings
                     </button>

@@ -599,7 +599,7 @@ export function CrmPage() {
                     setAddAccountStage(1)
                     setAddAccountOpen(true)
                   }}
-                  className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
                 >
                   Add VIP client
                 </button>
@@ -688,11 +688,8 @@ export function CrmPage() {
                 </div>
               </>
             ) : accounts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/25 px-6 py-16 text-center">
-                <div
-                  className="rounded-full border border-zinc-700/80 bg-zinc-950/80 p-4 text-zinc-500"
-                  aria-hidden
-                >
+              <EmptyState
+                icon={
                   <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path
                       strokeLinecap="round"
@@ -700,22 +697,23 @@ export function CrmPage() {
                       d="M2.25 21h19.5M3.75 3h16.5L18 18H6L3.75 3zM9 9h6M9 13.5h4.5"
                     />
                   </svg>
-                </div>
-                <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-400">
-                  Track VIP clients from first contact to closed. Northern Colorado tire operations.
-                </p>
-                {canEdit ? (
-                  <button
-                    type="button"
-                    onClick={() => setAddAccountOpen(true)}
-                    className="mt-6 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-white"
-                  >
-                    Add your first VIP client
-                  </button>
-                ) : (
-                  <p className="mt-4 text-xs text-zinc-600">Ask Overwatch to add the first VIP client.</p>
-                )}
-              </div>
+                }
+                title="No VIP clients yet."
+                description="Track VIP clients from first contact to closed. Northern Colorado tire operations."
+                action={
+                  canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => setAddAccountOpen(true)}
+                      className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
+                    >
+                      Add your first VIP client
+                    </button>
+                  ) : (
+                    <p className="text-xs text-zinc-600">Ask Overwatch to add the first VIP client.</p>
+                  )
+                }
+              />
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-xs text-zinc-400">
@@ -1124,7 +1122,7 @@ export function CrmPage() {
                 </label>
                 <button
                   type="submit"
-                  className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
                 >
                   Add lead
                 </button>

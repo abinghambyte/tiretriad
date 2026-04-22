@@ -8,6 +8,9 @@ import { TodayStrip } from './TodayStrip'
 import { ActivityTicker } from './ActivityTicker'
 import { HiddenGemsSurface } from './HiddenGemsSurface'
 import { CrewDirectoryWidget } from './CrewDirectoryWidget'
+import { StatusPill } from '../ui/StatusPill.jsx'
+import { statusPillTone } from '../ui/statusPillTone.js'
+import { EmptyState } from '../shared/EmptyState.jsx'
 
 const ORDER_ACTIVITY_STATUS = {
   pending: 'Pending',
@@ -176,13 +179,20 @@ export function Dashboard() {
                 ))}
               </ul>
             ) : recentActivity.orders.length === 0 ? (
-              <p className="mt-4 text-sm text-zinc-500">
-                No orders yet.{' '}
-                <Link to="/tires" className="text-amber-300 underline-offset-2 hover:underline">
-                  Open the tire catalog
-                </Link>{' '}
-                to log a sale.
-              </p>
+              <div className="mt-4">
+                <EmptyState
+                  variant="compact"
+                  title="No orders yet."
+                  action={
+                    <Link
+                      to="/tires"
+                      className="text-amber-300 underline-offset-2 hover:underline"
+                    >
+                      Open the tire catalog to log a sale.
+                    </Link>
+                  }
+                />
+              </div>
             ) : (
               <ul className="mt-4 divide-y divide-zinc-800/80">
                 {recentActivity.orders.map(({ id, data }) => {
@@ -204,9 +214,7 @@ export function Dashboard() {
                           <span className="text-zinc-600" aria-hidden>
                             ·
                           </span>
-                          <span className="rounded-full bg-zinc-800/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
-                            {statusLabel}
-                          </span>
+                          <StatusPill tone={statusPillTone(data.status)} label={statusLabel} />
                           <span className="text-zinc-600" aria-hidden>
                             ·
                           </span>
@@ -230,9 +238,7 @@ export function Dashboard() {
                         <p className="mt-0.5 text-xs text-zinc-500">{activityCustomerLine(data)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 text-right">
-                        <span className="rounded-full bg-zinc-800/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
-                          {statusLabel}
-                        </span>
+                        <StatusPill tone={statusPillTone(data.status)} label={statusLabel} />
                         <span className="font-mono text-xs text-zinc-500">{activityMarginDisplay(data)}</span>
                         <span className="text-[10px] text-zinc-600">{when}</span>
                       </div>
