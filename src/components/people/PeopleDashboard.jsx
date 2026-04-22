@@ -535,7 +535,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           <button
             type="button"
             onClick={() => setCreateDrawerOpen(true)}
-            className="flex w-full min-h-[48px] items-center justify-center rounded-xl border border-violet-600/70 bg-violet-900/35 text-sm font-semibold text-violet-50 hover:bg-violet-900/55 sm:hidden"
+            className="flex w-full min-h-[48px] items-center justify-center rounded-xl bg-amber-500 text-sm font-semibold text-zinc-950 hover:bg-amber-400 sm:hidden"
           >
             Add crew member +
           </button>

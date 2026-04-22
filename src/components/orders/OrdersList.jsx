@@ -32,6 +32,8 @@ import {
   BTN_PRIMARY,
   BTN_SECONDARY,
 } from '../ui/buttonStyles.js'
+import { StatusPill } from '../ui/StatusPill.jsx'
+import { statusPillTone } from '../ui/statusPillTone.js'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 
@@ -143,23 +145,9 @@ function fulfillmentBadgeClass(o) {
   return 'inline-flex items-center rounded-full bg-zinc-800/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 ring-1 ring-zinc-700/60'
 }
 
-function statusBadge(status) {
-  const k = String(status || '').trim().toLowerCase().replace(/\s+/g, '_')
-  const base =
-    'inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal'
-  const map = {
-    pending: 'bg-amber-500/15 text-amber-200 ring-1 ring-amber-500/25',
-    prospective: 'bg-fuchsia-500/15 text-fuchsia-100 ring-1 ring-fuchsia-500/30',
-    available: 'bg-sky-500/15 text-sky-200 ring-1 ring-sky-500/25',
-    scheduled: 'bg-violet-500/15 text-violet-200 ring-1 ring-violet-500/25',
-    in_transit: 'bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/25',
-    completed: 'bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/25',
-    rejected: 'bg-red-500/15 text-red-200 ring-1 ring-red-500/25',
-    cancelled: 'bg-zinc-600/40 text-zinc-300 ring-1 ring-zinc-500/30',
-    ready: 'bg-teal-500/15 text-teal-100 ring-1 ring-teal-500/30',
-  }
-  return `${base} ${map[k] || map.cancelled}`
-}
+// Status tone delegated to StatusPill's statusPillTone. Kept here as a
+// helper so existing callers stay tiny; the visual geometry now lives in
+// the StatusPill primitive.
 
 function orderCanCancel(status) {
   return !['completed', 'cancelled', 'rejected'].includes(String(status || ''))
@@ -545,7 +533,7 @@ export function OrdersList({ highlightId }) {
         action={
           <Link
             to="/tires"
-            className="inline-flex items-center rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white"
+            className="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
           >
             Open Skedaddle Tires
           </Link>
@@ -639,9 +627,11 @@ export function OrdersList({ highlightId }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={statusBadge(o.status)} title={orderStatusLabel(o.status)}>
-                      {orderStatusLabel(o.status)}
-                    </span>
+                    <StatusPill
+                      tone={statusPillTone(o.status)}
+                      label={orderStatusLabel(o.status)}
+                      title={orderStatusLabel(o.status)}
+                    />
                     <span className={fulfillmentBadgeClass(o)} title="Customer fulfillment">
                       {fulfillmentBadgeLabel(o)}
                     </span>

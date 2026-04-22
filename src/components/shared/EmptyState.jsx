@@ -2,14 +2,17 @@
  * Reusable empty-state card. Matches the VIP kanban empty-state visual in
  * `CrmPage` (dashed border, icon bubble, muted title, optional CTA).
  *
- * Two variants:
+ * Variants:
  *  - `card` (default): full rounded-2xl card with dashed border. Use outside
  *    of tables (lists, kanbans, standalone blocks).
  *  - `row`: designed to sit inside a `<tbody>` as a single `<tr>` that spans
  *    all columns. Pass `colSpan` matching the table.
+ *  - `compact`: single-line inline empty state for card-sized slots
+ *    (Hidden Gems, small widgets) where the dashed-card treatment would
+ *    fight the surface it sits inside.
  *
  * @param {object} props
- * @param {'card' | 'row'} [props.variant]
+ * @param {'card' | 'row' | 'compact'} [props.variant]
  * @param {number} [props.colSpan]
  * @param {React.ReactNode} [props.icon]  24-sized inline SVG; wraps in a muted bubble
  * @param {string} props.title
@@ -17,6 +20,16 @@
  * @param {React.ReactNode} [props.action]  typically a primary button
  */
 export function EmptyState({ variant = 'card', colSpan, icon, title, description, action }) {
+  if (variant === 'compact') {
+    return (
+      <div className="text-sm text-zinc-500">
+        {title}
+        {description ? <span className="ml-1 text-zinc-600">{description}</span> : null}
+        {action ? <span className="ml-2">{action}</span> : null}
+      </div>
+    )
+  }
+
   const body = (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
       {icon ? (

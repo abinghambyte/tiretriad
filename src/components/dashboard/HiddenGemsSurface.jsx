@@ -1,4 +1,5 @@
 import { timeAgo } from '../../utils/timeAgo'
+import { EmptyState } from '../shared/EmptyState.jsx'
 
 const ALL_PLATFORMS = ['ebay', 'marketplace', 'craigslist']
 const PLATFORM_LABELS = {
@@ -24,13 +25,11 @@ export function HiddenGemsSurface({ gems = [], onPost }) {
 
   return (
     <section className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
-      <h2 className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-        Hidden Gems
-      </h2>
+      <h2 className="pc-eyebrow">Hidden Gems</h2>
       {list.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">
-          Nothing hidden - everything cross-posted.
-        </p>
+        <div className="mt-3">
+          <EmptyState variant="compact" title="Nothing hidden. Everything cross-posted." />
+        </div>
       ) : (
         <>
           <ul className="mt-3 divide-y divide-zinc-800/80">
