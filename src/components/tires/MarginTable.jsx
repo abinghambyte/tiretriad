@@ -67,8 +67,14 @@ function ListedPlatformsCell({ row }) {
           status = 'never posted'
         }
         return (
-          <span key={key} className={cls} title={`${name}: ${status}`}>
-            {short}
+          <span
+            key={key}
+            className={cls}
+            title={`${name}: ${status}`}
+            aria-label={`${name}: ${status}`}
+            role="img"
+          >
+            <span aria-hidden>{short}</span>
           </span>
         )
       })}
