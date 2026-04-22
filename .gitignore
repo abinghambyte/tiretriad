@@ -1,6 +1,12 @@
-# UI audit — local Playwright artifacts (never commit)
+# UI audit - local Playwright artifacts (never commit)
 docs/audit-screenshots/
 docs/audit-storage/
+
+# Playwright runtime output (snapshots ARE tracked; these are not)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # Logs
 logs
