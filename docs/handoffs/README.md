@@ -4,9 +4,39 @@ Active Cursor agent handoff briefs. Each brief is a self-contained patch
 spec that a Cursor agent can pick up cold, implement, validate, and open
 a PR from - then stop.
 
-## Active rollout
+## Active rollout - batch 5 (2026-04-21)
 
-None. Batch 4 is fully merged and deployed.
+Dashboard redesign scope B. Spec lives at
+`docs/superpowers/specs/2026-04-21-dashboard-redesign-design.md`; plan at
+`docs/superpowers/plans/2026-04-21-dashboard-redesign.md`. Six briefs,
+dispatched in three rounds: round 1 is T alone (data contract), round 2
+is U / V / W / X in parallel (presentational components), round 3 is Y
+(shell compose).
+
+| Patch | Branch | Scope |
+| --- | --- | --- |
+| T `dashboard-top-sellers-data` | `dashboard-top-sellers-data` | Extends `functions/financeStats.js` with a top-10-sellers aggregation into `meta/revenueStats`. Adds `topSellers`, `hiddenGems`, `allTimeMargin`, `crewSignals` / `crewSignalsLoading` to `useDashboardSignals`. Ships the paired palette module. Data contract only - no UI. |
+| U `dashboard-top-sellers-card` | `dashboard-top-sellers-card` | `TopSellersCard` component: 50 / 50 split, rank left, sold right, `SOLD` caption, paired palette per rank, 3 s flip cycle, pauses on hover. |
+| V `dashboard-hidden-gems` | `dashboard-hidden-gems` | `HiddenGemsSurface` component: up to 5 rows with missing-platform chips and an inline `Post it` action. Replaces Catalog Health in the grid (actual swap is Patch Y). |
+| W `dashboard-activity-ticker` | `dashboard-activity-ticker` | `ActivityTicker` component: full-width scrolling chip bar, 35 s loop, hover pauses, kinds color-coded. |
+| X `dashboard-crew-widget-v2` | `dashboard-crew-widget-v2` | `CrewDirectoryWidget` component: WIP badge + today's completions + streak + online / offline dot reading `crewSignals`. |
+| Y `dashboard-shell-compose` | `dashboard-shell-compose` | `TodayStrip` + rewritten `Dashboard.jsx` body (kill modules row, kill Catalog Health, mount new components, build ticker chip list). Adds `.pc-card` hover-bloom utility. |
+
+Merge coordination:
+
+- T is the only patch in this batch with a Cloud Function deploy. Land
+  it first.
+- U / V / W / X are four independent new component files with zero file
+  overlap. They can merge in any order after T.
+- Y owns the only writes to `src/components/dashboard/Dashboard.jsx` in
+  this rollout and must land last. Resolve any
+  `src/components/dashboard/Dashboard.jsx` conflicts in favour of the
+  patch-Y shape - the old inline sections (Operational signals strip,
+  Catalog Health, Crew, Modules) are being deleted by design.
+- One Cloud Function deploy total (`onOrderCompletedUpdateStats` from
+  Patch T). No Firestore rules change in this rollout.
+- Playwright visual baseline is deferred until the new shell has baked
+  on main, so it is not in this batch.
 
 ## Conventions
 
