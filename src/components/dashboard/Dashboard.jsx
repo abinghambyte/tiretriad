@@ -7,7 +7,6 @@ import { timeAgo } from '../../utils/timeAgo'
 import { TodayStrip } from './TodayStrip'
 import { ActivityTicker } from './ActivityTicker'
 import { HiddenGemsSurface } from './HiddenGemsSurface'
-import { CrewDirectoryWidget } from './CrewDirectoryWidget'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { statusPillTone } from '../ui/statusPillTone.js'
 import { EmptyState } from '../shared/EmptyState.jsx'
@@ -63,8 +62,6 @@ export function Dashboard() {
     needsRepostingCount,
     signalBar,
     recentActivity,
-    crewPreview,
-    crewSignals,
     hiddenGems,
     topSellers,
     allTimeMargin,
@@ -79,7 +76,12 @@ export function Dashboard() {
     }
     const crewAlerts = Number(signalBar?.crewAlerts) || 0
     if (crewAlerts > 0) {
-      chips.push({ id: 'crew', kind: 'ops', label: `${crewAlerts} crew ${crewAlerts === 1 ? 'alert' : 'alerts'}` })
+      chips.push({
+        id: 'crew',
+        kind: 'ops',
+        label: `${crewAlerts} crew ${crewAlerts === 1 ? 'alert' : 'alerts'}`,
+        href: '/people?tab=crew',
+      })
     }
     const repostCount = Number(needsRepostingCount) || 0
     if (repostCount > 0) {
@@ -105,9 +107,6 @@ export function Dashboard() {
 
   const sigLoading = signalBar.loading
   const recentLoading = recentActivity.loading
-  const crewLoading = crewPreview.loading
-  const crewSignalsMap = crewSignals?.map || {}
-  const crewSignalsLoading = Boolean(crewSignals?.loading)
 
   function handleGemPost(id) {
     if (id === '__all__') {
@@ -251,12 +250,6 @@ export function Dashboard() {
 
           <HiddenGemsSurface gems={hiddenGems || []} onPost={handleGemPost} />
         </div>
-
-        <CrewDirectoryWidget
-          crew={crewPreview}
-          crewSignals={crewSignalsMap}
-          loading={crewSignalsLoading || crewLoading}
-        />
       </main>
     </div>
   )

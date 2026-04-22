@@ -12,7 +12,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, db, functions } from '../../firebase/config'
 import { useUserProfile } from '../../hooks/useUserProfile'
+import { useCrewPreview } from '../../hooks/useCrewPreview'
 import { ROLE_DEFAULTS } from '../../constants/peoplePermissions'
+import { CrewDirectoryWidget } from '../dashboard/CrewDirectoryWidget'
 import { NfcWriterModal } from './NfcWriterModal.jsx'
 import { normalizePhoneToE164 } from '../../utils/formatPhone.js'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
@@ -87,6 +89,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const [panelInviteUrl, setPanelInviteUrl] = useState('')
   const isMobilePeople = useMediaQuery('(max-width: 639px)')
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
+  const { crewPreview, crewSignals } = useCrewPreview()
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 60000)
@@ -531,6 +534,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const inner = (
     <>
       <main className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
+        <CrewDirectoryWidget
+          crew={crewPreview}
+          crewSignals={crewSignals?.map || {}}
+          loading={Boolean(crewSignals?.loading) || crewPreview.loading}
+        />
         {isMobilePeople && !createDrawerOpen ? (
           <button
             type="button"

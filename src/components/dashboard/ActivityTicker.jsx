@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 const CHIP_KINDS = {
   inventory: 'bg-teal-500/15 text-teal-200 border-teal-700/40',
   kyle: 'bg-amber-500/15 text-amber-200 border-amber-700/40',
@@ -36,11 +38,17 @@ export function ActivityTicker({ chips = [] }) {
       className="pc-card activity-ticker relative w-full overflow-hidden rounded-xl bg-zinc-900/60 py-2"
     >
       <div className="activity-ticker__track flex min-w-max gap-3 whitespace-nowrap px-3">
-        {doubled.map(({ chip, key }) => (
-          <span key={key} className={chipClass(chip.kind)}>
-            {chip.label}
-          </span>
-        ))}
+        {doubled.map(({ chip, key }) =>
+          chip.href ? (
+            <Link key={key} to={chip.href} className={chipClass(chip.kind)}>
+              {chip.label}
+            </Link>
+          ) : (
+            <span key={key} className={chipClass(chip.kind)}>
+              {chip.label}
+            </span>
+          ),
+        )}
       </div>
     </section>
   )
