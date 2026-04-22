@@ -75,18 +75,18 @@ export function Dashboard() {
     const chips = []
     const gemCount = Array.isArray(hiddenGems) ? hiddenGems.length : 0
     if (gemCount > 0) {
-      chips.push({ id: 'gems', kind: 'inventory', label: `${gemCount} hidden gems to post` })
+      chips.push({ id: 'gems', kind: 'inventory', label: `${gemCount} hidden ${gemCount === 1 ? 'gem' : 'gems'} to post` })
     }
     const crewAlerts = Number(signalBar?.crewAlerts) || 0
     if (crewAlerts > 0) {
-      chips.push({ id: 'crew', kind: 'ops', label: `${crewAlerts} crew alerts` })
+      chips.push({ id: 'crew', kind: 'ops', label: `${crewAlerts} crew ${crewAlerts === 1 ? 'alert' : 'alerts'}` })
     }
     const repostCount = Number(needsRepostingCount) || 0
     if (repostCount > 0) {
       chips.push({
         id: 'repost',
         kind: 'inventory',
-        label: `${repostCount} listings need reposting`,
+        label: `${repostCount} ${repostCount === 1 ? 'listing needs' : 'listings need'} reposting`,
       })
     }
     return chips

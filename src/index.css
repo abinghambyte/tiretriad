@@ -163,6 +163,13 @@
 }
 
 @layer utilities {
+  /* Sticky right-column shadow — used on the actions column in People and the
+     header cell above it. Keeps the left-edge join between the fixed column
+     and the scrolling table body visually separated. */
+  .pc-sticky-col-shadow {
+    box-shadow: -6px 0 10px -4px rgba(0, 0, 0, 0.45);
+  }
+
   .sk-figures {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums lining-nums;

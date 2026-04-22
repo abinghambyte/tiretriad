@@ -23,7 +23,7 @@ import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { permissionMeets } from '../constants/peoplePermissions'
 import { buildCrmTabs } from '../utils/crmModuleTabs.js'
 import { computeCrmScore, scoreBadgeClass } from '../utils/crmScore'
-import { formatCurrency } from '../utils/format'
+import { formatCurrency, formatPercent } from '../utils/format'
 import {
   CRM_LOST_STAGE,
   CRM_PIPELINE_SCHEMA_VERSION,
@@ -735,7 +735,7 @@ export function CrmPage() {
                     <span>
                       <span className="text-zinc-500">Conversion rate </span>
                       <span className="font-semibold text-zinc-200 tabular-nums">
-                        {pipelineSummary.conversionRate.toFixed(1)}%
+                        {formatPercent(pipelineSummary.conversionRate)}
                       </span>
                     </span>
                   ) : null}
