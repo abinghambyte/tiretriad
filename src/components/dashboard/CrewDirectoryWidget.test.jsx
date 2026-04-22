@@ -4,7 +4,12 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { CrewDirectoryWidget } from './CrewDirectoryWidget.jsx'
+
+function renderInRouter(ui) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 afterEach(() => {
   cleanup()
@@ -27,7 +32,9 @@ const crewSignals = {
 
 describe('CrewDirectoryWidget', () => {
   it('renders name, WIP badge, today count and streak for each user', () => {
-    render(<CrewDirectoryWidget crew={crew} crewSignals={crewSignals} loading={false} />)
+    renderInRouter(
+      <CrewDirectoryWidget crew={crew} crewSignals={crewSignals} loading={false} />,
+    )
     expect(screen.getByText('DJ Mechanic')).toBeTruthy()
     expect(screen.getByText('Kyle Sourcer')).toBeTruthy()
     expect(screen.getByText('3')).toBeTruthy()
@@ -36,22 +43,31 @@ describe('CrewDirectoryWidget', () => {
   })
 
   it('marks recent lastSeenAt as online', () => {
-    const { container } = render(
+    const { container } = renderInRouter(
       <CrewDirectoryWidget crew={crew} crewSignals={crewSignals} loading={false} />,
     )
     const dots = container.querySelectorAll('[aria-label="online"]')
     expect(dots.length).toBe(1)
   })
 
+  it('wraps each row in a deep link to /people?highlight=<uid>', () => {
+    const { container } = renderInRouter(
+      <CrewDirectoryWidget crew={crew} crewSignals={crewSignals} loading={false} />,
+    )
+    const anchors = Array.from(container.querySelectorAll('a')).map((a) => a.getAttribute('href'))
+    expect(anchors).toContain('/people?highlight=dj')
+    expect(anchors).toContain('/people?highlight=kyle')
+  })
+
   it('renders skeleton rows when loading', () => {
-    const { container } = render(
+    const { container } = renderInRouter(
       <CrewDirectoryWidget crew={{ users: [], hasMore: false }} crewSignals={{}} loading />,
     )
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
   })
 
   it('renders empty-state copy when users is empty and not loading', () => {
-    render(
+    renderInRouter(
       <CrewDirectoryWidget
         crew={{ users: [], hasMore: false }}
         crewSignals={{}}

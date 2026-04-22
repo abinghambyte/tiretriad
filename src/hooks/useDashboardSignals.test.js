@@ -23,6 +23,7 @@ const {
   deriveKylesQueueCount,
   selectHiddenGems,
   selectTopSellersFromRevenueDoc,
+  selectRollingAverageRevenue,
 } = await import('./useDashboardSignals.js')
 
 function ts(ms) {
@@ -233,5 +234,38 @@ describe('selectTopSellersFromRevenueDoc', () => {
   it('rejects non-array topSellers values', () => {
     expect(selectTopSellersFromRevenueDoc({ topSellers: 'oops' })).toEqual([])
     expect(selectTopSellersFromRevenueDoc({ topSellers: { 0: 'x' } })).toEqual([])
+  })
+})
+
+describe('selectRollingAverageRevenue', () => {
+  it('returns null when the doc has no dailyHistory', () => {
+    expect(selectRollingAverageRevenue(null)).toBeNull()
+    expect(selectRollingAverageRevenue({})).toBeNull()
+  })
+
+  it('returns null with fewer than three closed days of history', () => {
+    expect(
+      selectRollingAverageRevenue({
+        dailyHistory: { '2026-04-10': 100, '2026-04-11': 200 },
+        dailyWindow: '2026-04-20',
+      }),
+    ).toBeNull()
+  })
+
+  it('averages the most recent seven closed days, excluding today', () => {
+    const history = {}
+    for (let i = 1; i <= 10; i += 1) {
+      const d = String(i + 10).padStart(2, '0')
+      history[`2026-04-${d}`] = i * 100
+    }
+    // include today with a value that should be ignored
+    history['2026-04-21'] = 999999
+    const avg = selectRollingAverageRevenue({
+      dailyHistory: history,
+      dailyWindow: '2026-04-21',
+    })
+    // last 7 closed days keys 14..20 map to values 400..1000 (i = 4..10)
+    // mean = (400+500+600+700+800+900+1000) / 7 = 700
+    expect(avg).toBe(700)
   })
 })

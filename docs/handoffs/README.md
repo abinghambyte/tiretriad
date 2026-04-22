@@ -4,41 +4,10 @@ Active Cursor agent handoff briefs. Each brief is a self-contained patch
 spec that a Cursor agent can pick up cold, implement, validate, and open
 a PR from - then stop.
 
-## Active rollout - batch 5 (2026-04-21)
+## Active rollout
 
-Dashboard redesign scope B. Spec lives at
-`docs/superpowers/specs/2026-04-21-dashboard-redesign-design.md`; plan at
-`docs/superpowers/plans/2026-04-21-dashboard-redesign.md`. Six briefs,
-dispatched in three rounds per the frontmatter graph: round 1 is T + W
-in parallel (T is the data contract and only backend deploy; W is a
-standalone presentational component with no T dependency), round 2 is
-U / V / X in parallel after T merges, round 3 is Y.
-
-| Patch | Branch | Scope |
-| --- | --- | --- |
-| T `dashboard-top-sellers-data` | `dashboard-top-sellers-data` | Extends `functions/financeStats.js` with a top-10-sellers aggregation into `meta/revenueStats`. Adds `topSellers`, `hiddenGems`, `allTimeMargin`, `crewSignals` / `crewSignalsLoading` to `useDashboardSignals`. Ships the paired palette module. Data contract only - no UI. |
-| U `dashboard-top-sellers-card` | `dashboard-top-sellers-card` | `TopSellersCard` component: 50 / 50 split, rank left, sold right, `SOLD` caption, paired palette per rank, 3 s flip cycle, pauses on hover. |
-| V `dashboard-hidden-gems` | `dashboard-hidden-gems` | `HiddenGemsSurface` component: up to 5 rows with missing-platform chips and an inline `Post it` action. Replaces Catalog Health in the grid (actual swap is Patch Y). |
-| W `dashboard-activity-ticker` | `dashboard-activity-ticker` | `ActivityTicker` component: full-width scrolling chip bar, 35 s loop, hover pauses, kinds color-coded. |
-| X `dashboard-crew-widget-v2` | `dashboard-crew-widget-v2` | `CrewDirectoryWidget` component: WIP badge + today's completions + streak + online / offline dot reading `crewSignals`. |
-| Y `dashboard-shell-compose` | `dashboard-shell-compose` | `TodayStrip` + rewritten `Dashboard.jsx` body (kill modules row, kill Catalog Health, mount new components, build ticker chip list). Adds `.pc-card` hover-bloom utility. |
-
-Merge coordination:
-
-- T is the only patch in this batch with a Cloud Function deploy.
-- W has no dependency on T and can land in parallel with it.
-- U / V / X each consume fields that T adds to `useDashboardSignals`, so
-  they wait for T. They are three independent new component files with
-  zero file overlap and can merge in any order once T is in.
-- Y owns the only writes to `src/components/dashboard/Dashboard.jsx` in
-  this rollout and must land last. Resolve any
-  `src/components/dashboard/Dashboard.jsx` conflicts in favour of the
-  patch-Y shape - the old inline sections (Operational signals strip,
-  Catalog Health, Crew, Modules) are being deleted by design.
-- One Cloud Function deploy total (`onOrderCompletedUpdateStats` from
-  Patch T). No Firestore rules change in this rollout.
-- Playwright visual baseline is deferred until the new shell has baked
-  on main, so it is not in this batch.
+None. Batch 5 closed out below; the next rollout will land here when its
+briefs are drafted.
 
 ## Conventions
 
@@ -89,6 +58,22 @@ with neither a `deploy` block nor `frontend_only: true` is invalid and
 halts dispatch.
 
 ## Last rollout
+
+April 21, 2026 - batch 5. Dashboard redesign scope B. Six briefs (T, U,
+V, W, X, Y) consolidated into PR #78. Rolling-average hot-state hero
+glow, ActivityTicker aria-live, crew row deep-link, and plan closeout
+shipped as a follow-on on the same day.
+
+| Patch | Scope | PR |
+| --- | --- | --- |
+| T `dashboard-top-sellers-data` | `buildTopSellersAggregate` + `refreshTopSellers` in `functions/financeStats.js`; `selectHiddenGems`, `selectTopSellersFromRevenueDoc`, and `topSellers` / `hiddenGems` / `allTimeMargin` memos on `useDashboardSignals`; `topSellersPalette` | #78 |
+| U `dashboard-top-sellers-card` | `TopSellersCard` - 50 / 50 split, paired palette per rank, 3 s flip cycle, hover pauses | #78 |
+| V `dashboard-hidden-gems` | `HiddenGemsSurface` - up to 5 rows with missing-platform chips and a `Post it` action | #78 |
+| W `dashboard-activity-ticker` | `ActivityTicker` - full-width scrolling chip bar, 35 s loop, hover pauses, kind-coded | #78 |
+| X `dashboard-crew-widget-v2` | `CrewDirectoryWidget` - WIP badge + today completions + streak + online dot | #78 |
+| Y `dashboard-shell-compose` | `TodayStrip` + rewritten `Dashboard.jsx`; drops modules row, Catalog Health, inline Crew; adds `.pc-card` hover-bloom | #78 |
+
+## Previous rollout
 
 April 21, 2026 - batch 4. Five patches total. P, Q, Qa, R consolidated
 into PR #75 after a Cursor file-watcher race blended shared-file edits

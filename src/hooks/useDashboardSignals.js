@@ -64,6 +64,31 @@ export function selectTopSellersFromRevenueDoc(docData) {
   return Array.isArray(list) ? list : []
 }
 
+/**
+ * Selector: 7-day rolling revenue average computed from the
+ * `dailyHistory` map on `meta/revenueStats`. The "current day" key
+ * (`dailyWindow`) is excluded so today's partial total does not drag
+ * the baseline. Returns `null` when fewer than three closed days are
+ * available - the UI uses that to skip the hot-state comparison until
+ * there is enough signal to compare against.
+ */
+export function selectRollingAverageRevenue(docData) {
+  const history =
+    docData?.dailyHistory && typeof docData.dailyHistory === 'object'
+      ? docData.dailyHistory
+      : null
+  if (!history) return null
+  const todayKey = String(docData?.dailyWindow || '')
+  const entries = Object.keys(history)
+    .filter((k) => k !== todayKey)
+    .sort()
+    .slice(-7)
+    .map((k) => Number(history[k]) || 0)
+  if (entries.length < 3) return null
+  const total = entries.reduce((a, b) => a + b, 0)
+  return total / entries.length
+}
+
 /** Status values considered "work in progress" for a given user's WIP count. */
 const WIP_ORDER_STATUSES = new Set([
   'pending',
@@ -609,6 +634,11 @@ export function useDashboardSignals() {
     [revenueStatsDoc],
   )
 
+  const rollingAverageRevenue = useMemo(
+    () => selectRollingAverageRevenue(revenueStatsDoc),
+    [revenueStatsDoc],
+  )
+
   return {
     catalogSkuDisplay: CATALOG_SKU_DISPLAY,
     needsRepostingCount,
@@ -626,5 +656,6 @@ export function useDashboardSignals() {
     hiddenGems,
     topSellers,
     allTimeMargin,
+    rollingAverageRevenue,
   }
 }

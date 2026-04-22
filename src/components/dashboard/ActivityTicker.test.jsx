@@ -32,6 +32,12 @@ describe('ActivityTicker', () => {
     expect(container.firstChild).toBeNull()
   })
 
+  it('exposes an aria-live polite region so screen readers announce new chips', () => {
+    const { container } = render(<ActivityTicker chips={chips} />)
+    const region = container.querySelector('[aria-label="Activity ticker"]')
+    expect(region.getAttribute('aria-live')).toBe('polite')
+  })
+
   it('falls back to neutral class when kind is unknown', () => {
     render(<ActivityTicker chips={[{ id: 'x', kind: 'weird', label: 'Weird' }]} />)
     const el = screen.getAllByText('Weird')[0]
