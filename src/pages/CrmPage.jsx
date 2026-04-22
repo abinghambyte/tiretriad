@@ -28,7 +28,6 @@ import {
   CRM_LOST_STAGE,
   CRM_PIPELINE_SCHEMA_VERSION,
   CRM_STAGE_LABELS,
-  crmStageLabel,
   estimatedDealValue,
   lastActivityEntry,
   normalizePipelineStage,
@@ -807,21 +806,17 @@ export function CrmPage() {
                                 aria-label={`No activity for ${staleDays} days`}
                               />
                             ) : null}
-                            <span className="font-medium text-zinc-100">{a.companyName}</span>
-                            <p className="mt-1 text-[10px] font-medium text-violet-300/90">
-                              {crmStageLabel(a.pipelineStage, a)}
-                            </p>
-                            <p className={`mt-0.5 text-[10px] ${nextActionClass(dueStatus)}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="min-w-0 truncate font-medium text-zinc-100">{a.companyName}</span>
+                              {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null ? (
+                                <span className="shrink-0 text-[11px] font-semibold tabular-nums text-amber-200">
+                                  {formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className={`mt-1 text-[10px] ${nextActionClass(dueStatus)}`}>
                               Next: {nextActionSummary(a)}
                             </p>
-                            <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
-                              Last note: {lastActivityNotePreview(a)}
-                            </p>
-                            {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null ? (
-                              <p className="mt-1 text-[10px] font-semibold text-amber-200/90">
-                                {formatCurrency(estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire))}
-                              </p>
-                            ) : null}
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${scoreBadgeClass(a.score)}`}
