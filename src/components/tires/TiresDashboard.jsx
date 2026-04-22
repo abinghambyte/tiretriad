@@ -1162,7 +1162,6 @@ export function TiresDashboard() {
                 rows={sortedRows}
                 selectedIds={selectedIds}
                 onToggle={toggle}
-                onToggleAllFiltered={toggleAllFilteredSelection}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onSortChange={onSortChange}
