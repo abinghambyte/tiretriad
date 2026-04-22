@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useUserProfile } from '../../hooks/useUserProfile'
-import { crewTagFromRole, permissionMeets } from '../../constants/peoplePermissions'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
-import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
+import { formatPercent } from '../../utils/format'
 import { timeAgo } from '../../utils/timeAgo'
-import { ProjectCard } from './ProjectCard'
-import { CreditTrackerCard } from './CreditTrackerCard'
+import { TodayStrip } from './TodayStrip'
+import { ActivityTicker } from './ActivityTicker'
+import { HiddenGemsSurface } from './HiddenGemsSurface'
+import { CrewDirectoryWidget } from './CrewDirectoryWidget'
 
 const ORDER_ACTIVITY_STATUS = {
   pending: 'Pending',
@@ -22,7 +23,7 @@ const ORDER_ACTIVITY_STATUS = {
 
 function activityStatusLabel(status) {
   const k = String(status || '').trim()
-  return ORDER_ACTIVITY_STATUS[k] || (k ? k.replace(/_/g, ' ') : '—')
+  return ORDER_ACTIVITY_STATUS[k] || (k ? k.replace(/_/g, ' ') : '-')
 }
 
 function activityCustomerLine(data) {
@@ -30,144 +31,19 @@ function activityCustomerLine(data) {
   if (name) return name
   const raw = String(data.customerContact || '').replace(/\D/g, '')
   if (raw.length >= 4) return `…${raw.slice(-4)}`
-  return '—'
+  return '-'
 }
 
 function activityTireLine(data) {
   const d = String(data.description || '').trim()
   if (d) return d
-  return String(data.mspn || '—').trim()
+  return String(data.mspn || '-').trim()
 }
 
 function activityMarginDisplay(data) {
   const v = Number(data.marginPct ?? data.catalogMarginPct)
   if (Number.isFinite(v)) return formatPercent(v, 1)
-  return '—'
-}
-
-function crewDisplayName(data) {
-  const n = `${data.firstName || ''} ${data.lastName || ''}`.trim()
-  return n || String(data.email || '—').trim()
-}
-
-function crewStatusLabel(data) {
-  if (String(data.inviteStatus || '') === 'locked') return 'Locked'
-  if (String(data.inviteStatus || '') === 'active' && !data.inviteAccepted) return 'Pending invite'
-  return 'Active'
-}
-
-function crewRowTone(data) {
-  if (String(data.inviteStatus || '') === 'locked') return 'bg-red-950/15 border-l-2 border-l-red-800/50'
-  if (String(data.inviteStatus || '') === 'active' && !data.inviteAccepted) {
-    return 'bg-amber-950/10 border-l-2 border-l-amber-700/40'
-  }
-  return ''
-}
-
-function IconTires() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="7.25" />
-      <circle cx="12" cy="12" r="2.25" />
-      <path strokeLinecap="round" d="M12 4.75v2M12 17.25v2M4.75 12h2M17.25 12h2" />
-    </svg>
-  )
-}
-
-function IconAnalytics() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path strokeLinecap="round" d="M5 19V5M9 19v-6M13 19V9M17 19v-9" />
-      <path strokeLinecap="round" d="M4 19h16" />
-    </svg>
-  )
-}
-
-function IconPeople() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <circle cx="9" cy="8" r="2.75" />
-      <circle cx="16" cy="9" r="2.25" />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3.75 18.25v-.5a4 4 0 014-4h2.5a4 4 0 014 4v.5M14.25 18.25v-.25a3 3 0 013-3h1"
-      />
-    </svg>
-  )
-}
-
-function IconGrowth() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 4.5l1.8 4.95 5.25.35-4 3.35 1.3 5.05L12 15.9l-4.35 2.4 1.3-5.05-4-3.35 5.25-.35L12 4.5z"
-      />
-    </svg>
-  )
-}
-
-function IconCrm() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h16" />
-      <circle cx="16" cy="8" r="2" fill="currentColor" />
-    </svg>
-  )
-}
-
-/** Tire business ops — not carrier / FedEx fleet tooling. */
-function IconOpsCommand() {
-  return (
-    <svg
-      className="h-5 w-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path strokeLinecap="round" d="M6 8h12M6 12h8M6 16h10" />
-      <rect x="4" y="5" width="16" height="14" rx="2" className="opacity-40" />
-    </svg>
-  )
+  return '-'
 }
 
 function orderIdShort(id) {
@@ -176,185 +52,40 @@ function orderIdShort(id) {
   return `#${s.slice(0, 8)}`
 }
 
-/**
- * @param {object} props
- * @param {'qty' | 'currency'} [props.valueFormat]
- * @param {string} [props.cardTitle] — native tooltip (threshold + meaning)
- */
-function SignalCard({ label, value, warn, to, loading, valueFormat = 'qty', cardTitle, tone = 'amber' }) {
-  const n = value == null ? null : Number(value)
-  const show = !loading && n != null
-  const highlight = warn && show && n > 0
-  let borderClasses =
-    'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/90'
-  if (highlight) {
-    borderClasses =
-      tone === 'rose'
-        ? 'border-rose-800/40 bg-rose-950/10 hover:border-rose-700/50 hover:bg-rose-950/20'
-        : 'border-amber-700/40 bg-amber-950/10 hover:border-amber-600/50 hover:bg-amber-950/20'
-  }
-  const display =
-    show && valueFormat === 'currency'
-      ? formatCurrency(n)
-      : show
-        ? formatQty(n)
-        : '—'
-  return (
-    <Link
-      to={to}
-      title={cardTitle}
-      className={['block rounded-xl border p-4 transition-colors duration-200', borderClasses].join(' ')}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      {loading ? (
-        <div className="mt-2 h-8 w-16 animate-pulse rounded-md bg-zinc-800/80" />
-      ) : (
-        <p className="sk-figures mt-1 text-2xl font-semibold tabular-nums text-zinc-50">{display}</p>
-      )}
-    </Link>
-  )
-}
-
 export function Dashboard() {
-  const { permissionFor, profile, loading: profileGate } = useUserProfile()
+  const { profile, loading: profileGate } = useUserProfile()
   const [searchParams, setSearchParams] = useSearchParams()
   const {
-    catalogSkuDisplay,
     needsRepostingCount,
-    tireSku,
-    priceIntelResearched,
-    crm,
-    people,
-    completedOrders,
     signalBar,
     recentActivity,
-    catalogHealth,
     crewPreview,
+    crewSignals,
+    hiddenGems,
+    topSellers,
+    allTimeMargin,
   } = useDashboardSignals()
 
-  const tireSignal = useMemo(() => {
-    if (tireSku.loading || priceIntelResearched.loading) return 'Syncing catalog…'
-    const n = priceIntelResearched.count ?? 0
-    if (n === 0) {
-      return `${formatQty(catalogSkuDisplay)} SKUs · price intel active · researching nightly`
+  const tickerChips = useMemo(() => {
+    const chips = []
+    const gemCount = Array.isArray(hiddenGems) ? hiddenGems.length : 0
+    if (gemCount > 0) {
+      chips.push({ id: 'gems', kind: 'inventory', label: `${gemCount} hidden gems to post` })
     }
-    return `${formatQty(catalogSkuDisplay)} SKUs · ${formatQty(n)} prices researched · intel active`
-  }, [tireSku, priceIntelResearched, catalogSkuDisplay])
-
-  const crmSignal = useMemo(() => {
-    if (crm.loading) return 'Loading pipeline…'
-    const a = crm.accounts ?? 0
-    const l = crm.leads ?? 0
-    const j = crm.openJobs ?? 0
-    if (a === 0 && l === 0 && j === 0) return 'Pipeline empty. Add your first VIP client.'
-    return `${a} ${a === 1 ? 'account' : 'accounts'} · ${l} ${l === 1 ? 'lead' : 'leads'} · ${j} open ${j === 1 ? 'job' : 'jobs'}`
-  }, [crm])
-
-  const peopleSignal = useMemo(() => {
-    if (people.loading) return 'Counting crew and customers…'
-    const u = people.users ?? 0
-    const c = people.contacts ?? 0
-    return `${u} crew · ${c} ${c === 1 ? 'customer' : 'customers'}`
-  }, [people])
-
-  const analyticsSignal = useMemo(() => {
-    if (completedOrders.loading) return 'Pulling order outcomes…'
-    const n = completedOrders.count ?? 0
-    const rev = completedOrders.revenue ?? 0
-    if (n === 0) return 'No completed orders yet'
-    return `${n} ${n === 1 ? 'order' : 'orders'} completed · ${formatCurrency(rev)} total`
-  }, [completedOrders])
-
-  const modules = [
-    {
-      title: 'Skedaddle Tires',
-      description:
-        'Margin catalog, tire orders, and listing generator. Catalog, Orders, and generate listings from the Tires workspace.',
-      stat: tireSignal,
-      statLabel: 'Catalog',
-      ctaLabel: 'Open Catalog',
-      status: 'Live',
-      accent: 'teal',
-      icon: <IconTires />,
-      to: '/tires',
-      moduleKey: 'tires',
-      minLevel: 'view',
-    },
-    {
-      title: 'Rubber CRM',
-      description:
-        'Lead pipeline, VIP clients, and field dispatch for northern Colorado tire operations.',
-      stat: crmSignal,
-      statLabel: 'Pipeline',
-      ctaLabel: 'Open Pipeline',
-      status: 'Live',
-      accent: 'orange',
-      icon: <IconCrm />,
-      to: '/crm',
-      moduleKey: 'crm',
-      minLevel: 'view',
-    },
-    {
-      title: 'People Systems',
-      description:
-        'Crew access, invites, permission matrix, and customer contacts (Customers tab).',
-      stat: peopleSignal,
-      statLabel: 'Crew',
-      ctaLabel: 'Open People',
-      status: 'Live',
-      accent: 'slate',
-      icon: <IconPeople />,
-      to: '/people',
-      moduleKey: 'people',
-      minLevel: 'manage',
-    },
-    {
-      title: 'Analytics',
-      description:
-        'The Wall (completed orders), operational metrics from completions, and a revenue intelligence lane.',
-      stat: analyticsSignal,
-      statLabel: 'Outcomes',
-      ctaLabel: 'Open Analytics',
-      status: 'Live',
-      accent: 'green',
-      icon: <IconAnalytics />,
-      to: '/analytics',
-      moduleKey: 'analytics',
-      minLevel: 'view',
-    },
-    {
-      title: 'Growth Lab',
-      description:
-        'Automations, prototypes, and internal products before they earn a name. Task dispatcher routes work to the right model.',
-      stat: 'Task routing · Overwatch workspace',
-      statLabel: 'Status',
-      ctaLabel: 'Open Lab',
-      status: 'Live',
-      accent: 'amber',
-      icon: <IconGrowth />,
-      to: '/growth',
-      adminOnly: true,
-    },
-    {
-      title: 'Ops Command',
-      description:
-        'Expenses, tax-prep CSV export, reorder queue, and inbound SMS relay to Slack (#fleet-ops).',
-      stat: 'Admin runway',
-      statLabel: 'Runway',
-      ctaLabel: 'Open Ops',
-      status: 'Live',
-      accent: 'rose',
-      icon: <IconOpsCommand />,
-      to: '/ops',
-      adminOnly: true,
-    },
-  ]
-
-  const visibleModules = modules.filter((m) => {
-    if (m.adminOnly && profile?.role !== 'admin') return false
-    if (!m.moduleKey) return true
-    return permissionMeets(permissionFor(m.moduleKey), m.minLevel)
-  })
+    const crewAlerts = Number(signalBar?.crewAlerts) || 0
+    if (crewAlerts > 0) {
+      chips.push({ id: 'crew', kind: 'ops', label: `${crewAlerts} crew alerts` })
+    }
+    const repostCount = Number(needsRepostingCount) || 0
+    if (repostCount > 0) {
+      chips.push({
+        id: 'repost',
+        kind: 'inventory',
+        label: `${repostCount} listings need reposting`,
+      })
+    }
+    return chips
+  }, [hiddenGems, signalBar?.crewAlerts, needsRepostingCount])
 
   if (!profileGate && profile && profile.handshakeSeen === false) {
     return <Navigate to="/handshake" replace />
@@ -369,8 +100,18 @@ export function Dashboard() {
 
   const sigLoading = signalBar.loading
   const recentLoading = recentActivity.loading
-  const healthLoading = catalogHealth.loading
   const crewLoading = crewPreview.loading
+  const crewSignalsMap = crewSignals?.map || {}
+  const crewSignalsLoading = Boolean(crewSignals?.loading)
+
+  function handleGemPost(id) {
+    if (typeof window === 'undefined') return
+    if (id === '__all__') {
+      window.location.href = '/tires?hiddenGems=true'
+    } else {
+      window.location.href = `/tires?highlight=${encodeURIComponent(id)}`
+    }
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -390,7 +131,7 @@ export function Dashboard() {
         aria-hidden
       />
 
-      <main className="relative mx-auto max-w-6xl space-y-8 px-6 py-8 sm:py-10">
+      <main className="relative mx-auto max-w-6xl space-y-6 px-6 py-8 sm:py-10">
         {notice === 'access' ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900/50 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
             <span>That module is not available for your current clearance.</span>
@@ -404,48 +145,18 @@ export function Dashboard() {
           </div>
         ) : null}
 
-        <section aria-label="Operational signals">
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Today</h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <SignalCard
-              label="Pending orders"
-              value={signalBar.pendingOrders}
-              warn
-              to="/orders"
-              loading={sigLoading}
-              cardTitle="Orders in active pipeline stages (not completed or cancelled). Amber when count is greater than zero."
-            />
-            <SignalCard
-              label="Needs Reposting"
-              value={needsRepostingCount}
-              warn
-              to="/tires?needsReposting=true"
-              loading={tireSku.loading}
-              cardTitle="Tires that were posted but are stale on all platforms. Amber when there is at least one."
-            />
-            <SignalCard
-              label="Today revenue"
-              value={signalBar.todayRevenue}
-              warn={false}
-              valueFormat="currency"
-              to="/analytics?tab=revenue"
-              loading={sigLoading}
-              cardTitle="Denver-day revenue total from meta/revenueStats (same rollup as Analytics)."
-            />
-            <SignalCard
-              label="Crew alerts"
-              value={signalBar.crewAlerts}
-              warn
-              tone="rose"
-              to="/people"
-              loading={sigLoading}
-              cardTitle="Pending crew invites (not accepted yet) plus locked accounts. Highlighted when count is greater than zero."
-            />
-          </div>
-        </section>
+        <TodayStrip
+          pendingOrders={signalBar.pendingOrders}
+          topSellers={topSellers}
+          todayRevenue={signalBar.todayRevenue}
+          allTimeMargin={allTimeMargin}
+          loading={sigLoading}
+        />
+
+        <ActivityTicker chips={tickerChips} />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+          <section className="pc-card rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
             <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Recent activity</h2>
             {recentLoading ? (
               <ul className="mt-4 space-y-3">
@@ -466,9 +177,9 @@ export function Dashboard() {
                 {recentActivity.orders.map(({ id, data }) => {
                   const createdAt = data.createdAt
                   const hasTireDescription = Boolean(String(data.description || '').trim())
-                  const idLabel = orderIdShort(id) || '—'
+                  const idLabel = orderIdShort(id) || '-'
                   const statusLabel = activityStatusLabel(data.status)
-                  const when = timeAgo(createdAt) || '—'
+                  const when = timeAgo(createdAt) || '-'
                   if (!hasTireDescription) {
                     return (
                       <li key={id} className="py-3 first:pt-0">
@@ -521,116 +232,14 @@ export function Dashboard() {
             )}
           </section>
 
-          <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Catalog health</h2>
-            {healthLoading ? (
-              <div className="mt-4 space-y-3">
-                {[1, 2, 3].map((k) => (
-                  <div key={k} className="h-10 animate-pulse rounded-lg bg-zinc-800/60" />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3">
-                  <span className="text-zinc-400">Total tires</span>
-                  <span className="font-mono font-semibold tabular-nums text-zinc-100">
-                    {formatQty(catalogHealth.total ?? 0)}
-                  </span>
-                </div>
-                <Link
-                  to="/tires?risk=missingOverhead"
-                  className="flex items-center justify-between gap-3 border-b border-zinc-800/60 pb-3 transition-colors duration-200 hover:bg-amber-950/15"
-                  title="Open the tires catalog filtered to rows still missing mount/delivery/other cost"
-                >
-                  <span className="text-base font-medium text-amber-100/95">Overhead not set</span>
-                  <span className="flex items-center gap-2 font-mono font-semibold tabular-nums text-amber-200">
-                    {formatQty(catalogHealth.missingOverhead ?? 0)}
-                    <span className="text-amber-500/90" aria-hidden>
-                      →
-                    </span>
-                  </span>
-                </Link>
-                {/* removed margin-floor row: auto-enqueued to research queue by scheduled sweep */}
-              </div>
-            )}
-          </section>
+          <HiddenGemsSurface gems={hiddenGems || []} onPost={handleGemPost} />
         </div>
 
-        <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Crew</h2>
-            {crewPreview.hasMore ? (
-              <Link to="/people" className="text-xs font-medium text-amber-300/90 hover:underline">
-                View all
-              </Link>
-            ) : null}
-          </div>
-          {crewLoading ? (
-            <div className="mt-4 space-y-2">
-              {[1, 2, 3, 4].map((k) => (
-                <div key={k} className="h-10 animate-pulse rounded-lg bg-zinc-800/60" />
-              ))}
-            </div>
-          ) : crewPreview.users.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-500">No crew rows loaded.</p>
-          ) : (
-            <ul className="mt-4 divide-y divide-zinc-800/80">
-              {crewPreview.users.map(({ id, data }) => (
-                <li
-                  key={id}
-                  className={`flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 ${crewRowTone(data)}`}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-200">{crewDisplayName(data)}</p>
-                    <p className="text-[11px] text-zinc-500">
-                      {String(data.crewTag || crewTagFromRole(data.role || 'viewer'))}
-                    </p>
-                  </div>
-                  <div className="text-right text-xs text-zinc-400">
-                    <p>{crewStatusLabel(data)}</p>
-                    <p className="mt-0.5 font-mono text-[10px] text-zinc-600">
-                      {timeAgo(data.lastLoginAt) || 'never'}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/*
-          Module tiles: secondary navigation. Bottom nav + sidebar already cover most routes on mobile,
-          so tiles are hidden below sm. If these feel redundant on desktop too, confirm with Alex before removing.
-        */}
-        <section aria-label="Modules" className="hidden sm:block">
-          <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Modules</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleModules.map((m) => {
-              const perm = m.moduleKey ? permissionFor(m.moduleKey) : 'none'
-              const lockedTires =
-                m.moduleKey === 'tires' &&
-                m.to &&
-                permissionMeets(perm, 'view') &&
-                !permissionMeets(perm, 'edit')
-              return (
-                <ProjectCard
-                  key={m.title}
-                  title={m.title}
-                  description={m.description}
-                  stat={m.stat}
-                  statLabel={m.statLabel}
-                  ctaLabel={m.ctaLabel}
-                  status={m.status}
-                  accent={m.accent}
-                  icon={m.icon}
-                  to={m.to}
-                  locked={Boolean(lockedTires)}
-                  compact
-                />
-              )
-            })}
-          </div>
-        </section>
+        <CrewDirectoryWidget
+          crew={crewPreview}
+          crewSignals={crewSignalsMap}
+          loading={crewSignalsLoading || crewLoading}
+        />
       </main>
     </div>
   )

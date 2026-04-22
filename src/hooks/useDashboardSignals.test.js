@@ -18,7 +18,12 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('firebase/functions', () => ({ httpsCallable: () => () => Promise.resolve({}) }))
 vi.mock('./useTires', () => ({ useTires: () => ({ tires: [], loading: false }) }))
 
-const { deriveCrewSignals, deriveKylesQueueCount } = await import('./useDashboardSignals.js')
+const {
+  deriveCrewSignals,
+  deriveKylesQueueCount,
+  selectHiddenGems,
+  selectTopSellersFromRevenueDoc,
+} = await import('./useDashboardSignals.js')
 
 function ts(ms) {
   return { toMillis: () => ms }
@@ -145,5 +150,88 @@ describe('deriveKylesQueueCount', () => {
       { researchQueue: { resolvedAt: null } },
     ]
     expect(deriveKylesQueueCount(tires, false)).toBe(1)
+  })
+})
+
+describe('selectHiddenGems', () => {
+  it('keeps tires with marginConfirmed true and fewer than 2 active platform listings', () => {
+    const tires = [
+      {
+        id: 't1',
+        mspn: 'AAA',
+        description: 'All-season 205/55R16',
+        marginConfirmed: true,
+        platformListings: {
+          ebay: { status: 'active', lastPostedAt: ts(1_700_000_000_000) },
+        },
+      },
+      {
+        id: 't2',
+        mspn: 'BBB',
+        marginConfirmed: true,
+        platformListings: {
+          ebay: { status: 'active' },
+          marketplace: { status: 'active' },
+          craigslist: { status: 'active' },
+        },
+      },
+      { id: 't3', mspn: 'CCC', marginConfirmed: false, platformListings: {} },
+      { id: 't4', mspn: 'DDD', marginConfirmed: true },
+    ]
+    const gems = selectHiddenGems(tires)
+    expect(gems).toHaveLength(2)
+    expect(gems[0]).toMatchObject({
+      id: 't1',
+      sku: 'AAA',
+      description: 'All-season 205/55R16',
+      platformCount: 1,
+      platforms: ['ebay'],
+      lastPostedAt: 1_700_000_000_000,
+    })
+    expect(gems[1]).toMatchObject({
+      id: 't4',
+      sku: 'DDD',
+      platformCount: 0,
+      lastPostedAt: null,
+    })
+  })
+
+  it('excludes listings whose status is not active when counting', () => {
+    const tires = [
+      {
+        id: 't1',
+        mspn: 'AAA',
+        marginConfirmed: true,
+        platformListings: {
+          ebay: { status: 'active' },
+          marketplace: { status: 'stale' },
+          craigslist: { status: 'archived' },
+        },
+      },
+    ]
+    expect(selectHiddenGems(tires)).toHaveLength(1)
+    expect(selectHiddenGems(tires)[0].platformCount).toBe(1)
+  })
+
+  it('returns [] for null / empty input', () => {
+    expect(selectHiddenGems(null)).toEqual([])
+    expect(selectHiddenGems([])).toEqual([])
+  })
+})
+
+describe('selectTopSellersFromRevenueDoc', () => {
+  it('returns [] when the doc has no topSellers field', () => {
+    expect(selectTopSellersFromRevenueDoc({})).toEqual([])
+    expect(selectTopSellersFromRevenueDoc(null)).toEqual([])
+  })
+
+  it('passes an array through unchanged', () => {
+    const list = [{ rank: 1, sku: 'A', salesCount: 9 }]
+    expect(selectTopSellersFromRevenueDoc({ topSellers: list })).toBe(list)
+  })
+
+  it('rejects non-array topSellers values', () => {
+    expect(selectTopSellersFromRevenueDoc({ topSellers: 'oops' })).toEqual([])
+    expect(selectTopSellersFromRevenueDoc({ topSellers: { 0: 'x' } })).toEqual([])
   })
 })

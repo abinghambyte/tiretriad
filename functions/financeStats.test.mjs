@@ -14,6 +14,7 @@ const {
   defaultCrewDoc,
   bumpRevenueFields,
   bumpCrewEarned,
+  buildTopSellersAggregate,
   runCompletionTransaction,
   isoWeekKey,
 } = require('./financeStats')
@@ -309,5 +310,53 @@ describe('isoWeekKey', () => {
     const mon = isoWeekKey(Date.UTC(2026, 3, 13, 12))
     const sun = isoWeekKey(Date.UTC(2026, 3, 19, 12))
     expect(mon).toBe(sun)
+  })
+})
+
+describe('buildTopSellersAggregate', () => {
+  function docOf(id, data) {
+    return { id, data: () => data }
+  }
+
+  it('returns up to 10 rows sorted desc by salesCount with 1-based rank', () => {
+    const docs = Array.from({ length: 15 }, (_, i) =>
+      docOf(`sku-${i}`, {
+        mspn: `SKU${i}`,
+        description: `Tire ${i}`,
+        category: 'all-season',
+        salesCount: 15 - i,
+      }),
+    )
+    const result = buildTopSellersAggregate(docs)
+    expect(result).toHaveLength(10)
+    expect(result[0]).toEqual({
+      rank: 1,
+      sku: 'SKU0',
+      description: 'Tire 0',
+      category: 'all-season',
+      salesCount: 15,
+    })
+    expect(result[9].rank).toBe(10)
+    expect(result[9].salesCount).toBe(6)
+  })
+
+  it('skips docs with missing or non-positive salesCount and falls back to doc.id for sku', () => {
+    const docs = [
+      docOf('a', { mspn: 'A', salesCount: 5 }),
+      docOf('b', { mspn: 'B' }),
+      docOf('c', { salesCount: 2 }),
+      docOf('d', { mspn: 'D', salesCount: 0 }),
+      docOf('e', { mspn: 'E', salesCount: -4 }),
+    ]
+    const result = buildTopSellersAggregate(docs)
+    expect(result).toEqual([
+      { rank: 1, sku: 'A', description: '', category: '', salesCount: 5 },
+      { rank: 2, sku: 'c', description: '', category: '', salesCount: 2 },
+    ])
+  })
+
+  it('tolerates null / empty input', () => {
+    expect(buildTopSellersAggregate(null)).toEqual([])
+    expect(buildTopSellersAggregate([])).toEqual([])
   })
 })
