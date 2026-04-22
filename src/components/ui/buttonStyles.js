@@ -7,6 +7,12 @@
  * primary        — most common positive action; filled amber pill
  * secondary      — supporting positive action; outline neutral
  * ghostDestructive — destructive; ghost red text, border transparent, placed last
+ *
+ * Radius tiers used across the portal (flag drift in review):
+ *   rounded-xl  — cards, section shells, sticky toolbars
+ *   rounded-lg  — buttons, popovers, inputs
+ *   rounded-md  — small chips, inline dropdowns
+ *   rounded-full — StatusPill, badges, score chips
  */
 
 export const BTN_PRIMARY =
