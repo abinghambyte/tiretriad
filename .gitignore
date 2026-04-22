@@ -50,3 +50,5 @@ functions/.env
 
 # Session handoffs: local scratch space, not tracked
 /_handoffs/
+
+.superpowers/
