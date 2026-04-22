@@ -1049,7 +1049,7 @@ export function MarginTable({
             </div>
           ) : null}
           <div
-            className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 md:grid"
+            className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 md:grid"
             style={gridStyle}
             role="row"
           >
@@ -1261,7 +1261,7 @@ export function MarginTable({
             ) : null}
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
-            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400 md:hidden">
+            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
                 <div className="flex w-11 shrink-0 items-center justify-center px-0.5 py-0.5">
                   <input

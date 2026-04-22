@@ -18,13 +18,11 @@ import { computeOpportunityScore } from '../../utils/opportunityScore'
 import { matchesQuery } from '../../utils/tireSearchHaystack'
 import { setTireSelection } from '../../context/tireSelectionStore'
 import { BulkCtsModal } from './BulkCtsModal'
-import { FilterPresetsBar } from './FilterPresetsBar'
 import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
-import { TopOpportunities } from './TopOpportunities'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 
@@ -617,6 +615,9 @@ export function TiresDashboard() {
     [tires, selectedIds],
   )
 
+  const allVisibleSelected =
+    sortedRows.length > 0 && sortedRows.every((r) => selectedIds.has(r.id))
+
   function selectionPrimaryMspnRows() {
     const picks = sortedRows.filter((r) => selectedIds.has(r.id))
     if (picks.length === 0) return null
@@ -794,41 +795,37 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
-            <TopOpportunities
-              tires={enriched}
-              haggleDiscount={haggleDiscount}
-              onJumpToTire={jumpToTire}
-            />
-
             {filtersOpen ? (
-              <div id="tires-filter-panel" className="space-y-4">
-                <MarginFilters
-                  brands={brands}
-                  useTags={useTags}
-                  lrs={lrs}
-                  brand={brand}
-                  useTagFilters={useTagFilters}
-                  lrFilters={lrFilters}
-                  onBrand={setBrand}
-                  onUseTagFilters={setUseTagFilters}
-                  onLrFilters={setLrFilters}
-                  minMargin={minMargin}
-                  onMinMargin={setMinMargin}
-                  needsReposting={needsReposting}
-                  onNeedsReposting={setNeedsReposting}
-                  hasActiveFilters={hasActiveFilters}
-                  onClearAll={clearFilters}
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setFiltersOpen(false)}
+                  aria-hidden
                 />
-
-                <FilterPresetsBar
-                  brand={brand}
-                  useTagFilters={useTagFilters}
-                  lrFilters={lrFilters}
-                  minMargin={minMargin}
-                  needsReposting={needsReposting}
-                  onApplyPreset={applyFilterPreset}
-                />
-              </div>
+                <div
+                  id="tires-filter-panel"
+                  className="fixed left-4 right-4 top-[148px] z-40 rounded-xl border border-zinc-700 bg-zinc-950 p-3 shadow-2xl sm:left-6 sm:right-6 sm:top-[164px]"
+                >
+                  <MarginFilters
+                    brands={brands}
+                    useTags={useTags}
+                    lrs={lrs}
+                    brand={brand}
+                    useTagFilters={useTagFilters}
+                    lrFilters={lrFilters}
+                    onBrand={setBrand}
+                    onUseTagFilters={setUseTagFilters}
+                    onLrFilters={setLrFilters}
+                    minMargin={minMargin}
+                    onMinMargin={setMinMargin}
+                    needsReposting={needsReposting}
+                    onNeedsReposting={setNeedsReposting}
+                    hasActiveFilters={hasActiveFilters}
+                    onClearAll={clearFilters}
+                    onApplyPreset={applyFilterPreset}
+                  />
+                </div>
+              </>
             ) : null}
 
             {catalogRisk === 'missingOverhead' || catalogRisk === 'lowMargin' ? (
@@ -867,7 +864,7 @@ export function TiresDashboard() {
               </div>
             ) : null}
 
-            <div className="sticky top-[92px] z-10 -mx-2 rounded-xl border border-zinc-800 bg-zinc-900/80 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur supports-[backdrop-filter]:bg-zinc-900/70 sm:top-[108px]">
+            <div className="sticky top-[92px] z-10 -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900/80 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur supports-[backdrop-filter]:bg-zinc-900/70 sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
                   <span className="sr-only">Search by MSPN or description</span>
@@ -950,22 +947,30 @@ export function TiresDashboard() {
               <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-zinc-400">
-                    {loading ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                        Loading inventory…
-                      </span>
-                    ) : selectedIds.size > 0 ? (
-                      <span className="inline-flex items-center rounded-full bg-amber-950/70 px-2.5 py-0.5 text-xs font-semibold text-amber-100 ring-1 ring-amber-800/50">
-                        {selectedIds.size} selected
-                      </span>
-                    ) : (
-                      <span className="text-zinc-500">None selected</span>
-                    )}
-                  </p>
+                  {loading ? (
+                    <span className="inline-flex items-center gap-2 text-sm text-zinc-400">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                      Loading inventory…
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                  {!loading && sortedRows.length > 0 ? (
+                    <button
+                      type="button"
+                      aria-pressed={allVisibleSelected}
+                      onClick={() => toggleAllFilteredSelection(sortedRows)}
+                      className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
+                        allVisibleSelected
+                          ? 'border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60'
+                          : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
+                      }`}
+                    >
+                      {allVisibleSelected
+                        ? `Deselect all (${sortedRows.length})`
+                        : `Select all (${sortedRows.length})`}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => {
@@ -1152,22 +1157,24 @@ export function TiresDashboard() {
               </div>
             </div>
 
-            <MarginTable
-              rows={sortedRows}
-              selectedIds={selectedIds}
-              onToggle={toggle}
-              onToggleAllFiltered={toggleAllFilteredSelection}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSortChange={onSortChange}
-              loading={loading}
-              emptyState={emptyState}
-              columnVisibility={columnVisibility}
-              sortColumnLabel={visibleColumnLabel}
-              sortDirLabel={visibleDirLabel}
-              externalListRef={marginTableRef}
-              justJumpedToId={justJumpedToId}
-            />
+            <div className="-mx-2 rounded-b-xl border-x border-b border-zinc-800 overflow-hidden">
+              <MarginTable
+                rows={sortedRows}
+                selectedIds={selectedIds}
+                onToggle={toggle}
+                onToggleAllFiltered={toggleAllFilteredSelection}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSortChange={onSortChange}
+                loading={loading}
+                emptyState={emptyState}
+                columnVisibility={columnVisibility}
+                sortColumnLabel={visibleColumnLabel}
+                sortDirLabel={visibleDirLabel}
+                externalListRef={marginTableRef}
+                justJumpedToId={justJumpedToId}
+              />
+            </div>
           </>
         ) : null}
       </main>
