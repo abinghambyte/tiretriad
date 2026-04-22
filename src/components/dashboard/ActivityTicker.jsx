@@ -25,6 +25,8 @@ export function ActivityTicker({ chips = [] }) {
   return (
     <section
       aria-label="Activity ticker"
+      aria-live="polite"
+      aria-atomic="false"
       className="pc-card activity-ticker relative w-full overflow-hidden rounded-xl bg-zinc-900/60 py-2"
     >
       <style>{`
