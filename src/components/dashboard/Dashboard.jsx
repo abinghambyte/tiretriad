@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { formatPercent } from '../../utils/format'
@@ -54,6 +54,7 @@ function orderIdShort(id) {
 
 export function Dashboard() {
   const { profile, loading: profileGate } = useUserProfile()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const {
     needsRepostingCount,
@@ -106,11 +107,10 @@ export function Dashboard() {
   const crewSignalsLoading = Boolean(crewSignals?.loading)
 
   function handleGemPost(id) {
-    if (typeof window === 'undefined') return
     if (id === '__all__') {
-      window.location.href = '/tires?hiddenGems=true'
+      navigate('/tires?tab=catalog&hiddenGems=true')
     } else {
-      window.location.href = `/tires?highlight=${encodeURIComponent(id)}`
+      navigate(`/tires?tab=catalog&highlight=${encodeURIComponent(id)}`)
     }
   }
 
@@ -143,6 +143,15 @@ export function Dashboard() {
             >
               Dismiss
             </button>
+          </div>
+        ) : null}
+
+        {signalBar.error ? (
+          <div
+            role="status"
+            className="rounded-xl border border-rose-900/50 bg-rose-950/25 px-4 py-3 text-sm text-rose-100"
+          >
+            Live counts unavailable right now - showing zeros. Refresh to retry.
           </div>
         ) : null}
 

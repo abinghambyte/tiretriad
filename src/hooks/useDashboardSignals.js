@@ -11,7 +11,7 @@ import {
   where,
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { db, functions } from '../firebase/config'
 import { useTires } from './useTires'
 import { computeMargin } from '../utils/marginCalc'
@@ -249,6 +249,12 @@ export function deriveCrewSignals(users, orders, tires, nowMs) {
  */
 export function useDashboardSignals() {
   const { tires, loading: tiresLoading } = useTires()
+  // Stable ref so the crew-signals effect can read current tires
+  // without re-running every time the `tires` array reference changes.
+  const tiresRef = useRef(tires)
+  useEffect(() => {
+    tiresRef.current = tires
+  }, [tires])
 
   const needsRepostingCount = useMemo(() => {
     if (tiresLoading) return null
@@ -340,6 +346,8 @@ export function useDashboardSignals() {
     todayRevenue: null,
     crewAlerts: null,
     loading: true,
+    /** True when the top-level counts query failed (not just a nested sub-read). */
+    error: false,
   })
 
   /** Full `meta/revenueStats` doc snapshot; feeds topSellers + allTimeMargin. */
@@ -506,6 +514,7 @@ export function useDashboardSignals() {
           todayRevenue,
           crewAlerts: pendingInvites + lockedSnap.data().count,
           loading: false,
+          error: false,
         })
       } catch (e) {
         console.error('dashboard signal bar counts', e)
@@ -515,6 +524,7 @@ export function useDashboardSignals() {
             todayRevenue: 0,
             crewAlerts: 0,
             loading: false,
+            error: true,
           })
         }
       }
@@ -607,7 +617,7 @@ export function useDashboardSignals() {
           ...wipSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
           ...completedSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
         ]
-        const map = deriveCrewSignals(users, orders, tires || [], Date.now())
+        const map = deriveCrewSignals(users, orders, tiresRef.current || [], Date.now())
         setCrewSignalsState({ map, loading: false })
       } catch (e) {
         console.error('dashboard crew signals', e)
@@ -617,7 +627,7 @@ export function useDashboardSignals() {
     return () => {
       cancelled = true
     }
-  }, [tires])
+  }, [])
 
   const hiddenGems = useMemo(() => {
     if (tiresLoading) return []

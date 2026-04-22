@@ -192,9 +192,12 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
     // order docs. Empty initial window (first write ever) is skipped.
     const history = { ...(p.dailyHistory && typeof p.dailyHistory === 'object' ? p.dailyHistory : {}) }
     const prevKey = String(p.dailyWindow || '')
-    const prevRev = Number(p.dailyRevenue) || 0
-    if (prevKey && prevRev > 0) {
-      history[prevKey] = round2(prevRev)
+    if (prevKey) {
+      // Archive every closed day, including zero-revenue days. A
+      // legitimate $0 day is a valid data point for the rolling
+      // average; dropping it would bias the baseline upward. Only the
+      // very first rotation (no prior window at all) is skipped.
+      history[prevKey] = round2(Number(p.dailyRevenue) || 0)
     }
     next.dailyHistory = capDailyHistory(history)
     next.dailyWindow = dayKey

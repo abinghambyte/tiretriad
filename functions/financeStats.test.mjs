@@ -315,12 +315,12 @@ describe('bumpRevenueFields', () => {
     expect(b.dailyRevenue).toBe(1500)
   })
 
-  it('skips archiving a prior day that had zero revenue', () => {
+  it('archives a zero-revenue prior day as 0 so the rolling average stays honest', () => {
     let cur = fresh()
     // seed a prior window marker with zero revenue
     cur = { ...cur, dailyWindow: '2026-04-10', dailyRevenue: 0 }
     const next = bumpRevenueFields(cur, 100, 50, 50, Date.UTC(2026, 3, 15, 19))
-    expect(next.dailyHistory).toEqual({})
+    expect(next.dailyHistory).toEqual({ '2026-04-10': 0 })
   })
 })
 

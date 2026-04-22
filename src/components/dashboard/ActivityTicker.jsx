@@ -20,7 +20,13 @@ function chipClass(kind) {
 export function ActivityTicker({ chips = [] }) {
   if (!Array.isArray(chips) || chips.length === 0) return null
 
-  const doubled = [...chips, ...chips]
+  // Duplicate the chip list so the scroll loop can wrap seamlessly.
+  // Keys include an `a`/`b` copy prefix plus the index so collisions
+  // are impossible even if two source chips happen to share an id.
+  const doubled = [
+    ...chips.map((chip, i) => ({ chip, key: `a-${i}` })),
+    ...chips.map((chip, i) => ({ chip, key: `b-${i}` })),
+  ]
 
   return (
     <section
@@ -42,11 +48,8 @@ export function ActivityTicker({ chips = [] }) {
         }
       `}</style>
       <div className="activity-ticker__track flex min-w-max gap-3 whitespace-nowrap px-3">
-        {doubled.map((chip, i) => (
-          <span
-            key={`${chip.id}-${i}`}
-            className={chipClass(chip.kind)}
-          >
+        {doubled.map(({ chip, key }) => (
+          <span key={key} className={chipClass(chip.kind)}>
             {chip.label}
           </span>
         ))}

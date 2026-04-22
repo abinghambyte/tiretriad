@@ -1,24 +1,27 @@
 import { useEffect, useState } from 'react'
 import { paletteForRank } from './topSellersPalette'
 
+const FLIP_INTERVAL_MS = 3000
+
 /**
  * Top Sellers card. Flips through the provided sellers list every
- * `intervalMs` milliseconds and pauses on hover. Left half: rank digit
- * and sold count share a baseline with a `SOLD` caption 8px below.
- * Right half: SKU / description / category for the current seller.
+ * FLIP_INTERVAL_MS and pauses on hover. Left half: rank digit and sold
+ * count share a baseline with a `SOLD` caption 8px below. Right half:
+ * SKU / description / category for the current seller.
  */
-export function TopSellersCard({ sellers = [], intervalMs = 3000 }) {
+export function TopSellersCard({ sellers = [] }) {
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
+  const sellersLength = Array.isArray(sellers) ? sellers.length : 0
 
   useEffect(() => {
     if (paused) return undefined
-    if (!sellers || sellers.length <= 1) return undefined
+    if (sellersLength <= 1) return undefined
     const handle = setInterval(() => {
-      setIdx((i) => (i + 1) % sellers.length)
-    }, intervalMs)
+      setIdx((i) => (i + 1) % sellersLength)
+    }, FLIP_INTERVAL_MS)
     return () => clearInterval(handle)
-  }, [paused, sellers?.length, intervalMs, sellers])
+  }, [paused, sellersLength])
 
   if (!sellers || sellers.length === 0) {
     return (

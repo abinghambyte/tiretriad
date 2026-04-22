@@ -103,10 +103,18 @@ function PeopleRowActionsMenu({ u, onHistory, onEdit }) {
   )
 }
 
-export function UserRow({ u, tick, onHistory, onEdit }) {
+export function UserRow({ u, tick, onHistory, onEdit, highlighted = false }) {
   const evLabel = elevationCountdownLabel(u, tick)
   return (
-    <tr className="group border-b border-zinc-800/80 hover:bg-zinc-900/40">
+    <tr
+      data-uid={u.id}
+      className={[
+        'group border-b border-zinc-800/80 hover:bg-zinc-900/40 transition-colors',
+        highlighted ? 'bg-amber-900/25 ring-1 ring-amber-500/40' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <td className="max-w-none px-3 py-2 font-medium leading-snug text-zinc-100 sm:max-w-[220px]">
         <span className="max-sm:whitespace-normal">
           {u.firstName} {u.lastName}
