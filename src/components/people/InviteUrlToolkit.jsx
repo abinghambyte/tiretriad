@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- shared invite helpers and UI */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useToast } from '../../context/ToastContext.jsx'
 import { copyToClipboard } from '../../utils/copyToClipboard'
 import { cmdEnterInvokeKeyDown } from '../../utils/cmdEnterSubmit.js'
@@ -384,22 +384,42 @@ export function InvitePreviewModal({
   createBusy,
   onSubmitCreateUser,
 }) {
+  useEffect(() => {
+    if (!previewOpen) return undefined
+    function onKey(e) {
+      if (e.key === 'Escape' && !createBusy) onClose?.()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [previewOpen, createBusy, onClose])
+
   if (!previewOpen) return null
 
   return (
     <div
       className={MODAL_CENTER_BACKDROP}
       role="dialog"
-      aria-modal
+      aria-modal="true"
       aria-labelledby="preview-invite-title"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget && !createBusy) onClose()
       }}
     >
       <div
-        className={`${MODAL_CENTER_PANEL} border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}
+        className={`${MODAL_CENTER_PANEL} relative border-zinc-800 bg-zinc-950 p-6 max-sm:p-4`}
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          disabled={createBusy}
+          className="absolute right-3 top-3 rounded p-1 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200 disabled:opacity-40"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path strokeLinecap="round" d="m18 6-12 12M6 6l12 12" />
+          </svg>
+        </button>
         {previewShowCreatedUrl && lastInviteUrl ? (
           <>
             <h2 id="preview-invite-title" className="text-lg font-semibold text-white">
@@ -476,7 +496,7 @@ export function InvitePreviewModal({
                 type="button"
                 disabled={createBusy || previewLoading}
                 onClick={() => void onSubmitCreateUser()}
-                className="min-h-[44px] rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50 max-sm:order-1 max-sm:w-full sm:min-h-0 sm:w-auto"
+                className="min-h-[44px] rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-50 max-sm:order-1 max-sm:w-full sm:min-h-0 sm:w-auto"
               >
                 {createBusy ? 'Sending…' : 'Send invite'}
               </button>

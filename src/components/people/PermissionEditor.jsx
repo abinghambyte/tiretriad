@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { auth } from '../../firebase/config'
 import {
   crewTagFromRole,
@@ -8,6 +9,7 @@ import { PermissionMatrix } from './PermissionMatrix'
 import { AvailabilityBlocker } from './AvailabilityBlocker.jsx'
 import { EditorInviteColumn } from './InviteUrlToolkit.jsx'
 import Spinner from '../ui/Spinner.jsx'
+import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_BASE } from '../ui/modalChrome.js'
 
 /**
  * Permission matrix column in the user editor grid.
@@ -62,23 +64,35 @@ export function UserEditorModal({
 }) {
   const eleModuleRow = MODULE_MATRIX.find((m) => m.key === eleModule) || MODULE_MATRIX[0]
 
+  useEffect(() => {
+    if (!selected) return undefined
+    function onKey(e) {
+      if (e.key === 'Escape') onClose?.()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected, onClose])
+
   if (!selected) return null
 
   return (
     <div
-      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 backdrop-blur-md sk-modal-backdrop-enter p-4"
+      className={MODAL_CENTER_BACKDROP}
       role="dialog"
-      aria-modal
-      onClick={onClose}
+      aria-modal="true"
+      aria-labelledby="user-editor-title"
+      onClick={() => {
+        if (!saving) onClose?.()
+      }}
     >
       <div
-        className="flex w-full max-w-5xl flex-col rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60 max-h-[90vh]"
+        className={`${MODAL_CENTER_PANEL_BASE} max-w-5xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex-1 overflow-y-auto p-6 pb-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
+              <h2 id="user-editor-title" className="text-lg font-semibold tracking-tight text-zinc-50">
                 {selected.firstName} {selected.lastName}
               </h2>
               <p className="mt-1 text-xs text-zinc-400">{selected.email}</p>
@@ -87,7 +101,7 @@ export function UserEditorModal({
               type="button"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-transparent text-zinc-400 transition-colors duration-200 hover:border-zinc-700 hover:bg-zinc-800/80 hover:text-zinc-100"
               onClick={onClose}
-              aria-label="Close panel"
+              aria-label="Close"
             >
               <span className="text-xl leading-none" aria-hidden>
                 ×
@@ -275,9 +289,9 @@ export function UserEditorModal({
             type="button"
             disabled={saving}
             onClick={onSavePermissions}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
           >
-            {saving && <Spinner className="h-4 w-4 text-white/90" />}
+            {saving && <Spinner className="h-4 w-4 text-zinc-950/80" />}
             {saving ? 'Saving…' : 'Save permissions'}
           </button>
           {selected && selected.id !== auth.currentUser?.uid ? (
