@@ -629,3 +629,11 @@ html[data-theme='light'] select,
 html[data-theme='light'] textarea {
   color-scheme: light;
 }
+
+/* Precision Cockpit hover-bloom. Applied to dashboard cards. */
+.pc-card {
+  transition: box-shadow .18s ease;
+}
+.pc-card:hover {
+  box-shadow: 0 0 0 1px rgba(50,205,50,.15), 0 0 24px rgba(50,205,50,.08);
+}
