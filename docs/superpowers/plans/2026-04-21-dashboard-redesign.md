@@ -10,6 +10,14 @@
 
 **Reference spec:** `docs/superpowers/specs/2026-04-21-dashboard-redesign-design.md`
 
+**Status (2026-04-21):** Shipped via PR #78 (six briefs T through Y). A
+same-day follow-on shipped the 7-day rolling-average hero hot-state, the
+`aria-live` polite region on `ActivityTicker`, and the crew-row deep
+link to `/people?highlight=<uid>`. Task 11 (Playwright visual baseline)
+is deferred - there is no Playwright setup in the repo, and the plan
+itself instructs skipping the task in that case. A follow-up issue will
+track adding the framework.
+
 ---
 
 ## File structure
@@ -45,7 +53,7 @@
 - Create: `src/components/dashboard/topSellersPalette.js`
 - Test: `src/components/dashboard/topSellersPalette.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // src/components/dashboard/topSellersPalette.test.js
@@ -75,12 +83,12 @@ describe('topSellersPalette', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/components/dashboard/topSellersPalette.test.js`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement the palette**
+- [x] **Step 3: Implement the palette**
 
 ```js
 // src/components/dashboard/topSellersPalette.js
@@ -108,12 +116,12 @@ export function paletteForRank(rank) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/components/dashboard/topSellersPalette.test.js`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/dashboard/topSellersPalette.js src/components/dashboard/topSellersPalette.test.js
@@ -128,11 +136,11 @@ git commit -m "feat(dashboard): add Top Sellers paired palette"
 - Modify: `functions/financeStats.js`
 - Test: `functions/financeStats.test.js` (new or extend if it already exists - check before creating)
 
-- [ ] **Step 1: Inspect the worker and locate the revenue-stats write**
+- [x] **Step 1: Inspect the worker and locate the revenue-stats write**
 
 Open `functions/financeStats.js` and locate the section that writes `meta/revenueStats` (around the `allTimeMargin` update near line 211). The new aggregation runs after the finance totals are computed and extends the same `meta/revenueStats` doc.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```js
 // functions/financeStats.test.js (add describe block; if file doesn't exist, create it)
@@ -178,12 +186,12 @@ describe('buildTopSellersAggregate', () => {
 })
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npx vitest run functions/financeStats.test.js`
 Expected: FAIL (`buildTopSellersAggregate` is not exported).
 
-- [ ] **Step 4: Add the exported helper and wire it into the writer**
+- [x] **Step 4: Add the exported helper and wire it into the writer**
 
 In `functions/financeStats.js`, add near the top (below the existing imports):
 
@@ -220,12 +228,12 @@ const topSellers = buildTopSellersAggregate(tiresSnap.docs)
 // await REVENUE_REF(db).set({ ...existingPayload, topSellers }, { merge: true })
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npx vitest run functions/financeStats.test.js`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add functions/financeStats.js functions/financeStats.test.js
@@ -242,7 +250,7 @@ git commit -m "feat(finance): aggregate top-10 sellers into meta/revenueStats"
 
 The hook already subscribes to `meta/revenueStats` and to the tires collection. Extend its return value so the dashboard can consume the new fields without creating parallel listeners.
 
-- [ ] **Step 1: Write failing tests for the new selectors**
+- [x] **Step 1: Write failing tests for the new selectors**
 
 ```jsx
 // src/hooks/useDashboardSignals.test.js
@@ -300,12 +308,12 @@ describe('selectTopSellersFromRevenueDoc', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/hooks/useDashboardSignals.test.js`
 Expected: FAIL (selectors not exported).
 
-- [ ] **Step 3: Add the selectors and extend the hook return**
+- [x] **Step 3: Add the selectors and extend the hook return**
 
 Near the top of `src/hooks/useDashboardSignals.js`, add:
 
@@ -368,12 +376,12 @@ return {
 
 If `tiresList` or `revenueStatsDoc` are not already named in the hook, bind them to the existing state variables (the hook already maintains both for other selectors - reuse them rather than adding listeners).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/hooks/useDashboardSignals.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/hooks/useDashboardSignals.js src/hooks/useDashboardSignals.test.js
@@ -390,7 +398,7 @@ git commit -m "feat(dashboard): expose topSellers, hiddenGems, allTimeMargin fro
 
 Implements the v16 mockup: 50/50 split, rank digit on the left, sold count on the right, SOLD caption 8px below the count, flip every 3 seconds through the top 10, paired palette per place.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```jsx
 // src/components/dashboard/TopSellersCard.test.jsx
@@ -429,12 +437,12 @@ describe('TopSellersCard', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/components/dashboard/TopSellersCard.test.jsx`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 ```jsx
 // src/components/dashboard/TopSellersCard.jsx
@@ -526,12 +534,12 @@ export function TopSellersCard({ sellers = [], intervalMs = 3000 }) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/components/dashboard/TopSellersCard.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/dashboard/TopSellersCard.jsx src/components/dashboard/TopSellersCard.test.jsx
@@ -546,7 +554,7 @@ git commit -m "feat(dashboard): add TopSellersCard with flip cycle"
 - Create: `src/components/dashboard/HiddenGemsSurface.jsx`
 - Test: `src/components/dashboard/HiddenGemsSurface.test.jsx`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```jsx
 // src/components/dashboard/HiddenGemsSurface.test.jsx
@@ -594,12 +602,12 @@ describe('HiddenGemsSurface', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/components/dashboard/HiddenGemsSurface.test.jsx`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 ```jsx
 // src/components/dashboard/HiddenGemsSurface.jsx
@@ -673,12 +681,12 @@ export function HiddenGemsSurface({ gems = [], onPost }) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/components/dashboard/HiddenGemsSurface.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/dashboard/HiddenGemsSurface.jsx src/components/dashboard/HiddenGemsSurface.test.jsx
@@ -693,7 +701,7 @@ git commit -m "feat(dashboard): add HiddenGemsSurface"
 - Create: `src/components/dashboard/ActivityTicker.jsx`
 - Test: `src/components/dashboard/ActivityTicker.test.jsx`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```jsx
 // src/components/dashboard/ActivityTicker.test.jsx
@@ -723,12 +731,12 @@ describe('ActivityTicker', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/components/dashboard/ActivityTicker.test.jsx`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 ```jsx
 // src/components/dashboard/ActivityTicker.jsx
@@ -781,12 +789,12 @@ export function ActivityTicker({ chips = [] }) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/components/dashboard/ActivityTicker.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/dashboard/ActivityTicker.jsx src/components/dashboard/ActivityTicker.test.jsx
@@ -803,7 +811,7 @@ git commit -m "feat(dashboard): add ActivityTicker"
 
 Extracts the existing inline Crew section from `Dashboard.jsx` and adds WIP count, today's completions, streak days, and online/offline dot from `crewSignals[userId]`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```jsx
 // src/components/dashboard/CrewDirectoryWidget.test.jsx
@@ -852,12 +860,12 @@ describe('CrewDirectoryWidget', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/components/dashboard/CrewDirectoryWidget.test.jsx`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 ```jsx
 // src/components/dashboard/CrewDirectoryWidget.jsx
@@ -935,12 +943,12 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/components/dashboard/CrewDirectoryWidget.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/dashboard/CrewDirectoryWidget.jsx src/components/dashboard/CrewDirectoryWidget.test.jsx
@@ -957,7 +965,7 @@ git commit -m "feat(dashboard): add CrewDirectoryWidget wired to crewSignals"
 
 Four-card strip: Pending Orders, Top Sellers (double width), Today Revenue (hero), Total Profit. Hero revenue uses neon-lime when today's total exceeds the rolling average.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```jsx
 // src/components/dashboard/TodayStrip.test.jsx
@@ -1009,12 +1017,12 @@ describe('TodayStrip', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/components/dashboard/TodayStrip.test.jsx`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement the component**
+- [x] **Step 3: Implement the component**
 
 ```jsx
 // src/components/dashboard/TodayStrip.jsx
@@ -1094,12 +1102,12 @@ export function TodayStrip({
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/components/dashboard/TodayStrip.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/dashboard/TodayStrip.jsx src/components/dashboard/TodayStrip.test.jsx
@@ -1115,7 +1123,7 @@ git commit -m "feat(dashboard): add TodayStrip with hero revenue"
 
 Replace the inline 4-card strip, inline Recent-activity + Catalog-health grid, inline Crew section, and Modules row with the new components. Destructure the new fields from the hook. Keep the existing Recent Activity inline section (kept per spec); move it into the bottom grid paired with `HiddenGemsSurface`.
 
-- [ ] **Step 1: Update the hook destructure**
+- [x] **Step 1: Update the hook destructure**
 
 In `Dashboard.jsx` (function `Dashboard`), change the destructure block to include the new fields:
 
@@ -1140,7 +1148,7 @@ const {
 } = useDashboardSignals()
 ```
 
-- [ ] **Step 2: Add imports at the top of `Dashboard.jsx`**
+- [x] **Step 2: Add imports at the top of `Dashboard.jsx`**
 
 ```jsx
 import { TodayStrip } from './TodayStrip'
@@ -1149,7 +1157,7 @@ import { HiddenGemsSurface } from './HiddenGemsSurface'
 import { CrewDirectoryWidget } from './CrewDirectoryWidget'
 ```
 
-- [ ] **Step 3: Build the ticker chip list inline**
+- [x] **Step 3: Build the ticker chip list inline**
 
 Just before the `return`, compose a memo of chips from the signals that already exist:
 
@@ -1173,7 +1181,7 @@ const tickerChips = useMemo(() => {
 }, [hiddenGems, signalBar.crewAlerts, needsRepostingCount])
 ```
 
-- [ ] **Step 4: Replace the `<section aria-label="Operational signals">` block**
+- [x] **Step 4: Replace the `<section aria-label="Operational signals">` block**
 
 Delete the entire `<section aria-label="Operational signals"> ... </section>` block (the inline 4-card grid) AND the `<div className="grid grid-cols-1 gap-6 lg:grid-cols-2"> ... </div>` two-column grid (Recent activity + Catalog health) AND the `<section>` for Crew AND the `<section aria-label="Modules">` block.
 
@@ -1214,17 +1222,17 @@ Replace them with:
 
 Ensure the old `catalogHealth`, `visibleModules`, and unused `SignalCard` references are also deleted if nothing else consumes them; ESLint/Vite will flag dead imports.
 
-- [ ] **Step 5: Run unit + component tests**
+- [x] **Step 5: Run unit + component tests**
 
 Run: `npx vitest run`
 Expected: PASS.
 
-- [ ] **Step 6: Spot-check the page in dev**
+- [x] **Step 6: Spot-check the page in dev**
 
 Run: `npm run dev`
 Load `/dashboard`, verify: 4-card strip, ticker chips, HiddenGems with "Post it" buttons, Crew widget with WIP badges and online dots, no module tiles, no Catalog Health. Confirm nothing crashes when `topSellers` is empty (pre-aggregation).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/components/dashboard/Dashboard.jsx
@@ -1240,7 +1248,7 @@ git commit -m "feat(dashboard): compose new TodayStrip, ticker, HiddenGems, Crew
 
 Tokens were already applied inline during the component builds (bg `#18181b` on `#09090b` via `bg-zinc-900/60`, 14px padding, 10px gap, `#32CD32` reserved for hero hot-state and online dot). This task is a single consolidation sweep + hover bloom.
 
-- [ ] **Step 1: Add the shared hover-bloom utility**
+- [x] **Step 1: Add the shared hover-bloom utility**
 
 In `src/index.css` (or `src/styles/globals.css`, wherever global styles live - confirm with `ls src/**/*.css` first), add:
 
@@ -1253,16 +1261,16 @@ In `src/index.css` (or `src/styles/globals.css`, wherever global styles live - c
 }
 ```
 
-- [ ] **Step 2: Apply `pc-card` class to every dashboard card root**
+- [x] **Step 2: Apply `pc-card` class to every dashboard card root**
 
 Add `pc-card` alongside each `rounded-xl bg-zinc-900/60 ...` root in the five component files. No other class changes needed - token alignment is already done.
 
-- [ ] **Step 3: Verify tests still pass**
+- [x] **Step 3: Verify tests still pass**
 
 Run: `npx vitest run`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/index.css src/components/dashboard
@@ -1276,7 +1284,10 @@ git commit -m "style(dashboard): apply Precision Cockpit hover bloom"
 **Files:**
 - Create: `tests/e2e/dashboard.screenshot.spec.ts`
 
-Confirm Playwright config exists (`playwright.config.*`) before creating the test. If the repo has no Playwright setup, skip this task and open a follow-up issue instead - don't add the framework in this plan.
+**DEFERRED (2026-04-21):** Playwright is not set up in this repo
+(`playwright.config.*` does not exist). Per this task's own escape
+hatch, skip the task and file a follow-up issue to add the framework
+before the baseline can land.
 
 - [ ] **Step 1: Confirm Playwright is installed**
 
