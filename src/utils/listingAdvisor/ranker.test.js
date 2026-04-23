@@ -6,6 +6,7 @@ import { MODE_WEIGHTS } from './modeWeights.js'
 function tire(overrides = {}) {
   return {
     id: 't1',
+    daysInStock: 60,
     daysSincePriceChange: 30,
     avgDaysToSell: 20,
     velocitySampleSize: 5,
@@ -36,28 +37,34 @@ describe('rankTires', () => {
     expect(ranked.signalBreakdown.velocity.weighted).toBe(0)
   })
 
+  it('clamps daysInStock to [0, 180]', () => {
+    const hi = rankTires([tire({ id: 'hi', daysInStock: 400 })], 'CLEARANCE')[0]
+    const cap = rankTires([tire({ id: 'cap', daysInStock: 180 })], 'CLEARANCE')[0]
+    expect(hi.signalBreakdown.daysInStock.raw).toBe(180)
+    expect(hi.rankScore).toBeCloseTo(cap.rankScore, 6)
+  })
+
   it('clamps daysSincePriceChange to [0, 180]', () => {
     const hi = rankTires([tire({ id: 'hi', daysSincePriceChange: 400 })], 'CLEARANCE')[0]
-    const cap = rankTires([tire({ id: 'cap', daysSincePriceChange: 180 })], 'CLEARANCE')[0]
-    expect(hi.signalBreakdown.age.raw).toBe(180)
-    expect(hi.rankScore).toBeCloseTo(cap.rankScore, 6)
+    expect(hi.signalBreakdown.daysSincePriceChange.raw).toBe(180)
   })
 
   it('signalBreakdown weighted values sum to rankScore', () => {
     const [r] = rankTires([tire()], 'PROFIT')
     const sum =
-      r.signalBreakdown.age.weighted +
+      r.signalBreakdown.daysInStock.weighted +
+      r.signalBreakdown.daysSincePriceChange.weighted +
       r.signalBreakdown.velocity.weighted +
       r.signalBreakdown.margin.weighted +
       r.signalBreakdown.crossPost.weighted
     expect(r.rankScore).toBeCloseTo(sum, 6)
   })
 
-  it('Clearance mode ranks oldest-repriced tire first', () => {
+  it('Clearance mode ranks longest-in-stock tire first', () => {
     const tires = [
-      tire({ id: 'fresh', daysSincePriceChange: 2 }),
-      tire({ id: 'stale', daysSincePriceChange: 120 }),
-      tire({ id: 'mid', daysSincePriceChange: 40 }),
+      tire({ id: 'fresh', daysInStock: 5 }),
+      tire({ id: 'stale', daysInStock: 150 }),
+      tire({ id: 'mid', daysInStock: 40 }),
     ]
     const out = rankTires(tires, 'CLEARANCE')
     expect(out[0].id).toBe('stale')
@@ -65,8 +72,8 @@ describe('rankTires', () => {
 
   it('Profit mode prioritizes margin over age', () => {
     const tires = [
-      tire({ id: 'fat', daysSincePriceChange: 10, marginHeadroomPct: 0.6 }),
-      tire({ id: 'stale_thin', daysSincePriceChange: 120, marginHeadroomPct: 0.05 }),
+      tire({ id: 'fat', daysInStock: 10, daysSincePriceChange: 10, marginHeadroomPct: 0.6 }),
+      tire({ id: 'stale_thin', daysInStock: 150, daysSincePriceChange: 120, marginHeadroomPct: 0.05 }),
     ]
     const out = rankTires(tires, 'PROFIT')
     expect(out[0].id).toBe('fat')

@@ -97,12 +97,20 @@ function missingPlatforms(tire, nowMs) {
   return n
 }
 
+function computeDaysInStock(tire, nowMs) {
+  const intakeMs = toMillis(tire?.createdAt)
+  if (!intakeMs) return 0
+  const diffDays = Math.floor((nowMs - intakeMs) / MS_PER_DAY)
+  return diffDays < 0 ? 0 : diffDays
+}
+
 export function buildEnrichedTires(tires, velocityBySize, nowMs) {
   return (tires || []).map((t) => {
     const key = `${t?.size || ''}|${t?.lr || ''}`
     const v = velocityBySize[key] || { avgDaysToSell: null, sampleSize: 0 }
     return {
       ...t,
+      daysInStock: computeDaysInStock(t, nowMs),
       daysSincePriceChange: computeDaysSincePriceChange(t, nowMs),
       avgDaysToSell: v.avgDaysToSell,
       velocitySampleSize: v.sampleSize,
