@@ -12,6 +12,8 @@ Object.assign(exports, require('./crm'))
 Object.assign(exports, require('./slack'))
 Object.assign(exports, require('./payoutConfig'))
 
+exports.advisorNarrate = require('./advisorNarrate').advisorNarrate
+
 exports.getDashboardStats = require('./dashboardStats').getDashboardStats
 
 const { generateVipLink, verifyVipLink } = require('./vipLinks')

@@ -7,6 +7,8 @@ import { timeAgo } from '../../utils/timeAgo'
 import { TodayStrip } from './TodayStrip'
 import { ActivityTicker } from './ActivityTicker'
 import { HiddenGemsSurface } from './HiddenGemsSurface'
+import { NextToPostSurface } from './NextToPostSurface.jsx'
+import { flags } from '../../utils/featureFlags.js'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { statusPillTone } from '../ui/statusPillTone.js'
 import { EmptyState } from '../shared/EmptyState.jsx'
@@ -66,6 +68,8 @@ export function Dashboard() {
     topSellers,
     allTimeMargin,
     rollingAverageRevenue,
+    advisorRanked,
+    advisorLoading,
   } = useDashboardSignals()
 
   const tickerChips = useMemo(() => {
@@ -248,7 +252,15 @@ export function Dashboard() {
             )}
           </section>
 
-          <HiddenGemsSurface gems={hiddenGems || []} onPost={handleGemPost} />
+          {flags.listingAdvisor ? (
+            <NextToPostSurface
+              ranked={advisorRanked || []}
+              loading={advisorLoading}
+              onPost={handleGemPost}
+            />
+          ) : (
+            <HiddenGemsSurface gems={hiddenGems || []} onPost={handleGemPost} />
+          )}
         </div>
       </main>
     </div>

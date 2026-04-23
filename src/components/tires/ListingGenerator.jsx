@@ -12,6 +12,9 @@ import { copyToClipboard } from '../../utils/copyToClipboard'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
+import { ListingAdvisorPanel } from './ListingAdvisorPanel.jsx'
+import { flags } from '../../utils/featureFlags.js'
+import { useAdvisorSignals } from '../../hooks/useAdvisorSignals.js'
 
 const PLATFORMS = ['Facebook Marketplace', 'OfferUp', 'Craigslist']
 
@@ -249,6 +252,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
   const [advisorById, setAdvisorById] = useState({})
   const [advisorRunning, setAdvisorRunning] = useState(false)
   const [markPostedUi, setMarkPostedUi] = useState({})
+  const { ranked: advisorRanked } = useAdvisorSignals()
 
   const markPosted = useCallback(async (tireId, platform) => {
     setMarkPostedUi((prev) => ({
@@ -474,6 +478,9 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                   key={t.id}
                   className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
                 >
+                  {flags.listingAdvisor && t.id ? (
+                    <ListingAdvisorPanel tireId={t.id} ranked={advisorRanked} />
+                  ) : null}
                   <p className="text-sm font-medium text-zinc-200">
                     {t.brand} · {t.description}
                   </p>

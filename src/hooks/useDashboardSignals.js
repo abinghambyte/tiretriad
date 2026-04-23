@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { db, functions } from '../firebase/config'
 import { useTires } from './useTires'
 import { useCrewPreview } from './useCrewPreview'
+import { useAdvisorSignals } from './useAdvisorSignals.js'
+import { DEFAULT_ADVISOR_MODE } from '../utils/listingAdvisor/modeWeights.js'
 import { computeMargin } from '../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
 import { listingStatus } from '../utils/listingStatus'
@@ -250,6 +252,7 @@ export function deriveCrewSignals(users, orders, tires, nowMs) {
 export function useDashboardSignals() {
   const { tires, loading: tiresLoading } = useTires()
   const { crewPreview, crewSignals: crewSignalsState } = useCrewPreview()
+  const advisor = useAdvisorSignals(DEFAULT_ADVISOR_MODE)
 
   const needsRepostingCount = useMemo(() => {
     if (tiresLoading) return null
@@ -555,5 +558,7 @@ export function useDashboardSignals() {
     topSellers,
     allTimeMargin,
     rollingAverageRevenue,
+    advisorRanked: advisor.ranked,
+    advisorLoading: advisor.loading,
   }
 }
