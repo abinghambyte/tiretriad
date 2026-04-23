@@ -110,7 +110,7 @@ describe('buildPaletteActions', () => {
   })
 })
 
-describe('buildPaletteActions — tire selection entries', () => {
+describe('buildPaletteActions -- tire selection entries', () => {
   function sel(overrides = {}) {
     return {
       count: 2,

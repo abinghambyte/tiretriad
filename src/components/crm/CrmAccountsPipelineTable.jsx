@@ -8,14 +8,14 @@ import {
 import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 
 function fmtTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleDateString('en-US', {
       timeZone: 'America/Denver',
       dateStyle: 'short',
     })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -118,7 +118,7 @@ export function CrmAccountsPipelineTable({ accounts, avgBuyPerTire, onOpen }) {
               <td className="px-3 py-2 text-zinc-300">
                 {estimatedDealValue(raw.vehicleProfile || {}, avgBuyPerTire) != null
                   ? formatCurrency(estimatedDealValue(raw.vehicleProfile || {}, avgBuyPerTire))
-                  : '—'}
+                  : '--'}
               </td>
               <td className="px-3 py-2 text-xs text-zinc-500">{fmtTs(lastActivityAt(raw))}</td>
               <td className="px-3 py-2 text-right">

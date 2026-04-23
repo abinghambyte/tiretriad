@@ -8,7 +8,7 @@ import { permissionMeets } from '../constants/peoplePermissions'
  * @param {import('react').ReactNode} props.children
  * @param {string} [props.module] Firestore permissions key: tires | orders | people | …
  * @param {'none'|'view'|'edit'|'act'|'manage'} [props.level] Required permission rank
- * @param {boolean} [props.requireAdmin] Overwatch (admin role) only — others go to dashboard
+ * @param {boolean} [props.requireAdmin] Overwatch (admin role) only -- others go to dashboard
  */
 export function ProtectedRoute({ children, module, level, requireAdmin }) {
   const { user, loading: authLoading } = useAuth()

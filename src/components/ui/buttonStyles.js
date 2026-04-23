@@ -4,15 +4,15 @@
  * stays readable: the primary action pops, secondary stays neutral, and
  * destructive reads as a last-resort ghost.
  *
- * primary        — most common positive action; filled amber pill
- * secondary      — supporting positive action; outline neutral
- * ghostDestructive — destructive; ghost red text, border transparent, placed last
+ * primary        -- most common positive action; filled amber pill
+ * secondary      -- supporting positive action; outline neutral
+ * ghostDestructive -- destructive; ghost red text, border transparent, placed last
  *
  * Radius tiers used across the portal (flag drift in review):
- *   rounded-xl  — cards, section shells, sticky toolbars
- *   rounded-lg  — buttons, popovers, inputs
- *   rounded-md  — small chips, inline dropdowns
- *   rounded-full — StatusPill, badges, score chips
+ *   rounded-xl  -- cards, section shells, sticky toolbars
+ *   rounded-lg  -- buttons, popovers, inputs
+ *   rounded-md  -- small chips, inline dropdowns
+ *   rounded-full -- StatusPill, badges, score chips
  */
 
 export const BTN_PRIMARY =

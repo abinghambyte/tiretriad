@@ -20,14 +20,14 @@ export function formatCurrency(value) {
 }
 
 /**
- * Currency for display tables — em dash when missing or non-finite.
+ * Currency for display tables -- em dash when missing or non-finite.
  * @param {unknown} value
  * @returns {string}
  */
 export function formatCurrencyOrDash(value) {
-  if (value == null || value === '') return '—'
+  if (value == null || value === '') return '--'
   const n = Number(value)
-  if (!Number.isFinite(n)) return '—'
+  if (!Number.isFinite(n)) return '--'
   return USD.format(n)
 }
 

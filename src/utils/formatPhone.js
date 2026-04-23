@@ -1,5 +1,5 @@
 /**
- * Phone helpers for People / invites — NANP-friendly input, E.164 for storage.
+ * Phone helpers for People / invites -- NANP-friendly input, E.164 for storage.
  * (Keep normalization logic aligned with `normalizePhoneToE164` in `functions/peopleCallables.js`.)
  */
 

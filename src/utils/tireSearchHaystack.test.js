@@ -121,7 +121,7 @@ describe('matchesQuery', () => {
     expect(matchesQuery(tire, 'defender ltx')).toBe(true)
   })
 
-  it('single-letter LR queries do not match — length threshold protects the catalog', () => {
+  it('single-letter LR queries do not match -- length threshold protects the catalog', () => {
     // Guard: a one-character "C" query would otherwise match every LR-C tire
     // via the tread/description haystack (any description containing a lone
     // "c" qualifies after normalization). We require 2+ chars before tokens

@@ -4,7 +4,7 @@ import { functions } from '../firebase/config'
 /**
  * Presence heartbeat driver. Calls the `updatePresence` callable on an
  * interval while the page is visible, pauses while hidden, and resumes with
- * an immediate fire on visibility change. Single-flight — overlapping calls
+ * an immediate fire on visibility change. Single-flight -- overlapping calls
  * are skipped. Server-side rate limit (45s) swallows occasional collisions
  * with the 60s interval silently; other errors are logged and the loop keeps
  * running.

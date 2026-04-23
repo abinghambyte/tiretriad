@@ -20,7 +20,7 @@ export function CrmLeadDetailDrawer({ lead, onClose, canEdit, onConvertToVip }) 
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const createdLabel = lead ? timeAgo(lead.createdAt) || '—' : '—'
+  const createdLabel = lead ? timeAgo(lead.createdAt) || '--' : '--'
 
   const copyConversationId = useCallback(async () => {
     const id = String(lead?.sinchConversationId ?? '').trim()
@@ -81,15 +81,15 @@ export function CrmLeadDetailDrawer({ lead, onClose, canEdit, onConvertToVip }) 
           <dl className="space-y-1 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3 text-zinc-200">
             <div>
               <dt className="text-xs text-zinc-500">Name</dt>
-              <dd>{String(lead.contactName ?? '').trim() || '—'}</dd>
+              <dd>{String(lead.contactName ?? '').trim() || '--'}</dd>
             </div>
             <div>
               <dt className="text-xs text-zinc-500">Phone</dt>
-              <dd>{String(lead.phone ?? '').trim() || '—'}</dd>
+              <dd>{String(lead.phone ?? '').trim() || '--'}</dd>
             </div>
             <div>
               <dt className="text-xs text-zinc-500">Email</dt>
-              <dd className="break-all">{String(lead.email ?? '').trim() || '—'}</dd>
+              <dd className="break-all">{String(lead.email ?? '').trim() || '--'}</dd>
             </div>
           </dl>
         </section>
@@ -106,20 +106,20 @@ export function CrmLeadDetailDrawer({ lead, onClose, canEdit, onConvertToVip }) 
           <div>
             <div className="text-xs text-zinc-500">Page URL</div>
             <div className="mt-0.5 truncate font-mono text-xs text-zinc-300" title={pageUrl || undefined}>
-              {pageUrl || '—'}
+              {pageUrl || '--'}
             </div>
           </div>
           <div>
             <div className="text-xs text-zinc-500">Referrer</div>
             <div className="mt-0.5 truncate font-mono text-xs text-zinc-300" title={referrer || undefined}>
-              {referrer || '—'}
+              {referrer || '--'}
             </div>
           </div>
           <div>
             <div className="text-xs text-zinc-500">Sinch conversation ID</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <code className="max-w-full break-all rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-xs text-zinc-200">
-                {convId || '—'}
+                {convId || '--'}
               </code>
               {convId ? (
                 <button

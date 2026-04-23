@@ -38,7 +38,7 @@ export function crmSegmentIsPreset(stored) {
 /** @param {unknown} key */
 export function crmSegmentLabel(key) {
   const k = String(key ?? '').trim()
-  if (!k) return '—'
+  if (!k) return '--'
   const row = CRM_ACCOUNT_SEGMENTS.find((s) => s.value === k)
   return row ? row.label : k
 }
@@ -46,7 +46,7 @@ export function crmSegmentLabel(key) {
 /** @param {unknown} key */
 export function crmVehicleTypeCategoryLabel(key) {
   const k = String(key ?? '').trim()
-  if (!k) return '—'
+  if (!k) return '--'
   const row = CRM_VEHICLE_TYPE_CATEGORIES.find((s) => s.value === k)
   return row ? row.label : k
 }

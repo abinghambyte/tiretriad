@@ -1,6 +1,6 @@
 /**
  * Overhead total stored as `cts` on tire docs: mount + delivery + other (USD per tire).
- * FET is already included in Kyle's catalog `price` — do not add it here.
+ * FET is already included in Kyle's catalog `price` -- do not add it here.
  * @param {{ mountCost?: unknown, deliveryCost?: unknown, otherCost?: unknown }} parts
  * @returns {number}
  */

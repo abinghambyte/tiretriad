@@ -68,15 +68,15 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
   const marginLabel = marginBadgeLabel(quote.marginPct)
   const marginClasses = marginBadgeClass(quote.marginPct)
 
-  const brand = String(tire?.brand || '').trim() || '—'
-  const description = String(tire?.description || '').trim() || '—'
-  const mspn = String(tire?.mspn || '').trim() || '—'
+  const brand = String(tire?.brand || '').trim() || '--'
+  const description = String(tire?.description || '').trim() || '--'
+  const mspn = String(tire?.mspn || '').trim() || '--'
 
   const canLog =
     typeof onLogSale === 'function' &&
     quote.qty >= 1 &&
     quote.salePrice > 0 &&
-    mspn !== '—'
+    mspn !== '--'
 
   return (
     <div

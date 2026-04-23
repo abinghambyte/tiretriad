@@ -1,5 +1,5 @@
 /**
- * Rubber CRM pipeline — numeric stages in Firestore with legacy 1–6 mapping on read.
+ * Rubber CRM pipeline -- numeric stages in Firestore with legacy 1–6 mapping on read.
  * Active funnel: 1–5. Lost: 7. (Legacy 6 "Active client" maps to Closed 5.)
  */
 
@@ -84,7 +84,7 @@ export function legacyStageHint(rawStage, account = null) {
   return null
 }
 
-// Tanner is a silent partner — no portal access, never a CRM owner going forward.
+// Tanner is a silent partner -- no portal access, never a CRM owner going forward.
 // Legacy records may still have owner='tanner'; label fallback keeps them readable
 // (with a flag) until they're manually reassigned.
 const OWNER_OPTIONS = ['alex', 'dj', 'kyle']
@@ -99,7 +99,7 @@ export function crmOwnerLabel(v) {
   if (k === 'dj') return 'DJ'
   if (k === 'tanner') return 'Tanner (reassign: silent partner)'
   if (k === 'kyle') return 'Kyle'
-  return v || '—'
+  return v || '--'
 }
 
 /**
@@ -123,7 +123,7 @@ export function activityLogEntries(account) {
     kind: 'log',
     i,
     note: String(e?.note || ''),
-    by: String(e?.addedBy || '—'),
+    by: String(e?.addedBy || '--'),
     at: e?.addedAt,
   }))
   const legacyNotes = Array.isArray(account?.notes) ? account.notes : []
@@ -131,7 +131,7 @@ export function activityLogEntries(account) {
     kind: 'legacy',
     i,
     note: String(n?.text || ''),
-    by: String(n?.by || '—'),
+    by: String(n?.by || '--'),
     at: n?.at,
   }))
   return [...mapped, ...legacy]

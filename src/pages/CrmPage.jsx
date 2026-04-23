@@ -45,11 +45,11 @@ import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 const KANBAN_STAGES = [1, 2, 3, 4, 5]
 
 function formatTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -71,8 +71,8 @@ function nextActionSummary(a) {
           day: 'numeric',
         })
       : null
-  if (!task && !due) return '—'
-  return [task || '—', due].filter(Boolean).join(' · ')
+  if (!task && !due) return '--'
+  return [task || '--', due].filter(Boolean).join(' · ')
 }
 
 /** Classify the Next action due date for color-coding. Returns 'overdue' | 'today' | 'future' | 'none'. */
@@ -121,7 +121,7 @@ const STALE_DEAL_DAYS = 14
 function lastActivityNotePreview(a) {
   const e = lastActivityEntry(a)
   const text = String(e?.note || '').trim()
-  if (!text) return '—'
+  if (!text) return '--'
   return text.length > 90 ? `${text.slice(0, 87)}…` : text
 }
 
@@ -249,9 +249,9 @@ function DispatchTab() {
             className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 shadow-sm"
           >
             <p className="text-sm font-semibold text-zinc-100">{j.jobType || 'Job'}</p>
-            <p className="mt-1 text-xs text-zinc-400">{j.location || '—'}</p>
+            <p className="mt-1 text-xs text-zinc-400">{j.location || '--'}</p>
             <p className="mt-1 text-xs text-zinc-500">
-              Vehicles: {j.vehicleCount ?? '—'} · Tires: {j.tireSizes || '—'}
+              Vehicles: {j.vehicleCount ?? '--'} · Tires: {j.tireSizes || '--'}
             </p>
             <p className="mt-1 text-xs text-zinc-600">When: {fmtJobTime(j.scheduledAt)}</p>
             <p className="mt-2 text-[11px] font-medium text-cyan-400/90">
@@ -822,7 +822,7 @@ export function CrmPage() {
                                 Score {a.score ?? computeCrmScore(a)}
                               </span>
                               <span className="text-[10px] text-zinc-500" title="Pain score">
-                                · Pain {a.painScore ?? '—'}
+                                · Pain {a.painScore ?? '--'}
                               </span>
                             </div>
                           </button>
@@ -964,7 +964,7 @@ export function CrmPage() {
                                       className="text-[10px] text-zinc-500"
                                       title="Pain score"
                                     >
-                                      · Pain {a.painScore ?? '—'}
+                                      · Pain {a.painScore ?? '--'}
                                     </span>
                                   </div>
                                 </button>
@@ -1168,7 +1168,7 @@ export function CrmPage() {
                       <td className="max-w-[12rem] truncate px-3 py-2 text-zinc-300 max-sm:hidden" title={inquiryCell.title}>
                         {inquiryCell.display}
                       </td>
-                      <td className="px-3 py-2">{r.fleetSize ?? '—'}</td>
+                      <td className="px-3 py-2">{r.fleetSize ?? '--'}</td>
                       <td className="px-3 py-2">
                         <span
                           className={
@@ -1179,7 +1179,7 @@ export function CrmPage() {
                                 : 'text-zinc-500'
                           }
                         >
-                          {r.urgency || '—'}
+                          {r.urgency || '--'}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(r.followUpAt)}</td>

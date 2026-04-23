@@ -49,7 +49,7 @@ function MarkPostedControl({ tire, platformKey, shortLabel, actionLabel, phase, 
           : 'rounded-lg border border-zinc-600 bg-zinc-900/50 px-2 py-1.5 text-xs font-medium text-zinc-200 hover:border-zinc-500'
       }
     >
-      {recent ? `${shortLabel} · posted ${timeAgo(ts) || '—'}` : `✓ ${actionLabel}`}
+      {recent ? `${shortLabel} · posted ${timeAgo(ts) || '--'}` : `✓ ${actionLabel}`}
     </button>
   )
 }
@@ -327,7 +327,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
           try {
             const callableResult = await listingAdvisorFn(buildListingAdvisorRequestBody(t))
             rawUnwrapped = unwrapCallableData(callableResult?.data)
-            // Same object as below — copy from DevTools or expand "Raw callable payload" on errors.
+            // Same object as below -- copy from DevTools or expand "Raw callable payload" on errors.
             console.log('[listingAdvisor] raw callable response', {
               mspn: String(t.mspn || '').trim(),
               tireId: t.id,
@@ -564,7 +564,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                       </div>
                       <p className="text-xs text-zinc-500">
                         <span className="font-medium text-zinc-400">Platform:</span>{' '}
-                        {adv.listing.platformNotes || '—'}
+                        {adv.listing.platformNotes || '--'}
                       </p>
                       <div>
                         <div className="mb-1 flex items-center justify-between gap-2">

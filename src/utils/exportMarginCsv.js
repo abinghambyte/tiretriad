@@ -8,7 +8,7 @@ function csvEscape(value) {
   return s
 }
 
-/** Plain decimal for CSV numeric columns (no currency symbol — import-friendly). */
+/** Plain decimal for CSV numeric columns (no currency symbol -- import-friendly). */
 function csvMoney(n) {
   const x = Number(n)
   if (!Number.isFinite(x)) return ''
