@@ -113,7 +113,6 @@ export function useCrewPreview() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return { crewPreview, crewSignals }

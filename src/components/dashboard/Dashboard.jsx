@@ -138,7 +138,7 @@ export function Dashboard() {
       })
     }
     return chips
-  }, [hiddenGems, topAdvisorPick?.sku, needsRepostingCount, kylesQueueCount, signalBar?.pendingOrders, signalBar?.crewAlerts, crm?.openJobs])
+  }, [hiddenGems, topAdvisorPick, needsRepostingCount, kylesQueueCount, signalBar?.pendingOrders, signalBar?.crewAlerts, crm?.openJobs])
 
   if (!profileGate && profile && profile.handshakeSeen === false) {
     return <Navigate to="/handshake" replace />
