@@ -618,6 +618,15 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+          <label className="flex items-center gap-2 text-xs text-zinc-300">
+            <input
+              type="checkbox"
+              checked={Boolean(overheadDraft.doNotList)}
+              onChange={(e) => setOverheadDraft((d) => ({ ...d, doNotList: e.target.checked }))}
+              className="size-4 rounded border-zinc-600 accent-amber-400"
+            />
+            Do not list
+          </label>
           <p className="text-xs text-zinc-500">
             Overhead after save:{' '}
             <span className="font-mono text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
@@ -884,12 +893,13 @@ export function MarginTable({
     mountCost: 0,
     deliveryCost: 0,
     otherCost: 0,
+    doNotList: false,
   }))
   const [costSaving, setCostSaving] = useState(false)
 
   const openCostEdit = useCallback((row) => {
     setEditingCostsId(row.id)
-    setOverheadDraft(tireOverheadParts(row))
+    setOverheadDraft({ ...tireOverheadParts(row), doNotList: Boolean(row.doNotList) })
   }, [])
 
   const closeCostEdit = useCallback(() => {
@@ -911,6 +921,7 @@ export function MarginTable({
           deliveryCost,
           otherCost,
           cts,
+          doNotList: Boolean(overheadDraft.doNotList),
         })
         toast('Overhead updated', 'success')
         closeCostEdit()
