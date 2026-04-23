@@ -18,25 +18,25 @@ function velocityUrgency(avgDaysToSell, sampleSize) {
 }
 
 function scoreTire(tire, weights) {
-  const stockRaw = clampAge(tire.daysInStock)
   const repriceRaw = clampAge(tire.daysSincePriceChange)
+  const staleListingRaw = clampAge(tire.daysSinceLastListed)
   const velRaw = velocityUrgency(tire.avgDaysToSell, tire.velocitySampleSize)
   const marginRaw = Number.isFinite(Number(tire.marginHeadroomPct)) ? Number(tire.marginHeadroomPct) : 0
   const crossRaw = Math.max(0, Number(tire.missingPlatformCount) || 0)
 
   // Margin is expressed as a fraction (0.32 = 32%). Multiply by 100 so the
   // weight scale lines up with the other signals.
-  const stockW = stockRaw * weights.daysInStock
   const repriceW = repriceRaw * weights.daysSincePriceChange
+  const staleListingW = staleListingRaw * weights.daysSinceLastListed
   const velW = velRaw * weights.velocity
   const marginW = marginRaw * 100 * weights.margin
   const crossW = crossRaw * weights.crossPost
 
   return {
-    rankScore: stockW + repriceW + velW + marginW + crossW,
+    rankScore: repriceW + staleListingW + velW + marginW + crossW,
     signalBreakdown: {
-      daysInStock: { raw: stockRaw, weighted: stockW },
       daysSincePriceChange: { raw: repriceRaw, weighted: repriceW },
+      daysSinceLastListed: { raw: staleListingRaw, weighted: staleListingW },
       velocity: { raw: velRaw, weighted: velW },
       margin: { raw: marginRaw, weighted: marginW },
       crossPost: { raw: crossRaw, weighted: crossW },
@@ -49,7 +49,7 @@ function scoreTire(tire, weights) {
  * Pure function. No I/O. Tires with `doNotList: true` are dropped before scoring.
  *
  * @param {Array<object>} tires
- * @param {'CLEARANCE'|'PROFIT'|'VELOCITY'} mode
+ * @param {'COVERAGE'|'PROFIT'|'VELOCITY'} mode
  * @returns {Array<object>} sorted descending by rankScore, each row augmented with
  *   `rankScore` and `signalBreakdown`.
  */
