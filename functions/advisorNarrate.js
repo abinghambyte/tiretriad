@@ -7,7 +7,7 @@ const admin = require('firebase-admin')
 const { GEMINI_API_KEY } = require('./slackSecrets')
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
-const VALID_MODES = new Set(['CLEARANCE', 'PROFIT', 'VELOCITY'])
+const VALID_MODES = new Set(['COVERAGE', 'PROFIT', 'VELOCITY'])
 
 const SYSTEM_PROMPT = `You are a tire listing advisor for a northern Colorado commercial tire reseller.
 Your job is to explain why a specific tire is ranked for listing right now, and flag any contradictions the ranking math might have missed.

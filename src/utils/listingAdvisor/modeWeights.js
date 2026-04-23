@@ -1,7 +1,7 @@
 // src/utils/listingAdvisor/modeWeights.js
 // Weights are plain numbers so signalBreakdown stays legible. Tuning is one edit.
 //
-// Signals (dropship model — no physical inventory):
+// Signals (dropship model, no physical inventory):
 //   daysSincePriceChange   - days since the last priceIntel.sources write
 //   daysSinceLastListed    - days since any platform's lastPostedAt (stale catalog SKU)
 //   velocity               - 100 / avgDaysToSell for this size+LR (needs >= 3 sample)
