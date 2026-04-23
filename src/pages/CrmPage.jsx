@@ -1148,7 +1148,15 @@ export function CrmPage() {
                     <tr
                       key={r.id}
                       className="cursor-pointer border-b border-zinc-800/80 hover:bg-zinc-900/40"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setLeadDetail(r)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setLeadDetail(r)
+                        }
+                      }}
                     >
                       <td className="px-3 py-2">{r.businessName}</td>
                       <td className="px-3 py-2 max-sm:hidden">
