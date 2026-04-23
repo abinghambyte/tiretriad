@@ -79,7 +79,7 @@ function formatPhoneDisplay(digits) {
   if (d.length === 11 && d.startsWith('1')) {
     return `+1 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
   }
-  return d || '—'
+  return d || '--'
 }
 
 function buildNotifyPayload(order) {
@@ -110,7 +110,7 @@ const ORDER_STATUS_LABELS = {
 
 function orderStatusLabel(status) {
   const raw = String(status || '').trim()
-  if (!raw) return '—'
+  if (!raw) return '--'
   const k = raw.toLowerCase().replace(/\s+/g, '_')
   if (ORDER_STATUS_LABELS[k]) return ORDER_STATUS_LABELS[k]
   const compact = raw.replace(/_/g, '').toLowerCase()
@@ -605,7 +605,7 @@ export function OrdersList({ highlightId }) {
           const tire = tiresByMspn.get(mspn)
           const brand = tire ? String(tire.brand || '').trim() : ''
           const tdesc = tire ? String(tire.description || tire.tread || '').trim() : ''
-          const tireLine = [brand, tdesc].filter(Boolean).join(' · ').trim() || mspn || '—'
+          const tireLine = [brand, tdesc].filter(Boolean).join(' · ').trim() || mspn || '--'
           const qty = Number(o.quantity) || 0
           const ppt = Number(o.pricePerTire) || 0
           const total = Number(o.totalPrice) || (qty > 0 && ppt > 0 ? qty * ppt : 0)
@@ -650,7 +650,7 @@ export function OrdersList({ highlightId }) {
                   </div>
                   <p className="mt-2 text-sm font-medium leading-snug text-zinc-100">{tireLine}</p>
                   <p className="mt-1 font-mono text-xs text-zinc-500">
-                    {mspn || '—'} × {formatQty(qty)}
+                    {mspn || '--'} × {formatQty(qty)}
                   </p>
                   {ppt > 0 || total > 0 ? (
                     <p className="mt-2 text-sm text-zinc-300">

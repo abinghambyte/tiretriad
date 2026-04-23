@@ -36,8 +36,8 @@ function adaptTaskDispatcherResult(raw) {
       creditWarning: String(credit || ''),
       contextToLoad: Array.isArray(o.contextToLoad) ? o.contextToLoad.map((x) => String(x || '').trim()).filter(Boolean) : [],
       sessionStarter: String(o.generatedPrompt || ''),
-      taskType: worker || '—',
-      estimatedComplexity: String(o.platform || '—'),
+      taskType: worker || '--',
+      estimatedComplexity: String(o.platform || '--'),
     },
   }
 }
@@ -59,7 +59,7 @@ function modelDisplayName(routing) {
   if (r === 'haiku') return 'Claude Haiku'
   if (r === 'gemini') return 'Gemini (web)'
   if (r === 'antigravity') return 'Antigravity'
-  return String(routing || '—')
+  return String(routing || '--')
 }
 
 async function copyText(text) {
@@ -168,7 +168,7 @@ function GrowthLabRoutingForm() {
             <span
               className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${routingBadgeClass(routing)}`}
             >
-              {routing || '—'}
+              {routing || '--'}
             </span>
             <span className="text-sm text-zinc-300">
               Model: <span className="font-medium text-zinc-100">{modelDisplayName(routing)}</span>
@@ -182,7 +182,7 @@ function GrowthLabRoutingForm() {
               </span>
             ) : null}
             <span className="text-xs uppercase tracking-wide text-zinc-500">
-              {String(dispatch.taskType || '—')} · {String(dispatch.estimatedComplexity || '—')}
+              {String(dispatch.taskType || '--')} · {String(dispatch.estimatedComplexity || '--')}
             </span>
           </div>
           {dispatch.creditWarning ? (
@@ -192,7 +192,7 @@ function GrowthLabRoutingForm() {
           ) : null}
           <div className="mt-4">
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rationale</p>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{String(dispatch.rationale || '—')}</p>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{String(dispatch.rationale || '--')}</p>
           </div>
           <div className="mt-4">
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Context to load</p>
@@ -204,7 +204,7 @@ function GrowthLabRoutingForm() {
                   </li>
                 ))
               ) : (
-                <li className="text-zinc-500">—</li>
+                <li className="text-zinc-500">--</li>
               )}
             </ul>
           </div>
@@ -220,7 +220,7 @@ function GrowthLabRoutingForm() {
               </button>
             </div>
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/90 p-4 text-xs leading-relaxed text-zinc-200">
-              {String(dispatch.sessionStarter || '—')}
+              {String(dispatch.sessionStarter || '--')}
             </pre>
           </div>
         </div>

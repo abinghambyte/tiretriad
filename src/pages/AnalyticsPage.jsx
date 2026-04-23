@@ -261,7 +261,7 @@ export function AnalyticsPage() {
     const allTime = Number(r.allTimeRevenue) || 0
     // docAlive: at least one completion has ever been rolled up. Used to
     // distinguish "no sales yet this period" (show $0) from "rollup never
-    // fired" (show em-dash + hint).
+    // fired" (show placeholder + hint).
     const docAlive = allTime > 0 || Boolean(r.weeklyWindow) || Boolean(r.monthlyWindow)
     const weekMatch = String(r.weeklyWindow || '') === wk
     const monthMatch = String(r.monthlyWindow || '') === mo
@@ -374,7 +374,7 @@ export function AnalyticsPage() {
       const m = byWeek.get(wk)
       m.set(handle, (m.get(handle) || 0) + 1)
     }
-    let topCrew = { handle: '—', count: 0, week: '' }
+    let topCrew = { handle: '--', count: 0, week: '' }
     for (const [wk, handles] of byWeek) {
       for (const [h, c] of handles) {
         if (c > topCrew.count) topCrew = { handle: h, count: c, week: wk }
@@ -387,7 +387,7 @@ export function AnalyticsPage() {
       if (!m) continue
       skuRev.set(m, (skuRev.get(m) || 0) + (Number(o.paymentAmount) || 0))
     }
-    let topSku = { mspn: '—', revenue: 0 }
+    let topSku = { mspn: '--', revenue: 0 }
     for (const [m, rev] of skuRev) {
       if (rev > topSku.revenue) topSku = { mspn: m, revenue: rev }
     }
@@ -470,13 +470,13 @@ export function AnalyticsPage() {
                   value={
                     metrics.avgFulfillment != null
                       ? `${metrics.avgFulfillment.toFixed(1)} min`
-                      : '—'
+                      : '--'
                   }
                   hint="Orders with fulfillment minutes recorded."
                 />
                 <MetricCard
                   label="Avg friction score"
-                  value={metrics.avgFriction != null ? metrics.avgFriction.toFixed(1) : '—'}
+                  value={metrics.avgFriction != null ? metrics.avgFriction.toFixed(1) : '--'}
                   hint="Friction score measures how many follow-ups or complications an order required before completion. Lower is smoother."
                 />
                 <MetricCard
@@ -516,7 +516,7 @@ export function AnalyticsPage() {
                     Poke conversion
                   </p>
                   <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-50">
-                    {pokeLoading ? '…' : pokeConversion != null ? formatPercent(pokeConversion * 100, 1) : '—'}
+                    {pokeLoading ? '…' : pokeConversion != null ? formatPercent(pokeConversion * 100, 1) : '--'}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-600">
                     Share of orders that got at least one reminder before completion.
@@ -540,7 +540,7 @@ export function AnalyticsPage() {
               />
               <MetricCard
                 label="MTD revenue"
-                value={revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '—'}
+                value={revenueWindows.mtd != null ? formatCurrency(revenueWindows.mtd) : '--'}
                 hint={
                   revenueWindows.monthMatch
                     ? `Month ${revenueWindows.mo}.`
@@ -551,7 +551,7 @@ export function AnalyticsPage() {
               />
               <MetricCard
                 label="WTD revenue"
-                value={revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '—'}
+                value={revenueWindows.wtd != null ? formatCurrency(revenueWindows.wtd) : '--'}
                 hint={
                   revenueWindows.weekMatch
                     ? `ISO week ${revenueWindows.wk}.`
@@ -563,7 +563,7 @@ export function AnalyticsPage() {
             </div>
             <MetricCard
               label="Avg order value"
-              value={avgOrderSample != null ? formatCurrency(avgOrderSample) : '—'}
+              value={avgOrderSample != null ? formatCurrency(avgOrderSample) : '--'}
               hint={`Mean payment on last ${formatQty(completedRows.length)} completed orders loaded here.`}
             />
             <MarginWeekLineChart labels={marginWeekSeries.labels} percents={marginWeekSeries.percents} />
@@ -688,8 +688,8 @@ export function AnalyticsPage() {
               title="Biggest single order (margin %)"
               body={
                 leaderboard.bestAll
-                  ? `${formatPercent(leaderboard.bestAll.pct, 2)} · ${formatCurrency(leaderboard.bestAll.pay)} revenue · pool ${formatCurrency(leaderboard.bestAll.pool)} · ${String(leaderboard.bestAll.customerName || '—')}`
-                  : '—'
+                  ? `${formatPercent(leaderboard.bestAll.pct, 2)} · ${formatCurrency(leaderboard.bestAll.pay)} revenue · pool ${formatCurrency(leaderboard.bestAll.pool)} · ${String(leaderboard.bestAll.customerName || '--')}`
+                  : '--'
               }
             />
             <LeaderBlock
@@ -697,7 +697,7 @@ export function AnalyticsPage() {
               body={
                 leaderboard.best30
                   ? `${formatPercent(leaderboard.best30.pct, 2)} · ${formatCurrency(leaderboard.best30.pay)}`
-                  : '—'
+                  : '--'
               }
             />
             <LeaderBlock
@@ -705,7 +705,7 @@ export function AnalyticsPage() {
               body={
                 leaderboard.topCrew.count > 0
                   ? `${leaderboard.topCrew.handle} · ${formatQty(leaderboard.topCrew.count)} orders · week ${leaderboard.topCrew.week}`
-                  : '—'
+                  : '--'
               }
             />
             <LeaderBlock
@@ -713,7 +713,7 @@ export function AnalyticsPage() {
               body={
                 leaderboard.topSku.revenue > 0
                   ? `${leaderboard.topSku.mspn} · ${formatCurrency(leaderboard.topSku.revenue)}`
-                  : '—'
+                  : '--'
               }
             />
             </div>
@@ -725,7 +725,7 @@ export function AnalyticsPage() {
 }
 
 function LeaderBlock({ title, body }) {
-  const hasData = typeof body === 'string' ? body !== '—' && body.trim() !== '' : body != null
+  const hasData = typeof body === 'string' ? body !== '--' && body.trim() !== '' : body != null
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
@@ -795,15 +795,15 @@ function ArchiveRow({ tire }) {
   const retail = tireCatalogRetailNumber(tire)
   const margin = computeListingMargin(tire)
   const resolvedAt = toDate(tire?.researchQueue?.resolvedAt)
-  const by = String(tire?.researchQueue?.resolvedBy || tire?.researchQueue?.by || '—')
+  const by = String(tire?.researchQueue?.resolvedBy || tire?.researchQueue?.by || '--')
   return (
     <tr className="border-t border-zinc-800/70 text-zinc-300">
       <td className="px-3 py-2 font-mono text-amber-200">{mspn}</td>
       <td className="px-3 py-2 text-zinc-400">{desc}</td>
-      <td className="px-3 py-2 tabular-nums">{retail > 0 ? formatCurrency(retail) : '—'}</td>
-      <td className="px-3 py-2 tabular-nums">{margin != null ? formatPercent(margin, 1) : '—'}</td>
+      <td className="px-3 py-2 tabular-nums">{retail > 0 ? formatCurrency(retail) : '--'}</td>
+      <td className="px-3 py-2 tabular-nums">{margin != null ? formatPercent(margin, 1) : '--'}</td>
       <td className="px-3 py-2 text-zinc-500">
-        {resolvedAt ? resolvedAt.toISOString().slice(0, 10) : '—'}
+        {resolvedAt ? resolvedAt.toISOString().slice(0, 10) : '--'}
       </td>
       <td className="px-3 py-2 text-zinc-400">{by}</td>
     </tr>
