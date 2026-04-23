@@ -60,11 +60,11 @@ function denverMonthStartYmd(ms = Date.now()) {
 }
 
 function formatTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -374,9 +374,9 @@ export function OpsPage() {
                     <tr key={r.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2 font-medium text-zinc-200">{formatCurrency(r.amount)}</td>
                       <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{r.category}</td>
-                      <td className="px-3 py-2 text-zinc-300">{r.note || '—'}</td>
-                      <td className="px-3 py-2 text-zinc-400">{r.date || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-zinc-500">{r.loggedBy || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-300">{r.note || '--'}</td>
+                      <td className="px-3 py-2 text-zinc-400">{r.date || '--'}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-500">{r.loggedBy || '--'}</td>
                       <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(r.createdAt)}</td>
                     </tr>
                   ))
@@ -453,10 +453,10 @@ export function OpsPage() {
                     <tr key={row.id} className="border-b border-zinc-800/80">
                       <td className="px-3 py-2 font-mono text-xs text-amber-200/90">{row.mspn}</td>
                       <td className="max-w-[240px] truncate px-3 py-2 text-zinc-400">
-                        {reorderDesc.get(String(row.mspn || '')) || '—'}
+                        {reorderDesc.get(String(row.mspn || '')) || '--'}
                       </td>
                       <td className="px-3 py-2 text-zinc-300">{formatQty(row.qty)}</td>
-                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{row.requestedBy || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{row.requestedBy || '--'}</td>
                       <td className="px-3 py-2 text-xs text-zinc-500 max-sm:hidden">{formatTs(row.requestedAt)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">

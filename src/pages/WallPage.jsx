@@ -18,7 +18,7 @@ import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 function logisticsLine(o) {
   const f = String(o.fulfillment || '').toLowerCase()
   const cust =
-    f === 'pickup' ? 'Customer pickup' : f === 'delivery' ? 'Delivery to customer' : f || '—'
+    f === 'pickup' ? 'Customer pickup' : f === 'delivery' ? 'Delivery to customer' : f || '--'
   const m = o.logisticsMethod
   const bridge =
     m === 'dropoff' ? 'Drop-off (Source to Field)' : m === 'pickup' ? 'Pickup (Field to Source)' : ''
@@ -37,7 +37,7 @@ function isCatalogMspn(mspn) {
 }
 
 function completedLabel(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     const d = ts.toDate()
     const now = new Date()
@@ -50,7 +50,7 @@ function completedLabel(ts) {
     }
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -170,7 +170,7 @@ export function WallPage({ embedded = false }) {
                       </span>
                     ) : (
                       <span className="inline-flex flex-wrap items-center gap-1.5 font-mono text-sm text-zinc-500">
-                        <span>{String(o.mspn ?? '—')}</span>
+                        <span>{String(o.mspn ?? '--')}</span>
                         <span>× {formatQty(o.quantity)}</span>
                         <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">(test)</span>
                       </span>
@@ -195,15 +195,15 @@ export function WallPage({ embedded = false }) {
                     ) : null}
                   </div>
                   <p className="text-sm font-semibold text-emerald-200">
-                    {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '—'}
+                    {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '--'}
                   </p>
                 </div>
-                <p className="mt-2 text-sm text-zinc-300">{o.customerName || '—'}</p>
+                <p className="mt-2 text-sm text-zinc-300">{o.customerName || '--'}</p>
                 <p className="mt-1 text-xs text-zinc-500">
                   ⏱{' '}
                   {o.fulfillmentTimeMinutes != null
                     ? `${o.fulfillmentTimeMinutes} min`
-                    : '—'}{' '}
+                    : '--'}{' '}
                   · {crewLine(o)}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500">{logisticsLine(o)}</p>

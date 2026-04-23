@@ -200,7 +200,7 @@ export function PayoutConfigPanel() {
               ))}
             </div>
             <p className="mt-2 text-xs text-zinc-400">
-              Sum: {(splitFrac.sum * 100).toFixed(2)}%{!splitOk ? ' — must total 100%' : ''}
+              Sum: {(splitFrac.sum * 100).toFixed(2)}%{!splitOk ? ' Shares must total 100%' : ''}
             </p>
           </div>
 
