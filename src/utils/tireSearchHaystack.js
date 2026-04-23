@@ -28,7 +28,7 @@ function safeParse(desc) {
  * The returned string is normalized the same way `normalizeQuery` normalizes
  * user input so `matchesQuery` can do a compact substring check.
  *
- * Caches per tire object via WeakMap — a tire that hasn't changed returns
+ * Caches per tire object via WeakMap -- a tire that hasn't changed returns
  * the same string without re-parsing. At 1,160 tires and a 12 ms budget per
  * keystroke this matters.
  *
@@ -126,7 +126,7 @@ export function normalizeQuery(s) {
  */
 export function stripVerbosePhrases(raw) {
   let s = String(raw ?? '')
-  // Slash-attached sidewall codes (e.g. "265/70R17/BSW") — same vocabulary as
+  // Slash-attached sidewall codes (e.g. "265/70R17/BSW") -- same vocabulary as
   // standalone words but many retailer pastes glue them to the rim token.
   s = s.replace(
     /\/(?:(?:bsw|ww|rbl|owl|rowl|rwl|wwl|sbl|blk|bw))(?=[\s/]|$)/gi,

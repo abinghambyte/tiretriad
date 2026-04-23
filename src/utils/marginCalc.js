@@ -119,7 +119,7 @@ export function marginBadgeClass(percent) {
 }
 
 export function marginBadgeLabel(percent) {
-  if (percent == null || Number.isNaN(percent)) return '—'
+  if (percent == null || Number.isNaN(percent)) return '--'
   if (percent < 15) return '🔴 Low'
   if (percent < 25) return '🟡 OK'
   if (percent < 35) return '🟢 Good'

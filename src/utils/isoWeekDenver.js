@@ -82,7 +82,7 @@ export function denverDayEndExclusiveMs(ymd) {
   return hi
 }
 
-/** @param {string} ymd `YYYY-MM-DD` — calendar day math (UTC), independent of browser local TZ */
+/** @param {string} ymd `YYYY-MM-DD` -- calendar day math (UTC), independent of browser local TZ */
 export function addDaysToYmd(ymd, deltaDays) {
   const [y, mo, da] = ymd.split('-').map(Number)
   if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) return ymd

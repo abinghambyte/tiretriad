@@ -17,7 +17,7 @@ function displayNameFromEmail(email) {
 }
 
 /**
- * First name for UI badges — `profile.firstName`, then non-email displayName, then email-derived short name.
+ * First name for UI badges -- `profile.firstName`, then non-email displayName, then email-derived short name.
  * @param {{ firstName?: string, displayName?: string, email?: string } | null | undefined} profile
  * @param {string | null | undefined} [authEmail] Firebase Auth email when profile.email is unset
  * @returns {string}

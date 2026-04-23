@@ -181,7 +181,7 @@ export function CommandPalette({ open, onClose }) {
       const opener = openerRef.current
       openerRef.current = null
       if (opener && typeof opener.focus === 'function') {
-        // Defer so the palette unmount finishes before focus returns — React
+        // Defer so the palette unmount finishes before focus returns -- React
         // otherwise fights the focus move during the commit phase.
         queueMicrotask(() => opener.focus())
       }
@@ -460,7 +460,7 @@ export function CommandPalette({ open, onClose }) {
                       >
                         <span className="font-mono text-[10px] text-zinc-500">{o.id}</span>
                         <span className="ml-2 text-zinc-300">
-                          {o.customerName || '—'} · {o.mspn}
+                          {o.customerName || '--'} · {o.mspn}
                         </span>
                       </button>
                     </li>
@@ -488,7 +488,7 @@ export function CommandPalette({ open, onClose }) {
                           setQ('')
                         }}
                       >
-                        {c.name || '—'} · {c.phoneNumber || c.id}
+                        {c.name || '--'} · {c.phoneNumber || c.id}
                       </button>
                     </li>
                   )

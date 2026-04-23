@@ -67,7 +67,7 @@ export function deriveTireTags(tire) {
   // (`lrs`), so intentionally NOT added as a `LR-<letter>` tag here. Emitting
   // both duplicates every load range across two chip rows in the UI.
 
-  // Speed rating — from parser if available, else fall back to text probe.
+  // Speed rating -- from parser if available, else fall back to text probe.
   const sr = parsed && parsed.speedRating
     ? String(parsed.speedRating).toUpperCase()
     : parseSpeedRatingFallback(description)
@@ -87,7 +87,7 @@ export function deriveTireTags(tire) {
     }
   }
 
-  // Normalize — dedupe case-insensitively, preferring canonical capitalization
+  // Normalize -- dedupe case-insensitively, preferring canonical capitalization
   // when both exist (e.g. existing `custom` + derived `AT`).
   const lower = new Map()
   for (const t of out) {
@@ -117,7 +117,7 @@ function safeParse(description) {
 
 /**
  * Fallback speed-rating probe for descriptions that don't parse cleanly.
- * Conservative — avoids false positives on load-range letters.
+ * Conservative -- avoids false positives on load-range letters.
  * @param {string} description
  * @returns {string | null}
  */
@@ -130,7 +130,7 @@ function parseSpeedRatingFallback(description) {
 }
 
 // --- Use-type regexes ------------------------------------------------------
-// AT: All-terrain family — includes KO2/KO3 and Duratrac specifically.
+// AT: All-terrain family -- includes KO2/KO3 and Duratrac specifically.
 const RE_AT =
   /\b(?:ATT|AKO|AT|A\/T|KO2|KO3|Duratrac|ATTakpro|All-?Terrain)\b/i
 // HT: truck/SUV highway tires. `Touring` here is the truck-touring "HT" family.
@@ -142,7 +142,7 @@ const RE_MT =
 const RE_UHP =
   /\b(?:PS4|Pilot.?Sport|G-?Force|F1|Eagle|Potenza|CompetitionYok|PilotSuperSport|Cup)\b/i
 
-// Passenger grand-tour bucket — distinct from HT (which is truck-oriented).
+// Passenger grand-tour bucket -- distinct from HT (which is truck-oriented).
 // Detects "GrandTouring"/"GT"/"Passenger" tokens.
 const RE_PASSENGER_TOURING = /\b(?:GrandTouring|GT|Passenger)\b/i
 

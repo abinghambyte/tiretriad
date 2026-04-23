@@ -211,7 +211,7 @@ export function deriveCrewSignals(users, orders, tires, nowMs) {
     }
   }
 
-  // Sourcer queue counts — Patch Q introduces `researchQueue`; until Q ships
+  // Sourcer queue counts -- Patch Q introduces `researchQueue`; until Q ships
   // we treat the field as absent and default to zero for everyone. Once Q is
   // merged, `researchQueue.resolvedAt == null` means an open row.
   let perSourcerQueue = 0

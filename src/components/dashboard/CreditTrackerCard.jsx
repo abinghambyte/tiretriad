@@ -112,7 +112,7 @@ export function CreditTrackerCard({ compact = false }) {
           dateStyle: 'medium',
           timeStyle: 'short',
         })
-      : '—'
+      : '--'
 
   const shell = compact
     ? 'rounded-lg border border-zinc-800/90 bg-zinc-950/90 px-3 py-2 shadow-sm shadow-black/20 sm:px-4'
@@ -170,7 +170,7 @@ export function CreditTrackerCard({ compact = false }) {
               key={availAnimKey}
               className={`sk-figures text-lg font-bold tabular-nums sm:text-xl ${availClass} ${availAnimKey > 0 ? 'sk-credit-flash rounded-md' : ''}`}
             >
-              {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
+              {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '--'}
             </span>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs text-zinc-400 sm:text-sm">
@@ -236,7 +236,7 @@ export function CreditTrackerCard({ compact = false }) {
           key={availAnimKey}
           className={`sk-figures mt-2 text-3xl font-bold tabular-nums ${availClass} ${availAnimKey > 0 ? 'sk-credit-flash inline-block rounded-md' : ''}`}
         >
-          {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '—'}
+          {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '--'}
         </p>
         <p className="mt-1 text-xs text-zinc-500">Available (limit − balance)</p>
       </div>

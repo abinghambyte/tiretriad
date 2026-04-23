@@ -167,7 +167,7 @@
 }
 
 @layer utilities {
-  /* Sticky right-column shadow — used on the actions column in People and the
+  /* Sticky right-column shadow -- used on the actions column in People and the
      header cell above it. Keeps the left-edge join between the fixed column
      and the scrolling table body visually separated. */
   .pc-sticky-col-shadow {
@@ -183,7 +183,7 @@
   /*
    * Force un-slashed zero on any number-only surface that uses the mono font
    * (buy, retail, FET, overhead, margin %, KPI counters). JetBrains Mono ships
-   * with slashed-zero enabled via its `zero` stylistic feature — the slash makes
+   * with slashed-zero enabled via its `zero` stylistic feature -- the slash makes
    * numbers like "1,160" read as "1,1Ø0" in the catalog. We keep tabular-nums
    * for column alignment but override the slashed zero on everything tagged
    * `tabular-nums` inside a mono surface.
@@ -395,7 +395,7 @@ html[data-theme='light'] .bg-zinc-600\/40 {
   background-color: rgba(161, 161, 170, 0.3) !important;
 }
 
-/* bg-zinc-100 / 200 are already light in light mode — pass through */
+/* bg-zinc-100 / 200 are already light in light mode -- pass through */
 
 /* Hover backgrounds */
 html[data-theme='light'] .hover\:bg-zinc-700:hover {

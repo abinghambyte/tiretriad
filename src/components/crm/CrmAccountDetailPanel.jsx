@@ -37,7 +37,7 @@ import {
 import { computeCrmScore, scoreBadgeClass } from '../../utils/crmScore'
 import Spinner from '../ui/Spinner.jsx'
 
-// Tanner is a silent partner — no portal access, never assignable.
+// Tanner is a silent partner -- no portal access, never assignable.
 const OWNERS = [
   { value: 'alex', label: 'Alex' },
   { value: 'dj', label: 'DJ' },
@@ -56,7 +56,7 @@ function tsToDateInput(ts) {
 }
 
 function fmtActivityAt(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleString('en-US', {
       timeZone: 'America/Denver',
@@ -64,7 +64,7 @@ function fmtActivityAt(ts) {
       timeStyle: 'short',
     })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -810,7 +810,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
           <p className="text-xs text-zinc-400">
             Est. deal value (computed):{' '}
             <span className="font-semibold text-amber-200/95">
-              {est != null ? formatCurrency(est) : '—'}
+              {est != null ? formatCurrency(est) : '--'}
             </span>
           </p>
           {canEdit ? (
@@ -837,7 +837,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                 <span className="mx-1 text-zinc-600">·</span>
                 {fmtActivityAt(o.completedAt)}
                 <span className="mx-1 text-zinc-600">·</span>
-                {o.mspn || '—'} × {formatQty(o.quantity)}
+                {o.mspn || '--'} × {formatQty(o.quantity)}
                 <span className="mx-1 text-zinc-600">·</span>
                 {formatCurrency(Number(o.paymentAmount) || 0)}
               </li>

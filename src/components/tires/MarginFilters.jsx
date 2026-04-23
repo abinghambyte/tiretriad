@@ -348,7 +348,7 @@ function ChipRow({ label, options, selected, onChange, ariaLabel, collapseAfter 
                 : 'bg-zinc-800/60 text-zinc-300 ring-1 ring-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-100'
             }`}
           >
-            {key || '—'}
+            {key || '--'}
           </button>
         )
       })}

@@ -1,5 +1,5 @@
 /**
- * Phase 4 People System — defaults align with docs/PHASE4-PEOPLE-SYSTEM-HANDOFF.md
+ * Phase 4 People System -- defaults align with docs/PHASE4-PEOPLE-SYSTEM-HANDOFF.md
  */
 
 export const ROLE_DEFAULTS = {
@@ -75,7 +75,7 @@ export function permissionMeets(userLevel, required) {
   return u >= r
 }
 
-/** Side panel matrix — valid levels per module (Phase 4 handoff grid). */
+/** Side panel matrix -- valid levels per module (Phase 4 handoff grid). */
 export const MODULE_MATRIX = [
   { key: 'tires', label: 'Tires', levels: ['none', 'view', 'edit'] },
   { key: 'orders', label: 'Orders', levels: ['none', 'view', 'act'] },

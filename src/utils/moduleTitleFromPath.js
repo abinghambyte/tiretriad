@@ -65,7 +65,7 @@ const MODULE_LABELS = {
 /**
  * Build breadcrumb segments for the top bar. The first entry is always
  * Dashboard, then the current module (linked), then an optional tab (not
- * linked — it is the current view).
+ * linked -- it is the current view).
  *
  * @param {string} pathname
  * @param {string | null | undefined} tab value from `?tab=`

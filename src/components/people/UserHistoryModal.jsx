@@ -1,14 +1,14 @@
 import { MODAL_CENTER_BACKDROP_TOP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
 
 function formatTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleString('en-US', {
       dateStyle: 'short',
       timeStyle: 'short',
     })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -51,7 +51,7 @@ export function UserHistoryModal({ open, onClose, historyForUser, logLoading, ac
                 <p className="mt-1 text-zinc-400">
                   <span className="text-zinc-500">By </span>
                   <span className="font-mono text-[11px] text-zinc-300">
-                    {row.changedBy || '—'}
+                    {row.changedBy || '--'}
                   </span>
                 </p>
                 <p className="mt-1 text-zinc-500">Field: {row.field}</p>

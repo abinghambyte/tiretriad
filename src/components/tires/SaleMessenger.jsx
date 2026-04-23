@@ -15,7 +15,7 @@ function datetimeLocalValue(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-/** One callable instance — same reference as form submit and DEV test button. */
+/** One callable instance -- same reference as form submit and DEV test button. */
 const sendTireSaleSms = httpsCallable(functions, 'sendTireSaleSms')
 
 /**
@@ -133,8 +133,8 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
       quantity: Number(quantity) || 0,
       pricePerTire: Number(pricePerTire) || 0,
       totalPrice,
-      customerName: customerName || '—',
-      customerContact: customerContact || '—',
+      customerName: customerName || '--',
+      customerContact: customerContact || '--',
       fulfillment,
       fulfillmentNotes,
       additionalNotes,
@@ -302,7 +302,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
             </label>
             <input
               readOnly
-              value={totalPrice ? formatCurrency(totalPrice) : '—'}
+              value={totalPrice ? formatCurrency(totalPrice) : '--'}
               className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-400"
             />
           </div>
@@ -329,14 +329,14 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
             />
             {contactRow ? (
               <div className="mt-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
-                <span className="font-medium text-zinc-300">👤 {contactRow.name || '—'}</span>
+                <span className="font-medium text-zinc-300">👤 {contactRow.name || '--'}</span>
                 {' · '}
                 {contactRow.orderCount ?? 0} {contactRow.orderCount === 1 ? 'order' : 'orders'} ·{' '}
                 {formatCurrency(Number(contactRow.totalSpend) || 0)}{' '}
                 lifetime
                 <br />
                 <span className="text-zinc-500">
-                  Last: {contactRow.lastMspn || '—'}{' '}
+                  Last: {contactRow.lastMspn || '--'}{' '}
                   {contactRow.lastOrderAt?.toDate
                     ? contactRow.lastOrderAt.toDate().toLocaleDateString('en-US', {
                         month: 'short',
@@ -407,7 +407,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
             </p>
             {completedAtLocal.trim() !== '' && Number.isFinite(Date.parse(completedAtLocal)) ? (
               <p className="mt-1 text-[11px] text-zinc-500">
-                Recording as {timeAgo(Date.parse(completedAtLocal)) || '—'}
+                Recording as {timeAgo(Date.parse(completedAtLocal)) || '--'}
               </p>
             ) : null}
           </div>

@@ -9,7 +9,7 @@
  * `useSyncExternalStore` subscription bridges the gap without lifting
  * TiresDashboard's entire innards up the tree.
  *
- * Snapshot shape — all fields optional, missing means the action is not
+ * Snapshot shape -- all fields optional, missing means the action is not
  * available. `count` is the one field that always reflects reality; action
  * runners are present only when the publisher can currently honor them.
  *

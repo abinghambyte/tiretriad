@@ -11,11 +11,11 @@ const SDK_URL = 'https://cdn.sinch.com/sinch-chat/latest/sdk.js'
  * won't double-mount.
  *
  * Required env vars at build time (Vite):
- *   VITE_SINCH_CHAT_CLIENT_ID  — public client ID from Sinch dashboard
- *   VITE_SINCH_CHAT_PROJECT_ID — public project UUID from Sinch dashboard
+ *   VITE_SINCH_CHAT_CLIENT_ID  -- public client ID from Sinch dashboard
+ *   VITE_SINCH_CHAT_PROJECT_ID -- public project UUID from Sinch dashboard
  * Optional:
- *   VITE_SINCH_CHAT_REGION     — 'US' (default) or 'EU'
- *   VITE_SINCH_CHAT_LEAD_URL   — override the lead-capture Cloud Function URL
+ *   VITE_SINCH_CHAT_REGION     -- 'US' (default) or 'EU'
+ *   VITE_SINCH_CHAT_LEAD_URL   -- override the lead-capture Cloud Function URL
  *
  * When the visitor fills in the initial-screen form and submits, the
  * `submitInitialForm` event fires client-side. We POST the field values to
