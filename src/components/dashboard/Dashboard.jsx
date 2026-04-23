@@ -70,21 +70,27 @@ export function Dashboard() {
     rollingAverageRevenue,
     advisorRanked,
     advisorLoading,
+    kylesQueueCount,
+    crm,
   } = useDashboardSignals()
 
+  const topAdvisorPick = Array.isArray(advisorRanked) && advisorRanked.length > 0 ? advisorRanked[0] : null
   const tickerChips = useMemo(() => {
     const chips = []
     const gemCount = Array.isArray(hiddenGems) ? hiddenGems.length : 0
     if (gemCount > 0) {
-      chips.push({ id: 'gems', kind: 'inventory', label: `${gemCount} hidden ${gemCount === 1 ? 'gem' : 'gems'} to post` })
-    }
-    const crewAlerts = Number(signalBar?.crewAlerts) || 0
-    if (crewAlerts > 0) {
       chips.push({
-        id: 'crew',
-        kind: 'ops',
-        label: `${crewAlerts} crew ${crewAlerts === 1 ? 'alert' : 'alerts'}`,
-        href: '/people?tab=crew',
+        id: 'gems',
+        kind: 'inventory',
+        label: `${gemCount} hidden ${gemCount === 1 ? 'gem' : 'gems'} to post`,
+      })
+    }
+    if (topAdvisorPick?.sku) {
+      chips.push({
+        id: 'advisor-top',
+        kind: 'inventory',
+        label: `Post next: ${topAdvisorPick.sku}`,
+        href: '/tires?tab=catalog',
       })
     }
     const repostCount = Number(needsRepostingCount) || 0
@@ -95,8 +101,44 @@ export function Dashboard() {
         label: `${repostCount} ${repostCount === 1 ? 'listing needs' : 'listings need'} reposting`,
       })
     }
+    const kq = Number(kylesQueueCount) || 0
+    if (kq > 0) {
+      chips.push({
+        id: 'kyle-queue',
+        kind: 'kyle',
+        label: `${kq} in research queue`,
+        href: '/my-queue',
+      })
+    }
+    const pending = Number(signalBar?.pendingOrders) || 0
+    if (pending > 0) {
+      chips.push({
+        id: 'pending-orders',
+        kind: 'ops',
+        label: `${pending} pending ${pending === 1 ? 'order' : 'orders'}`,
+        href: '/orders',
+      })
+    }
+    const crewAlerts = Number(signalBar?.crewAlerts) || 0
+    if (crewAlerts > 0) {
+      chips.push({
+        id: 'crew',
+        kind: 'ops',
+        label: `${crewAlerts} crew ${crewAlerts === 1 ? 'alert' : 'alerts'}`,
+        href: '/people?tab=crew',
+      })
+    }
+    const openJobs = Number(crm?.openJobs) || 0
+    if (openJobs > 0) {
+      chips.push({
+        id: 'crm-jobs',
+        kind: 'people',
+        label: `${openJobs} open CRM ${openJobs === 1 ? 'job' : 'jobs'}`,
+        href: '/crm?tab=jobs',
+      })
+    }
     return chips
-  }, [hiddenGems, signalBar?.crewAlerts, needsRepostingCount])
+  }, [hiddenGems, topAdvisorPick?.sku, needsRepostingCount, kylesQueueCount, signalBar?.pendingOrders, signalBar?.crewAlerts, crm?.openJobs])
 
   if (!profileGate && profile && profile.handshakeSeen === false) {
     return <Navigate to="/handshake" replace />

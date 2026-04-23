@@ -18,13 +18,18 @@ const chips = [
 ]
 
 describe('ActivityTicker', () => {
-  it('renders each chip label', () => {
+  it('renders each chip label exactly once (single-copy marquee)', () => {
     render(<ActivityTicker chips={chips} />)
-    // each chip is duplicated for the seamless scroll
-    expect(screen.getAllByText('12 hidden gems').length).toBe(2)
-    expect(screen.getAllByText('5 patches pending').length).toBe(2)
-    expect(screen.getAllByText('3 late jobs').length).toBe(2)
-    expect(screen.getAllByText('DJ on a 4-day streak').length).toBe(2)
+    expect(screen.getAllByText('12 hidden gems').length).toBe(1)
+    expect(screen.getAllByText('5 patches pending').length).toBe(1)
+    expect(screen.getAllByText('3 late jobs').length).toBe(1)
+    expect(screen.getAllByText('DJ on a 4-day streak').length).toBe(1)
+  })
+
+  it('pads the track so chips start off-screen right', () => {
+    const { container } = render(<ActivityTicker chips={chips} />)
+    const track = container.querySelector('.activity-ticker__track')
+    expect(track.className).toMatch(/pl-\[100%\]/)
   })
 
   it('renders nothing when chips is empty', () => {
