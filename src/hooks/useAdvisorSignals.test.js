@@ -24,9 +24,20 @@ describe('computeDaysSinceLastListed', () => {
     expect(computeDaysSinceLastListed(tire, now)).toBe(2)
   })
 
-  it('returns null when the SKU has never been posted', () => {
+  it('returns null when the SKU has never been posted and has no intake signal', () => {
     expect(computeDaysSinceLastListed({}, Date.now())).toBe(null)
     expect(computeDaysSinceLastListed({ platformListings: {} }, Date.now())).toBe(null)
+  })
+
+  it('falls back to days since catalog intake when never posted', () => {
+    const now = new Date('2026-04-22T00:00:00Z').getTime()
+    const tire = {
+      // Never posted anywhere
+      platformListings: {},
+      // Intake 30 days ago via priceIntel.sources fallback
+      priceIntel: { sources: [{ at: ts('2026-03-23T00:00:00Z') }] },
+    }
+    expect(computeDaysSinceLastListed(tire, now)).toBe(30)
   })
 
   it('ignores platform entries with missing timestamps', () => {

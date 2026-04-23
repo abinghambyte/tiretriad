@@ -288,8 +288,9 @@ export function NextToPostSurface({ ranked = [], loading = false, onPost, onMode
   const narrate = useAdvisorNarrate()
 
   const list = Array.isArray(ranked) ? ranked : []
-  const first = list[0]
-  const remaining = Math.max(0, list.length - 1)
+  const PREVIEW_COUNT = 5
+  const preview = list.slice(0, PREVIEW_COUNT)
+  const remaining = Math.max(0, list.length - PREVIEW_COUNT)
 
   const changeMode = useCallback(
     (next) => {
@@ -322,9 +323,13 @@ export function NextToPostSurface({ ranked = [], loading = false, onPost, onMode
         </div>
       ) : (
         <>
-          <div className="mt-3">
-            <Row tire={first} onPost={onPost} />
-          </div>
+          <ul className="mt-3 divide-y divide-zinc-800/80">
+            {preview.map((tire) => (
+              <li key={tire.id} className="py-3 first:pt-0 last:pb-0">
+                <Row tire={tire} onPost={onPost} compact />
+              </li>
+            ))}
+          </ul>
           {remaining > 0 ? (
             <button
               type="button"
