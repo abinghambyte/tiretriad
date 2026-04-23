@@ -183,12 +183,12 @@ export function WallPage({ embedded = false }) {
                       </span>
                     )}
                     {o.hatTrickDay ? (
-                      <span className="text-xs" title="Hat trick day">
+                      <span className="text-xs" title="Hat trick day" aria-hidden="true">
                         🎩
                       </span>
                     ) : null}
                     {o.convertedAfterPoke ? (
-                      <span className="text-xs text-sky-300" title="Converted after poke">
+                      <span className="text-xs text-sky-300" title="Converted after poke" aria-hidden="true">
                         👉
                       </span>
                     ) : null}
@@ -207,7 +207,7 @@ export function WallPage({ embedded = false }) {
                 </div>
                 <p className="mt-2 text-sm text-zinc-300">{o.customerName || '--'}</p>
                 <p className="mt-1 text-xs text-zinc-500">
-                  ⏱{' '}
+                  <span aria-hidden="true">⏱</span>{' '}
                   {o.fulfillmentTimeMinutes != null
                     ? `${o.fulfillmentTimeMinutes} min`
                     : '--'}{' '}
