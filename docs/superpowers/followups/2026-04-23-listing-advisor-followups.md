@@ -24,7 +24,7 @@ Hook currently reads fields that don't exist on real tire docs. Rewrite against 
 
 Update `useAdvisorSignals.test.js` fixtures to match real schema.
 
-## 2. Defer `ListingAdvisorPanel` narrate to on-expand
+## 2. Defer `ListingAdvisorPanel` narrate to on-expand -- DONE, PR #106
 
 **File:** `src/components/tires/ListingAdvisorPanel.jsx`
 
