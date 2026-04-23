@@ -2,7 +2,6 @@ import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useState } from 'react'
 import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
-import { formatPercent } from '../utils/format'
 import { copyToClipboard } from '../utils/copyToClipboard'
 import { EmptyState } from '../components/shared/EmptyState.jsx'
 
@@ -32,7 +31,6 @@ function adaptTaskDispatcherResult(raw) {
     model: String(o.modelVersion || o.platform || ''),
     dispatch: {
       routing: workerToRouting(worker),
-      confidence: 0.75,
       rationale: String(o.rationale || ''),
       creditWarning: String(credit || ''),
       contextToLoad: Array.isArray(o.contextToLoad) ? o.contextToLoad.map((x) => String(x || '').trim()).filter(Boolean) : [],
@@ -120,9 +118,6 @@ function GrowthLabRoutingForm() {
 
   const dispatch = result?.dispatch || {}
   const routing = String(dispatch.routing || '')
-  const cRaw = Number(dispatch.confidence)
-  const confidencePct =
-    Number.isFinite(cRaw) && result ? (cRaw <= 1 ? cRaw * 100 : cRaw) : null
 
   return (
     <div className="space-y-6">
@@ -177,11 +172,6 @@ function GrowthLabRoutingForm() {
                 <span className="ml-2 font-mono text-xs text-zinc-500">({result.model})</span>
               ) : null}
             </span>
-            {confidencePct != null ? (
-              <span className="text-sm text-zinc-400">
-                Confidence <span className="text-zinc-200">{formatPercent(confidencePct, 0)}</span>
-              </span>
-            ) : null}
             <span className="text-xs uppercase tracking-wide text-zinc-500">
               {String(dispatch.taskType || '--')} · {String(dispatch.estimatedComplexity || '--')}
             </span>
