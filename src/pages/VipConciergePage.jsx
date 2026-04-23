@@ -60,7 +60,7 @@ export function VipConciergePage() {
         {phase === 'verifying' ? (
           <div className="flex flex-col items-center gap-3 text-sm text-zinc-400">
             <Spinner className="h-8 w-8 text-amber-400/90" />
-            <p>Verifying VIP access…</p>
+            <h1 className="m-0 text-sm font-medium text-zinc-200">Verifying VIP access…</h1>
           </div>
         ) : null}
 
