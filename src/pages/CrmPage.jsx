@@ -1121,7 +1121,7 @@ export function CrmPage() {
             <div className="overflow-x-auto rounded-xl border border-zinc-800">
               <table className="w-full max-sm:min-w-0 text-left text-sm sm:min-w-[640px]">
                 <thead>
-                  <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase text-zinc-500">
+                  <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs font-semibold uppercase tracking-wide text-zinc-300">
                     <th className="px-3 py-2">Business</th>
                     <th className="px-3 py-2 max-sm:hidden">Source</th>
                     <th className="px-3 py-2 max-sm:hidden">Segment</th>

@@ -576,7 +576,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
         <section className="overflow-x-auto rounded-2xl border border-zinc-800">
           <table className="w-full min-w-0 border-collapse text-left text-sm sm:min-w-[960px]">
             <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs font-semibold uppercase tracking-wide text-zinc-300">
                 <th className="px-3 py-3">Name</th>
                 <th className="hidden px-3 py-3 sm:table-cell">Crew tag</th>
                 <th className="hidden px-3 py-3 sm:table-cell">Invite</th>

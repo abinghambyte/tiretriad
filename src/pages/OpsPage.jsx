@@ -345,7 +345,7 @@ export function OpsPage() {
           <div className="mt-6 overflow-x-auto rounded-xl border border-zinc-800">
             <table className="w-full max-sm:min-w-0 border-collapse text-left text-sm sm:min-w-[720px]">
               <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
+                <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs font-semibold uppercase tracking-wide text-zinc-300">
                   <th className="px-3 py-2">Amount</th>
                   <th className="px-3 py-2 max-sm:hidden">Category</th>
                   <th className="px-3 py-2">Note</th>
@@ -430,7 +430,7 @@ export function OpsPage() {
           <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
             <table className="w-full max-sm:min-w-0 border-collapse text-left text-sm sm:min-w-[800px]">
               <thead>
-                <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
+                <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs font-semibold uppercase tracking-wide text-zinc-300">
                   <th className="px-3 py-2">MSPN</th>
                   <th className="px-3 py-2">Description</th>
                   <th className="px-3 py-2">Qty</th>

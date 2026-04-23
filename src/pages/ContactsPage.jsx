@@ -375,7 +375,7 @@ export function ContactsPage({ embedded = false }) {
         <div className="overflow-x-auto rounded-2xl border border-zinc-800">
           <table className="min-w-[840px] w-full border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs font-semibold uppercase tracking-wide text-zinc-300">
                 <th className="px-3 py-3">
                   <button type="button" className="hover:text-zinc-300" onClick={() => toggleSort('name')}>
                     Name {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}

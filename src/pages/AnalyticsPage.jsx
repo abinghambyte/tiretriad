@@ -568,7 +568,7 @@ export function AnalyticsPage() {
             />
             <MarginWeekLineChart labels={marginWeekSeries.labels} percents={marginWeekSeries.percents} />
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
                 Top 10 SKUs by revenue
               </p>
               <ol className="mt-3 space-y-2 text-sm">
@@ -633,7 +633,7 @@ export function AnalyticsPage() {
               <>
                 <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/40">
                   <table className="w-full text-left text-xs">
-                    <thead className="text-[10px] uppercase tracking-wide text-zinc-500">
+                    <thead className="text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
                       <tr>
                         <th className="px-3 py-2">MSPN</th>
                         <th className="px-3 py-2">Description</th>
@@ -728,7 +728,7 @@ function LeaderBlock({ title, body }) {
   const hasData = typeof body === 'string' ? body !== '--' && body.trim() !== '' : body != null
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-300">{title}</p>
       {hasData ? (
         <p className="mt-2 text-sm leading-relaxed text-zinc-200">{body}</p>
       ) : (

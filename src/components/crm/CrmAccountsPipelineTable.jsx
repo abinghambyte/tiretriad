@@ -79,7 +79,7 @@ export function CrmAccountsPipelineTable({ accounts, avgBuyPerTire, onOpen }) {
       <button
         type="button"
         onClick={() => toggleSort(key)}
-        className="font-semibold uppercase tracking-wide text-zinc-400 hover:text-zinc-200"
+        className="font-semibold uppercase tracking-wide text-zinc-300 hover:text-zinc-100"
       >
         {label}
         {sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
