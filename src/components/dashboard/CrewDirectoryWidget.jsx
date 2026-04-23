@@ -47,21 +47,10 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
   }
 
   const users = crew?.users || []
-  const hasMore = Boolean(crew?.hasMore)
 
   return (
     <section className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
-      <div className="flex items-center justify-between">
-        <p className="pc-eyebrow">Crew</p>
-        {hasMore ? (
-          <Link
-            to="/people"
-            className="text-xs font-medium text-amber-300/90 hover:underline"
-          >
-            View all
-          </Link>
-        ) : null}
-      </div>
+      <p className="pc-eyebrow">Crew</p>
       {users.length === 0 ? (
         <div className="mt-3">
           <EmptyState variant="compact" title="No crew rows loaded." />
