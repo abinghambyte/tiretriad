@@ -108,7 +108,9 @@ describe('NextToPostSurface', () => {
     renderSurface()
     fireEvent.click(screen.getByRole('button', { name: /show more/i }))
     fireEvent.click(screen.getAllByRole('button', { name: /why/i })[0])
-    await waitFor(() => expect(narrateMock).toHaveBeenCalledWith('t1', expect.any(String)))
+    await waitFor(() =>
+      expect(narrateMock).toHaveBeenCalledWith('t1', expect.any(String), expect.objectContaining({ id: 't1' })),
+    )
     await waitFor(() => expect(screen.getByText('Aging fast.')).toBeTruthy())
   })
 })

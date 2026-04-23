@@ -14,7 +14,7 @@ Your job is to explain why a specific tire is ranked for listing right now, and 
 
 Your output must be exactly two parts:
 
-NARRATIVE (2-3 sentences max): Explain the top 2 signals driving this tire's rank in plain English. Reference the active business mode. Be specific -- name the brand, size, and actual numbers.
+NARRATIVE (2-3 sentences max): Explain the top 2 signals driving this tire's rank in plain English. Reference the active business mode. Be specific -- name the brand, size, and actual numbers. Use the numbers in "signals" verbatim (daysInStock, avgDaysToSell, sample size, missingPlatforms, margin.headroomPct). If a signal is null, do not invent a value for it; skip to the next signal.
 
 SHADOW FLAG (conditional): Only emit this if ONE of these is true:
   1. Any comp price dropped more than 15% in the last 7 days for this size/brand
@@ -57,7 +57,49 @@ async function defaultCallGemini(payload) {
   return { text }
 }
 
-async function buildPayload(firestore, tireId, mode) {
+function sanitizeSignals(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  // Whitelist the fields we let the client forward to the LLM. Unknown
+  // fields are dropped so a malicious client cannot stuff arbitrary text
+  // into the prompt. All values are coerced to numbers / strings / bools
+  // of the expected shape.
+  const num = (v) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+  const sigBreakdown = raw.signalBreakdown && typeof raw.signalBreakdown === 'object'
+    ? Object.fromEntries(
+        ['age', 'velocity', 'margin', 'crossPost'].map((k) => {
+          const part = raw.signalBreakdown[k]
+          if (!part || typeof part !== 'object') return [k, null]
+          return [k, { raw: num(part.raw), weighted: num(part.weighted) }]
+        }),
+      )
+    : null
+  const missing = Array.isArray(raw.missingPlatforms)
+    ? raw.missingPlatforms.map((s) => String(s || '').slice(0, 24)).filter(Boolean)
+    : null
+  const margin = raw.margin && typeof raw.margin === 'object'
+    ? {
+        retail: num(raw.margin.retail),
+        buy: num(raw.margin.buy),
+        overhead: num(raw.margin.overhead),
+        headroomPct: num(raw.margin.headroomPct),
+      }
+    : null
+  return {
+    daysInStock: num(raw.daysInStock),
+    daysSincePriceChange: num(raw.daysSincePriceChange),
+    avgDaysToSell: num(raw.avgDaysToSell),
+    velocitySampleSize: num(raw.velocitySampleSize),
+    missingPlatforms: missing,
+    margin,
+    rankScore: num(raw.rankScore),
+    signalBreakdown: sigBreakdown,
+  }
+}
+
+async function buildPayload(firestore, tireId, mode, clientSignals) {
   const tireSnap = await firestore.collection('tires').doc(tireId).get()
   if (!tireSnap.exists) throw new HttpsError('not-found', `tire ${tireId} not found`)
   const tire = tireSnap.data() || {}
@@ -80,6 +122,7 @@ async function buildPayload(firestore, tireId, mode) {
     },
     kyleFrozen: Boolean(tire.kyleFrozen),
     mode,
+    signals: sanitizeSignals(clientSignals),
     comps,
   }
 }
@@ -101,7 +144,7 @@ async function handle({ firestore, now, callGemini }) {
       }
     }
 
-    const payload = await buildPayload(firestore, tireId, mode)
+    const payload = await buildPayload(firestore, tireId, mode, data?.signals)
     const { text } = await callGemini(payload)
     const parsed = parseModelOutput(text)
     await cacheDoc.set({ ...parsed, writtenAt: now })
@@ -118,4 +161,4 @@ exports.advisorNarrate = onCall(
   },
 )
 
-exports._testonly = { handle, parseModelOutput }
+exports._testonly = { handle, parseModelOutput, sanitizeSignals, buildPayload }
