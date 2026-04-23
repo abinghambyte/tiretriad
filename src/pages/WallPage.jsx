@@ -14,6 +14,7 @@ import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatQty } from '../utils/format'
 import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
+import { EmptyState } from '../components/shared/EmptyState.jsx'
 
 function logisticsLine(o) {
   const f = String(o.fulfillment || '').toLowerCase()
@@ -151,7 +152,7 @@ export function WallPage({ embedded = false }) {
         {loading ? (
           <LoadingBlock label="Loading feed…" />
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-zinc-500">No completions in this range.</p>
+          <EmptyState title="No completions in this range." />
         ) : (
           <ul className="space-y-3">
             {filtered.map((o) => (

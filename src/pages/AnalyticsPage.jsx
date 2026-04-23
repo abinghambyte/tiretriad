@@ -26,6 +26,7 @@ import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail.js'
 import { computeListingMargin } from '../utils/marginCalc.js'
 import { SampleCapBanner } from '../components/ui/SampleCapBanner.jsx'
 import { EmptyState } from '../components/shared/EmptyState.jsx'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const BASE_TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
 const ADMIN_TAB_IDS = ['verification-queue', 'margin-archive']
@@ -455,7 +456,7 @@ export function AnalyticsPage() {
               <SampleCapBanner count={4000} />
             ) : null}
             {ordersLoading ? (
-              <p className="text-sm text-zinc-500">Loading completed orders…</p>
+              <LoadingBlock label="Loading completed orders…" />
             ) : completedRows.length === 0 ? (
               <EmptyState title="No completed orders in the sampled window yet." />
             ) : (
@@ -571,11 +572,13 @@ export function AnalyticsPage() {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
                 Top 10 SKUs by revenue
               </p>
-              <ol className="mt-3 space-y-2 text-sm">
-                {topSkus.length === 0 ? (
-                  <li className="text-zinc-500">No data.</li>
-                ) : (
-                  topSkus.map((r) => (
+              {topSkus.length === 0 ? (
+                <div className="mt-3">
+                  <EmptyState variant="compact" title="No top SKUs yet." />
+                </div>
+              ) : (
+                <ol className="mt-3 space-y-2 text-sm">
+                  {topSkus.map((r) => (
                     <li key={r.mspn} className="flex flex-wrap gap-x-2 border-b border-zinc-800/60 py-2 text-zinc-300 max-sm:flex-col">
                       <span className="font-mono text-amber-200/90">
                         {r.rank}. {r.mspn}
@@ -586,9 +589,9 @@ export function AnalyticsPage() {
                         {r.avgMargPct != null ? ` · avg margin ${formatPercent(r.avgMargPct, 1)}` : ''}
                       </span>
                     </li>
-                  ))
-                )}
-              </ol>
+                  ))}
+                </ol>
+              )}
             </div>
           </div>
         ) : null}
@@ -599,7 +602,7 @@ export function AnalyticsPage() {
               Live view of pending verification items. Resolve from /my-queue.
             </p>
             {tiresLoadingForTabs ? (
-              <p className="text-sm text-zinc-500">Loading…</p>
+              <LoadingBlock />
             ) : verificationRows.length === 0 ? (
               <EmptyState title="No pending items." />
             ) : (
@@ -626,7 +629,7 @@ export function AnalyticsPage() {
               </span>
             </div>
             {tiresLoadingForTabs ? (
-              <p className="text-sm text-zinc-500">Loading…</p>
+              <LoadingBlock />
             ) : archivedTires.length === 0 ? (
               <EmptyState title="No archived tires." />
             ) : (

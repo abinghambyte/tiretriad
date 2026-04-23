@@ -25,6 +25,7 @@ import { formatCurrency, formatQty } from '../utils/format'
 import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../utils/formatPhone.js'
 import { phoneDocIdFromContact } from '../utils/phoneDocId'
 import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
+import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 
 function formatTs(ts) {
@@ -600,11 +601,16 @@ export function ContactsPage({ embedded = false }) {
 
             <h3 className="mt-8 text-sm font-semibold text-zinc-200">Order history</h3>
             {ordersLoading ? (
-              <p className="mt-2 text-xs text-zinc-500">Loading…</p>
+              <div className="mt-3">
+                <LoadingBlock label="Loading order history…" />
+              </div>
             ) : ordersFor.length === 0 ? (
-              <p className="mt-2 text-xs text-zinc-500">
-                No linked orders yet (orders completed after Phase 5 show here).
-              </p>
+              <div className="mt-3">
+                <EmptyState
+                  title="No linked orders yet."
+                  description="Orders completed after Phase 5 show here."
+                />
+              </div>
             ) : (
               <ul className="mt-3 space-y-2">
                 {ordersFor.map((o) => (

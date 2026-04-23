@@ -4,6 +4,7 @@ import { functions } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import { formatPercent } from '../utils/format'
 import { copyToClipboard } from '../utils/copyToClipboard'
+import { EmptyState } from '../components/shared/EmptyState.jsx'
 
 const NOTES_STORAGE_KEY = 'sk-dispatch-notes'
 const dispatchFn = httpsCallable(functions, 'taskDispatcher')
@@ -196,17 +197,19 @@ function GrowthLabRoutingForm() {
           </div>
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Context to load</p>
-            <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-zinc-300">
-              {Array.isArray(dispatch.contextToLoad) && dispatch.contextToLoad.length ? (
-                dispatch.contextToLoad.map((x, i) => (
+            {Array.isArray(dispatch.contextToLoad) && dispatch.contextToLoad.length ? (
+              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-zinc-300">
+                {dispatch.contextToLoad.map((x, i) => (
                   <li key={i} className="[overflow-wrap:anywhere]">
                     {String(x)}
                   </li>
-                ))
-              ) : (
-                <li className="text-zinc-500">--</li>
-              )}
-            </ul>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-2">
+                <EmptyState variant="compact" title="No context files suggested." />
+              </div>
+            )}
           </div>
           <div className="mt-4">
             <div className="mb-2 flex flex-col gap-2 max-sm:items-stretch sm:flex-row sm:items-center sm:justify-between">
