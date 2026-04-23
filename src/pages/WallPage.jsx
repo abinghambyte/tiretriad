@@ -13,6 +13,7 @@ import { auth, db } from '../firebase/config'
 import { PortalSessionLine } from '../components/layout/PortalSessionLine.jsx'
 import { useAuth } from '../hooks/useAuth'
 import { formatCurrency, formatQty } from '../utils/format'
+import { denverDayEndExclusiveMs, denverDayStartMs } from '../utils/isoWeekDenver.js'
 import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 import { EmptyState } from '../components/shared/EmptyState.jsx'
 
@@ -91,14 +92,19 @@ export function WallPage({ embedded = false }) {
   const filtered = useMemo(() => {
     const min = Number(minRevenue)
     const hasMin = Number.isFinite(min) && min > 0
-    const fromMs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null
-    const toMs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null
+    const fromMs = fromDate ? denverDayStartMs(fromDate) : null
+    const toExclusiveMs = toDate ? denverDayEndExclusiveMs(toDate) : null
     return rows.filter((o) => {
       const pay = Number(o.paymentAmount) || 0
       if (hasMin && pay < min) return false
       const ms = o.completedAt?.toMillis?.()
       if (fromMs != null && Number.isFinite(fromMs) && (ms == null || ms < fromMs)) return false
-      if (toMs != null && Number.isFinite(toMs) && (ms == null || ms > toMs)) return false
+      if (
+        toExclusiveMs != null &&
+        Number.isFinite(toExclusiveMs) &&
+        (ms == null || ms >= toExclusiveMs)
+      )
+        return false
       return true
     })
   }, [rows, fromDate, toDate, minRevenue])
