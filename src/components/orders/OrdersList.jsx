@@ -12,7 +12,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useToast } from '../../context/ToastContext.jsx'
 import { auth, db, functions } from '../../firebase/config'
@@ -323,26 +323,42 @@ export function OrdersList({ highlightId }) {
     return () => unsub()
   }, [])
 
+  const mspnIds = useMemo(
+    () =>
+      [...new Set(orders.map((o) => String(o.mspn || '').trim()).filter(Boolean))].slice(0, 120),
+    [orders],
+  )
+  const mspnSignature = useMemo(() => [...mspnIds].sort().join('|'), [mspnIds])
+
   useEffect(() => {
-    const ids = [...new Set(orders.map((o) => String(o.mspn || '').trim()).filter(Boolean))].slice(0, 120)
-    if (!ids.length) {
-      setTiresByMspn(new Map())
+    if (!mspnIds.length) {
+      setTiresByMspn((prev) => (prev.size === 0 ? prev : new Map()))
       return undefined
     }
+    // Only fetch MSPNs not already cached. Already-known entries are
+    // preserved so unrelated order snapshots don't refire reads.
+    const missing = mspnIds.filter((id) => !tiresByMspn.has(id))
+    if (!missing.length) return undefined
     let cancelled = false
     void (async () => {
       const entries = await Promise.all(
-        ids.map(async (id) => {
+        missing.map(async (id) => {
           const s = await getDoc(doc(db, 'tires', id))
           return [id, s.exists() ? s.data() || {} : null]
         }),
       )
-      if (!cancelled) setTiresByMspn(new Map(entries))
+      if (cancelled) return
+      setTiresByMspn((prev) => {
+        const next = new Map(prev)
+        for (const [id, data] of entries) next.set(id, data)
+        return next
+      })
     })()
     return () => {
       cancelled = true
     }
-  }, [orders])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mspnSignature])
 
   useEffect(() => {
     if (highlightId && highlightElRef.current) {
@@ -426,7 +442,6 @@ export function OrdersList({ highlightId }) {
     const firstMs = order.firstNotifiedAt?.toMillis?.()
     const notifyToPokeMinutes =
       firstMs != null ? Math.round((Date.now() - firstMs) / 60000) : 0
-    const nextPoke = (Number(order.pokeCount) || 0) + 1
     setPokingId(order.id)
     try {
       await updateDoc(doc(db, 'orders', order.id), {
@@ -434,7 +449,7 @@ export function OrdersList({ highlightId }) {
         lastPokedAt: serverTimestamp(),
         pokedAt: arrayUnion(Timestamp.now()),
         notifyToPokeMinutes,
-        totalTouchpoints: 1 + nextPoke,
+        totalTouchpoints: increment(1),
       })
     } catch (e) {
       console.error(e)
@@ -722,14 +737,15 @@ export function OrdersList({ highlightId }) {
                       >
                         Mark complete
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className={o.customerNotifiedAt ? BTN_SECONDARY : BTN_PRIMARY}
-                      onClick={() => openNotifyModal(o)}
-                    >
-                      Send update
-                    </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={BTN_PRIMARY}
+                        onClick={() => openNotifyModal(o)}
+                      >
+                        Send update
+                      </button>
+                    )}
                     {o.customerNotifiedAt ? (
                       <button
                         type="button"
