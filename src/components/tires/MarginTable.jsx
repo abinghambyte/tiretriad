@@ -518,6 +518,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   columnVisibility,
   gridStyle,
   justJumpedToId,
+  onOpenDetail,
 }) {
   const row = rows[index]
   if (!row) return null
@@ -618,15 +619,6 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-          <label className="flex items-center gap-2 text-xs text-zinc-300">
-            <input
-              type="checkbox"
-              checked={Boolean(overheadDraft.doNotList)}
-              onChange={(e) => setOverheadDraft((d) => ({ ...d, doNotList: e.target.checked }))}
-              className="size-4 rounded border-zinc-600 accent-amber-400"
-            />
-            Do not list
-          </label>
           <p className="text-xs text-zinc-500">
             Overhead after save:{' '}
             <span className="font-mono text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
@@ -680,7 +672,18 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               </span>
             </div>
             <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
-              {row.mspn || '—'}
+              {onOpenDetail ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenDetail(row)}
+                  className="truncate text-left underline-offset-2 hover:text-amber-200 hover:underline"
+                  title="Open details"
+                >
+                  {row.mspn || '—'}
+                </button>
+              ) : (
+                row.mspn || '—'
+              )}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
               <BuyPriceCell row={row} />
@@ -776,7 +779,18 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         ) : null}
         {vis.mspn !== false ? (
           <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
-            {row.mspn || '—'}
+            {onOpenDetail ? (
+              <button
+                type="button"
+                onClick={() => onOpenDetail(row)}
+                className="truncate text-left underline-offset-2 hover:text-amber-200 hover:underline"
+                title="Open details"
+              >
+                {row.mspn || '—'}
+              </button>
+            ) : (
+              row.mspn || '—'
+            )}
           </div>
         ) : null}
         {vis.lr !== false ? (
@@ -858,6 +872,7 @@ export function MarginTable({
   sortDirLabel,
   externalListRef,
   justJumpedToId,
+  onOpenDetail,
 }) {
   const { toast } = useToast()
   const internalListRef = useListRef(null)
@@ -893,13 +908,12 @@ export function MarginTable({
     mountCost: 0,
     deliveryCost: 0,
     otherCost: 0,
-    doNotList: false,
   }))
   const [costSaving, setCostSaving] = useState(false)
 
   const openCostEdit = useCallback((row) => {
     setEditingCostsId(row.id)
-    setOverheadDraft({ ...tireOverheadParts(row), doNotList: Boolean(row.doNotList) })
+    setOverheadDraft(tireOverheadParts(row))
   }, [])
 
   const closeCostEdit = useCallback(() => {
@@ -921,7 +935,6 @@ export function MarginTable({
           deliveryCost,
           otherCost,
           cts,
-          doNotList: Boolean(overheadDraft.doNotList),
         })
         toast('Overhead updated', 'success')
         closeCostEdit()
@@ -966,6 +979,7 @@ export function MarginTable({
       columnVisibility,
       gridStyle,
       justJumpedToId,
+      onOpenDetail,
     }),
     [
       rows,
@@ -982,6 +996,7 @@ export function MarginTable({
       isMobileTable,
       mobileRowBasePx,
       columnVisibility,
+      onOpenDetail,
       gridStyle,
       justJumpedToId,
     ],

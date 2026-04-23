@@ -60,9 +60,9 @@ Grep for price-write sites:
 grep -rn "retail.*updateDoc\|updateDoc.*retail\|priceIntel" src/
 ```
 
-## 5. Tire detail drawer decision
+## 5. Tire detail drawer -- DONE, PR #108
 
-The `doNotList` checkbox currently lives in the CTS overhead editor (`MarginTable.jsx`). No dedicated tire detail drawer exists. Either accept this as the right home, or build a proper detail drawer and move it. Call with Alex.
+Shipped on branch `tire-detail-drawer`, stacked on `advisor-narrate-expand-payload`. New `TireDetailDrawer` component: right-side slide-in panel showing pricing (buy/retail/overhead/margin headroom with latest retail source), listings per platform with active/stale/never status, recent-orders joined by `mspn` (lazy-fetched on open, last 5), and a Listing policy section owning the `doNotList` toggle plus a new `adminNotes` textarea. Clicking an MSPN in `MarginTable` opens the drawer. Removed the `doNotList` checkbox from the CTS overhead editor. 5/5 drawer tests pass; full suite 479/479 green.
 
 ---
 

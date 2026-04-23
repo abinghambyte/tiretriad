@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { functions } from '../../firebase/config'
+import { db, functions } from '../../firebase/config'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -23,6 +23,17 @@ import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
+import { TireDetailDrawer } from './TireDetailDrawer'
+import {
+  collection as fsCollection,
+  doc as fsDoc,
+  getDocs,
+  limit as fsLimit,
+  orderBy as fsOrderBy,
+  query as fsQuery,
+  updateDoc,
+  where as fsWhere,
+} from 'firebase/firestore'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 
@@ -186,6 +197,8 @@ export function TiresDashboard() {
   const [listingOpen, setListingOpen] = useState(false)
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
+  const [detailTireId, setDetailTireId] = useState(null)
+  const [detailOrders, setDetailOrders] = useState([])
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
   const [notifyingTeam, setNotifyingTeam] = useState(false)
@@ -325,6 +338,44 @@ export function TiresDashboard() {
     setSelectedIds(new Set())
     setBulkCtsOpen(false)
   }
+
+  const openTireDetail = useCallback(async (row) => {
+    setDetailTireId(row?.id || null)
+    setDetailOrders([])
+    const mspn = String(row?.mspn || '').trim()
+    if (!mspn) return
+    try {
+      const q = fsQuery(
+        fsCollection(db, 'orders'),
+        fsWhere('mspn', '==', mspn),
+        fsOrderBy('createdAt', 'desc'),
+        fsLimit(5),
+      )
+      const snap = await getDocs(q)
+      setDetailOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      // Non-fatal: drawer still works without order history.
+      console.error('openTireDetail: order fetch failed', e)
+    }
+  }, [])
+
+  const closeTireDetail = useCallback(() => {
+    setDetailTireId(null)
+    setDetailOrders([])
+  }, [])
+
+  const saveTireDetail = useCallback(
+    async (patch) => {
+      if (!detailTireId) return
+      await updateDoc(fsDoc(db, 'tires', detailTireId), {
+        doNotList: Boolean(patch?.doNotList),
+        adminNotes: String(patch?.adminNotes ?? ''),
+      })
+      toast('Tire details saved', 'success')
+      closeTireDetail()
+    },
+    [detailTireId, toast, closeTireDetail],
+  )
 
   const brands = useMemo(
     () => uniqueSorted(tires.map((t) => t.brand)),
@@ -1172,6 +1223,7 @@ export function TiresDashboard() {
                 sortDirLabel={visibleDirLabel}
                 externalListRef={marginTableRef}
                 justJumpedToId={justJumpedToId}
+                onOpenDetail={openTireDetail}
               />
             </div>
           </>
@@ -1223,6 +1275,12 @@ export function TiresDashboard() {
         open={bulkCtsOpen && selectedIds.size > 0}
         onClose={() => setBulkCtsOpen(false)}
         tires={selectedTires}
+      />
+      <TireDetailDrawer
+        tire={detailTireId ? enriched.find((t) => t.id === detailTireId) || null : null}
+        orders={detailOrders}
+        onClose={closeTireDetail}
+        onSave={saveTireDetail}
       />
     </div>
   )
