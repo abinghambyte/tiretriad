@@ -1,5 +1,5 @@
 // src/components/tires/ListingAdvisorPanel.jsx
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { formatPercent } from '../../utils/format.js'
 import { useAdvisorNarrate } from '../../hooks/useAdvisorNarrate.js'
 import { DEFAULT_ADVISOR_MODE } from '../../utils/listingAdvisor/modeWeights.js'
@@ -14,9 +14,17 @@ function reasonForMissing(tire) {
   return 'Not ranked (no signals yet)'
 }
 
+/**
+ * Advisor panel for a single tire inside ListingGenerator. Shows rank,
+ * score, and a signal strip immediately. The narrative (an LLM callable)
+ * is lazy: it fires only when the user clicks "Why?". This prevents N
+ * callable invocations when the bulk-listing modal opens with N tires.
+ */
 export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISOR_MODE }) {
   const narrate = useAdvisorNarrate()
-  const [narration, setNarration] = useState(null)
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
 
   const position = useMemo(() => {
@@ -25,22 +33,30 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
     return i >= 0 ? i + 1 : null
   }, [ranked, tireId])
 
-  const tire = useMemo(() => (ranked || []).find((t) => t.id === tireId) || null, [ranked, tireId])
+  const tire = useMemo(
+    () => (ranked || []).find((t) => t.id === tireId) || null,
+    [ranked, tireId],
+  )
 
-  useEffect(() => {
-    if (!tire) return
-    let alive = true
-    narrate(tireId, mode)
-      .then((r) => {
-        if (alive) setNarration(r)
-      })
-      .catch((e) => {
-        if (alive) setError(String(e?.message || e))
-      })
-    return () => {
-      alive = false
+  const toggle = useCallback(async () => {
+    if (open) {
+      setOpen(false)
+      return
     }
-  }, [narrate, tireId, mode, tire])
+    setOpen(true)
+    // Cached result: don't refetch when the user reopens the panel.
+    if (result) return
+    setLoading(true)
+    setError(null)
+    try {
+      const r = await narrate(tireId, mode)
+      setResult(r)
+    } catch (e) {
+      setError(String(e?.message || e))
+    } finally {
+      setLoading(false)
+    }
+  }, [open, result, narrate, tireId, mode])
 
   if (!tire) {
     return (
@@ -52,8 +68,8 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
 
   const bd = tire.signalBreakdown || {}
   const velDays = bd.velocity?.raw ? `${Math.round(100 / bd.velocity.raw)}d avg` : 'unknown'
-  // margin.raw is a 0-1 ratio; formatPercent in this repo expects a percent
-  // value (does not multiply). Multiply by 100 before passing.
+  // margin.raw is a 0-1 ratio; formatPercent in this repo appends % without
+  // multiplying. Multiply by 100 before passing.
   const marginPct = formatPercent((bd.margin?.raw || 0) * 100, 0)
 
   return (
@@ -68,11 +84,26 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
         Age {Math.round(bd.age?.raw || 0)}d &middot; Velocity {velDays} &middot;{' '}
         Margin {marginPct} &middot; Missing {tire.missingPlatformCount} platform(s)
       </p>
-      {error ? <p className="mt-2 text-rose-300">Narrative unavailable (retry).</p> : null}
-      {narration ? (
-        <div className="mt-2 text-zinc-300">
-          <p>{narration.narrative}</p>
-          {narration.shadowFlag ? <p className="mt-1 text-amber-200">{narration.shadowFlag}</p> : null}
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className="mt-2 text-[11px] text-amber-300/90 hover:underline"
+      >
+        {open ? 'Hide why' : 'Why?'}
+      </button>
+      {open ? (
+        <div className="mt-2 rounded-md bg-zinc-900/60 p-2 text-[12px] text-zinc-300">
+          {loading ? 'Thinking...' : null}
+          {error ? <span className="text-rose-300">Narrative unavailable (retry).</span> : null}
+          {result ? (
+            <>
+              <p>{result.narrative}</p>
+              {result.shadowFlag ? (
+                <p className="mt-1 text-amber-200">{result.shadowFlag}</p>
+              ) : null}
+            </>
+          ) : null}
         </div>
       ) : null}
     </section>
