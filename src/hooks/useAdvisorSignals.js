@@ -23,6 +23,22 @@ function toMillis(maybeTs) {
 }
 
 /**
+ * Intake timestamp for a tire. Falls back to the earliest priceIntel source
+ * timestamp when `createdAt` is not set (most tires in prod).
+ */
+function tireIntakeMs(tire) {
+  const created = toMillis(tire?.createdAt)
+  if (created) return created
+  const sources = Array.isArray(tire?.priceIntel?.sources) ? tire.priceIntel.sources : []
+  let earliest = null
+  for (const entry of sources) {
+    const ms = toMillis(entry?.at) ?? toMillis(entry?.recordedAt)
+    if (ms && (!earliest || ms < earliest)) earliest = ms
+  }
+  return earliest
+}
+
+/**
  * Days since the tire's price was last written. Reads the canonical
  * `priceIntel.sources` audit trail (see AGENTS.md: "All price changes logged
  * to priceIntel.sources array"). Backend writers use either `at`
@@ -62,7 +78,9 @@ export function computeAvgDaysToSell(orders, tires) {
     if (!completedMs) continue
     const mspn = String(o?.mspn || '').trim()
     const tire = mspn ? tireByMspn.get(mspn) : null
-    const intakeMs = toMillis(tire?.createdAt)
+    // Use the tire's computed intake (createdAt or earliest priceIntel source)
+    // so velocity math works for tires that never got a createdAt stamp.
+    const intakeMs = tire ? tireIntakeMs(tire) : null
     if (!intakeMs) continue
     const size = String(tire?.size || o.size || '').trim()
     const lr = String(tire?.lr || o.lr || '').trim()
@@ -97,10 +115,22 @@ function missingPlatforms(tire, nowMs) {
   return n
 }
 
-function computeDaysInStock(tire, nowMs) {
-  const intakeMs = toMillis(tire?.createdAt)
-  if (!intakeMs) return 0
-  const diffDays = Math.floor((nowMs - intakeMs) / MS_PER_DAY)
+/**
+ * Days since the SKU was last posted on any platform. `null` when the SKU has
+ * never been posted anywhere (dropship catalog item that has never reached a
+ * customer-facing listing). Used as a "stale listing" signal: a SKU that was
+ * posted a long time ago and never sold suggests the price is wrong or there's
+ * no demand in that market.
+ */
+export function computeDaysSinceLastListed(tire, nowMs) {
+  const listings = tire?.platformListings || {}
+  let latest = 0
+  for (const p of PLATFORMS) {
+    const ms = toMillis(listings[p]?.lastPostedAt)
+    if (ms && ms > latest) latest = ms
+  }
+  if (!latest) return null
+  const diffDays = Math.floor((nowMs - latest) / MS_PER_DAY)
   return diffDays < 0 ? 0 : diffDays
 }
 
@@ -110,7 +140,7 @@ export function buildEnrichedTires(tires, velocityBySize, nowMs) {
     const v = velocityBySize[key] || { avgDaysToSell: null, sampleSize: 0 }
     return {
       ...t,
-      daysInStock: computeDaysInStock(t, nowMs),
+      daysSinceLastListed: computeDaysSinceLastListed(t, nowMs),
       daysSincePriceChange: computeDaysSincePriceChange(t, nowMs),
       avgDaysToSell: v.avgDaysToSell,
       velocitySampleSize: v.sampleSize,

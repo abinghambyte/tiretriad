@@ -65,7 +65,9 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
         {tire.kyleFrozen ? <span aria-label="Kyle frozen">🔒</span> : null}
       </div>
       <p className="mt-1 text-[12px] text-zinc-400">
-        In stock {Math.round(bd.daysInStock?.raw || 0)}d &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d ago &middot; Velocity {velDays} &middot;{' '}
+        Last posted {Number.isFinite(bd.daysSinceLastListed?.raw) && bd.daysSinceLastListed.raw > 0
+          ? `${Math.round(bd.daysSinceLastListed.raw)}d ago`
+          : 'never'} &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d ago &middot; Velocity {velDays} &middot;{' '}
         Margin {marginPct} &middot; Missing {tire.missingPlatformCount} platform(s)
       </p>
       {error ? <p className="mt-2 text-rose-300">Narrative unavailable (retry).</p> : null}

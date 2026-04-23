@@ -27,7 +27,7 @@ function ranked() {
       kyleFrozen: false,
       rankScore: 174,
       signalBreakdown: {
-        daysInStock: { raw: 80, weighted: 48 },
+        daysSinceLastListed: { raw: 12, weighted: 4.8 },
         daysSincePriceChange: { raw: 44, weighted: 17.6 },
         velocity: { raw: 5.5, weighted: 8.25 },
         margin: { raw: 0.32, weighted: 44.8 },
@@ -45,7 +45,7 @@ function ranked() {
       kyleFrozen: true,
       rankScore: 120,
       signalBreakdown: {
-        daysInStock: { raw: 25, weighted: 15 },
+        daysSinceLastListed: { raw: 3, weighted: 1.2 },
         daysSincePriceChange: { raw: 10, weighted: 4 },
         velocity: { raw: 10, weighted: 15 },
         margin: { raw: 0.4, weighted: 56 },
@@ -87,8 +87,8 @@ describe('NextToPostSurface', () => {
 
   it('mode toggle persists selection to localStorage', () => {
     renderSurface()
-    fireEvent.click(screen.getByRole('tab', { name: /clearance/i }))
-    expect(window.localStorage.getItem('skedaddle-advisor-mode-v1')).toBe('CLEARANCE')
+    fireEvent.click(screen.getByRole('tab', { name: /coverage/i }))
+    expect(window.localStorage.getItem('skedaddle-advisor-mode-v1')).toBe('COVERAGE')
   })
 
   it('"Show more" opens the modal with full ranked list', () => {
