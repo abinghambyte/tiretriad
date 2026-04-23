@@ -446,11 +446,23 @@ export function ContactsPage({ embedded = false }) {
                         }
                       />
                     )
-                  : sorted.map((c) => (
+                  : sorted.map((c) => {
+                      const openContact = () => {
+                        void openPanel(c)
+                      }
+                      return (
                       <tr
                         key={c.id}
                         className="cursor-pointer border-b border-zinc-800/80 hover:bg-zinc-900/50"
-                        onClick={() => void openPanel(c)}
+                        role="button"
+                        tabIndex={0}
+                        onClick={openContact}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            openContact()
+                          }
+                        }}
                       >
                         <td className="px-3 py-2 font-medium text-zinc-200">
                           {c.isVip ? (
@@ -473,7 +485,8 @@ export function ContactsPage({ embedded = false }) {
                           {c.notes || '—'}
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
             </tbody>
           </table>
         </div>
@@ -484,6 +497,7 @@ export function ContactsPage({ embedded = false }) {
           className="fixed inset-0 z-[130] flex justify-end bg-black/70 p-0 backdrop-blur-md sk-modal-backdrop-enter"
           role="dialog"
           aria-modal
+          aria-labelledby="contact-detail-title"
           onClick={() => setSelected(null)}
         >
           <div
@@ -510,7 +524,7 @@ export function ContactsPage({ embedded = false }) {
                     />
                   </label>
                 ) : (
-                  <h2 className="text-lg font-semibold tracking-tight text-zinc-50">
+                  <h2 id="contact-detail-title" className="text-lg font-semibold tracking-tight text-zinc-50">
                     {selected.isVip ? (
                       <span className="mr-1 text-amber-300" title="VIP customer">
                         ⭐

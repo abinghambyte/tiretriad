@@ -823,6 +823,7 @@ export function OrdersList({ highlightId }) {
           className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
+          aria-labelledby="cancel-order-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) dismissOrderModals()
           }}
@@ -831,7 +832,7 @@ export function OrdersList({ highlightId }) {
             className={`${MODAL_CENTER_PANEL_BASE} max-w-md p-5`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-sm font-semibold text-white">Cancel order</h2>
+            <h2 id="cancel-order-title" className="text-sm font-semibold text-white">Cancel order</h2>
             <p className="mt-1 font-mono text-xs text-zinc-500">
               {cancelFor.mspn} × {formatQty(cancelFor.quantity)}
             </p>
@@ -890,6 +891,7 @@ export function OrdersList({ highlightId }) {
           className={MODAL_CENTER_BACKDROP}
           role="dialog"
           aria-modal="true"
+          aria-labelledby="complete-order-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) dismissOrderModals()
           }}
@@ -898,7 +900,7 @@ export function OrdersList({ highlightId }) {
             className={`${MODAL_CENTER_PANEL_BASE} max-w-sm p-5`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-sm font-semibold text-white">Mark order complete</h2>
+            <h2 id="complete-order-title" className="text-sm font-semibold text-white">Mark order complete</h2>
             <p className="mt-1 text-xs text-zinc-500">Payment received and amount for the record.</p>
             <label className="mt-4 flex items-center gap-2 text-sm text-zinc-300">
               <input
