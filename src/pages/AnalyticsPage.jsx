@@ -1,7 +1,7 @@
 import {
   collection,
   doc,
-  getDoc,
+  documentId,
   getDocs,
   limit,
   onSnapshot,
@@ -9,7 +9,7 @@ import {
   query,
   where,
 } from 'firebase/firestore'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { db } from '../firebase/config'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
@@ -127,6 +127,8 @@ export function AnalyticsPage() {
   const [pokeOrders, setPokeOrders] = useState([])
   const [pokeLoading, setPokeLoading] = useState(true)
   const [tiresByMspn, setTiresByMspn] = useState(() => new Map())
+  const tiresByMspnRef = useRef(tiresByMspn)
+  tiresByMspnRef.current = tiresByMspn
 
   useEffect(() => {
     const q = query(
@@ -135,7 +137,8 @@ export function AnalyticsPage() {
       orderBy('completedAt', 'desc'),
       limit(4000),
     )
-    getDocs(q).then(
+    return onSnapshot(
+      q,
       (snap) => {
         setCompletedRows(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setOrdersLoading(false)
@@ -149,8 +152,16 @@ export function AnalyticsPage() {
   }, [])
 
   useEffect(() => {
-    const q = query(collection(db, 'orders'), where('pokeCount', '>=', 1), limit(800))
-    getDocs(q).then(
+    // Firestore requires the inequality field to be the first orderBy. Sort
+    // ascending since the result is only used for counting conversion rate.
+    const q = query(
+      collection(db, 'orders'),
+      where('pokeCount', '>=', 1),
+      orderBy('pokeCount', 'asc'),
+      limit(800),
+    )
+    return onSnapshot(
+      q,
       (snap) => {
         setPokeOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setPokeLoading(false)
@@ -185,20 +196,41 @@ export function AnalyticsPage() {
   }, [])
 
   useEffect(() => {
-    const ids = [...new Set(completedRows.map((r) => String(r.mspn || '').trim()).filter(Boolean))].slice(0, 200)
-    if (!ids.length) {
-      setTiresByMspn(new Map())
-      return undefined
-    }
+    const ids = [...new Set(completedRows.map((r) => String(r.mspn || '').trim()).filter(Boolean))]
+    if (!ids.length) return undefined
     let cancelled = false
     void (async () => {
-      const entries = await Promise.all(
-        ids.map(async (id) => {
-          const s = await getDoc(doc(db, 'tires', id))
-          return [id, s.exists() ? s.data() || {} : {}]
-        }),
-      )
-      if (!cancelled) setTiresByMspn(new Map(entries))
+      // Only hit Firestore for MSPNs not already cached from a prior snapshot.
+      const cache = tiresByMspnRef.current
+      const missing = ids.filter((id) => !cache.has(id))
+      if (!missing.length) return
+      // Firestore modular SDK (v9+) allows up to 30 values per `in` query.
+      const CHUNK = 30
+      const fetched = new Map()
+      for (let i = 0; i < missing.length; i += CHUNK) {
+        const chunk = missing.slice(i, i + CHUNK)
+        try {
+          const snap = await getDocs(
+            query(collection(db, 'tires'), where(documentId(), 'in', chunk)),
+          )
+          for (const d of snap.docs) {
+            fetched.set(d.id, d.data() || {})
+          }
+        } catch (e) {
+          console.error(e)
+        }
+        // Any MSPN requested but not returned still gets cached as an empty
+        // object so subsequent renders do not re-query it.
+        for (const id of chunk) {
+          if (!fetched.has(id)) fetched.set(id, {})
+        }
+      }
+      if (cancelled) return
+      setTiresByMspn((prev) => {
+        const next = new Map(prev)
+        for (const [k, v] of fetched) next.set(k, v)
+        return next
+      })
     })()
     return () => {
       cancelled = true
