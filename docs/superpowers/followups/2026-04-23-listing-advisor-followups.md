@@ -6,7 +6,11 @@ Tackle in order. Each item is independently shippable.
 
 ---
 
-## 1. Schema fix in `useAdvisorSignals` (CRITICAL) -- in progress
+## 1. Schema fix in `useAdvisorSignals` (CRITICAL) -- DONE, PR #105
+
+Shipped on branch `advisor-signals-schema-fix`, stacked on `listing-advisor`. Approach taken: read `priceIntel.sources` for price-change timestamps (so follow-up #4 is no longer needed -- can close or downgrade). Join orders to tires via `mspn` and use `tire.createdAt` as intake. Full spec in the commit message on `2921bb3`.
+
+
 
 **File:** `src/hooks/useAdvisorSignals.js`
 
@@ -39,7 +43,12 @@ Currently forwards `brand / tread / size / lr / mspn / price / kyleFrozen / mode
 
 Pass these from the client in the `request.data` so the function doesn't have to re-derive. That means the ranker's `signalBreakdown` should flow through to the callable invocation.
 
-## 4. Add `priceHistory` write path
+## 4. Add `priceHistory` write path -- superseded by #1
+
+#1 reads `priceIntel.sources` directly, which every writer already appends to. No new `priceHistory` field needed. Leaving this section as a tombstone.
+
+Original note below, kept for context:
+
 
 Wherever prices are written today (`priceIntel` updates, manual price edits, platform syncs), append `{ price, writtenAt }` to a `priceHistory` subcollection or field on the tire doc. Needed for (1) to produce real `daysSincePriceChange` values over time instead of falling back to `updatedAt`.
 
