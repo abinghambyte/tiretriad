@@ -1,10 +1,55 @@
 // src/components/dashboard/NextToPostSurface.jsx
 import { useCallback, useEffect, useState } from 'react'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../../firebase/config'
 import { EmptyState } from '../shared/EmptyState.jsx'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 import { ADVISOR_MODES, DEFAULT_ADVISOR_MODE } from '../../utils/listingAdvisor/modeWeights.js'
 import { useAdvisorNarrate } from '../../hooks/useAdvisorNarrate.js'
 import { formatPercent } from '../../utils/format.js'
+
+function BackfillButton() {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  const run = useCallback(async (dryRun) => {
+    setBusy(true)
+    setResult(null)
+    try {
+      const fn = httpsCallable(functions, 'backfillTireCreatedAt')
+      const res = await fn({ dryRun })
+      setResult(res.data)
+    } catch (e) {
+      setResult({ error: String(e?.message || e) })
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+  if (!import.meta.env?.DEV) return null
+  return (
+    <div className="mt-2 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/40 px-2 py-1 text-[11px]">
+      <span className="text-zinc-400">dev: backfill createdAt</span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => run(true)}
+        className="rounded bg-zinc-700/60 px-2 py-0.5 text-zinc-100 hover:bg-zinc-700 disabled:opacity-50"
+      >
+        Dry run
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => run(false)}
+        className="rounded bg-amber-600/40 px-2 py-0.5 text-amber-100 hover:bg-amber-600/60 disabled:opacity-50"
+      >
+        Run for real
+      </button>
+      {result ? (
+        <code className="ml-1 truncate text-zinc-300">{JSON.stringify(result)}</code>
+      ) : null}
+    </div>
+  )
+}
 
 const MODE_STORAGE_KEY = 'skedaddle-advisor-mode-v1'
 const PLATFORM_LABELS = { ebay: 'eBay', marketplace: 'Marketplace', craigslist: 'Craigslist' }
@@ -263,6 +308,7 @@ export function NextToPostSurface({ ranked = [], loading = false, onPost, onMode
         <h2 className="pc-eyebrow">Next to Post</h2>
         <ModeToggle mode={mode} onChange={changeMode} />
       </div>
+      <BackfillButton />
       {loading ? (
         <div className="mt-3 h-14 animate-pulse rounded-lg bg-zinc-800/60" />
       ) : list.length === 0 ? (
