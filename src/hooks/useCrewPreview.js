@@ -7,7 +7,7 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { db } from '../firebase/config'
 import { useTires } from './useTires'
 import { deriveCrewSignals } from './useDashboardSignals'
@@ -22,6 +22,13 @@ const STREAK_CAP = 99
  */
 export function useCrewPreview() {
   const { tires } = useTires()
+
+  // Stable ref so the crew-signals effect can read current tires
+  // without re-running every time the tires array reference changes.
+  const tiresRef = useRef(tires)
+  useEffect(() => {
+    tiresRef.current = tires
+  }, [tires])
 
   const [crewPreview, setCrewPreview] = useState({
     users: /** @type {Array<{ id: string, data: Record<string, unknown> }>} */ ([]),
@@ -96,7 +103,7 @@ export function useCrewPreview() {
           ...wipSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
           ...completedSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
         ]
-        const map = deriveCrewSignals(users, orders, tires || [], Date.now())
+        const map = deriveCrewSignals(users, orders, tiresRef.current || [], Date.now())
         setCrewSignals({ map, loading: false })
       } catch (e) {
         console.error('crew signals', e)
