@@ -18,7 +18,7 @@ describe('computeDaysSinceLastListed', () => {
     const tire = {
       platformListings: {
         facebook: { lastPostedAt: ts('2026-04-12T00:00:00Z') }, // 10 days
-        offerup: { lastPostedAt: ts('2026-04-20T00:00:00Z') }, // 2 days — newest
+        offerup: { lastPostedAt: ts('2026-04-20T00:00:00Z') }, // 2 days (newest)
       },
     }
     expect(computeDaysSinceLastListed(tire, now)).toBe(2)
