@@ -1,5 +1,5 @@
 // src/hooks/useAdvisorSignals.js
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useTires } from './useTires.js'
@@ -161,7 +161,9 @@ export function useAdvisorSignals(mode = DEFAULT_ADVISOR_MODE) {
   const { tires, loading: tiresLoading } = useTires()
   const [completedOrders, setCompletedOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
-  const nowRef = useRef(Date.now())
+  // Lazy init keeps "now" stable for the hook's lifetime without calling an
+  // impure function during render (React Compiler purity rule).
+  const [nowMs] = useState(() => Date.now())
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), where('status', '==', 'completed'))
@@ -183,9 +185,9 @@ export function useAdvisorSignals(mode = DEFAULT_ADVISOR_MODE) {
   )
 
   const ranked = useMemo(() => {
-    const enriched = buildEnrichedTires(tires || [], velocityBySize, nowRef.current)
+    const enriched = buildEnrichedTires(tires || [], velocityBySize, nowMs)
     return rankTires(enriched, mode)
-  }, [tires, velocityBySize, mode])
+  }, [tires, velocityBySize, mode, nowMs])
 
   return {
     ranked,
