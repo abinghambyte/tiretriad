@@ -116,16 +116,21 @@ function missingPlatforms(tire, nowMs) {
 }
 
 /**
- * Days the tire has been in inventory. Prefers `tire.createdAt` when present,
- * but tire docs in this codebase are keyed by MSPN and the create path does
- * not stamp `createdAt`. As a fallback we use the earliest entry in
- * `priceIntel.sources` — a tire can only have been researched if it was in
- * our system, so the first research is a floor on intake date.
+ * Days since the SKU was last posted on any platform. `null` when the SKU has
+ * never been posted anywhere (dropship catalog item that has never reached a
+ * customer-facing listing). Used as a "stale listing" signal: a SKU that was
+ * posted a long time ago and never sold suggests the price is wrong or there's
+ * no demand in that market.
  */
-export function computeDaysInStock(tire, nowMs) {
-  const intakeMs = tireIntakeMs(tire)
-  if (!intakeMs) return 0
-  const diffDays = Math.floor((nowMs - intakeMs) / MS_PER_DAY)
+export function computeDaysSinceLastListed(tire, nowMs) {
+  const listings = tire?.platformListings || {}
+  let latest = 0
+  for (const p of PLATFORMS) {
+    const ms = toMillis(listings[p]?.lastPostedAt)
+    if (ms && ms > latest) latest = ms
+  }
+  if (!latest) return null
+  const diffDays = Math.floor((nowMs - latest) / MS_PER_DAY)
   return diffDays < 0 ? 0 : diffDays
 }
 
@@ -135,7 +140,7 @@ export function buildEnrichedTires(tires, velocityBySize, nowMs) {
     const v = velocityBySize[key] || { avgDaysToSell: null, sampleSize: 0 }
     return {
       ...t,
-      daysInStock: computeDaysInStock(t, nowMs),
+      daysSinceLastListed: computeDaysSinceLastListed(t, nowMs),
       daysSincePriceChange: computeDaysSincePriceChange(t, nowMs),
       avgDaysToSell: v.avgDaysToSell,
       velocitySampleSize: v.sampleSize,

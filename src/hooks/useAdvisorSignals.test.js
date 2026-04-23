@@ -4,12 +4,42 @@ import {
   computeDaysSincePriceChange,
   computeAvgDaysToSell,
   buildEnrichedTires,
+  computeDaysSinceLastListed,
 } from './useAdvisorSignals.js'
 
 function ts(iso) {
   const ms = new Date(iso).getTime()
   return { toMillis: () => ms }
 }
+
+describe('computeDaysSinceLastListed', () => {
+  it('returns days since the most recent platformListings.*.lastPostedAt', () => {
+    const now = new Date('2026-04-22T00:00:00Z').getTime()
+    const tire = {
+      platformListings: {
+        facebook: { lastPostedAt: ts('2026-04-12T00:00:00Z') }, // 10 days
+        offerup: { lastPostedAt: ts('2026-04-20T00:00:00Z') }, // 2 days — newest
+      },
+    }
+    expect(computeDaysSinceLastListed(tire, now)).toBe(2)
+  })
+
+  it('returns null when the SKU has never been posted', () => {
+    expect(computeDaysSinceLastListed({}, Date.now())).toBe(null)
+    expect(computeDaysSinceLastListed({ platformListings: {} }, Date.now())).toBe(null)
+  })
+
+  it('ignores platform entries with missing timestamps', () => {
+    const now = new Date('2026-04-22T00:00:00Z').getTime()
+    const tire = {
+      platformListings: {
+        facebook: { lastPostedAt: null },
+        offerup: { lastPostedAt: ts('2026-04-15T00:00:00Z') }, // 7 days
+      },
+    }
+    expect(computeDaysSinceLastListed(tire, now)).toBe(7)
+  })
+})
 
 describe('computeDaysSincePriceChange', () => {
   it('returns days since latest priceIntel.sources entry (using `at`)', () => {
@@ -103,7 +133,7 @@ describe('computeAvgDaysToSell', () => {
 })
 
 describe('buildEnrichedTires', () => {
-  it('attaches daysInStock, daysSincePriceChange, velocity, margin, missingPlatformCount', () => {
+  it('attaches daysSincePriceChange, daysSinceLastListed, velocity, margin, missingPlatformCount', () => {
     const now = new Date('2026-04-22T00:00:00Z').getTime()
     const tires = [
       {
@@ -128,7 +158,7 @@ describe('buildEnrichedTires', () => {
     ]
     const velocityBySize = { '265/70R17|E': { avgDaysToSell: 18, sampleSize: 6 } }
     const [enriched] = buildEnrichedTires(tires, velocityBySize, now)
-    expect(enriched.daysInStock).toBe(90)
+    expect(enriched.daysSinceLastListed).toBe(2)
     expect(enriched.daysSincePriceChange).toBe(31)
     expect(enriched.avgDaysToSell).toBe(18)
     expect(enriched.velocitySampleSize).toBe(6)
@@ -173,26 +203,4 @@ describe('buildEnrichedTires', () => {
     expect(enriched.kyleFrozen).toBe(true)
   })
 
-  it('defaults daysInStock to 0 when tire has no createdAt and no priceIntel', () => {
-    const tires = [{ id: 't1' }]
-    const [enriched] = buildEnrichedTires(tires, {}, Date.now())
-    expect(enriched.daysInStock).toBe(0)
-  })
-
-  it('falls back to earliest priceIntel source when createdAt is missing', () => {
-    const now = new Date('2026-04-22T00:00:00Z').getTime()
-    const tires = [
-      {
-        id: 't1',
-        priceIntel: {
-          sources: [
-            { price: 300, at: ts('2026-01-01T00:00:00Z') }, // earliest
-            { price: 280, at: ts('2026-04-10T00:00:00Z') },
-          ],
-        },
-      },
-    ]
-    const [enriched] = buildEnrichedTires(tires, {}, now)
-    expect(enriched.daysInStock).toBe(111) // Jan 1 -> Apr 22
-  })
 })
