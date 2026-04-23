@@ -1,6 +1,10 @@
 // src/components/dashboard/NextToPostSurface.test.jsx
+/** @vitest-environment jsdom */
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { NextToPostSurface } from './NextToPostSurface.jsx'
 
@@ -64,18 +68,19 @@ describe('NextToPostSurface', () => {
   })
 
   afterEach(() => {
+    cleanup()
     window.localStorage.clear()
   })
 
   it('renders the top-ranked tire in the card preview', () => {
     renderSurface()
-    expect(screen.getByText('MICH-265-70-17')).toBeInTheDocument()
-    expect(screen.queryByText('GY-235-75-15')).not.toBeInTheDocument()
+    expect(screen.getByText('MICH-265-70-17')).toBeTruthy()
+    expect(screen.queryByText('GY-235-75-15')).toBeNull()
   })
 
   it('renders empty state when ranked is empty', () => {
     renderSurface({ ranked: [] })
-    expect(screen.getByText(/nothing to post/i)).toBeInTheDocument()
+    expect(screen.getByText(/nothing to post/i)).toBeTruthy()
   })
 
   it('mode toggle persists selection to localStorage', () => {
@@ -87,15 +92,15 @@ describe('NextToPostSurface', () => {
   it('"Show more" opens the modal with full ranked list', () => {
     renderSurface()
     fireEvent.click(screen.getByRole('button', { name: /show more/i }))
-    expect(screen.getByRole('dialog', { name: /next to post/i })).toBeInTheDocument()
-    expect(screen.getByText('GY-235-75-15')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /next to post/i })).toBeTruthy()
+    expect(screen.getByText('GY-235-75-15')).toBeTruthy()
   })
 
   it('Escape closes the modal', () => {
     renderSurface()
     fireEvent.click(screen.getByRole('button', { name: /show more/i }))
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('expanding a row in the modal calls advisorNarrate and renders narrative', async () => {
@@ -104,6 +109,6 @@ describe('NextToPostSurface', () => {
     fireEvent.click(screen.getByRole('button', { name: /show more/i }))
     fireEvent.click(screen.getAllByRole('button', { name: /why/i })[0])
     await waitFor(() => expect(narrateMock).toHaveBeenCalledWith('t1', expect.any(String)))
-    await waitFor(() => expect(screen.getByText('Aging fast.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Aging fast.')).toBeTruthy())
   })
 })
