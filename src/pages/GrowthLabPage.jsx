@@ -131,7 +131,7 @@ function GrowthLabRoutingForm() {
           Routes portal work to Opus, Sonnet, Haiku, Gemini (market), or Antigravity (browser-heavy). Uses Skedaddle
           context + a credit guardian (prefer Sonnet when it suffices).
         </p>
-        <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-zinc-300">
           Session notes <span className="normal-case text-zinc-600">(saved locally)</span>
         </label>
         <textarea
@@ -141,7 +141,7 @@ function GrowthLabRoutingForm() {
           placeholder="Context for the next visit: decisions, file paths, blockers…"
           className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/40 focus:ring-1 focus:ring-amber-500/30"
         />
-        <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-zinc-300">
           Task
         </label>
         <textarea
@@ -191,11 +191,11 @@ function GrowthLabRoutingForm() {
             </p>
           ) : null}
           <div className="mt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Rationale</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Rationale</p>
             <p className="mt-1 text-sm leading-relaxed text-zinc-300">{String(dispatch.rationale || '--')}</p>
           </div>
           <div className="mt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Context to load</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Context to load</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-zinc-300">
               {Array.isArray(dispatch.contextToLoad) && dispatch.contextToLoad.length ? (
                 dispatch.contextToLoad.map((x, i) => (
@@ -210,7 +210,7 @@ function GrowthLabRoutingForm() {
           </div>
           <div className="mt-4">
             <div className="mb-2 flex flex-col gap-2 max-sm:items-stretch sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Session starter</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Session starter</p>
               <button
                 type="button"
                 onClick={() => void copyText(String(dispatch.sessionStarter || ''))}
