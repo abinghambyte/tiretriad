@@ -38,8 +38,8 @@ exports.backfillTireCreatedAt = onCall(async (request) => {
   const db = admin.firestore()
   const uSnap = await db.collection('users').doc(request.auth.uid).get()
   const tiresPerm = uSnap.exists ? String(uSnap.data()?.permissions?.tires || 'none') : 'none'
-  if (tiresPerm !== 'edit') {
-    throw new HttpsError('permission-denied', 'Tires edit permission required.')
+  if (!['edit', 'manage'].includes(tiresPerm)) {
+    throw new HttpsError('permission-denied', `Tires edit or manage permission required (you have: ${tiresPerm}).`)
   }
 
   const dryRun = Boolean(request.data?.dryRun)
