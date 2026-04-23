@@ -49,7 +49,7 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
     setLoading(true)
     setError(null)
     try {
-      const r = await narrate(tireId, mode)
+      const r = await narrate(tireId, mode, tire)
       setResult(r)
     } catch (e) {
       setError(String(e?.message || e))

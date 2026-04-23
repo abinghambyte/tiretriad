@@ -54,7 +54,7 @@ describe('ListingAdvisorPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /why/i }))
     await waitFor(() => expect(narrateMock).toHaveBeenCalledTimes(1))
-    expect(narrateMock).toHaveBeenCalledWith('t1', 'VELOCITY')
+    expect(narrateMock).toHaveBeenCalledWith('t1', 'VELOCITY', expect.objectContaining({ id: 't1' }))
     expect(await screen.findByText('Because reasons.')).toBeTruthy()
   })
 

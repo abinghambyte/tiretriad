@@ -104,7 +104,7 @@ function ExpandableRow({ tire, mode, narrate }) {
     if (result) return
     setLoading(true)
     try {
-      const r = await narrate(tire.id, mode)
+      const r = await narrate(tire.id, mode, tire)
       setResult(r)
     } catch (e) {
       setError(String(e?.message || e))
