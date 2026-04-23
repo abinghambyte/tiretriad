@@ -18,22 +18,25 @@ function velocityUrgency(avgDaysToSell, sampleSize) {
 }
 
 function scoreTire(tire, weights) {
-  const ageRaw = clampAge(tire.daysSincePriceChange)
+  const stockRaw = clampAge(tire.daysInStock)
+  const repriceRaw = clampAge(tire.daysSincePriceChange)
   const velRaw = velocityUrgency(tire.avgDaysToSell, tire.velocitySampleSize)
   const marginRaw = Number.isFinite(Number(tire.marginHeadroomPct)) ? Number(tire.marginHeadroomPct) : 0
   const crossRaw = Math.max(0, Number(tire.missingPlatformCount) || 0)
 
   // Margin is expressed as a fraction (0.32 = 32%). Multiply by 100 so the
   // weight scale lines up with the other signals.
-  const ageW = ageRaw * weights.age
+  const stockW = stockRaw * weights.daysInStock
+  const repriceW = repriceRaw * weights.daysSincePriceChange
   const velW = velRaw * weights.velocity
   const marginW = marginRaw * 100 * weights.margin
   const crossW = crossRaw * weights.crossPost
 
   return {
-    rankScore: ageW + velW + marginW + crossW,
+    rankScore: stockW + repriceW + velW + marginW + crossW,
     signalBreakdown: {
-      age: { raw: ageRaw, weighted: ageW },
+      daysInStock: { raw: stockRaw, weighted: stockW },
+      daysSincePriceChange: { raw: repriceRaw, weighted: repriceW },
       velocity: { raw: velRaw, weighted: velW },
       margin: { raw: marginRaw, weighted: marginW },
       crossPost: { raw: crossRaw, weighted: crossW },

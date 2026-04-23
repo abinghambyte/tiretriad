@@ -22,7 +22,7 @@ function SignalStrip({ tire }) {
   const velDays = bd.velocity?.raw ? `${Math.round(100 / bd.velocity.raw)}d` : 'n/a'
   return (
     <p className="text-[11px] text-zinc-500">
-      Age {Math.round(bd.age?.raw || 0)}d &middot; Vel {velDays} &middot;{' '}
+      Stock {Math.round(bd.daysInStock?.raw || 0)}d &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d &middot; Vel {velDays} &middot;{' '}
       Margin {formatPercent((bd.margin?.raw || 0) * 100, 0)} &middot; Missing {tire.missingPlatformCount}
     </p>
   )

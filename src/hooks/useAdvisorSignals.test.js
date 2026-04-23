@@ -103,7 +103,7 @@ describe('computeAvgDaysToSell', () => {
 })
 
 describe('buildEnrichedTires', () => {
-  it('attaches daysSincePriceChange, velocity, margin, missingPlatformCount', () => {
+  it('attaches daysInStock, daysSincePriceChange, velocity, margin, missingPlatformCount', () => {
     const now = new Date('2026-04-22T00:00:00Z').getTime()
     const tires = [
       {
@@ -115,6 +115,7 @@ describe('buildEnrichedTires', () => {
         mountCost: 10,
         deliveryCost: 5,
         otherCost: 5,
+        createdAt: ts('2026-01-22T00:00:00Z'), // 90 days before now
         priceIntel: {
           retailPrice: 300,
           sources: [{ price: 300, at: ts('2026-03-22T00:00:00Z') }],
@@ -127,6 +128,7 @@ describe('buildEnrichedTires', () => {
     ]
     const velocityBySize = { '265/70R17|E': { avgDaysToSell: 18, sampleSize: 6 } }
     const [enriched] = buildEnrichedTires(tires, velocityBySize, now)
+    expect(enriched.daysInStock).toBe(90)
     expect(enriched.daysSincePriceChange).toBe(31)
     expect(enriched.avgDaysToSell).toBe(18)
     expect(enriched.velocitySampleSize).toBe(6)
@@ -169,5 +171,11 @@ describe('buildEnrichedTires', () => {
     const [enriched] = buildEnrichedTires(tires, {}, Date.now())
     expect(enriched.doNotList).toBe(true)
     expect(enriched.kyleFrozen).toBe(true)
+  })
+
+  it('defaults daysInStock to 0 when tire has no createdAt', () => {
+    const tires = [{ id: 't1' }]
+    const [enriched] = buildEnrichedTires(tires, {}, Date.now())
+    expect(enriched.daysInStock).toBe(0)
   })
 })

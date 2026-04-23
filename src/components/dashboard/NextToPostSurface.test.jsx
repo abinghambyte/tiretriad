@@ -27,7 +27,8 @@ function ranked() {
       kyleFrozen: false,
       rankScore: 174,
       signalBreakdown: {
-        age: { raw: 44, weighted: 66 },
+        daysInStock: { raw: 80, weighted: 48 },
+        daysSincePriceChange: { raw: 44, weighted: 17.6 },
         velocity: { raw: 5.5, weighted: 8.25 },
         margin: { raw: 0.32, weighted: 44.8 },
         crossPost: { raw: 2, weighted: 1.6 },
@@ -44,7 +45,8 @@ function ranked() {
       kyleFrozen: true,
       rankScore: 120,
       signalBreakdown: {
-        age: { raw: 10, weighted: 15 },
+        daysInStock: { raw: 25, weighted: 15 },
+        daysSincePriceChange: { raw: 10, weighted: 4 },
         velocity: { raw: 10, weighted: 15 },
         margin: { raw: 0.4, weighted: 56 },
         crossPost: { raw: 1, weighted: 0.8 },
