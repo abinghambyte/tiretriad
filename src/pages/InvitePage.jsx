@@ -108,10 +108,15 @@ export function InvitePage() {
     ;(async () => {
       await new Promise((r) => setTimeout(r, 120))
       if (cancelled) return
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([28, 36, 28])
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      if (!prefersReducedMotion) {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([28, 36, 28])
+        }
+        playInviteTone()
       }
-      playInviteTone()
       await new Promise((r) => setTimeout(r, 520))
       if (!cancelled) {
         setPhase('experience')
@@ -147,6 +152,15 @@ export function InvitePage() {
     const t = setTimeout(() => setFxStep((s) => Math.max(s, 2)), 1200)
     return () => clearTimeout(t)
   }, [phase, fxStep])
+
+  useEffect(() => {
+    if (phase !== 'register') return undefined
+    function onKey(e) {
+      if (e.key === 'Escape') setPhase('experience')
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [phase])
 
   const regTitles = useMemo(
     () => ['Email', 'Code', 'Name', 'Phone', 'Password', 'Slack'],
@@ -282,30 +296,47 @@ export function InvitePage() {
             ) : null}
 
             {regStep === 0 ? (
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-              />
+              <>
+                <label htmlFor="invite-reg-email" className="sr-only">
+                  Email address
+                </label>
+                <input
+                  id="invite-reg-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+                />
+              </>
             ) : null}
             {regStep === 1 ? (
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                placeholder="000000"
-                required
-                value={regCode}
-                onChange={(e) => setRegCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-center font-mono text-lg tracking-[0.4em] outline-none ring-zinc-700 focus:ring-2"
-              />
+              <>
+                <label htmlFor="invite-reg-code" className="sr-only">
+                  6-digit verification code
+                </label>
+                <input
+                  id="invite-reg-code"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="6-digit code"
+                  required
+                  value={regCode}
+                  onChange={(e) => setRegCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-center font-mono text-lg tracking-[0.4em] outline-none ring-zinc-700 focus:ring-2"
+                />
+              </>
             ) : null}
             {regStep === 2 ? (
               <div className="space-y-3">
+                <label htmlFor="invite-reg-first" className="sr-only">
+                  First name
+                </label>
                 <input
+                  id="invite-reg-first"
                   type="text"
                   required
                   placeholder="First name"
@@ -313,7 +344,11 @@ export function InvitePage() {
                   onChange={(e) => setRegFirst(e.target.value)}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
                 />
+                <label htmlFor="invite-reg-last" className="sr-only">
+                  Last name
+                </label>
                 <input
+                  id="invite-reg-last"
                   type="text"
                   required
                   placeholder="Last name"
@@ -324,24 +359,38 @@ export function InvitePage() {
               </div>
             ) : null}
             {regStep === 3 ? (
-              <input
-                type="tel"
-                required
-                autoComplete="tel"
-                value={regPhone}
-                onChange={(e) => setRegPhone(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-              />
+              <>
+                <label htmlFor="invite-reg-phone" className="sr-only">
+                  Phone number
+                </label>
+                <input
+                  id="invite-reg-phone"
+                  type="tel"
+                  required
+                  autoComplete="tel"
+                  placeholder="Phone number"
+                  value={regPhone}
+                  onChange={(e) => setRegPhone(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+                />
+              </>
             ) : null}
             {regStep === 4 ? (
-              <input
-                type="password"
-                required
-                autoComplete="new-password"
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-              />
+              <>
+                <label htmlFor="invite-reg-password" className="sr-only">
+                  Password
+                </label>
+                <input
+                  id="invite-reg-password"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  placeholder="Password"
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
+                />
+              </>
             ) : null}
             {regStep === 5 ? (
               <div className="space-y-4 text-center">
