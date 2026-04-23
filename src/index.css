@@ -140,20 +140,24 @@
   color: rgb(113 113 122);
 }
 
-/* Activity ticker scroll. Pauses on hover OR focus-within. Respects
-   prefers-reduced-motion. Previously injected inline per mount. */
+/* Activity ticker scroll. Single-copy chips are pre-padded on the left by
+   the full container width (via pl-[100%]) so the first chip starts
+   offscreen-right. Animation translates the track from 0 to -100% of its
+   own width (leading pad + chips), giving a full enter/exit pass with a
+   brief gap between cycles. Pauses on hover OR focus-within. Respects
+   prefers-reduced-motion. */
 @keyframes ticker-scroll {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(-100%);
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .activity-ticker .activity-ticker__track {
-    animation: ticker-scroll 35s linear infinite;
+    animation: ticker-scroll 45s linear infinite;
   }
 }
 
