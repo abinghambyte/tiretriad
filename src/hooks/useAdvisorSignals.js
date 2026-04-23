@@ -23,6 +23,22 @@ function toMillis(maybeTs) {
 }
 
 /**
+ * Intake timestamp for a tire. Falls back to the earliest priceIntel source
+ * timestamp when `createdAt` is not set (most tires in prod).
+ */
+function tireIntakeMs(tire) {
+  const created = toMillis(tire?.createdAt)
+  if (created) return created
+  const sources = Array.isArray(tire?.priceIntel?.sources) ? tire.priceIntel.sources : []
+  let earliest = null
+  for (const entry of sources) {
+    const ms = toMillis(entry?.at) ?? toMillis(entry?.recordedAt)
+    if (ms && (!earliest || ms < earliest)) earliest = ms
+  }
+  return earliest
+}
+
+/**
  * Days since the tire's price was last written. Reads the canonical
  * `priceIntel.sources` audit trail (see AGENTS.md: "All price changes logged
  * to priceIntel.sources array"). Backend writers use either `at`
@@ -62,7 +78,9 @@ export function computeAvgDaysToSell(orders, tires) {
     if (!completedMs) continue
     const mspn = String(o?.mspn || '').trim()
     const tire = mspn ? tireByMspn.get(mspn) : null
-    const intakeMs = toMillis(tire?.createdAt)
+    // Use the tire's computed intake (createdAt or earliest priceIntel source)
+    // so velocity math works for tires that never got a createdAt stamp.
+    const intakeMs = tire ? tireIntakeMs(tire) : null
     if (!intakeMs) continue
     const size = String(tire?.size || o.size || '').trim()
     const lr = String(tire?.lr || o.lr || '').trim()
@@ -97,8 +115,15 @@ function missingPlatforms(tire, nowMs) {
   return n
 }
 
-function computeDaysInStock(tire, nowMs) {
-  const intakeMs = toMillis(tire?.createdAt)
+/**
+ * Days the tire has been in inventory. Prefers `tire.createdAt` when present,
+ * but tire docs in this codebase are keyed by MSPN and the create path does
+ * not stamp `createdAt`. As a fallback we use the earliest entry in
+ * `priceIntel.sources` — a tire can only have been researched if it was in
+ * our system, so the first research is a floor on intake date.
+ */
+export function computeDaysInStock(tire, nowMs) {
+  const intakeMs = tireIntakeMs(tire)
   if (!intakeMs) return 0
   const diffDays = Math.floor((nowMs - intakeMs) / MS_PER_DAY)
   return diffDays < 0 ? 0 : diffDays

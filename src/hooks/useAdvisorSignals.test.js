@@ -173,9 +173,26 @@ describe('buildEnrichedTires', () => {
     expect(enriched.kyleFrozen).toBe(true)
   })
 
-  it('defaults daysInStock to 0 when tire has no createdAt', () => {
+  it('defaults daysInStock to 0 when tire has no createdAt and no priceIntel', () => {
     const tires = [{ id: 't1' }]
     const [enriched] = buildEnrichedTires(tires, {}, Date.now())
     expect(enriched.daysInStock).toBe(0)
+  })
+
+  it('falls back to earliest priceIntel source when createdAt is missing', () => {
+    const now = new Date('2026-04-22T00:00:00Z').getTime()
+    const tires = [
+      {
+        id: 't1',
+        priceIntel: {
+          sources: [
+            { price: 300, at: ts('2026-01-01T00:00:00Z') }, // earliest
+            { price: 280, at: ts('2026-04-10T00:00:00Z') },
+          ],
+        },
+      },
+    ]
+    const [enriched] = buildEnrichedTires(tires, {}, now)
+    expect(enriched.daysInStock).toBe(111) // Jan 1 -> Apr 22
   })
 })
