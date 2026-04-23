@@ -5,8 +5,14 @@ import { db } from '../firebase/config'
 import { useTires } from './useTires.js'
 import { rankTires } from '../utils/listingAdvisor/ranker.js'
 import { DEFAULT_ADVISOR_MODE } from '../utils/listingAdvisor/modeWeights.js'
+import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
+import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail'
+import { effectiveCts } from '../utils/ctsCalc'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
+// Match listingStatus.js: anything posted within 7 days counts as active.
+const LISTING_STALE_MS = 7 * MS_PER_DAY
+const PLATFORMS = ['facebook', 'offerup', 'craigslist']
 
 function toMillis(maybeTs) {
   if (!maybeTs) return null
@@ -16,11 +22,18 @@ function toMillis(maybeTs) {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Days since the tire's price was last written. Reads the canonical
+ * `priceIntel.sources` audit trail (see AGENTS.md: "All price changes logged
+ * to priceIntel.sources array"). Backend writers use either `at`
+ * (tirePriceResearch.js) or `recordedAt` (priceIntelSlack.js) as the
+ * timestamp field, so both are checked.
+ */
 export function computeDaysSincePriceChange(tire, nowMs) {
-  const hist = Array.isArray(tire?.priceHistory) ? tire.priceHistory : []
+  const sources = Array.isArray(tire?.priceIntel?.sources) ? tire.priceIntel.sources : []
   let latest = 0
-  for (const entry of hist) {
-    const ms = toMillis(entry?.at)
+  for (const entry of sources) {
+    const ms = toMillis(entry?.at) ?? toMillis(entry?.recordedAt)
     if (ms && ms > latest) latest = ms
   }
   if (!latest) return 0
@@ -28,14 +41,32 @@ export function computeDaysSincePriceChange(tire, nowMs) {
   return diffDays < 0 ? 0 : diffDays
 }
 
-export function computeAvgDaysToSell(orders) {
+/**
+ * Per size+LR average days from tire intake to order completion. Joins
+ * completed orders to their tire via `order.mspn -> tire.mspn` (tire docs
+ * are keyed by MSPN in this codebase, but the join explicitly matches on
+ * the mspn field to stay decoupled from that convention). Days-to-sell is
+ * measured against `tire.createdAt` (inventory intake), not `order.createdAt`.
+ */
+export function computeAvgDaysToSell(orders, tires) {
+  const tireByMspn = new Map()
+  for (const t of tires || []) {
+    const key = String(t?.mspn || t?.id || '').trim()
+    if (!key) continue
+    if (!tireByMspn.has(key)) tireByMspn.set(key, t)
+  }
   const acc = {}
   for (const o of orders || []) {
     if (!o || o.status !== 'completed') continue
-    const intakeMs = toMillis(o.intakeAt)
     const completedMs = toMillis(o.completedAt)
-    if (!intakeMs || !completedMs) continue
-    const key = `${o.size || ''}|${o.lr || ''}`
+    if (!completedMs) continue
+    const mspn = String(o?.mspn || '').trim()
+    const tire = mspn ? tireByMspn.get(mspn) : null
+    const intakeMs = toMillis(tire?.createdAt)
+    if (!intakeMs) continue
+    const size = String(tire?.size || o.size || '').trim()
+    const lr = String(tire?.lr || o.lr || '').trim()
+    const key = `${size}|${lr}`
     if (!acc[key]) acc[key] = { sumDays: 0, sampleSize: 0 }
     acc[key].sumDays += Math.max(0, (completedMs - intakeMs) / MS_PER_DAY)
     acc[key].sampleSize += 1
@@ -48,18 +79,21 @@ export function computeAvgDaysToSell(orders) {
 }
 
 function marginHeadroomPct(tire) {
-  const price = Number(tire?.price) || 0
-  if (price <= 0) return 0
-  const buy = Number(tire?.buyPrice) || 0
-  const cts = Number(tire?.ctsTotal) || 0
-  return (price - buy - cts) / price
+  const retail = tireCatalogRetailNumber(tire)
+  if (retail <= 0) return 0
+  const buy = tireCatalogBuyNumber(tire)
+  const cts = effectiveCts(tire)
+  return (retail - buy - cts) / retail
 }
 
-function missingPlatforms(tire) {
+function missingPlatforms(tire, nowMs) {
   let n = 0
-  if (!tire?.listedEbay) n += 1
-  if (!tire?.listedMarketplace) n += 1
-  if (!tire?.listedCraigslist) n += 1
+  for (const p of PLATFORMS) {
+    const ts = tire?.platformListings?.[p]?.lastPostedAt
+    const ms = toMillis(ts)
+    const isActive = ms != null && nowMs - ms < LISTING_STALE_MS
+    if (!isActive) n += 1
+  }
   return n
 }
 
@@ -73,7 +107,7 @@ export function buildEnrichedTires(tires, velocityBySize, nowMs) {
       avgDaysToSell: v.avgDaysToSell,
       velocitySampleSize: v.sampleSize,
       marginHeadroomPct: marginHeadroomPct(t),
-      missingPlatformCount: missingPlatforms(t),
+      missingPlatformCount: missingPlatforms(t, nowMs),
       doNotList: Boolean(t?.doNotList),
       kyleFrozen: Boolean(t?.kyleFrozen),
     }
@@ -105,7 +139,10 @@ export function useAdvisorSignals(mode = DEFAULT_ADVISOR_MODE) {
     return unsub
   }, [])
 
-  const velocityBySize = useMemo(() => computeAvgDaysToSell(completedOrders), [completedOrders])
+  const velocityBySize = useMemo(
+    () => computeAvgDaysToSell(completedOrders, tires),
+    [completedOrders, tires],
+  )
 
   const ranked = useMemo(() => {
     const enriched = buildEnrichedTires(tires || [], velocityBySize, nowRef.current)
