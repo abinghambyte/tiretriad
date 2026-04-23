@@ -30,7 +30,10 @@ Update `useAdvisorSignals.test.js` fixtures to match real schema.
 
 Panel's `useEffect` currently fires `advisorNarrate` on mount. Mounted inside per-tire `.map()` in `ListingGenerator.jsx` -> N callables on bulk-modal open. Follow the dashboard "Why?" pattern: render rank + signal strip by default, fire narrate only when user clicks an expand button. Reuse the `ExpandableRow` idiom from `NextToPostSurface.jsx` if it fits.
 
-## 3. Expand `advisorNarrate` server payload
+## 3. Expand `advisorNarrate` server payload -- DONE, PR #107
+
+Shipped on branch `advisor-narrate-expand-payload`, stacked on `advisor-panel-defer-narrate`. Client builds a signal payload in `useAdvisorNarrate` from the enriched tire, forwards through the callable, server whitelists/coerces via `sanitizeSignals` (prompt-injection defense), and the system prompt now instructs Gemini to use those numbers verbatim and skip nulls. 7/7 function tests pass, full suite 474/474 green.
+
 
 **File:** `functions/advisorNarrate.js` (`buildPayload`)
 
