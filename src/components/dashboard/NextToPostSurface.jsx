@@ -65,9 +65,11 @@ function missingPlatforms(tire) {
 function SignalStrip({ tire }) {
   const bd = tire.signalBreakdown || {}
   const velDays = bd.velocity?.raw ? `${Math.round(100 / bd.velocity.raw)}d` : 'n/a'
+  const listedRaw = bd.daysSinceLastListed?.raw
+  const listedLabel = Number.isFinite(listedRaw) && listedRaw > 0 ? `${Math.round(listedRaw)}d` : 'never'
   return (
     <p className="text-[11px] text-zinc-500">
-      Stock {Math.round(bd.daysInStock?.raw || 0)}d &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d &middot; Vel {velDays} &middot;{' '}
+      Last posted {listedLabel} &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d &middot; Vel {velDays} &middot;{' '}
       Margin {formatPercent((bd.margin?.raw || 0) * 100, 0)} &middot; Missing {tire.missingPlatformCount}
     </p>
   )
