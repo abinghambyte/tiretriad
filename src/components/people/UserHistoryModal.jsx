@@ -1,17 +1,24 @@
 import { MODAL_CENTER_BACKDROP_TOP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
 
 function formatTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '-'
   try {
     return ts.toDate().toLocaleString('en-US', {
       dateStyle: 'short',
       timeStyle: 'short',
     })
   } catch {
-    return '—'
+    return '-'
   }
 }
 
+/**
+ * Per-user history of admin actions. Reads from `adminAuditLog` filtered by
+ * `targetId == user.id`; the parent loader sorts by `at` desc.
+ *
+ * Each row in `accessLog` (kept for prop name back-compat) has the shape:
+ *   { id, at, uid, email, action, targetId, payload, ip, ua }
+ */
 export function UserHistoryModal({ open, onClose, historyForUser, logLoading, accessLog }) {
   if (!open) return null
 
@@ -37,26 +44,26 @@ export function UserHistoryModal({ open, onClose, historyForUser, logLoading, ac
           </p>
         ) : null}
         <p className="mt-2 text-xs text-zinc-500">
-          Who changed what: timestamps, field name, and before/after snapshots.
+          Who did what: timestamp, action key, and the full payload from the audit log.
         </p>
         {logLoading ? (
-          <p className="mt-4 text-sm text-zinc-500">Loading…</p>
+          <p className="mt-4 text-sm text-zinc-500">Loading...</p>
         ) : accessLog.length === 0 ? (
           <p className="mt-4 text-sm text-zinc-500">No log entries yet.</p>
         ) : (
           <ul className="mt-4 space-y-3 text-xs text-zinc-400">
             {accessLog.map((row) => (
               <li key={row.id} className="rounded-lg border border-zinc-800/80 p-3">
-                <p className="font-mono text-zinc-300">{formatTs(row.changedAt)}</p>
+                <p className="font-mono text-zinc-300">{formatTs(row.at)}</p>
                 <p className="mt-1 text-zinc-400">
                   <span className="text-zinc-500">By </span>
                   <span className="font-mono text-[11px] text-zinc-300">
-                    {row.changedBy || '—'}
+                    {row.email || row.uid || '-'}
                   </span>
                 </p>
-                <p className="mt-1 text-zinc-500">Field: {row.field}</p>
+                <p className="mt-1 text-zinc-500">Action: {row.action || '-'}</p>
                 <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-[10px] text-zinc-600">
-                  {JSON.stringify({ before: row.before, after: row.after }, null, 2)}
+                  {JSON.stringify(row.payload ?? {}, null, 2)}
                 </pre>
               </li>
             ))}

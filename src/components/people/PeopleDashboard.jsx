@@ -306,16 +306,19 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     setLogLoading(true)
     setAccessLog([])
     try {
+      // Reads adminAuditLog (the unified action log). Filtering by targetId
+      // captures all actions that touched this user. Action keys are namespaced
+      // (`user.*`, `user.invite.*`, `user.elevation.*`, `user.access.*`).
       const q = query(
-        collection(db, 'accessLog'),
-        where('uid', '==', u.id),
+        collection(db, 'adminAuditLog'),
+        where('targetId', '==', u.id),
         limit(50),
       )
       const snap = await getDocs(q)
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       rows.sort((a, b) => {
-        const am = a.changedAt?.toMillis?.() ?? 0
-        const bm = b.changedAt?.toMillis?.() ?? 0
+        const am = a.at?.toMillis?.() ?? 0
+        const bm = b.at?.toMillis?.() ?? 0
         return bm - am
       })
       setAccessLog(rows)

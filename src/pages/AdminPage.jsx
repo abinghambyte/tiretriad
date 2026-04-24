@@ -5,6 +5,7 @@ import { functions, firebaseProjectId } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
+import { AuditLogPanel } from '../components/admin/AuditLogPanel.jsx'
 import { useUserProfile } from '../hooks/useUserProfile'
 
 const runTirePriceResearchNow = httpsCallable(functions, 'runTirePriceResearchNow')
@@ -91,6 +92,8 @@ export function AdminPage() {
             Optional: set a shared secret and send a matching Authorization header.
           </p>
         </section>
+
+        <AuditLogPanel />
       </main>
     </div>
   )
