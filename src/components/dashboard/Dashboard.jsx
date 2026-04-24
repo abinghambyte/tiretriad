@@ -224,18 +224,7 @@ export function Dashboard() {
               </ul>
             ) : recentActivity.orders.length === 0 ? (
               <div className="mt-4">
-                <EmptyState
-                  variant="compact"
-                  title="No orders yet."
-                  action={
-                    <Link
-                      to="/tires"
-                      className="text-amber-300 underline-offset-2 hover:underline"
-                    >
-                      Open the tire catalog to log a sale.
-                    </Link>
-                  }
-                />
+                <EmptyState variant="compact" title="No orders yet." />
               </div>
             ) : (
               <ul className="mt-4 divide-y divide-zinc-800/80">
