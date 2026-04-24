@@ -67,7 +67,7 @@ export function Dashboard() {
     hiddenGems,
     topSellers,
     allTimeMargin,
-    rollingAverageRevenue,
+    lastSale,
     advisorRanked,
     advisorLoading,
     kylesQueueCount,
@@ -206,9 +206,8 @@ export function Dashboard() {
         <TodayStrip
           pendingOrders={signalBar.pendingOrders}
           topSellers={topSellers}
-          todayRevenue={signalBar.todayRevenue}
+          lastSale={lastSale}
           allTimeMargin={allTimeMargin}
-          rollingAverageRevenue={rollingAverageRevenue}
           loading={sigLoading}
         />
 
