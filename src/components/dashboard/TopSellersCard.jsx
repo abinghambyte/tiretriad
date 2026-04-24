@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { paletteForRank } from './topSellersPalette'
 
 const FLIP_INTERVAL_MS = 3000
@@ -35,7 +36,13 @@ export function TopSellersCard({ sellers = [] }) {
     return (
       <div className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
         <p className="pc-eyebrow">Top Sellers</p>
-        <p className="mt-2 text-sm text-zinc-400">No sales yet</p>
+        <p className="mt-2 text-sm text-zinc-400">No sales yet.</p>
+        <Link
+          to="/tires?tab=catalog"
+          className="mt-1 inline-block text-xs text-amber-300 underline-offset-2 hover:underline"
+        >
+          Open the tire catalog →
+        </Link>
       </div>
     )
   }

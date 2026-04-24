@@ -4,7 +4,12 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { TopSellersCard } from './TopSellersCard.jsx'
+
+function renderCard(ui) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 const sellers = [
   { rank: 1, sku: 'AAA', description: 'A-tire', category: 'all-season', salesCount: 14 },
@@ -18,7 +23,7 @@ afterEach(() => {
 
 describe('TopSellersCard', () => {
   it('renders rank, sold count, SKU, description and SOLD caption for the current slot', () => {
-    render(<TopSellersCard sellers={sellers} />)
+    renderCard(<TopSellersCard sellers={sellers} />)
     expect(screen.getByText('1')).toBeTruthy()
     expect(screen.getByText('14')).toBeTruthy()
     expect(screen.getByText('AAA')).toBeTruthy()
@@ -27,13 +32,13 @@ describe('TopSellersCard', () => {
   })
 
   it('renders an empty state when sellers is empty', () => {
-    render(<TopSellersCard sellers={[]} />)
+    renderCard(<TopSellersCard sellers={[]} />)
     expect(screen.getByText(/no sales yet/i)).toBeTruthy()
   })
 
   it('cycles to the next seller after the interval elapses', () => {
     vi.useFakeTimers()
-    render(<TopSellersCard sellers={sellers} />)
+    renderCard(<TopSellersCard sellers={sellers} />)
     expect(screen.getByText('AAA')).toBeTruthy()
     act(() => {
       vi.advanceTimersByTime(3000)
@@ -43,7 +48,7 @@ describe('TopSellersCard', () => {
 
   it('pauses cycling while hovered', () => {
     vi.useFakeTimers()
-    const { container } = render(<TopSellersCard sellers={sellers} />)
+    const { container } = renderCard(<TopSellersCard sellers={sellers} />)
     fireEvent.mouseEnter(container.firstChild)
     act(() => {
       vi.advanceTimersByTime(9000)
