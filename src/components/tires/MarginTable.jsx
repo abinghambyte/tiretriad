@@ -17,7 +17,7 @@ import { copyToClipboard } from '../../utils/copyToClipboard.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
 
-/** Main data row height (px) — desktop. CTS editor expands total row height via `rowHeight`. */
+/** Main data row height (px) -- desktop. CTS editor expands total row height via `rowHeight`. */
 const ROW_BASE_PX = 56
 /** Taller rows on narrow viewports for touch targets. */
 const ROW_MOBILE_BASE_PX = 60
@@ -175,7 +175,7 @@ function buyPriceOf(row) {
 
 function BuyPriceCell({ row }) {
   const n = tireCatalogBuyNumber(row)
-  const text = n > 0 && Number.isFinite(n) ? formatCurrency(n) : '—'
+  const text = n > 0 && Number.isFinite(n) ? formatCurrency(n) : '--'
   return (
     <span className="inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-zinc-200 max-sm:min-w-0">
       {text}
@@ -193,7 +193,7 @@ function confidenceDotClass(tier) {
 function RetailPriceCell({ row }) {
   const n = tireCatalogRetailNumber(row)
   if (!(n > 0 && Number.isFinite(n))) {
-    return <span className="font-mono text-sm text-zinc-600">—</span>
+    return <span className="font-mono text-sm text-zinc-600">--</span>
   }
   const estimated = tireRetailIsEstimated(row)
   const researched = tireRetailIsResearched(row)
@@ -241,7 +241,7 @@ function netToneClass(net) {
 
 function NetCell({ row }) {
   const op = row?.opportunity
-  if (!op || op.netPerTire == null) return <span className="font-mono text-sm text-zinc-600">—</span>
+  if (!op || op.netPerTire == null) return <span className="font-mono text-sm text-zinc-600">--</span>
   const n = op.netPerTire
   return (
     <span
@@ -256,7 +256,7 @@ function NetCell({ row }) {
 
 function FloorCell({ row }) {
   const fl = row?.opportunity?.floor != null ? row.opportunity.floor : computeFloor(row)
-  if (fl == null) return <span className="font-mono text-sm text-zinc-600">—</span>
+  if (fl == null) return <span className="font-mono text-sm text-zinc-600">--</span>
   return (
     <span
       className="inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-400"
@@ -345,7 +345,7 @@ function splitRawDescription(raw) {
 const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
   const d = String(description ?? '').trim()
   const parsed = useMemo(() => parseDescription(d), [d])
-  if (!d) return <span className="text-zinc-500">—</span>
+  if (!d) return <span className="text-zinc-500">--</span>
 
   const hasMetric =
     parsed.parseKind === 'metric' &&
@@ -559,7 +559,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
       </span>
     ) : (
       <span className="whitespace-nowrap text-sm font-semibold text-zinc-500" title={marginTitle}>
-        —
+        --
       </span>
     )
 
@@ -598,7 +598,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <span>
               Current margin:{' '}
               <span className={`font-semibold ${m != null && !Number.isNaN(m) ? marginPctTone(m) : 'text-zinc-500'}`}>
-                {m != null && !Number.isNaN(m) ? formatPercent(m, 1) : '—'}
+                {m != null && !Number.isNaN(m) ? formatPercent(m, 1) : '--'}
               </span>
             </span>
             <span>
@@ -612,12 +612,21 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               >
                 {projectedMargin != null && !Number.isNaN(projectedMargin)
                   ? formatPercent(projectedMargin, 1)
-                  : '—'}
+                  : '--'}
               </span>
             </span>
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+          <label className="flex items-center gap-2 text-xs text-zinc-300">
+            <input
+              type="checkbox"
+              checked={Boolean(overheadDraft.doNotList)}
+              onChange={(e) => setOverheadDraft((d) => ({ ...d, doNotList: e.target.checked }))}
+              className="size-4 rounded border-zinc-600 accent-amber-400"
+            />
+            Do not list
+          </label>
           <p className="text-xs text-zinc-500">
             Overhead after save:{' '}
             <span className="font-mono text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
@@ -671,7 +680,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               </span>
             </div>
             <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
-              {row.mspn || '—'}
+              {row.mspn || '--'}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
               <BuyPriceCell row={row} />
@@ -690,7 +699,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               </span>
             </div>
             <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1 text-zinc-400">
-              {row.lr || '—'}
+              {row.lr || '--'}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
               <ListedPlatformsCell row={row} />
@@ -767,11 +776,11 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         ) : null}
         {vis.mspn !== false ? (
           <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
-            {row.mspn || '—'}
+            {row.mspn || '--'}
           </div>
         ) : null}
         {vis.lr !== false ? (
-          <div className="whitespace-nowrap px-2 text-center text-zinc-400 tabular-nums">{row.lr || '—'}</div>
+          <div className="whitespace-nowrap px-2 text-center text-zinc-400 tabular-nums">{row.lr || '--'}</div>
         ) : null}
         {vis.listed !== false ? (
           <div className="flex min-w-0 items-center justify-center px-1">
@@ -884,12 +893,13 @@ export function MarginTable({
     mountCost: 0,
     deliveryCost: 0,
     otherCost: 0,
+    doNotList: false,
   }))
   const [costSaving, setCostSaving] = useState(false)
 
   const openCostEdit = useCallback((row) => {
     setEditingCostsId(row.id)
-    setOverheadDraft(tireOverheadParts(row))
+    setOverheadDraft({ ...tireOverheadParts(row), doNotList: Boolean(row.doNotList) })
   }, [])
 
   const closeCostEdit = useCallback(() => {
@@ -911,6 +921,7 @@ export function MarginTable({
           deliveryCost,
           otherCost,
           cts,
+          doNotList: Boolean(overheadDraft.doNotList),
         })
         toast('Overhead updated', 'success')
         closeCostEdit()

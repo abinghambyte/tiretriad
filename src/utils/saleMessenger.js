@@ -27,7 +27,7 @@ export function formatSaleMessage(d) {
     `Customer: ${d.customerName}`,
     `Contact: ${d.customerContact}`,
     `Fulfillment: ${d.fulfillment}`,
-    `Notes: ${notes || '—'}`,
+    `Notes: ${notes || '--'}`,
     '',
     'Sent from Skedaddle Portal',
   ].join('\n')

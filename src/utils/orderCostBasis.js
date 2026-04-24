@@ -1,7 +1,7 @@
 import { tireCatalogBuyNumber } from './tireCatalogBuy'
 
 /**
- * Kyle's catalog buy per tire for an order — use Slack-confirmed override when present.
+ * Kyle's catalog buy per tire for an order -- use Slack-confirmed override when present.
  * @param {{ kylePriceOverride?: unknown } | null | undefined} order
  * @param {{ price?: unknown; cost?: unknown } | null | undefined} tire
  */

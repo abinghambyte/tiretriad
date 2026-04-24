@@ -29,11 +29,11 @@ import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 
 function formatTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -43,7 +43,7 @@ function displayPhone(id) {
     const r = d.slice(1)
     return `+1 (${r.slice(0, 3)}) ${r.slice(3, 6)}-${r.slice(6)}`
   }
-  return d || '—'
+  return d || '--'
 }
 
 /**
@@ -471,19 +471,19 @@ export function ContactsPage({ embedded = false }) {
                               ⭐
                             </span>
                           ) : null}
-                          {c.name || '—'}
+                          {c.name || '--'}
                         </td>
                         <td className="px-3 py-2 font-mono text-xs text-zinc-400">{displayPhone(c.id)}</td>
                         <td className="px-3 py-2 text-zinc-300">{formatQty(c.orderCount ?? 0)}</td>
                         <td className="px-3 py-2 text-zinc-300">
-                          {Number.isFinite(Number(c.totalSpend)) ? formatCurrency(c.totalSpend) : '—'}
+                          {Number.isFinite(Number(c.totalSpend)) ? formatCurrency(c.totalSpend) : '--'}
                         </td>
                         <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(c.lastOrderAt)}</td>
                         <td className="max-w-[220px] truncate px-3 py-2 text-xs text-zinc-400">
-                          {String(c.lastTireLabel || '').trim() || c.lastMspn || '—'}
+                          {String(c.lastTireLabel || '').trim() || c.lastMspn || '--'}
                         </td>
                         <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-500">
-                          {c.notes || '—'}
+                          {c.notes || '--'}
                         </td>
                       </tr>
                       )
@@ -531,7 +531,7 @@ export function ContactsPage({ embedded = false }) {
                         ⭐
                       </span>
                     ) : null}
-                    {selected.name || '—'}
+                    {selected.name || '--'}
                   </h2>
                 )}
                 <p className="sk-figures mt-1 text-xs text-zinc-400">{displayPhone(selected.id)}</p>
@@ -620,7 +620,7 @@ export function ContactsPage({ embedded = false }) {
                   >
                     <span className="font-mono text-zinc-200">{o.mspn}</span> × {formatQty(o.quantity)} ·{' '}
                     {o.status} ·{' '}
-                    {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '—'}
+                    {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '--'}
                     <div className="mt-1 text-[10px] text-zinc-600">{formatTs(o.createdAt)}</div>
                     {o.debrief?.notes ? (
                       <p className="mt-2 border-t border-zinc-800/80 pt-2 text-[11px] text-zinc-500">

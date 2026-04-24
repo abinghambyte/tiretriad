@@ -88,7 +88,7 @@ export function QueueRow({ tire, onResolve, readOnly = false, resolvedBy }) {
               rel="noreferrer"
               className="font-mono text-sm font-semibold text-amber-200 hover:text-amber-100"
             >
-              {mspn || '—'}
+              {mspn || '--'}
             </a>
             <ReasonChip reason={reason} />
           </div>
@@ -98,12 +98,12 @@ export function QueueRow({ tire, onResolve, readOnly = false, resolvedBy }) {
           <p className="mt-2 text-xs text-zinc-500">
             Retail{' '}
             <span className="tabular-nums text-zinc-200">
-              {currentRetail > 0 ? formatCurrency(currentRetail) : '—'}
+              {currentRetail > 0 ? formatCurrency(currentRetail) : '--'}
             </span>
             {' · '}
             Margin{' '}
             <span className="tabular-nums text-zinc-200">
-              {marginPct != null ? formatPercent(marginPct, 1) : '—'}
+              {marginPct != null ? formatPercent(marginPct, 1) : '--'}
             </span>
             {readOnly && resolvedBy ? (
               <>

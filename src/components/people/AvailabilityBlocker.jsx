@@ -90,7 +90,9 @@ function parseClockToHour(clock) {
 
 function parseWindowToHourRange(windowStr) {
   const s = String(windowStr || '').trim()
-  const parts = s.split(/\s*[-–—]\s*/)
+  // Accept ASCII hyphen, en dash, and em dash (\u2014) as separators so we
+  // parse both current inputs and legacy stored availability strings.
+  const parts = s.split(/\s*[-–\u2014]\s*/)
   if (parts.length < 2) return null
   const a = parseClockToHour(parts[0])
   const b = parseClockToHour(parts[1])

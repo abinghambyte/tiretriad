@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { crewTagFromRole } from '../../constants/peoplePermissions'
 
 function formatTs(ts) {
-  if (!ts || typeof ts.toDate !== 'function') return '—'
+  if (!ts || typeof ts.toDate !== 'function') return '--'
   try {
     return ts.toDate().toLocaleString('en-US', {
       dateStyle: 'short',
       timeStyle: 'short',
     })
   } catch {
-    return '—'
+    return '--'
   }
 }
 
@@ -24,7 +24,7 @@ function timeAgo(ts) {
 
 function streakLabel(n) {
   const v = Number(n) || 0
-  if (v <= 0) return '—'
+  if (v <= 0) return '--'
   return `${v}-day streak`
 }
 
@@ -128,7 +128,7 @@ export function UserRow({ u, tick, onHistory, onEdit, highlighted = false }) {
       <td className="hidden px-3 py-2 text-violet-300 sm:table-cell">
         {u.crewTag || crewTagFromRole(u.role)}
       </td>
-      <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">{u.inviteStatus || '—'}</td>
+      <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">{u.inviteStatus || '--'}</td>
       <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">{formatTs(u.accessExpiry)}</td>
       <td className="hidden px-3 py-2 text-zinc-300 sm:table-cell">{streakLabel(u.loginStreak)}</td>
       <td className="hidden max-w-[240px] px-3 py-2 text-xs text-zinc-500 sm:table-cell">

@@ -701,7 +701,7 @@ export function TiresDashboard() {
   // Publish selection + action runners to the module-level store so the
   // command palette (mounted in PortalChrome, outside this route tree) can
   // offer context-aware actions. Runners read from a ref so they always see
-  // the latest `sortedRows` / selection helpers — omitting the function
+  // the latest `sortedRows` / selection helpers -- omitting the function
   // identities from the dep array would let `logSelectedSale` close over a
   // stale `sortedRows` after the user re-sorts or re-filters, logging a
   // sale against the wrong tires.

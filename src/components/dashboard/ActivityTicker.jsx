@@ -15,20 +15,15 @@ function chipClass(kind) {
 }
 
 /**
- * Activity ticker. Full-width horizontally-scrolling chip bar. Chips scroll
- * right-to-left on a 35s linear loop and pause on hover. Color-coded by
- * `kind`; unknown kinds render as `neutral`.
+ * Activity ticker. Full-width horizontally-scrolling chip bar. Each chip is
+ * rendered exactly once; the track is pre-padded by a full container-width
+ * so the first chip enters from offscreen-right. Animation translates the
+ * track from 0 to -100% of its own width, then loops with a viewport-wide
+ * breathing gap. Pauses on hover or focus. Color-coded by `kind`; unknown
+ * kinds render as `neutral`.
  */
 export function ActivityTicker({ chips = [] }) {
   if (!Array.isArray(chips) || chips.length === 0) return null
-
-  // Duplicate the chip list so the scroll loop can wrap seamlessly.
-  // Keys include an `a`/`b` copy prefix plus the index so collisions
-  // are impossible even if two source chips happen to share an id.
-  const doubled = [
-    ...chips.map((chip, i) => ({ chip, key: `a-${i}` })),
-    ...chips.map((chip, i) => ({ chip, key: `b-${i}` })),
-  ]
 
   return (
     <section
@@ -37,14 +32,14 @@ export function ActivityTicker({ chips = [] }) {
       aria-atomic="false"
       className="pc-card activity-ticker relative w-full overflow-hidden rounded-xl bg-zinc-900/60 py-2"
     >
-      <div className="activity-ticker__track flex min-w-max gap-3 whitespace-nowrap px-3">
-        {doubled.map(({ chip, key }) =>
+      <div className="activity-ticker__track flex min-w-max items-center gap-3 whitespace-nowrap pl-[100%] pr-6">
+        {chips.map((chip, i) =>
           chip.href ? (
-            <Link key={key} to={chip.href} className={chipClass(chip.kind)}>
+            <Link key={chip.id ?? i} to={chip.href} className={chipClass(chip.kind)}>
               {chip.label}
             </Link>
           ) : (
-            <span key={key} className={chipClass(chip.kind)}>
+            <span key={chip.id ?? i} className={chipClass(chip.kind)}>
               {chip.label}
             </span>
           ),

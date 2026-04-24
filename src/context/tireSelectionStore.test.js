@@ -6,7 +6,7 @@ import {
 } from './tireSelectionStore.js'
 
 afterEach(() => {
-  // Reset to the empty snapshot between tests — the module is a singleton.
+  // Reset to the empty snapshot between tests -- the module is a singleton.
   setTireSelection(null)
 })
 

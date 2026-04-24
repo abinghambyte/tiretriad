@@ -98,7 +98,7 @@ describe('QueueRow', () => {
 
   it('renders a placeholder when MSPN is missing', () => {
     render(<QueueRow tire={{ id: 'x', researchQueue: { reason: 'below-margin-floor' } }} onResolve={vi.fn()} />)
-    const dashes = screen.getAllByText('—')
+    const dashes = screen.getAllByText('--')
     expect(dashes.length).toBeGreaterThan(0)
   })
 })

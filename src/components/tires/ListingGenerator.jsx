@@ -12,6 +12,9 @@ import { copyToClipboard } from '../../utils/copyToClipboard'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_WIDE } from '../ui/modalChrome.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
+import { ListingAdvisorPanel } from './ListingAdvisorPanel.jsx'
+import { flags } from '../../utils/featureFlags.js'
+import { useAdvisorSignals } from '../../hooks/useAdvisorSignals.js'
 
 const PLATFORMS = ['Facebook Marketplace', 'OfferUp', 'Craigslist']
 
@@ -49,7 +52,7 @@ function MarkPostedControl({ tire, platformKey, shortLabel, actionLabel, phase, 
           : 'rounded-lg border border-zinc-600 bg-zinc-900/50 px-2 py-1.5 text-xs font-medium text-zinc-200 hover:border-zinc-500'
       }
     >
-      {recent ? `${shortLabel} · posted ${timeAgo(ts) || '—'}` : `✓ ${actionLabel}`}
+      {recent ? `${shortLabel} · posted ${timeAgo(ts) || '--'}` : `✓ ${actionLabel}`}
     </button>
   )
 }
@@ -249,6 +252,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
   const [advisorById, setAdvisorById] = useState({})
   const [advisorRunning, setAdvisorRunning] = useState(false)
   const [markPostedUi, setMarkPostedUi] = useState({})
+  const { ranked: advisorRanked } = useAdvisorSignals()
 
   const markPosted = useCallback(async (tireId, platform) => {
     setMarkPostedUi((prev) => ({
@@ -327,7 +331,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
           try {
             const callableResult = await listingAdvisorFn(buildListingAdvisorRequestBody(t))
             rawUnwrapped = unwrapCallableData(callableResult?.data)
-            // Same object as below — copy from DevTools or expand "Raw callable payload" on errors.
+            // Same object as below -- copy from DevTools or expand "Raw callable payload" on errors.
             console.log('[listingAdvisor] raw callable response', {
               mspn: String(t.mspn || '').trim(),
               tireId: t.id,
@@ -474,6 +478,9 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                   key={t.id}
                   className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
                 >
+                  {flags.listingAdvisor && t.id ? (
+                    <ListingAdvisorPanel tireId={t.id} ranked={advisorRanked} />
+                  ) : null}
                   <p className="text-sm font-medium text-zinc-200">
                     {t.brand} · {t.description}
                   </p>
@@ -564,7 +571,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                       </div>
                       <p className="text-xs text-zinc-500">
                         <span className="font-medium text-zinc-400">Platform:</span>{' '}
-                        {adv.listing.platformNotes || '—'}
+                        {adv.listing.platformNotes || '--'}
                       </p>
                       <div>
                         <div className="mb-1 flex items-center justify-between gap-2">

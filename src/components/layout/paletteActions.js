@@ -158,7 +158,7 @@ function buildTireSelectionEntries(sel, closePalette) {
     if (typeof fn === 'function') fn()
   }
 
-  // Labels already carry the tire count, so no redundant `hint` — except
+  // Labels already carry the tire count, so no redundant `hint` -- except
   // on the Quote entry where the single-tire constraint is worth flagging.
   if (sel.canLogSale && sel.runLogSale) {
     entries.push({
