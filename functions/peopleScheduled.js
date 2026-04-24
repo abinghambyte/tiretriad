@@ -4,6 +4,7 @@
  */
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
+const { writeAuditEntry } = require('./adminAuditLog')
 
 function slackChannelEnv() {
   return (
@@ -45,6 +46,16 @@ async function checkAccessExpiryRun() {
       await doc.ref.update({
         inviteStatus: 'locked',
         updatedAt: FieldValue.serverTimestamp(),
+      })
+      await writeAuditEntry(db, {
+        action: 'user.access.lock',
+        uid: 'system',
+        targetId: doc.id,
+        payload: {
+          reason: 'accessExpiry passed; nightly sweep locked the account',
+          name,
+          previousInviteStatus: d.inviteStatus || null,
+        },
       })
       await slackFleetOpsQuiet(`🔒 ${name}'s access expired and was automatically locked.`)
     } catch (e) {
@@ -109,16 +120,20 @@ async function processElevationRevertsRun() {
           processed: true,
           processedAt: FieldValue.serverTimestamp(),
         })
-        const logRef = db.collection('accessLog').doc()
-        tx.set(logRef, {
-          uid: targetUid,
-          changedBy: 'system:elevation-revert',
-          changedAt: FieldValue.serverTimestamp(),
-          field: `permissions.${modKey}`,
+      })
+      // Audit write is best-effort and non-transactional (the FieldValue
+      // serverTimestamp inside writeAuditEntry would error inside a tx).
+      await writeAuditEntry(db, {
+        action: 'user.elevation.revert',
+        uid: 'system',
+        targetId: targetUid,
+        payload: {
+          module: modKey,
           before: rev.elevatedLevel,
           after: rev.previousLevel,
-          reason: `Timed elevation expired (revert ${elevationId})`,
-        })
+          elevationId,
+          reason: 'Timed elevation expired',
+        },
       })
     } catch (e) {
       console.error('processElevationReverts', revDoc.id, e)

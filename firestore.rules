@@ -87,16 +87,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /accessLog/{logId} {
-      allow read: if signedIn() && canManagePeople();
-      allow write: if false;
-    }
-
     // Admin-sensitive action audit trail. Written exclusively by Cloud
-    // Functions (Admin SDK bypasses rules); client writes denied. Only
-    // Overwatch (admin role) can read the trail.
+    // Functions (Admin SDK bypasses rules); client writes denied. Read by
+    // admins (full audit panel on Admin page) and by people-managers (per-user
+    // history modal in People dashboard). Both query targetId or load all
+    // entries; no per-document field filtering is applied at the rules layer.
     match /adminAuditLog/{logId} {
-      allow read: if signedIn() && userRole() == 'admin';
+      allow read: if signedIn() && (userRole() == 'admin' || canManagePeople());
       allow write: if false;
     }
 

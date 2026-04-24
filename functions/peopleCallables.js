@@ -15,6 +15,7 @@ const {
 } = require('./peopleSystem')
 const { deliverInvite, generateInviteGreetingLine } = require('./inviteFlow')
 const { ANTHROPIC_API_KEY, INVITE_DELIVERY_SECRETS } = require('./slackSecrets')
+const { auditFromCallable } = require('./adminAuditLog')
 
 /** E.164 — keep in sync with `normalizePhoneToE164` in `src/utils/formatPhone.js`. */
 function normalizePhoneToE164(raw) {
@@ -213,6 +214,20 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
     delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
   }
 
+  await auditFromCallable(db, request, {
+    action: 'user.invite.create',
+    targetId: uid,
+    payload: {
+      email,
+      firstName,
+      lastName,
+      role,
+      inviteDelivery,
+      deliverySent: !!delivery?.sent,
+      deliveryReason: String(delivery?.reason || ''),
+    },
+  })
+
   return {
     ok: true,
     uid,
@@ -279,14 +294,14 @@ exports.updatePortalUser = onCall(async (request) => {
 
   await ref.update(patch)
 
-  await db.collection('accessLog').doc().set({
-    uid: targetUid,
-    changedBy: request.auth.uid,
-    changedAt: FieldValue.serverTimestamp(),
-    field: 'portalUpdate',
-    before: { permissions: before.permissions, role: before.role },
-    after: patch,
-    reason: String(data.reason || ''),
+  await auditFromCallable(db, request, {
+    action: 'user.update',
+    targetId: targetUid,
+    payload: {
+      before: { permissions: before.permissions, role: before.role },
+      after: patch,
+      reason: String(data.reason || ''),
+    },
   })
 
   return { ok: true }
@@ -381,14 +396,16 @@ exports.scheduleElevationRevert = onCall(async (request) => {
     })
   })
 
-  await db.collection('accessLog').doc().set({
-    uid: targetUid,
-    changedBy: request.auth.uid,
-    changedAt: FieldValue.serverTimestamp(),
-    field: `permissions.${module}`,
-    before: { [module]: loggedPrev },
-    after: { [module]: elevatedLevel, elevationId, expiresAtMillis: expiresAt.toMillis() },
-    reason: 'Timed elevation granted',
+  await auditFromCallable(db, request, {
+    action: 'user.elevation.grant',
+    targetId: targetUid,
+    payload: {
+      module,
+      before: loggedPrev,
+      after: elevatedLevel,
+      elevationId,
+      expiresAtMillis: expiresAt.toMillis(),
+    },
   })
 
   return { ok: true, elevationId, expiresAtMillis: expiresAt.toMillis() }
@@ -437,14 +454,14 @@ exports.revokeInvite = onCall(async (request) => {
 
   await batch.commit()
 
-  await db.collection('accessLog').doc().set({
-    uid: targetUid,
-    changedBy: request.auth.uid,
-    changedAt: FieldValue.serverTimestamp(),
-    field: 'inviteRevoked',
-    before: { inviteStatus: userSnap.data()?.inviteStatus },
-    after: { inviteStatus: 'expired', tokensRevoked: tokensSnap.size },
-    reason: 'Invite manually revoked',
+  await auditFromCallable(db, request, {
+    action: 'user.invite.revoke',
+    targetId: targetUid,
+    payload: {
+      before: { inviteStatus: userSnap.data()?.inviteStatus },
+      after: { inviteStatus: 'expired', tokensRevoked: tokensSnap.size },
+      reason: 'Invite manually revoked',
+    },
   })
 
   return { ok: true, tokensRevoked: tokensSnap.size }
@@ -546,6 +563,17 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
     delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
   }
 
+  await auditFromCallable(db, request, {
+    action: 'user.invite.reissue',
+    targetId: targetUid,
+    payload: {
+      inviteDelivery,
+      tokensRevoked: oldTokensSnap.size,
+      deliverySent: !!delivery?.sent,
+      deliveryReason: String(delivery?.reason || ''),
+    },
+  })
+
   return { ok: true, token, inviteUrl, delivery }
 })
 
@@ -597,15 +625,18 @@ exports.deletePortalUser = onCall(async (request) => {
     }
   }
 
-  // Log the deletion
-  await db.collection('accessLog').doc().set({
-    uid: targetUid,
-    changedBy: request.auth.uid,
-    changedAt: FieldValue.serverTimestamp(),
-    field: 'userDeleted',
-    before: { email: userData.email, firstName: userData.firstName, lastName: userData.lastName, role: userData.role },
-    after: null,
-    reason: 'User permanently deleted',
+  await auditFromCallable(db, request, {
+    action: 'user.delete',
+    targetId: targetUid,
+    payload: {
+      before: {
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+      },
+      reason: 'User permanently deleted',
+    },
   })
 
   return { ok: true }
