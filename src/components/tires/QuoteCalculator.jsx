@@ -100,7 +100,7 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
             >
               Quote
             </h2>
-            <p className="mt-0.5 text-xs text-zinc-500">
+            <p className="mt-0.5 text-xs text-zinc-400">
               Total cost, revenue, and margin across the bundle.
             </p>
           </div>
@@ -115,7 +115,7 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
 
         <div className="space-y-5 px-5 py-5">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
               Tire
             </p>
             <div className="mt-1 flex flex-col gap-0.5">
@@ -124,7 +124,7 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                 <span className="mx-1.5 text-zinc-600">/</span>
                 <span className="break-words">{description}</span>
               </p>
-              <p className="sk-figures text-xs text-zinc-500">
+              <p className="sk-figures text-xs text-zinc-400">
                 MSPN <span className="text-zinc-300">{mspn}</span>
               </p>
             </div>
@@ -134,7 +134,7 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
             <div>
               <label
                 htmlFor="quote-qty"
-                className="mb-1 block text-xs font-medium text-zinc-500"
+                className="mb-1 block text-xs font-medium text-zinc-400"
               >
                 Quantity
               </label>
@@ -163,7 +163,7 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
             <div>
               <label
                 htmlFor="quote-sale-price"
-                className="mb-1 block text-xs font-medium text-zinc-500"
+                className="mb-1 block text-xs font-medium text-zinc-400"
               >
                 Sale price / tire
               </label>
@@ -178,14 +178,14 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                 className="sk-figures w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-600/70"
               />
               {retailPerTire > 0 ? (
-                <p className="mt-1 text-[11px] text-zinc-500">
+                <p className="mt-1 text-[11px] text-zinc-400">
                   Default: researched retail{' '}
                   <span className="sk-figures text-zinc-300">
                     {formatCurrency(retailPerTire)}
                   </span>
                 </p>
               ) : buyPerTire > 0 ? (
-                <p className="mt-1 text-[11px] text-zinc-500">
+                <p className="mt-1 text-[11px] text-zinc-400">
                   Default: catalog buy{' '}
                   <span className="sk-figures text-zinc-300">
                     {formatCurrency(buyPerTire)}
@@ -231,10 +231,10 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 Bundle margin %
               </p>
-              <p className="mt-1 text-[11px] text-zinc-500">
+              <p className="mt-1 text-[11px] text-zinc-400">
                 (revenue − cost) / revenue
               </p>
             </div>
@@ -300,7 +300,7 @@ function QuoteRow({ label, sub, value, muted, accent }) {
       <div className="min-w-0">
         <dt className={labelClass}>{label}</dt>
         {sub ? (
-          <dd className="sk-figures mt-0.5 text-[11px] text-zinc-500">{sub}</dd>
+          <dd className="sk-figures mt-0.5 text-[11px] text-zinc-400">{sub}</dd>
         ) : null}
       </div>
       <dd className={`whitespace-nowrap ${valueClass}`}>{value}</dd>

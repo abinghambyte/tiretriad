@@ -38,30 +38,30 @@ export function UserHistoryModal({ open, onClose, historyForUser, logLoading, ac
           Access history
         </h3>
         {historyForUser ? (
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-400">
             {historyForUser.firstName} {historyForUser.lastName}{' '}
             <span className="font-mono text-xs text-zinc-600">({historyForUser.email})</span>
           </p>
         ) : null}
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-zinc-400">
           Who did what: timestamp, action key, and the full payload from the audit log.
         </p>
         {logLoading ? (
-          <p className="mt-4 text-sm text-zinc-500">Loading...</p>
+          <p className="mt-4 text-sm text-zinc-400">Loading...</p>
         ) : accessLog.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-500">No log entries yet.</p>
+          <p className="mt-4 text-sm text-zinc-400">No log entries yet.</p>
         ) : (
           <ul className="mt-4 space-y-3 text-xs text-zinc-400">
             {accessLog.map((row) => (
               <li key={row.id} className="rounded-lg border border-zinc-800/80 p-3">
                 <p className="font-mono text-zinc-300">{formatTs(row.at)}</p>
                 <p className="mt-1 text-zinc-400">
-                  <span className="text-zinc-500">By </span>
+                  <span className="text-zinc-400">By </span>
                   <span className="font-mono text-[11px] text-zinc-300">
                     {row.email || row.uid || '-'}
                   </span>
                 </p>
-                <p className="mt-1 text-zinc-500">Action: {row.action || '-'}</p>
+                <p className="mt-1 text-zinc-400">Action: {row.action || '-'}</p>
                 <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-all text-[10px] text-zinc-600">
                   {JSON.stringify(row.payload ?? {}, null, 2)}
                 </pre>

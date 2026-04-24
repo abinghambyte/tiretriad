@@ -95,7 +95,7 @@ export function QueueRow({ tire, onResolve, readOnly = false, resolvedBy }) {
           {description ? (
             <p className="mt-1 text-xs text-zinc-400">{description}</p>
           ) : null}
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-2 text-xs text-zinc-400">
             Retail{' '}
             <span className="tabular-nums text-zinc-200">
               {currentRetail > 0 ? formatCurrency(currentRetail) : '--'}

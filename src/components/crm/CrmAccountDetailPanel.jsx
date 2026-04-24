@@ -259,7 +259,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             </span>
           </button>
         </div>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-zinc-400">
           Score{' '}
           <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${scoreBadgeClass(computeCrmScore(draft))}`}>
             {computeCrmScore(draft)}
@@ -269,11 +269,11 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
         {isAdmin ? (
           <div className="mt-4 rounded-xl border border-amber-500/25 bg-zinc-900/70 p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-200/90">VIP concierge link</h3>
-            <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+            <p className="mt-1 text-[11px] leading-snug text-zinc-400">
               Generate a signed URL (72h). Copy and send it to the customer out of band.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <label className="text-xs text-zinc-500">
+              <label className="text-xs text-zinc-400">
                 Tier
                 <select
                   value={vipTierPick}
@@ -328,13 +328,13 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                     Copy
                   </button>
                 </div>
-                <p className="text-[11px] text-zinc-500">Expires in 72 hours</p>
+                <p className="text-[11px] text-zinc-400">Expires in 72 hours</p>
               </div>
             ) : null}
           </div>
         ) : null}
 
-        <label className="mt-4 block text-xs text-zinc-500">
+        <label className="mt-4 block text-xs text-zinc-400">
           Pipeline stage
           <select
             disabled={!canEdit}
@@ -356,7 +356,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
         </label>
 
         <div className="mt-6 space-y-3 text-sm">
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Company
             <input
               type="text"
@@ -367,7 +367,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Decision maker
             <input
               type="text"
@@ -378,7 +378,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
             />
           </label>
-          <div className="block text-xs text-zinc-500">
+          <div className="block text-xs text-zinc-400">
             <span className="block">Segment</span>
             <p className="mb-1 mt-0.5 text-[11px] font-normal leading-snug text-zinc-600">
               What kind of fleet or operation is this account? Use a preset lane, or switch to a custom label.
@@ -435,7 +435,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               </>
             )}
           </div>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Primary location
             <p className="mb-1 mt-0.5 text-[11px] font-normal leading-snug text-zinc-600">
               City, metro, or region you use for routing and context (free text).
@@ -450,7 +450,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Vehicle count (fleet size)
             <input
               type="number"
@@ -462,7 +462,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Linked phone (digits; matches orders & contacts)
             <input
               type="tel"
@@ -473,7 +473,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Pain score
             <input
               type="range"
@@ -488,7 +488,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             />
             <span className="text-zinc-400">{draft.painScore ?? 1}</span>
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Follow-up date
             <input
               type="date"
@@ -576,7 +576,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
           {sortedActivity.map((e) => (
             <div key={`${e.kind}-${e.i}`} className="border-b border-zinc-800/80 pb-2">
               <p className="text-zinc-200">{e.note}</p>
-              <p className="mt-0.5 text-[10px] text-zinc-500">
+              <p className="mt-0.5 text-[10px] text-zinc-400">
                 {e.by} · {fmtActivityAt(e.at)}
               </p>
             </div>
@@ -608,7 +608,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
           Representative fleet vehicle for sizing and notes. Deal value below still uses vehicle count × tire math.
         </p>
         <div className="mt-2 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Vehicle count
             <input
               type="number"
@@ -627,7 +627,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Vehicle type category
             <select
               disabled={!canEdit}
@@ -651,7 +651,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
             </select>
           </label>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="block text-xs text-zinc-500">
+            <label className="block text-xs text-zinc-400">
               VIN (up to 17)
               <input
                 type="text"
@@ -671,7 +671,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 font-mono text-sm uppercase"
               />
             </label>
-            <label className="block text-xs text-zinc-500">
+            <label className="block text-xs text-zinc-400">
               Year
               <input
                 type="number"
@@ -692,7 +692,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
               />
             </label>
-            <label className="block text-xs text-zinc-500 sm:col-span-1">
+            <label className="block text-xs text-zinc-400 sm:col-span-1">
               Make
               <input
                 type="text"
@@ -711,7 +711,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
               />
             </label>
-            <label className="block text-xs text-zinc-500 sm:col-span-1">
+            <label className="block text-xs text-zinc-400 sm:col-span-1">
               Model
               <input
                 type="text"
@@ -731,7 +731,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               />
             </label>
           </div>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Tire size range
             <input
               type="text"
@@ -750,7 +750,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Additional vehicle notes
             <input
               type="text"
@@ -769,7 +769,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Current vendor
             <input
               type="text"
@@ -787,7 +787,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
               className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
             />
           </label>
-          <label className="block text-xs text-zinc-500">
+          <label className="block text-xs text-zinc-400">
             Est. annual spend
             <input
               type="number"

@@ -91,7 +91,7 @@ export function VipConciergePage() {
 
         {phase === 'ready' && account && chatStarted && vipCtx ? (
           <div className="w-full space-y-4">
-            <p className="text-center text-sm text-zinc-500">Chat with our team below.</p>
+            <p className="text-center text-sm text-zinc-400">Chat with our team below.</p>
             <SinchChatMount vipMode vipContext={vipCtx} />
           </div>
         ) : null}

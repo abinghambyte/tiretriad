@@ -507,7 +507,7 @@ export function TiresDashboard() {
         <>
           <span className="font-medium text-zinc-400">Catalog is empty.</span>
           <br />
-          <span className="mt-2 inline-block text-zinc-500">
+          <span className="mt-2 inline-block text-zinc-400">
             Import rows into the Firestore{' '}
             <code className="text-zinc-400">tires</code> collection (CSV import
             script or console), then refresh.
@@ -777,7 +777,7 @@ export function TiresDashboard() {
           <div className="mx-auto max-w-4xl space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-zinc-100">Tire orders</h2>
-              <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+              <p className="mt-1 max-w-2xl text-sm text-zinc-400">
                 Sourcer to Field crew workflow via Slack. Notify customers from here and mark complete when
                 paid.
               </p>
@@ -785,7 +785,7 @@ export function TiresDashboard() {
             {canViewOrders ? (
               <OrdersList highlightId={ordersHighlight} />
             ) : (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-zinc-400">
                 You do not have permission to view orders. Ask an admin for the{' '}
                 <span className="font-mono text-zinc-400">orders</span> module.
               </p>
@@ -870,7 +870,7 @@ export function TiresDashboard() {
                   <span className="sr-only">Search by MSPN or description</span>
                   <div className="relative">
                     <svg
-                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -886,14 +886,14 @@ export function TiresDashboard() {
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search by MSPN or description…"
                       autoComplete="off"
-                      className="min-h-[44px] w-full rounded-lg border border-zinc-700 bg-zinc-900/60 py-2 pl-9 pr-9 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-zinc-500 sm:min-h-0"
+                      className="min-h-[44px] w-full rounded-lg border border-zinc-700 bg-zinc-900/60 py-2 pl-9 pr-9 text-sm text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-zinc-500 sm:min-h-0"
                     />
                     {query ? (
                       <button
                         type="button"
                         onClick={() => setQuery('')}
                         aria-label="Clear search"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-200"
                       >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                           <path strokeLinecap="round" d="m18 6-12 12M6 6l12 12" />
@@ -1014,7 +1014,7 @@ export function TiresDashboard() {
                         aria-label="Table options"
                         className="absolute right-0 top-full z-30 mt-1 w-72 rounded-lg border border-zinc-700 bg-zinc-900 p-3 shadow-xl"
                       >
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                           Visible columns
                         </p>
                         <ul className="space-y-1">
@@ -1033,7 +1033,7 @@ export function TiresDashboard() {
                           ))}
                         </ul>
                         <div className="mt-3 border-t border-zinc-800 pt-3">
-                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                             Haggle discount {Math.round(haggleDiscount * 100)}%
                           </p>
                           <input

@@ -97,7 +97,7 @@ export function BulkCtsModal({ open, onClose, tires }) {
         <h2 id="bulk-overhead-title" className="text-lg font-semibold text-zinc-100">
           Bulk overhead edit
         </h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-zinc-400">
           Apply the same mount, delivery, and other overhead to{' '}
           <span className="font-medium text-zinc-300">{tires.length}</span> selected tire
           {tires.length === 1 ? '' : 's'}. FET stays in the Sourcer&apos;s buy price and is not changed.
@@ -142,7 +142,7 @@ export function BulkCtsModal({ open, onClose, tires }) {
 function NumberField({ id, label, value, onChange }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-xs font-medium text-zinc-500">
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-zinc-400">
         {label}
       </label>
       <input

@@ -205,7 +205,7 @@ function RetailPriceCell({ row }) {
     ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-amber-300/70 italic max-sm:min-w-0'
     : researched
       ? 'inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-cyan-200/90 max-sm:min-w-0'
-      : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-500 max-sm:min-w-0'
+      : 'inline-flex max-w-full whitespace-nowrap font-mono text-sm tabular-nums text-zinc-400 max-sm:min-w-0'
   const title = estimated
     ? `Estimated from catalog-median markup × buy cost. Gemini could not find this tire; hover/click Refresh Price in the tire detail if you want to retry.`
     : researched
@@ -233,7 +233,7 @@ function RetailPriceCell({ row }) {
 }
 
 function netToneClass(net) {
-  if (net == null || Number.isNaN(net)) return 'text-zinc-500'
+  if (net == null || Number.isNaN(net)) return 'text-zinc-400'
   if (net < 5) return 'text-rose-300'
   if (net <= 20) return 'text-amber-300'
   return 'text-emerald-300'
@@ -298,7 +298,7 @@ function listHeightPx(rowCount, basePx = ROW_BASE_PX) {
 function MiniNum({ label, value, onChange }) {
   return (
     <div>
-      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-zinc-400">
         {label}
       </label>
       <input
@@ -319,7 +319,7 @@ function MiniNum({ label, value, onChange }) {
 
 function marginPctTone(pct) {
   const t = 'transition-colors duration-300 ease-out '
-  if (pct == null || Number.isNaN(pct)) return t + 'text-zinc-500'
+  if (pct == null || Number.isNaN(pct)) return t + 'text-zinc-400'
   if (pct < 15) return t + 'text-red-400'
   if (pct < 30) return t + 'text-amber-300'
   if (pct < 45) return t + 'text-emerald-300'
@@ -345,7 +345,7 @@ function splitRawDescription(raw) {
 const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
   const d = String(description ?? '').trim()
   const parsed = useMemo(() => parseDescription(d), [d])
-  if (!d) return <span className="text-zinc-500">--</span>
+  if (!d) return <span className="text-zinc-400">--</span>
 
   const hasMetric =
     parsed.parseKind === 'metric' &&
@@ -406,7 +406,7 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
     <div className="group/desc relative min-w-0 max-w-full overflow-hidden pr-6 text-sm leading-snug text-zinc-300">
       <div className="break-words font-mono font-semibold text-zinc-200 [overflow-wrap:anywhere]">{primary}</div>
       {secondary ? (
-        <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs font-medium text-zinc-500 [overflow-wrap:anywhere]">
+        <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs font-medium text-zinc-400 [overflow-wrap:anywhere]">
           {secondary}
         </div>
       ) : null}
@@ -480,7 +480,7 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
       } ${touchWide ? 'min-h-[44px] min-w-[44px] justify-center sm:min-h-0 sm:min-w-0' : ''}`}
     >
       {label}
-      <span className="inline-block w-2.5 text-center text-zinc-500 group-hover:text-zinc-300">
+      <span className="inline-block w-2.5 text-center text-zinc-400 group-hover:text-zinc-300">
         {active ? (dir === 'asc' ? '↑' : '↓') : '⇅'}
       </span>
     </button>
@@ -558,14 +558,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         {formatPercent(m, 1)}
       </span>
     ) : (
-      <span className="whitespace-nowrap text-sm font-semibold text-zinc-500" title={marginTitle}>
+      <span className="whitespace-nowrap text-sm font-semibold text-zinc-400" title={marginTitle}>
         --
       </span>
     )
 
   const ctsEditorSection = showCostEditor ? (
     <div className="border-t border-zinc-800/80 bg-zinc-900/70 px-4 py-4">
-      <p className="mb-3 text-xs text-zinc-500">
+      <p className="mb-3 text-xs text-zinc-400">
         Enter your overhead costs per tire: mount labor, delivery, and other. Buy price from the Sourcer
         is fixed.
       </p>
@@ -594,10 +594,10 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             {formatCurrencyOrDash(Number(overheadDraft.otherCost) || 0)} other ={' '}
             <span className="text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
           </p>
-          <p className="flex flex-wrap items-center gap-x-3 text-zinc-500">
+          <p className="flex flex-wrap items-center gap-x-3 text-zinc-400">
             <span>
               Current margin:{' '}
-              <span className={`font-semibold ${m != null && !Number.isNaN(m) ? marginPctTone(m) : 'text-zinc-500'}`}>
+              <span className={`font-semibold ${m != null && !Number.isNaN(m) ? marginPctTone(m) : 'text-zinc-400'}`}>
                 {m != null && !Number.isNaN(m) ? formatPercent(m, 1) : '--'}
               </span>
             </span>
@@ -607,7 +607,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                 className={`font-semibold ${
                   projectedMargin != null && !Number.isNaN(projectedMargin)
                     ? marginPctTone(projectedMargin)
-                    : 'text-zinc-500'
+                    : 'text-zinc-400'
                 }`}
               >
                 {projectedMargin != null && !Number.isNaN(projectedMargin)
@@ -627,7 +627,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             />
             Do not list
           </label>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-400">
             Overhead after save:{' '}
             <span className="font-mono text-amber-200/90">{formatCurrencyOrDash(draftOverheadTotal)}</span>
           </p>
@@ -665,7 +665,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
             <div className="flex w-11 shrink-0 flex-col items-center justify-center gap-0.5 px-0.5">
-              <span className="text-[8px] font-semibold uppercase tracking-wide text-zinc-500">Pick</span>
+              <span className="text-[8px] font-semibold uppercase tracking-wide text-zinc-400">Pick</span>
               <input
                 type="checkbox"
                 checked={selected}
@@ -725,7 +725,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
                     ? 'text-amber-200'
                     : hasOverheadRecorded(row)
                       ? 'text-zinc-200'
-                      : 'text-zinc-500 italic'
+                      : 'text-zinc-400 italic'
                 }`}
               >
                 {hasOverheadRecorded(row) ? formatCurrencyOrDash(effectiveCts(row)) : 'not set'}
@@ -1329,7 +1329,7 @@ export function MarginTable({
                 className="rounded-2xl border border-zinc-800/90 bg-zinc-900/50 p-8 shadow-inner shadow-black/20"
                 role="status"
               >
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/50 text-zinc-500">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/50 text-zinc-400">
                   <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                     <circle cx="12" cy="12" r="7.25" />
                     <circle cx="12" cy="12" r="2.25" />

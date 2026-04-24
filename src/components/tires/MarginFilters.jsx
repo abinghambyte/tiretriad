@@ -175,7 +175,7 @@ function FilterPresetsSection({ brand, useTagFilters, lrFilters, minMargin, need
   return (
     <div className="border-t border-zinc-800/60 pt-2.5 sm:pt-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-xs font-medium text-zinc-500">Saved filters</span>
+        <span className="shrink-0 text-xs font-medium text-zinc-400">Saved filters</span>
         {presets.map((p) => (
           <span
             key={p.id}
@@ -192,7 +192,7 @@ function FilterPresetsSection({ brand, useTagFilters, lrFilters, minMargin, need
             <button
               type="button"
               onClick={() => remove(p.id)}
-              className="rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-red-300"
+              className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-red-300"
               aria-label={`Delete preset ${p.name}`}
             >
               ×
@@ -332,7 +332,7 @@ function ChipRow({ label, options, selected, onChange, ariaLabel, collapseAfter 
       aria-label={ariaLabel}
       className="flex flex-wrap items-center gap-1.5 border-t border-zinc-800/60 pt-2 sm:pt-2.5"
     >
-      <span className="shrink-0 text-xs font-medium text-zinc-500">{label}</span>
+      <span className="shrink-0 text-xs font-medium text-zinc-400">{label}</span>
       {visible.map((o) => {
         const key = String(o)
         const active = selectedSet.has(key)

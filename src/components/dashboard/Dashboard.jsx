@@ -216,7 +216,7 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="pc-card rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Recent activity</h2>
+            <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Recent activity</h2>
             {recentLoading ? (
               <ul className="mt-4 space-y-3">
                 {[1, 2, 3, 4, 5].map((k) => (
@@ -263,7 +263,7 @@ export function Dashboard() {
                           <span className="text-zinc-600" aria-hidden>
                             ·
                           </span>
-                          <span className="text-[11px] text-zinc-500">{when}</span>
+                          <span className="text-[11px] text-zinc-400">{when}</span>
                         </div>
                       </li>
                     )
@@ -271,7 +271,7 @@ export function Dashboard() {
                   return (
                     <li key={id} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-zinc-400">
                           <Link
                             to={`/orders?highlight=${encodeURIComponent(id)}`}
                             className="font-mono text-zinc-300 underline-offset-2 hover:underline"
@@ -280,11 +280,11 @@ export function Dashboard() {
                           </Link>
                         </p>
                         <p className="mt-1 text-sm font-medium text-zinc-200">{activityTireLine(data)}</p>
-                        <p className="mt-0.5 text-xs text-zinc-500">{activityCustomerLine(data)}</p>
+                        <p className="mt-0.5 text-xs text-zinc-400">{activityCustomerLine(data)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1 text-right">
                         <StatusPill tone={statusPillTone(data.status)} label={statusLabel} />
-                        <span className="font-mono text-xs text-zinc-500">{activityMarginDisplay(data)}</span>
+                        <span className="font-mono text-xs text-zinc-400">{activityMarginDisplay(data)}</span>
                         <span className="text-[10px] text-zinc-600">{when}</span>
                       </div>
                     </li>

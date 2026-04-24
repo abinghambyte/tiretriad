@@ -62,7 +62,7 @@ export function HandshakePage() {
 
   if (loading || !profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400">
         <p className="animate-pulse text-sm">Loading…</p>
       </div>
     )
@@ -90,7 +90,7 @@ export function HandshakePage() {
         transition={{ duration: 0.45 }}
         className="max-w-md space-y-6"
       >
-        <p className="text-xs tracking-[0.35em] text-zinc-500">SKEDADDLE</p>
+        <p className="text-xs tracking-[0.35em] text-zinc-400">SKEDADDLE</p>
         <p className="text-lg font-light leading-relaxed text-zinc-200 md:text-xl">{line}</p>
         <p className="text-xs text-zinc-600">Tap anywhere to continue</p>
       </Motion.div>

@@ -123,7 +123,7 @@ export function WallPage({ embedded = false }) {
       }
     >
         <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <label className="text-xs text-zinc-500">
+          <label className="text-xs text-zinc-400">
             From
             <input
               type="date"
@@ -132,7 +132,7 @@ export function WallPage({ embedded = false }) {
               className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-200"
             />
           </label>
-          <label className="text-xs text-zinc-500">
+          <label className="text-xs text-zinc-400">
             To
             <input
               type="date"
@@ -141,7 +141,7 @@ export function WallPage({ embedded = false }) {
               className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-200"
             />
           </label>
-          <label className="text-xs text-zinc-500">
+          <label className="text-xs text-zinc-400">
             Min revenue
             <input
               type="number"
@@ -176,7 +176,7 @@ export function WallPage({ embedded = false }) {
                         {o.mspn} × {formatQty(o.quantity)}
                       </span>
                     ) : (
-                      <span className="inline-flex flex-wrap items-center gap-1.5 font-mono text-sm text-zinc-500">
+                      <span className="inline-flex flex-wrap items-center gap-1.5 font-mono text-sm text-zinc-400">
                         <span>{String(o.mspn ?? '--')}</span>
                         <span>× {formatQty(o.quantity)}</span>
                         <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">(test)</span>
@@ -206,14 +206,14 @@ export function WallPage({ embedded = false }) {
                   </p>
                 </div>
                 <p className="mt-2 text-sm text-zinc-300">{o.customerName || '--'}</p>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-zinc-400">
                   <span aria-hidden="true">⏱</span>{' '}
                   {o.fulfillmentTimeMinutes != null
                     ? `${o.fulfillmentTimeMinutes} min`
                     : '--'}{' '}
                   · {crewLine(o)}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500">{logisticsLine(o)}</p>
+                <p className="mt-1 text-xs text-zinc-400">{logisticsLine(o)}</p>
                 <p className="mt-2 text-[11px] text-zinc-600">{completedLabel(o.completedAt)}</p>
               </li>
             ))}
@@ -227,7 +227,7 @@ export function WallPage({ embedded = false }) {
       <div className="text-zinc-100">
         <div className="mb-4 border-b border-zinc-800/80 pb-3">
           <h2 className="text-sm font-semibold text-zinc-200">The Wall</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">Live completed orders. Read-only view.</p>
+          <p className="mt-0.5 text-xs text-zinc-400">Live completed orders. Read-only view.</p>
         </div>
         {body}
       </div>
@@ -239,11 +239,11 @@ export function WallPage({ embedded = false }) {
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
+            <Link to="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200">
               ← Dashboard
             </Link>
             <h1 className="mt-2 text-xl font-semibold text-white">The Wall</h1>
-            <p className="mt-1 text-sm text-zinc-500">Live completed orders. Read-only view.</p>
+            <p className="mt-1 text-sm text-zinc-400">Live completed orders. Read-only view.</p>
             <div className="mt-2 sm:hidden">
               <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
             </div>

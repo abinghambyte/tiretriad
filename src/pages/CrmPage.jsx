@@ -100,7 +100,7 @@ function nextActionDueStatus(a) {
 function nextActionClass(status) {
   if (status === 'overdue') return 'text-rose-300'
   if (status === 'today') return 'text-amber-300'
-  return 'text-zinc-500'
+  return 'text-zinc-400'
 }
 
 /** Days since the account's most recent activity timestamp, or null if no timestamp is available. */
@@ -239,7 +239,7 @@ function DispatchTab() {
         <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-8 text-center text-sm leading-relaxed text-zinc-400">
           No jobs assigned to you yet.
           <br />
-          <span className="text-zinc-500">Check with dispatch when new field jobs are scheduled.</span>
+          <span className="text-zinc-400">Check with dispatch when new field jobs are scheduled.</span>
         </p>
       ) : null}
       {!loading &&
@@ -250,7 +250,7 @@ function DispatchTab() {
           >
             <p className="text-sm font-semibold text-zinc-100">{j.jobType || 'Job'}</p>
             <p className="mt-1 text-xs text-zinc-400">{j.location || '--'}</p>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-400">
               Vehicles: {j.vehicleCount ?? '--'} · Tires: {j.tireSizes || '--'}
             </p>
             <p className="mt-1 text-xs text-zinc-600">When: {fmtJobTime(j.scheduledAt)}</p>
@@ -642,7 +642,7 @@ export function CrmPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="min-w-[140px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
               />
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-zinc-400">
                 <span className="font-semibold text-zinc-400">Lost</span>
                 <span className="text-zinc-600"> · </span>
                 {lostCount}
@@ -719,14 +719,14 @@ export function CrmPage() {
               <>
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-xs text-zinc-400">
                   <span>
-                    <span className="text-zinc-500">Total leads </span>
+                    <span className="text-zinc-400">Total leads </span>
                     <span className="font-semibold text-zinc-200 tabular-nums">
                       {pipelineSummary.totalAccounts}
                     </span>
                   </span>
                   {pipelineSummary.totalDollars > 0 ? (
                     <span>
-                      <span className="text-zinc-500">Pipeline value </span>
+                      <span className="text-zinc-400">Pipeline value </span>
                       <span className="font-semibold text-amber-200 tabular-nums">
                         {formatCurrency(pipelineSummary.totalDollars)}
                       </span>
@@ -735,7 +735,7 @@ export function CrmPage() {
                   ) : null}
                   {pipelineSummary.conversionRate != null ? (
                     <span>
-                      <span className="text-zinc-500">Conversion rate </span>
+                      <span className="text-zinc-400">Conversion rate </span>
                       <span className="font-semibold text-zinc-200 tabular-nums">
                         {formatPercent(pipelineSummary.conversionRate)}
                       </span>
@@ -757,7 +757,7 @@ export function CrmPage() {
                         <p className="text-xs font-semibold leading-snug text-zinc-300">
                           {CRM_STAGE_LABELS[stage]}
                         </p>
-                        <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 ring-1 ring-zinc-700/60">
+                        <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 ring-1 ring-zinc-700/60">
                           <span className="tabular-nums text-zinc-300">{s.count}</span>
                           {s.dollars > 0 ? (
                             <>
@@ -821,7 +821,7 @@ export function CrmPage() {
                               >
                                 Score {a.score ?? computeCrmScore(a)}
                               </span>
-                              <span className="text-[10px] text-zinc-500" title="Pain score">
+                              <span className="text-[10px] text-zinc-400" title="Pain score">
                                 · Pain {a.painScore ?? '--'}
                               </span>
                             </div>
@@ -836,7 +836,7 @@ export function CrmPage() {
                             setAddAccountStage(stage)
                             setAddAccountOpen(true)
                           }}
-                          className="mt-2 rounded-md border border-dashed border-zinc-700/70 px-2 py-1 text-[10px] font-medium text-zinc-500 hover:border-violet-700/60 hover:text-violet-300"
+                          className="mt-2 rounded-md border border-dashed border-zinc-700/70 px-2 py-1 text-[10px] font-medium text-zinc-400 hover:border-violet-700/60 hover:text-violet-300"
                           title={`Add a VIP client in ${CRM_STAGE_LABELS[stage]}`}
                         >
                           + Add to {CRM_STAGE_LABELS[stage]}
@@ -855,7 +855,7 @@ export function CrmPage() {
                     onDrop={(e) => void onDropStage(CRM_LOST_STAGE, e)}
                   >
                     <div className="mb-2 px-1">
-                      <p className="text-xs font-semibold leading-snug text-zinc-500">
+                      <p className="text-xs font-semibold leading-snug text-zinc-400">
                         {CRM_STAGE_LABELS[CRM_LOST_STAGE]}
                       </p>
                       <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-zinc-800/40 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-zinc-800/60">
@@ -913,15 +913,15 @@ export function CrmPage() {
                         >
                           <span className="text-xs font-semibold leading-snug text-zinc-300">
                             {CRM_STAGE_LABELS[stage] || `Stage ${stage}`}
-                            <span className="font-normal text-zinc-500"> · {s.count}</span>
+                            <span className="font-normal text-zinc-400"> · {s.count}</span>
                             {s.dollars > 0 ? (
-                              <span className="font-normal text-zinc-500">
+                              <span className="font-normal text-zinc-400">
                                 {' '}· {formatCurrency(s.dollars)}
                                 <span className="text-zinc-600"> est.</span>
                               </span>
                             ) : null}
                           </span>
-                          <span className="text-zinc-500">{open ? '▾' : '▸'}</span>
+                          <span className="text-zinc-400">{open ? '▾' : '▸'}</span>
                         </button>
                         {open ? (
                           <div
@@ -944,8 +944,8 @@ export function CrmPage() {
                                   className="w-full p-2 text-left"
                                 >
                                   <span className="font-medium text-zinc-100">{a.companyName}</span>
-                                  <p className="mt-1 text-[10px] text-zinc-500">Next: {nextActionSummary(a)}</p>
-                                  <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-500">
+                                  <p className="mt-1 text-[10px] text-zinc-400">Next: {nextActionSummary(a)}</p>
+                                  <p className="mt-0.5 line-clamp-2 text-[10px] text-zinc-400">
                                     Last note: {lastActivityNotePreview(a)}
                                   </p>
                                   {estimatedDealValue(a.vehicleProfile || {}, avgBuyPerTire) != null ? (
@@ -961,7 +961,7 @@ export function CrmPage() {
                                       Score {a.score ?? computeCrmScore(a)}
                                     </span>
                                     <span
-                                      className="text-[10px] text-zinc-500"
+                                      className="text-[10px] text-zinc-400"
                                       title="Pain score"
                                     >
                                       · Pain {a.painScore ?? '--'}
@@ -1176,13 +1176,13 @@ export function CrmPage() {
                               ? 'text-red-300'
                               : r.urgency === 'warm'
                                 ? 'text-amber-300'
-                                : 'text-zinc-500'
+                                : 'text-zinc-400'
                           }
                         >
                           {r.urgency || '--'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(r.followUpAt)}</td>
+                      <td className="px-3 py-2 text-xs text-zinc-400">{formatTs(r.followUpAt)}</td>
                       <td className="px-3 py-2 text-right">
                         {r.convertedToAccountId ? (
                           <span className="text-xs text-zinc-600">Converted</span>
@@ -1208,7 +1208,7 @@ export function CrmPage() {
             </div>
             <div>
               <h2 className="text-sm font-semibold text-zinc-300">VIP clients pipeline</h2>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-zinc-400">
                 Sortable VIP clients (filters above apply here and on the Board tab).
               </p>
               <div className="mt-3">

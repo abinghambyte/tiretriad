@@ -68,7 +68,7 @@ function SignalStrip({ tire }) {
   const listedRaw = bd.daysSinceLastListed?.raw
   const listedLabel = Number.isFinite(listedRaw) && listedRaw > 0 ? `${Math.round(listedRaw)}d` : 'never'
   return (
-    <p className="text-[11px] text-zinc-500">
+    <p className="text-[11px] text-zinc-400">
       Last posted {listedLabel} &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d &middot; Vel {velDays} &middot;{' '}
       Margin {formatPercent((bd.margin?.raw || 0) * 100, 0)} &middot; Missing {tire.missingPlatformCount}
     </p>
@@ -251,7 +251,7 @@ function Modal({ ranked, mode, onPost, onClose, narrate }) {
           ))}
         </ul>
         <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
-          <span className="text-xs text-zinc-500">{selected.size} selected</span>
+          <span className="text-xs text-zinc-400">{selected.size} selected</span>
           <div className="flex gap-2">
             <button
               type="button"

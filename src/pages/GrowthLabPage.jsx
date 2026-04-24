@@ -123,7 +123,7 @@ function GrowthLabRoutingForm() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 p-5 shadow-inner shadow-black/20 sm:p-6">
         <h2 className="text-base font-semibold text-zinc-100">Task dispatcher</h2>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-zinc-400">
           Routes portal work to Opus, Sonnet, Haiku, Gemini (market), or Antigravity (browser-heavy). Uses Skedaddle
           context + a credit guardian (prefer Sonnet when it suffices).
         </p>
@@ -169,10 +169,10 @@ function GrowthLabRoutingForm() {
             <span className="text-sm text-zinc-300">
               Model: <span className="font-medium text-zinc-100">{modelDisplayName(routing)}</span>
               {result.model ? (
-                <span className="ml-2 font-mono text-xs text-zinc-500">({result.model})</span>
+                <span className="ml-2 font-mono text-xs text-zinc-400">({result.model})</span>
               ) : null}
             </span>
-            <span className="text-xs uppercase tracking-wide text-zinc-500">
+            <span className="text-xs uppercase tracking-wide text-zinc-400">
               {String(dispatch.taskType || '--')} · {String(dispatch.estimatedComplexity || '--')}
             </span>
           </div>

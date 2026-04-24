@@ -33,7 +33,7 @@ export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'm
                     '-mb-px flex min-h-[44px] items-center rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors duration-200 sm:min-h-0',
                     active
                       ? 'border-amber-500 bg-amber-500/10 text-amber-100'
-                      : 'border-transparent text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-200',
+                      : 'border-transparent text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200',
                   ].join(' ')}
                 >
                   {t.label}

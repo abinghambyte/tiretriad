@@ -95,13 +95,13 @@ export function AuditLogPanel() {
       </p>
 
       {loading ? (
-        <div className="mt-4 flex items-center gap-2 text-sm text-zinc-500">
+        <div className="mt-4 flex items-center gap-2 text-sm text-zinc-400">
           <Spinner className="h-4 w-4 text-zinc-400" /> Loading...
         </div>
       ) : error ? (
         <p className="mt-4 text-sm text-rose-400">{error}</p>
       ) : rows.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-500">No audit entries yet.</p>
+        <p className="mt-4 text-sm text-zinc-400">No audit entries yet.</p>
       ) : (
         <ul className="mt-4 space-y-3 text-xs text-zinc-400">
           {rows.map((row) => (
@@ -111,11 +111,11 @@ export function AuditLogPanel() {
                 <p className="font-mono text-[11px] text-cyan-300/90">{row.action || '-'}</p>
               </div>
               <p className="mt-1 text-zinc-400">
-                <span className="text-zinc-500">By </span>
+                <span className="text-zinc-400">By </span>
                 <span className="font-mono text-[11px] text-zinc-300">{row.email || row.uid || '-'}</span>
                 {row.targetId ? (
                   <>
-                    <span className="text-zinc-500"> on </span>
+                    <span className="text-zinc-400"> on </span>
                     <span className="font-mono text-[11px] text-zinc-300">{row.targetId}</span>
                   </>
                 ) : null}

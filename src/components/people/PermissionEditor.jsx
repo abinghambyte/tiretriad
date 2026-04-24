@@ -120,7 +120,7 @@ export function UserEditorModal({
             />
 
             <div className="space-y-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Role</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Role</p>
               <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <select
@@ -164,7 +164,7 @@ export function UserEditorModal({
               <button
                 type="button"
                 onClick={() => setShowAvailability((v) => !v)}
-                className="flex w-full items-center justify-between py-3 text-xs font-medium uppercase tracking-wide text-zinc-500 transition-colors hover:text-zinc-300"
+                className="flex w-full items-center justify-between py-3 text-xs font-medium uppercase tracking-wide text-zinc-400 transition-colors hover:text-zinc-300"
               >
                 <span>Availability</span>
                 <span
@@ -191,7 +191,7 @@ export function UserEditorModal({
             <button
               type="button"
               onClick={() => setShowElevation((v) => !v)}
-              className="flex w-full items-center justify-between py-3 text-xs font-medium uppercase tracking-wide text-zinc-500 transition-colors hover:text-zinc-300"
+              className="flex w-full items-center justify-between py-3 text-xs font-medium uppercase tracking-wide text-zinc-400 transition-colors hover:text-zinc-300"
             >
               <span>Temporary elevation</span>
               <span
@@ -204,12 +204,12 @@ export function UserEditorModal({
 
             {showElevation ? (
               <div className="space-y-3 pb-4">
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-zinc-400">
                   Raise one module for 24h, 48h, or 7 days. Reverts automatically (hourly job).
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-500">Module</label>
+                    <label className="mb-1 block text-xs text-zinc-400">Module</label>
                     <select
                       value={eleModule}
                       onChange={(e) => {
@@ -230,7 +230,7 @@ export function UserEditorModal({
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-500">Elevated level</label>
+                    <label className="mb-1 block text-xs text-zinc-400">Elevated level</label>
                     <select
                       value={eleLevel}
                       onChange={(e) => setEleLevel(e.target.value)}
@@ -245,7 +245,7 @@ export function UserEditorModal({
                   </div>
                 </div>
                 <fieldset>
-                  <legend className="mb-2 text-xs text-zinc-500">Duration</legend>
+                  <legend className="mb-2 text-xs text-zinc-400">Duration</legend>
                   <div className="flex gap-4">
                     {[
                       { id: '24h', label: '24h' },

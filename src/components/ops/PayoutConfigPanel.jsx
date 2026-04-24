@@ -164,7 +164,7 @@ export function PayoutConfigPanel() {
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
       <h2 className="text-lg font-semibold text-white">Payouts &amp; Taxes</h2>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-zinc-400">
         Pool split and buy-side tax rates applied at order completion. Changes take effect on the next
         completion; historical orders are not recomputed.
       </p>
@@ -184,10 +184,10 @@ export function PayoutConfigPanel() {
 
           <div>
             <h3 className="text-sm font-medium text-zinc-300">Profit share</h3>
-            <p className="mt-1 text-xs text-zinc-500">Enter percentages; they must total 100%.</p>
+            <p className="mt-1 text-xs text-zinc-400">Enter percentages; they must total 100%.</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {SPLIT_ORDER.map((key) => (
-                <label key={key} className="block text-xs font-medium text-zinc-500">
+                <label key={key} className="block text-xs font-medium text-zinc-400">
                   {key === 'alex' ? 'Alex' : key === 'dj' ? 'DJ' : 'Kyle'} (%)
                   <input
                     type="text"
@@ -206,9 +206,9 @@ export function PayoutConfigPanel() {
 
           <div>
             <h3 className="text-sm font-medium text-zinc-300">Buy-side taxes</h3>
-            <p className="mt-1 text-xs text-zinc-500">Percentages are of tire buy cost × quantity.</p>
+            <p className="mt-1 text-xs text-zinc-400">Percentages are of tire buy cost × quantity.</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 County (%)
                 <input
                   type="text"
@@ -218,7 +218,7 @@ export function PayoutConfigPanel() {
                   className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                 />
               </label>
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 Local (%)
                 <input
                   type="text"
@@ -228,7 +228,7 @@ export function PayoutConfigPanel() {
                   className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                 />
               </label>
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 State (%)
                 <input
                   type="text"
@@ -238,7 +238,7 @@ export function PayoutConfigPanel() {
                   className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                 />
               </label>
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 Tire fee ($/tire)
                 <input
                   type="text"
@@ -253,11 +253,11 @@ export function PayoutConfigPanel() {
 
           <div>
             <h3 className="text-sm font-medium text-zinc-300">Live preview</h3>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-400">
               Try values below to see how the current rates and splits would apply. Values are not saved.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 Buy cost per tire ($)
                 <input
                   type="text"
@@ -267,7 +267,7 @@ export function PayoutConfigPanel() {
                   className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                 />
               </label>
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 Quantity
                 <input
                   type="text"
@@ -277,7 +277,7 @@ export function PayoutConfigPanel() {
                   className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                 />
               </label>
-              <label className="block text-xs font-medium text-zinc-500">
+              <label className="block text-xs font-medium text-zinc-400">
                 Retail per tire ($)
                 <input
                   type="text"
@@ -364,7 +364,7 @@ export function PayoutConfigPanel() {
           </div>
 
           <div className="space-y-3">
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-400">
               Preview uses the values in the form; saving writes them to meta/payoutConfig.
             </p>
             <div className="flex flex-wrap items-center gap-3">

@@ -36,7 +36,7 @@ const MyQueuePage = lazy(() =>
 function RouteFallback() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
-      <Spinner className="h-8 w-8 text-zinc-500" />
+      <Spinner className="h-8 w-8 text-zinc-400" />
     </div>
   )
 }

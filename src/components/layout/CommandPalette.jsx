@@ -335,7 +335,7 @@ export function CommandPalette({ open, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-zinc-800/90 px-3 py-2.5 sm:px-4">
-          <span className="text-zinc-500" aria-hidden>
+          <span className="text-zinc-400" aria-hidden>
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="11" cy="11" r="7" />
               <path strokeLinecap="round" d="M20 20l-3-3" />
@@ -356,7 +356,7 @@ export function CommandPalette({ open, onClose }) {
             <div className="space-y-3">
               {actionGroups.map((g) => (
                 <div key={g.section}>
-                  <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
                     {g.section}
                   </p>
                   <ul className="mt-1 space-y-1">
@@ -374,7 +374,7 @@ export function CommandPalette({ open, onClose }) {
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-zinc-100">{a.label}</span>
                               {a.hint ? (
-                                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-500">
+                                <span className="shrink-0 text-[10px] uppercase tracking-wide text-zinc-400">
                                   {a.hint}
                                 </span>
                               ) : null}
@@ -396,13 +396,13 @@ export function CommandPalette({ open, onClose }) {
             </div>
           ) : null}
           {!busy && q.trim().length < 2 && actionCount === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-zinc-500">
+            <p className="px-3 py-6 text-center text-sm text-zinc-400">
               Type a command or search tires, orders, customers, VIP clients
             </p>
           ) : null}
           {!busy && q.trim().length >= 2 && totalHits === 0 && actionCount === 0 ? (
             <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-              <span className="rounded-full border border-zinc-700 bg-zinc-800/50 p-3 text-zinc-500" aria-hidden>
+              <span className="rounded-full border border-zinc-700 bg-zinc-800/50 p-3 text-zinc-400" aria-hidden>
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="11" cy="11" r="7" />
                   <path strokeLinecap="round" d="M20 20l-3-3" />
@@ -413,7 +413,7 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.tires.length ? (
             <div className="mt-3">
-              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Tires</p>
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Tires</p>
               <ul className="mt-1 space-y-1">
                 {hits.tires.map((t, i) => {
                   const fi = tireStart + i
@@ -431,7 +431,7 @@ export function CommandPalette({ open, onClose }) {
                         }}
                       >
                         <span className="font-mono text-xs text-amber-200/90">{t.mspn}</span>{' '}
-                        <span className="text-zinc-500">{t.description}</span>
+                        <span className="text-zinc-400">{t.description}</span>
                       </button>
                     </li>
                   )
@@ -441,7 +441,7 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.orders.length ? (
             <div className="mt-3">
-              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Orders</p>
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Orders</p>
               <ul className="mt-1 space-y-1">
                 {hits.orders.map((o, i) => {
                   const fi = orderStart + i
@@ -458,7 +458,7 @@ export function CommandPalette({ open, onClose }) {
                           setQ('')
                         }}
                       >
-                        <span className="font-mono text-[10px] text-zinc-500">{o.id}</span>
+                        <span className="font-mono text-[10px] text-zinc-400">{o.id}</span>
                         <span className="ml-2 text-zinc-300">
                           {o.customerName || '--'} · {o.mspn}
                         </span>
@@ -471,7 +471,7 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.contacts.length ? (
             <div className="mt-3">
-              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Contacts</p>
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Contacts</p>
               <ul className="mt-1 space-y-1">
                 {hits.contacts.map((c, i) => {
                   const fi = contactStart + i
@@ -498,7 +498,7 @@ export function CommandPalette({ open, onClose }) {
           ) : null}
           {hits.crm.length ? (
             <div className="mt-3">
-              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">CRM</p>
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">CRM</p>
               <ul className="mt-1 space-y-1">
                 {hits.crm.map((a, i) => {
                   const fi = crmStart + i

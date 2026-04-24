@@ -14,7 +14,7 @@ export function LoadingBlock({ label = 'Loading…', variant = 'card' }) {
   const body = (
     <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
       <Spinner className="h-6 w-6 text-zinc-400" />
-      <p className="mt-3 text-xs text-zinc-500">{label}</p>
+      <p className="mt-3 text-xs text-zinc-400">{label}</p>
     </div>
   )
   if (variant === 'inline') return body
