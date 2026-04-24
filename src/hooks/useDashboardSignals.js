@@ -337,6 +337,14 @@ export function useDashboardSignals() {
     loading: true,
   })
 
+  const [lastSale, setLastSale] = useState(
+    /** @type {{ amount: number | null, completedAtMs: number | null, loading: boolean }} */ ({
+      amount: null,
+      completedAtMs: null,
+      loading: true,
+    }),
+  )
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -521,6 +529,40 @@ export function useDashboardSignals() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const q = query(
+          collection(db, 'orders'),
+          where('status', '==', 'completed'),
+          orderBy('completedAt', 'desc'),
+          limit(1),
+        )
+        const snap = await getDocs(q)
+        if (cancelled) return
+        if (snap.empty) {
+          setLastSale({ amount: null, completedAtMs: null, loading: false })
+          return
+        }
+        const data = snap.docs[0].data() || {}
+        const amount = Number(data.paymentAmount ?? data.totalPrice) || 0
+        const completedAt = data.completedAt
+        const completedAtMs =
+          completedAt && typeof completedAt.toMillis === 'function'
+            ? completedAt.toMillis()
+            : null
+        setLastSale({ amount, completedAtMs, loading: false })
+      } catch (e) {
+        console.error('dashboard last sale', e)
+        if (!cancelled) setLastSale({ amount: null, completedAtMs: null, loading: false })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const hiddenGems = useMemo(() => {
     if (tiresLoading) return []
     return selectHiddenGems(tires)
@@ -558,6 +600,7 @@ export function useDashboardSignals() {
     topSellers,
     allTimeMargin,
     rollingAverageRevenue,
+    lastSale,
     advisorRanked: advisor.ranked,
     advisorLoading: advisor.loading,
   }

@@ -1,30 +1,52 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency, formatQty } from '../../utils/format'
 import { TopSellersCard } from './TopSellersCard'
 
+const MS_PER_DAY = 86_400_000
+
+function daysAgoLabel(ms, now) {
+  if (!Number.isFinite(ms) || ms <= 0) return null
+  const diff = now - ms
+  if (diff < 0) return 'just now'
+  const days = Math.floor(diff / MS_PER_DAY)
+  if (days <= 0) return 'today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
+}
+
 /**
  * Today strip. Four-card grid: Pending Orders (1fr), Top Sellers (2fr),
- * Today Revenue hero (1fr), Total Profit (1fr). Stacks to 1-col under md
+ * Last Sale hero (1fr), Total Profit (1fr). Stacks to 1-col under md
  * and 2-col md to keep TopSellers rank digits from crashing into the SKU
- * column between 640-900 px. Hero revenue is emerald at 34 px.
+ * column between 640-900 px. Hero last-sale amount is emerald at 34 px;
+ * "N days ago" caption turns amber past 7 days to nudge a fresh post.
  */
 export function TodayStrip({
   pendingOrders,
   topSellers = [],
-  todayRevenue,
+  lastSale = null,
   allTimeMargin,
-  rollingAverageRevenue = null,
   loading,
 }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const h = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(h)
+  }, [])
+
   const pendingValue = loading ? null : Number(pendingOrders ?? 0)
   const pendingTone = pendingValue != null && pendingValue > 0 ? 'text-amber-200' : 'text-zinc-100'
-  const todayNum = Number(todayRevenue ?? 0)
-  const avgNum = Number(rollingAverageRevenue)
-  const hot =
-    !loading &&
-    Number.isFinite(avgNum) &&
-    avgNum > 0 &&
-    todayNum > avgNum
+  const saleAmount =
+    lastSale && lastSale.amount != null && Number.isFinite(Number(lastSale.amount))
+      ? Number(lastSale.amount)
+      : null
+  const saleMs = lastSale && Number.isFinite(Number(lastSale.completedAtMs))
+    ? Number(lastSale.completedAtMs)
+    : null
+  const ageLabel = saleMs != null ? daysAgoLabel(saleMs, now) : null
+  const daysSince = saleMs != null ? Math.floor((now - saleMs) / MS_PER_DAY) : null
+  const stale = !loading && daysSince != null && daysSince >= 7
 
   return (
     <section
@@ -51,30 +73,44 @@ export function TodayStrip({
         <TopSellersCard sellers={topSellers} />
       </div>
 
-      <div className="pc-card rounded-xl bg-gradient-to-b from-emerald-500/10 to-transparent p-[14px]">
-        <p className="pc-eyebrow">Today revenue</p>
+      <Link
+        to="/orders?status=completed"
+        className="pc-card rounded-xl bg-gradient-to-b from-emerald-500/10 to-transparent p-[14px] transition-colors hover:from-emerald-500/15"
+      >
+        <p className="pc-eyebrow">Last sale</p>
         {loading ? (
           <div className="mt-2 h-10 w-24 animate-pulse rounded-md bg-zinc-800/80" />
+        ) : saleAmount == null ? (
+          <>
+            <p
+              data-testid="hero-last-sale"
+              className="mt-1 text-[24px] font-semibold tabular-nums text-zinc-400"
+            >
+              No sales yet
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-500">Waiting on first completed order</p>
+          </>
         ) : (
-          <p
-            data-testid="hero-revenue"
-            data-hot={hot ? 'true' : 'false'}
-            className={[
-              'mt-1 text-[34px] font-bold tabular-nums tracking-[-0.02em]',
-              hot
-                ? 'text-[#32CD32] drop-shadow-[0_0_10px_rgba(50,205,50,0.35)]'
-                : 'text-emerald-300',
-            ].join(' ')}
-            title={
-              hot
-                ? 'Today is above the 7-day rolling average'
-                : undefined
-            }
-          >
-            {formatCurrency(todayNum)}
-          </p>
+          <>
+            <p
+              data-testid="hero-last-sale"
+              data-stale={stale ? 'true' : 'false'}
+              className="mt-1 text-[34px] font-bold tabular-nums tracking-[-0.02em] text-emerald-300"
+            >
+              {formatCurrency(saleAmount)}
+            </p>
+            <p
+              className={[
+                'mt-1 text-[11px] font-medium',
+                stale ? 'text-amber-300' : 'text-zinc-400',
+              ].join(' ')}
+              title={stale ? 'More than a week since the last sale' : undefined}
+            >
+              {ageLabel || '-'}
+            </p>
+          </>
         )}
-      </div>
+      </Link>
 
       <Link
         to="/analytics?tab=revenue"
