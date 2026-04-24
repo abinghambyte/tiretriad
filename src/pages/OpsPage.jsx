@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { auth, db, functions } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
@@ -23,6 +23,20 @@ import { formatCurrency, formatPercent, formatQty } from '../utils/format'
 import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx'
 import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 import { PayoutConfigPanel } from '../components/ops/PayoutConfigPanel.jsx'
+
+const OPS_TAB_IDS = ['expenses', 'tax-prep', 'payouts', 'reorder']
+const OPS_TAB_LABELS = {
+  expenses: 'Expenses',
+  'tax-prep': 'Tax prep',
+  payouts: 'Payouts',
+  reorder: 'Reorder queue',
+}
+const OPS_TAB_SUBTITLES = {
+  expenses: 'Log non-tire business spend and track category share.',
+  'tax-prep': 'Denver-calendar CSV export for completed orders.',
+  payouts: 'Crew payout rules and current-period accruals.',
+  reorder: 'Tires flagged from Slack `/reorder` - fulfill or dismiss.',
+}
 
 const EXPENSE_CATEGORIES = [
   { value: 'fuel', label: 'Fuel' },
@@ -84,6 +98,9 @@ function downloadCsvString(csv, fileName) {
 export function OpsPage() {
   const { profile, loading: profileLoading } = useUserProfile()
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
+  const rawTab = searchParams.get('tab') || 'expenses'
+  const tab = OPS_TAB_IDS.includes(rawTab) ? rawTab : 'expenses'
 
   const [expenses, setExpenses] = useState([])
   const [expLoading, setExpLoading] = useState(true)
@@ -246,12 +263,19 @@ export function OpsPage() {
     return <Navigate to="/dashboard?notice=access" replace />
   }
 
+  const opsTabs = OPS_TAB_IDS.map((id) => ({
+    key: id,
+    label: OPS_TAB_LABELS[id],
+    to: id === 'expenses' ? '/ops' : `/ops?tab=${id}`,
+    active: tab === id,
+  }))
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <ModuleSubheader
         title="Ops Command"
-        subtitle="Business expenses, tax-prep export, and reorder queue"
-        tabs={[]}
+        subtitle={OPS_TAB_SUBTITLES[tab]}
+        tabs={opsTabs}
         maxWidthClass="max-w-6xl"
       />
 
@@ -260,6 +284,7 @@ export function OpsPage() {
           <CreditTrackerCard compact />
         </section>
 
+        {tab === 'expenses' ? (
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Expense tracker</h2>
           <p className="mt-1 text-sm text-zinc-400">
@@ -385,7 +410,9 @@ export function OpsPage() {
             </table>
           </div>
         </section>
+        ) : null}
 
+        {tab === 'tax-prep' ? (
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Tax prep export</h2>
           <p className="mt-1 text-sm text-zinc-400">
@@ -421,9 +448,11 @@ export function OpsPage() {
             </button>
           </div>
         </section>
+        ) : null}
 
-        <PayoutConfigPanel />
+        {tab === 'payouts' ? <PayoutConfigPanel /> : null}
 
+        {tab === 'reorder' ? (
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Reorder queue</h2>
           <p className="mt-1 text-sm text-zinc-400">From Slack `/reorder`. Mark as fulfilled or dismiss to clear.</p>
@@ -487,6 +516,7 @@ export function OpsPage() {
             </table>
           </div>
         </section>
+        ) : null}
 
         <div className="pt-2 text-sm">
           <Link
