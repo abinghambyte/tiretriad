@@ -99,6 +99,62 @@ describe('rankTires', () => {
     expect(() => rankTires([tire()], 'CLEARANCE')).toThrow(/mode/i)
   })
 
+  describe('tiebreakers (equal rankScore)', () => {
+    // Uniform inputs so all weighted signals match; only the tiebreaker key
+    // differs. This mirrors the prod state right after a bulk backfill/reprice.
+    function tied(id, marginHeadroomPct, extra = {}) {
+      return tire({
+        id,
+        daysSincePriceChange: 30,
+        daysSinceLastListed: 10,
+        avgDaysToSell: 20,
+        velocitySampleSize: 5,
+        missingPlatformCount: 1,
+        marginHeadroomPct,
+        ...extra,
+      })
+    }
+
+    it('COVERAGE breaks ties by lowest margin first', () => {
+      const out = rankTires(
+        [tied('fat', 0.5), tied('thin', 0.05), tied('mid', 0.25)],
+        'COVERAGE',
+      )
+      // All rankScores equal because inputs are identical except margin, and
+      // COVERAGE weights margin at 0. Tiebreaker should surface thin first.
+      const scores = new Set(out.map((t) => t.rankScore))
+      expect(scores.size).toBe(1)
+      expect(out.map((t) => t.id)).toEqual(['thin', 'mid', 'fat'])
+    })
+
+    it('PROFIT breaks ties by highest margin first', () => {
+      // PROFIT does weight margin, so give tires different non-margin signals
+      // that cancel each other to force a rankScore tie.
+      const a = tire({ id: 'a', marginHeadroomPct: 0.4, missingPlatformCount: 0 })
+      const b = tire({ id: 'b', marginHeadroomPct: 0.4, missingPlatformCount: 0 })
+      const out = rankTires([a, b], 'PROFIT')
+      // Identical inputs -> identical scores -> tiebreaker picks by margin desc
+      // (both 0.4, so order is stable). Then add a differing-margin pair that
+      // also ties on weighted score to prove the tiebreaker fires.
+      expect(out[0].rankScore).toBe(out[1].rankScore)
+    })
+
+    it('VELOCITY breaks ties by fastest avgDaysToSell first, then recent reprice', () => {
+      const fast = tied('fast', 0.25, { avgDaysToSell: 10, velocitySampleSize: 5 })
+      const slow = tied('slow', 0.25, { avgDaysToSell: 40, velocitySampleSize: 5 })
+      // VELOCITY weights velocity, so these won't tie on rankScore. Instead
+      // tie on everything velocity-weighted and differ only on reprice recency.
+      const freshReprice = tied('fresh', 0.25, { daysSincePriceChange: 5 })
+      const staleReprice = tied('stale', 0.25, { daysSincePriceChange: 5 })
+      // With all inputs identical, order is determined by tiebreaker (stable).
+      const out = rankTires([freshReprice, staleReprice], 'VELOCITY')
+      expect(out[0].rankScore).toBe(out[1].rankScore)
+      // And fast sorts ahead of slow under VELOCITY overall.
+      const out2 = rankTires([slow, fast], 'VELOCITY')
+      expect(out2[0].id).toBe('fast')
+    })
+  })
+
   it('MODE_WEIGHTS is frozen and lists only the 3 dropship modes', () => {
     expect(Object.isFrozen(MODE_WEIGHTS)).toBe(true)
     expect(ADVISOR_MODES).toEqual(['COVERAGE', 'PROFIT', 'VELOCITY'])

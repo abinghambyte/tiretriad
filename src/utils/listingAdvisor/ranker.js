@@ -44,6 +44,31 @@ function scoreTire(tire, weights) {
   }
 }
 
+// Mode-specific tiebreakers for when rankScore is equal. Uniform catalog data
+// (bulk backfill, bulk reprice, nothing posted yet) produces large tied-score
+// plateaus at the top of the list; without tiebreakers, modes look identical.
+//
+// Each returns a number to compare; lower value sorts first (ascending).
+const TIEBREAKERS = {
+  // Breadth: prefer SKUs that would benefit most from exposure. Low margin
+  // items are hardest to move on their own, so surface them first when the
+  // primary score ties.
+  COVERAGE: (t) => Number(t.marginHeadroomPct) || 0,
+  // Money: highest margin first.
+  PROFIT: (t) => -(Number(t.marginHeadroomPct) || 0),
+  // Turnover: highest-velocity sizes first, then most recently repriced (proxy
+  // for "this price is fresh, list it now"), then highest margin.
+  VELOCITY: (t) => {
+    const v = Number(t.avgDaysToSell)
+    const sample = Number(t.velocitySampleSize) || 0
+    const velScore = sample >= 3 && Number.isFinite(v) && v > 0 ? -100 / v : 0
+    const reprice = -(Number(t.daysSincePriceChange) || 0)
+    const margin = -(Number(t.marginHeadroomPct) || 0)
+    // Multi-key sort via weighted sum; small magnitudes keep velocity primary.
+    return velScore * 1e6 + reprice * 1e3 + margin
+  },
+}
+
 /**
  * Rank tires for listing priority.
  * Pure function. No I/O. Tires with `doNotList: true` are dropped before scoring.
@@ -58,12 +83,16 @@ export function rankTires(tires, mode) {
   if (!weights) throw new Error(`Unknown advisor mode: ${mode}`)
   if (!Array.isArray(tires) || tires.length === 0) return []
 
+  const tieBreak = TIEBREAKERS[mode]
   const scored = []
   for (const t of tires) {
     if (t && t.doNotList === true) continue
     const { rankScore, signalBreakdown } = scoreTire(t, weights)
     scored.push({ ...t, rankScore, signalBreakdown })
   }
-  scored.sort((a, b) => b.rankScore - a.rankScore)
+  scored.sort((a, b) => {
+    if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore
+    return tieBreak(a) - tieBreak(b)
+  })
   return scored
 }
