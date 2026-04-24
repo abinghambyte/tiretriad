@@ -14,6 +14,31 @@ vi.mock('../../hooks/useAdvisorNarrate.js', () => ({
   useAdvisorNarrate: () => narrateMock,
 }))
 
+const BASE_BREAKDOWN = {
+  daysSinceLastListed: { raw: 1, weighted: 0.4 },
+  daysSincePriceChange: { raw: 1, weighted: 0.4 },
+  velocity: { raw: 1, weighted: 1.5 },
+  margin: { raw: 0.1, weighted: 14 },
+  crossPost: { raw: 0, weighted: 0 },
+}
+
+function filler(id) {
+  return {
+    id,
+    sku: `FILL-${id}`,
+    description: `Filler tire ${id}`,
+    missingPlatformCount: 0,
+    listedEbay: true,
+    listedMarketplace: true,
+    listedCraigslist: true,
+    kyleFrozen: false,
+    rankScore: 1,
+    signalBreakdown: BASE_BREAKDOWN,
+  }
+}
+
+// 2 real tires + 5 fillers. PREVIEW_COUNT = 5, so fillers push remaining > 0
+// and the "Show more" button renders; the preview still shows MICH first.
 function ranked() {
   return [
     {
@@ -52,6 +77,11 @@ function ranked() {
         crossPost: { raw: 1, weighted: 0.8 },
       },
     },
+    filler('f3'),
+    filler('f4'),
+    filler('f5'),
+    filler('f6'),
+    filler('f7'),
   ]
 }
 
@@ -74,10 +104,12 @@ describe('NextToPostSurface', () => {
     window.localStorage.clear()
   })
 
-  it('renders the top-ranked tire in the card preview', () => {
+  it('renders the top-ranked tire in the card preview and hides overflow', () => {
     renderSurface()
     expect(screen.getByText('MICH-265-70-17')).toBeTruthy()
-    expect(screen.queryByText('GY-235-75-15')).toBeNull()
+    // f7 is the 7th tire, beyond the 5-row preview - should only appear
+    // once the Show more modal is opened.
+    expect(screen.queryByText('FILL-f7')).toBeNull()
   })
 
   it('renders empty state when ranked is empty', () => {
@@ -95,7 +127,9 @@ describe('NextToPostSurface', () => {
     renderSurface()
     fireEvent.click(screen.getByRole('button', { name: /show more/i }))
     expect(screen.getByRole('dialog', { name: /next to post/i })).toBeTruthy()
-    expect(screen.getByText('GY-235-75-15')).toBeTruthy()
+    // f7 lives beyond the preview, so seeing it proves the modal has the
+    // overflow rows and isn't just re-rendering the preview.
+    expect(screen.getByText('FILL-f7')).toBeTruthy()
   })
 
   it('Escape closes the modal', () => {
