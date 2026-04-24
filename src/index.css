@@ -141,11 +141,11 @@
 }
 
 /* Activity ticker scroll. Single-copy chips are pre-padded on the left by
-   the full container width (via pl-[100%]) so the first chip starts
-   offscreen-right. Animation translates the track from 0 to -100% of its
-   own width (leading pad + chips), giving a full enter/exit pass with a
-   brief gap between cycles. Pauses on hover OR focus-within. Respects
-   prefers-reduced-motion. */
+   the full container width (via pl-[100%]). The keyframe translates the
+   track from 0 to -100% (right-to-left), but `animation-direction: reverse`
+   plays it backward so chips enter from offscreen-LEFT, cross the viewport,
+   and exit offscreen-RIGHT, with a full-width gap between cycles. Pauses on
+   hover OR focus-within. Respects prefers-reduced-motion. */
 @keyframes ticker-scroll {
   from {
     transform: translateX(0);
@@ -157,7 +157,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .activity-ticker .activity-ticker__track {
-    animation: ticker-scroll 45s linear infinite;
+    animation: ticker-scroll 45s linear infinite reverse;
   }
 }
 
