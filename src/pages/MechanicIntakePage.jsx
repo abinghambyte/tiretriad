@@ -199,7 +199,7 @@ function CurrencyField({ label, value, onChange, placeholder = '0' }) {
     <label className="block">
       <span className={labelClass}>{label}</span>
       <div className="flex items-stretch overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950 focus-within:border-amber-600/60">
-        <span className="flex min-h-[44px] items-center border-r border-zinc-800 px-3 text-base text-zinc-500">
+        <span className="flex min-h-[44px] items-center border-r border-zinc-800 px-3 text-base text-zinc-400">
           $
         </span>
         <input
@@ -289,7 +289,7 @@ export function MechanicIntakePage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-6 text-center text-zinc-100">
         <p className="text-lg font-medium text-zinc-100">Submitted. We&apos;ll be in touch.</p>
-        <p className="mt-3 max-w-md text-sm text-zinc-500">
+        <p className="mt-3 max-w-md text-sm text-zinc-400">
           Thanks for completing the mechanic intake. Our fleet team will follow up using the phone
           number you provided.
         </p>
@@ -301,7 +301,7 @@ export function MechanicIntakePage() {
     <div className="min-h-screen bg-zinc-950 pb-28 text-zinc-100">
       <div className="mx-auto max-w-lg px-4 pt-6 sm:px-6 sm:pt-10">
         {step === 0 ? (
-          <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">
+          <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.35em] text-zinc-400">
             Skedaddle
           </p>
         ) : (
@@ -309,7 +309,7 @@ export function MechanicIntakePage() {
         )}
 
         <div className="mb-6">
-          <div className="mb-2 flex items-center justify-between text-xs text-zinc-500">
+          <div className="mb-2 flex items-center justify-between text-xs text-zinc-400">
             <span>
               Step {step + 1} of 5
             </span>
@@ -594,7 +594,7 @@ export function MechanicIntakePage() {
               <h1 className="text-lg font-semibold text-white">Fleet matrix</h1>
 
               <div>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
                   Light duty fleet
                 </h2>
                 <div className="space-y-4">
@@ -630,7 +630,7 @@ export function MechanicIntakePage() {
               </div>
 
               <div>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
                   Light truck
                 </h2>
                 <div className="space-y-4">
@@ -659,7 +659,7 @@ export function MechanicIntakePage() {
               </div>
 
               <div>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
                   TBR / commercial
                 </h2>
                 <div className="space-y-4">
@@ -695,7 +695,7 @@ export function MechanicIntakePage() {
               </div>
 
               <div>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
                   Super singles
                 </h2>
                 <div className="space-y-4">

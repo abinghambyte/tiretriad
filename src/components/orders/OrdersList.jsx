@@ -221,7 +221,7 @@ function OrderDebriefPrompt({ order }) {
         placeholder="Anything about this job?"
         className="mt-2 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200"
       />
-      <p className="mt-3 text-[11px] text-zinc-500">Would you work with this customer again?</p>
+      <p className="mt-3 text-[11px] text-zinc-400">Would you work with this customer again?</p>
       <div className="mt-1 flex flex-wrap gap-2">
         {[
           { id: 'yes', label: 'Yes' },
@@ -664,20 +664,20 @@ export function OrdersList({ highlightId }) {
                     ) : null}
                   </div>
                   <p className="mt-2 text-sm font-medium leading-snug text-zinc-100">{tireLine}</p>
-                  <p className="mt-1 font-mono text-xs text-zinc-500">
+                  <p className="mt-1 font-mono text-xs text-zinc-400">
                     {mspn || '--'} × {formatQty(qty)}
                   </p>
                   {ppt > 0 || total > 0 ? (
                     <p className="mt-2 text-sm text-zinc-300">
                       {ppt > 0 ? (
                         <>
-                          <span className="text-zinc-500">Price </span>
+                          <span className="text-zinc-400">Price </span>
                           {formatCurrency(ppt)}
-                          <span className="text-zinc-500"> each</span>
+                          <span className="text-zinc-400"> each</span>
                         </>
                       ) : null}
                       {ppt > 0 && total > 0 ? (
-                        <span className="text-zinc-500"> · </span>
+                        <span className="text-zinc-400"> · </span>
                       ) : null}
                       {total > 0 ? `${formatCurrency(total)} total` : null}
                     </p>
@@ -792,13 +792,13 @@ export function OrdersList({ highlightId }) {
             <h2 id="notify-customer-title" className="text-sm font-semibold text-white">
               Send update to customer
             </h2>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-400">
               Copy the text or open your SMS app. We record the first notify either way.
             </p>
             <p className="mt-3 text-xs font-medium text-zinc-400">
               Phone <span className="text-zinc-200">{notifyPayload.displayPhone}</span>
             </p>
-            <label className="mt-3 block text-xs font-medium text-zinc-500">
+            <label className="mt-3 block text-xs font-medium text-zinc-400">
               Message
               <textarea
                 readOnly
@@ -824,7 +824,7 @@ export function OrdersList({ highlightId }) {
               </button>
               <button
                 type="button"
-                className="ml-auto rounded-lg px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300"
+                className="ml-auto rounded-lg px-3 py-2 text-xs text-zinc-400 hover:text-zinc-300"
                 onClick={dismissOrderModals}
               >
                 Close
@@ -849,10 +849,10 @@ export function OrdersList({ highlightId }) {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="cancel-order-title" className="text-sm font-semibold text-white">Cancel order</h2>
-            <p className="mt-1 font-mono text-xs text-zinc-500">
+            <p className="mt-1 font-mono text-xs text-zinc-400">
               {cancelFor.mspn} × {formatQty(cancelFor.quantity)}
             </p>
-            <label className="mt-4 block text-xs font-medium text-zinc-500">
+            <label className="mt-4 block text-xs font-medium text-zinc-400">
               Why cancel?
               <select
                 value={cancelDisp}
@@ -868,7 +868,7 @@ export function OrdersList({ highlightId }) {
               </select>
             </label>
             {cancelDisp === 'other' ? (
-              <label className="mt-3 block text-xs font-medium text-zinc-500">
+              <label className="mt-3 block text-xs font-medium text-zinc-400">
                 Details (required)
                 <textarea
                   value={cancelNote}
@@ -917,7 +917,7 @@ export function OrdersList({ highlightId }) {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="complete-order-title" className="text-sm font-semibold text-white">Mark order complete</h2>
-            <p className="mt-1 text-xs text-zinc-500">Payment received and amount for the record.</p>
+            <p className="mt-1 text-xs text-zinc-400">Payment received and amount for the record.</p>
             <label className="mt-4 flex items-center gap-2 text-sm text-zinc-300">
               <input
                 type="checkbox"
@@ -926,7 +926,7 @@ export function OrdersList({ highlightId }) {
               />
               Payment received
             </label>
-            <label className="mt-3 block text-xs font-medium text-zinc-500">
+            <label className="mt-3 block text-xs font-medium text-zinc-400">
               Payment amount (USD)
               <input
                 type="number"

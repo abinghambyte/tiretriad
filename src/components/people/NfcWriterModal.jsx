@@ -130,7 +130,7 @@ function NfcWriterModalInner({ onClose, inviteUrl, firstName }) {
               {status === 'writing' ? 'Writing to NFC tag…' : 'Write to NFC tag'}
             </button>
             {!supported ? (
-              <p className="mt-2 text-xs text-zinc-500">
+              <p className="mt-2 text-xs text-zinc-400">
                 NFC writing is not supported in this browser. Use Copy URL and an
                 NFC writer app instead.
               </p>
@@ -148,7 +148,7 @@ function NfcWriterModalInner({ onClose, inviteUrl, firstName }) {
           <div>
             <label
               htmlFor="nfc-writer-url"
-              className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+              className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-400"
             >
               Invite URL
             </label>

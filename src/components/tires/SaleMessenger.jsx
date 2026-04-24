@@ -219,7 +219,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
             >
               Log sale / notify team
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-zinc-400">
               Posts the sale summary to Slack via incoming webhook.
             </p>
           </div>
@@ -250,7 +250,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           ) : null}
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               SKU (MSPN)
             </label>
             <input
@@ -270,7 +270,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-medium text-zinc-500">
+              <label className="text-xs font-medium text-zinc-400">
                 Quantity sold
               </label>
               <input
@@ -282,7 +282,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-zinc-500">
+              <label className="text-xs font-medium text-zinc-400">
                 Price / tire
               </label>
               <input
@@ -297,7 +297,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Total (auto)
             </label>
             <input
@@ -308,7 +308,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Customer name
             </label>
             <input
@@ -319,7 +319,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Customer phone / contact
             </label>
             <input
@@ -335,7 +335,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
                 {formatCurrency(Number(contactRow.totalSpend) || 0)}{' '}
                 lifetime
                 <br />
-                <span className="text-zinc-500">
+                <span className="text-zinc-400">
                   Last: {contactRow.lastMspn || '--'}{' '}
                   {contactRow.lastOrderAt?.toDate
                     ? contactRow.lastOrderAt.toDate().toLocaleDateString('en-US', {
@@ -354,7 +354,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="text-xs font-medium text-zinc-500">
+            <legend className="text-xs font-medium text-zinc-400">
               Fulfillment
             </legend>
             <label className="mr-4 inline-flex items-center gap-2 text-sm text-zinc-300">
@@ -378,7 +378,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </fieldset>
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Pickup / delivery notes
             </label>
             <textarea
@@ -390,7 +390,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Completed at (optional)
             </label>
             <input
@@ -406,14 +406,14 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
               Defaults to now. Max: 30 days back.
             </p>
             {completedAtLocal.trim() !== '' && Number.isFinite(Date.parse(completedAtLocal)) ? (
-              <p className="mt-1 text-[11px] text-zinc-500">
+              <p className="mt-1 text-[11px] text-zinc-400">
                 Recording as {timeAgo(Date.parse(completedAtLocal)) || '--'}
               </p>
             ) : null}
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Additional notes
             </label>
             <textarea
@@ -425,7 +425,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
           </div>
 
           <div>
-            <p className="text-xs font-medium text-zinc-500">Preview</p>
+            <p className="text-xs font-medium text-zinc-400">Preview</p>
             <pre className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-xs text-zinc-400">
               {preview || 'Fill the form to preview the message.'}
             </pre>

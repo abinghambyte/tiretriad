@@ -35,7 +35,7 @@ export function TopSellersCard({ sellers = [] }) {
     return (
       <div className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
         <p className="pc-eyebrow">Top Sellers</p>
-        <p className="mt-2 text-sm text-zinc-500">No sales yet</p>
+        <p className="mt-2 text-sm text-zinc-400">No sales yet</p>
       </div>
     )
   }
@@ -113,7 +113,7 @@ export function TopSellersCard({ sellers = [] }) {
         <div className="min-w-0 pl-4">
           <p className="truncate font-mono text-[18px] text-zinc-100">{current.sku}</p>
           <p className="truncate text-[13px] text-zinc-300">{current.description}</p>
-          <p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">
+          <p className="mt-1 text-[10px] uppercase tracking-wide text-zinc-400">
             {current.category}
           </p>
         </div>

@@ -165,7 +165,7 @@ export function CreditTrackerCard({ compact = false }) {
           aria-expanded={expanded}
         >
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Available</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Available</span>
             <span
               key={availAnimKey}
               className={`sk-figures text-lg font-bold tabular-nums sm:text-xl ${availClass} ${availAnimKey > 0 ? 'sk-credit-flash rounded-md' : ''}`}
@@ -175,24 +175,24 @@ export function CreditTrackerCard({ compact = false }) {
           </div>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs text-zinc-400 sm:text-sm">
             <span>
-              <span className="text-zinc-500">Balance</span>{' '}
+              <span className="text-zinc-400">Balance</span>{' '}
               <span className="font-mono font-semibold text-zinc-200">{formatCurrency(data.currentBalance)}</span>
             </span>
             <span>
-              <span className="text-zinc-500">Limit</span>{' '}
+              <span className="text-zinc-400">Limit</span>{' '}
               <span className="font-mono font-semibold text-zinc-200">{formatCurrency(data.cardLimit)}</span>
             </span>
           </div>
           <span className="text-[10px] text-zinc-600 sm:ml-auto">
             {expanded ? 'Hide detail' : 'Pending & refunds'}
-            <span className="ml-1 text-zinc-500" aria-hidden>
+            <span className="ml-1 text-zinc-400" aria-hidden>
               {expanded ? '▴' : '▾'}
             </span>
           </span>
         </button>
         {expanded ? (
           <div className="mt-3 border-t border-zinc-800/80 pt-3">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Pending charges</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Pending charges</p>
             {pendingSlice.length === 0 ? (
               <p className="mt-1 text-xs text-zinc-600">None</p>
             ) : (
@@ -205,7 +205,7 @@ export function CreditTrackerCard({ compact = false }) {
                 ))}
               </ul>
             )}
-            <p className="mt-3 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Refund pipeline</p>
+            <p className="mt-3 text-[10px] font-medium uppercase tracking-wide text-zinc-400">Refund pipeline</p>
             {refundSlice.length === 0 ? (
               <p className="mt-1 text-xs text-zinc-600">None active</p>
             ) : (
@@ -238,23 +238,23 @@ export function CreditTrackerCard({ compact = false }) {
         >
           {avail != null && Number.isFinite(avail) ? formatCurrency(avail) : '--'}
         </p>
-        <p className="mt-1 text-xs text-zinc-500">Available (limit − balance)</p>
+        <p className="mt-1 text-xs text-zinc-400">Available (limit − balance)</p>
       </div>
 
       <dl className="mt-4 space-y-2 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500">Limit</dt>
+          <dt className="text-zinc-400">Limit</dt>
           <dd className="font-mono text-zinc-200">{formatCurrency(data.cardLimit)}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500">Balance</dt>
+          <dt className="text-zinc-400">Balance</dt>
           <dd className="font-mono text-zinc-200">{formatCurrency(data.currentBalance)}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-zinc-500">Pending (log)</dt>
+          <dt className="text-zinc-400">Pending (log)</dt>
           <dd className="font-mono text-zinc-200">
             {formatCurrency(pending.total)}{' '}
-            <span className="text-zinc-500">
+            <span className="text-zinc-400">
               ({pending.count} {pending.count === 1 ? 'line' : 'lines'})
             </span>
           </dd>
@@ -262,7 +262,7 @@ export function CreditTrackerCard({ compact = false }) {
       </dl>
 
       <div className="mt-4 border-t border-zinc-800/80 pt-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Pending charges</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Pending charges</p>
         {pendingSlice.length === 0 ? (
           <p className="mt-1 text-xs text-zinc-600">None</p>
         ) : (
@@ -275,7 +275,7 @@ export function CreditTrackerCard({ compact = false }) {
             ))}
           </ul>
         )}
-        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-500">Refund pipeline</p>
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-400">Refund pipeline</p>
         {refundSlice.length === 0 ? (
           <p className="mt-1 text-xs text-zinc-600">None active</p>
         ) : (

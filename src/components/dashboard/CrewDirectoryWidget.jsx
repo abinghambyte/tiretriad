@@ -76,7 +76,7 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
                       <p className="truncate text-[13px] text-zinc-100">
                         {displayName(data)}
                       </p>
-                      <p className="truncate text-[10px] uppercase tracking-wide text-zinc-500">
+                      <p className="truncate text-[10px] uppercase tracking-wide text-zinc-400">
                         {tag}
                       </p>
                     </div>
@@ -91,7 +91,7 @@ export function CrewDirectoryWidget({ crew, crewSignals = {}, loading }) {
                       <p className="text-[10px] text-zinc-200">
                         {sig.todayCompletions || 0} today
                       </p>
-                      <p className="text-[10px] text-zinc-500">
+                      <p className="text-[10px] text-zinc-400">
                         {sig.streakDays || 0} day streak
                       </p>
                     </div>

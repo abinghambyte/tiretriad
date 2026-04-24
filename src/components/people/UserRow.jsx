@@ -131,7 +131,7 @@ export function UserRow({ u, tick, onHistory, onEdit, highlighted = false }) {
       <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">{u.inviteStatus || '--'}</td>
       <td className="hidden px-3 py-2 text-zinc-400 sm:table-cell">{formatTs(u.accessExpiry)}</td>
       <td className="hidden px-3 py-2 text-zinc-300 sm:table-cell">{streakLabel(u.loginStreak)}</td>
-      <td className="hidden max-w-[240px] px-3 py-2 text-xs text-zinc-500 sm:table-cell">
+      <td className="hidden max-w-[240px] px-3 py-2 text-xs text-zinc-400 sm:table-cell">
         {u.ghostMode ? (
           <span className="text-zinc-600">Ghost mode</span>
         ) : !u.lastLoginAt ? (

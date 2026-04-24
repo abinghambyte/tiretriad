@@ -22,7 +22,7 @@
 export function EmptyState({ variant = 'card', colSpan, icon, title, description, action }) {
   if (variant === 'compact') {
     return (
-      <div className="text-sm text-zinc-500">
+      <div className="text-sm text-zinc-400">
         {title}
         {description ? <span className="ml-1 text-zinc-600">{description}</span> : null}
         {action ? <span className="ml-2">{action}</span> : null}
@@ -34,7 +34,7 @@ export function EmptyState({ variant = 'card', colSpan, icon, title, description
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
       {icon ? (
         <div
-          className="rounded-full border border-zinc-700/80 bg-zinc-950/80 p-4 text-zinc-500"
+          className="rounded-full border border-zinc-700/80 bg-zinc-950/80 p-4 text-zinc-400"
           aria-hidden
         >
           {icon}
@@ -42,7 +42,7 @@ export function EmptyState({ variant = 'card', colSpan, icon, title, description
       ) : null}
       <p className={`${icon ? 'mt-5' : ''} text-sm font-medium text-zinc-200`}>{title}</p>
       {description ? (
-        <p className="mt-2 max-w-md text-xs leading-relaxed text-zinc-500">{description}</p>
+        <p className="mt-2 max-w-md text-xs leading-relaxed text-zinc-400">{description}</p>
       ) : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>

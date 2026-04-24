@@ -56,7 +56,7 @@ export function MarginWeekLineChart({ labels, percents }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 sm:p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
           Margin trend (weekly)
         </p>
         {latest ? (
@@ -138,7 +138,7 @@ export function MarginWeekLineChart({ labels, percents }) {
           })}
         </svg>
       </div>
-      <div className="mt-1 flex justify-between text-[10px] text-zinc-500 sm:text-[11px]">
+      <div className="mt-1 flex justify-between text-[10px] text-zinc-400 sm:text-[11px]">
         {labels.map((lab, i) => {
           const showOnMobile = i === 0 || i === labels.length - 1 || i % mobileLabelSkip === 0
           return (

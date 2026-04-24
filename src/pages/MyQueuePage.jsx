@@ -77,7 +77,7 @@ export function MyQueuePage() {
 
         {tiresLoading ? (
           <div className="flex min-h-[30vh] items-center justify-center">
-            <Spinner className="h-8 w-8 text-zinc-500" />
+            <Spinner className="h-8 w-8 text-zinc-400" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState

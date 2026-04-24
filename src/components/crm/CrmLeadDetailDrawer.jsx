@@ -61,7 +61,7 @@ export function CrmLeadDetailDrawer({ lead, onClose, canEdit, onConvertToVip }) 
             </h2>
             <div className="flex flex-wrap items-center gap-2">
               <LeadSourceBadge source={lead.source} />
-              <span className="text-xs text-zinc-500">{createdLabel}</span>
+              <span className="text-xs text-zinc-400">{createdLabel}</span>
             </div>
           </div>
           <button
@@ -77,46 +77,46 @@ export function CrmLeadDetailDrawer({ lead, onClose, canEdit, onConvertToVip }) 
         </div>
 
         <section className="mt-6 space-y-1 text-sm">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Contact</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Contact</h3>
           <dl className="space-y-1 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3 text-zinc-200">
             <div>
-              <dt className="text-xs text-zinc-500">Name</dt>
+              <dt className="text-xs text-zinc-400">Name</dt>
               <dd>{String(lead.contactName ?? '').trim() || '--'}</dd>
             </div>
             <div>
-              <dt className="text-xs text-zinc-500">Phone</dt>
+              <dt className="text-xs text-zinc-400">Phone</dt>
               <dd>{String(lead.phone ?? '').trim() || '--'}</dd>
             </div>
             <div>
-              <dt className="text-xs text-zinc-500">Email</dt>
+              <dt className="text-xs text-zinc-400">Email</dt>
               <dd className="break-all">{String(lead.email ?? '').trim() || '--'}</dd>
             </div>
           </dl>
         </section>
 
         <section className="mt-6 space-y-2">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Inquiry</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Inquiry</h3>
           <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-sm text-zinc-200">
             {inquiryText || '\u2014'}
           </pre>
         </section>
 
         <section className="mt-6 space-y-3 text-sm">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Context</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-400">Context</h3>
           <div>
-            <div className="text-xs text-zinc-500">Page URL</div>
+            <div className="text-xs text-zinc-400">Page URL</div>
             <div className="mt-0.5 truncate font-mono text-xs text-zinc-300" title={pageUrl || undefined}>
               {pageUrl || '--'}
             </div>
           </div>
           <div>
-            <div className="text-xs text-zinc-500">Referrer</div>
+            <div className="text-xs text-zinc-400">Referrer</div>
             <div className="mt-0.5 truncate font-mono text-xs text-zinc-300" title={referrer || undefined}>
               {referrer || '--'}
             </div>
           </div>
           <div>
-            <div className="text-xs text-zinc-500">Sinch conversation ID</div>
+            <div className="text-xs text-zinc-400">Sinch conversation ID</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <code className="max-w-full break-all rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-xs text-zinc-200">
                 {convId || '--'}

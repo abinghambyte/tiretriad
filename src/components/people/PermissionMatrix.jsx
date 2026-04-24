@@ -9,7 +9,7 @@ import { MODULE_MATRIX } from '../../constants/peoplePermissions'
 export function PermissionMatrix({ value, onChange, disabled }) {
   return (
     <div>
-      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-400">
         Permission matrix
       </p>
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 divide-y divide-zinc-800">

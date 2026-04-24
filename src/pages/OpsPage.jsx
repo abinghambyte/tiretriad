@@ -262,7 +262,7 @@ export function OpsPage() {
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Expense tracker</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-400">
             Log non-tire business spend. Share of listed expenses:{' '}
             {EXPENSE_CATEGORIES.map((c, i) => (
               <span key={c.value}>
@@ -285,7 +285,7 @@ export function OpsPage() {
             className="mt-5 grid max-sm:gap-3 sm:grid-cols-[1fr_1fr_2fr_auto_auto] sm:items-end sm:gap-3"
           >
             <div>
-              <label className="block text-xs font-medium text-zinc-500">Amount</label>
+              <label className="block text-xs font-medium text-zinc-400">Amount</label>
               <input
                 type="number"
                 min="0"
@@ -297,7 +297,7 @@ export function OpsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-500">Category</label>
+              <label className="block text-xs font-medium text-zinc-400">Category</label>
               <select
                 value={category}
                 onChange={(ev) => setCategory(ev.target.value)}
@@ -311,7 +311,7 @@ export function OpsPage() {
               </select>
             </div>
             <div className="sm:col-span-1">
-              <label className="block text-xs font-medium text-zinc-500">Note</label>
+              <label className="block text-xs font-medium text-zinc-400">Note</label>
               <input
                 type="text"
                 value={note}
@@ -321,7 +321,7 @@ export function OpsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-500">Date</label>
+              <label className="block text-xs font-medium text-zinc-400">Date</label>
               <input
                 type="date"
                 value={expDate}
@@ -376,8 +376,8 @@ export function OpsPage() {
                       <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{r.category}</td>
                       <td className="px-3 py-2 text-zinc-300">{r.note || '--'}</td>
                       <td className="px-3 py-2 text-zinc-400">{r.date || '--'}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-zinc-500">{r.loggedBy || '--'}</td>
-                      <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(r.createdAt)}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-400">{r.loggedBy || '--'}</td>
+                      <td className="px-3 py-2 text-xs text-zinc-400">{formatTs(r.createdAt)}</td>
                     </tr>
                   ))
                 )}
@@ -388,12 +388,12 @@ export function OpsPage() {
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Tax prep export</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-400">
             Denver calendar dates · completed orders only · CSV uses plain numbers (no currency symbols).
           </p>
           <div className="mt-4 flex max-sm:flex-col max-sm:gap-3 sm:flex-wrap sm:items-end sm:gap-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-500">Start (Denver)</label>
+              <label className="block text-xs font-medium text-zinc-400">Start (Denver)</label>
               <input
                 type="date"
                 value={taxStart}
@@ -402,7 +402,7 @@ export function OpsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-500">End (Denver)</label>
+              <label className="block text-xs font-medium text-zinc-400">End (Denver)</label>
               <input
                 type="date"
                 value={taxEnd}
@@ -426,7 +426,7 @@ export function OpsPage() {
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Reorder queue</h2>
-          <p className="mt-1 text-sm text-zinc-500">From Slack `/reorder`. Mark as fulfilled or dismiss to clear.</p>
+          <p className="mt-1 text-sm text-zinc-400">From Slack `/reorder`. Mark as fulfilled or dismiss to clear.</p>
           <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
             <table className="w-full max-sm:min-w-0 border-collapse text-left text-sm sm:min-w-[800px]">
               <thead>
@@ -457,7 +457,7 @@ export function OpsPage() {
                       </td>
                       <td className="px-3 py-2 text-zinc-300">{formatQty(row.qty)}</td>
                       <td className="px-3 py-2 text-zinc-400 max-sm:hidden">{row.requestedBy || '--'}</td>
-                      <td className="px-3 py-2 text-xs text-zinc-500 max-sm:hidden">{formatTs(row.requestedAt)}</td>
+                      <td className="px-3 py-2 text-xs text-zinc-400 max-sm:hidden">{formatTs(row.requestedAt)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           <button

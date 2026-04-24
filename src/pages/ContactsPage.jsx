@@ -320,7 +320,7 @@ export function ContactsPage({ embedded = false }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoComplete="off"
-              className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500"
+              className="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-400"
             />
           </div>
           {canManagePeople ? (
@@ -339,7 +339,7 @@ export function ContactsPage({ embedded = false }) {
                     setAddError('')
                   }}
                   autoComplete="name"
-                  className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+                  className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-400"
                 />
                 <input
                   type="tel"
@@ -351,7 +351,7 @@ export function ContactsPage({ embedded = false }) {
                     setAddPhone(formatPhoneInputForDisplay(e.target.value))
                     setAddError('')
                   }}
-                  className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500"
+                  className="rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-400"
                 />
                 {addError ? (
                   <p className="col-span-full text-xs text-red-400">{addError}</p>
@@ -478,11 +478,11 @@ export function ContactsPage({ embedded = false }) {
                         <td className="px-3 py-2 text-zinc-300">
                           {Number.isFinite(Number(c.totalSpend)) ? formatCurrency(c.totalSpend) : '--'}
                         </td>
-                        <td className="px-3 py-2 text-xs text-zinc-500">{formatTs(c.lastOrderAt)}</td>
+                        <td className="px-3 py-2 text-xs text-zinc-400">{formatTs(c.lastOrderAt)}</td>
                         <td className="max-w-[220px] truncate px-3 py-2 text-xs text-zinc-400">
                           {String(c.lastTireLabel || '').trim() || c.lastMspn || '--'}
                         </td>
-                        <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-500">
+                        <td className="max-w-[200px] truncate px-3 py-2 text-xs text-zinc-400">
                           {c.notes || '--'}
                         </td>
                       </tr>
@@ -508,7 +508,7 @@ export function ContactsPage({ embedded = false }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 {canManagePeople ? (
-                  <label className="mt-0 block text-xs font-medium text-zinc-500">
+                  <label className="mt-0 block text-xs font-medium text-zinc-400">
                     <span className="inline-flex items-center gap-1">
                       Display name
                       {selected.isVip ? (
@@ -579,7 +579,7 @@ export function ContactsPage({ embedded = false }) {
               </button>
             </div>
 
-            <label className="mt-6 block text-xs font-medium text-zinc-500">
+            <label className="mt-6 block text-xs font-medium text-zinc-400">
               Notes
               <textarea
                 value={notesDraft}
@@ -623,7 +623,7 @@ export function ContactsPage({ embedded = false }) {
                     {Number.isFinite(Number(o.paymentAmount)) ? formatCurrency(o.paymentAmount) : '--'}
                     <div className="mt-1 text-[10px] text-zinc-600">{formatTs(o.createdAt)}</div>
                     {o.debrief?.notes ? (
-                      <p className="mt-2 border-t border-zinc-800/80 pt-2 text-[11px] text-zinc-500">
+                      <p className="mt-2 border-t border-zinc-800/80 pt-2 text-[11px] text-zinc-400">
                         Debrief: {o.debrief.notes}
                       </p>
                     ) : null}
@@ -646,11 +646,11 @@ export function ContactsPage({ embedded = false }) {
       <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <Link to="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-200">
+            <Link to="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200">
               ← Dashboard
             </Link>
             <h1 className="mt-2 text-xl font-semibold text-white">Contacts</h1>
-            <p className="mt-1 text-sm text-zinc-500">Customer memory from completed orders</p>
+            <p className="mt-1 text-sm text-zinc-400">Customer memory from completed orders</p>
             <div className="mt-2 sm:hidden">
               <PortalSessionLine email={user?.email} onSignOut={handleSignOut} />
             </div>

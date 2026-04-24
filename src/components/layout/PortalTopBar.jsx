@@ -30,7 +30,7 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
     <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2.5 sm:px-4">
       <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-hidden">
         {crumbs.length === 0 ? (
-          <span className="inline-block max-w-full truncate align-middle text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500 sm:text-xs sm:tracking-[0.2em]">
+          <span className="inline-block max-w-full truncate align-middle text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400 sm:text-xs sm:tracking-[0.2em]">
             Skedaddle
           </span>
         ) : (

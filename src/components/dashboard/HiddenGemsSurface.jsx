@@ -34,7 +34,7 @@ function GemRow({ gem, onPost, compact = false }) {
                 {PLATFORM_LABELS[p]}
               </span>
             ))}
-            <span className="ml-2 text-[10px] text-zinc-500">
+            <span className="ml-2 text-[10px] text-zinc-400">
               {gem.lastPostedAt ? timeAgo(gem.lastPostedAt) : 'never'}
             </span>
           </div>
@@ -119,7 +119,7 @@ function GemsModal({ gems, onPost, onClose }) {
         </ul>
 
         <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
-          <span className="text-xs text-zinc-500">{selected.size} selected</span>
+          <span className="text-xs text-zinc-400">{selected.size} selected</span>
           <div className="flex gap-2">
             <button
               type="button"

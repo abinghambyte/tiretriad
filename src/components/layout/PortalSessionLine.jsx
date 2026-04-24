@@ -9,7 +9,7 @@ export function PortalSessionLine({ email, onSignOut, className = '' }) {
     <div
       className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-left sm:items-center sm:gap-3 ${className}`}
     >
-      <span className="max-w-[min(100%,260px)] truncate text-xs text-zinc-500 sm:max-w-[220px] sm:text-sm sm:text-zinc-400">
+      <span className="max-w-[min(100%,260px)] truncate text-xs text-zinc-400 sm:max-w-[220px] sm:text-sm sm:text-zinc-400">
         {addr}
       </span>
       <span className="hidden text-zinc-700 sm:inline" aria-hidden>

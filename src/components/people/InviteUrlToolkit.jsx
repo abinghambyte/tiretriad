@@ -131,7 +131,7 @@ export function InviteUrlToolkit({ url }) {
             height={180}
             className="rounded-xl"
           />
-          <p className="text-center text-xs text-zinc-500">
+          <p className="text-center text-xs text-zinc-400">
             Scan to open on phone, or write to NFC card.
           </p>
         </div>
@@ -187,7 +187,7 @@ export function EditorInviteColumn({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Invite</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Invite</p>
       {panelInviteUrl ? (
         <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -212,7 +212,7 @@ export function EditorInviteColumn({
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2.5">
-          <p className="text-xs text-zinc-500">No active invite.</p>
+          <p className="text-xs text-zinc-400">No active invite.</p>
           {selected && !selected.inviteAccepted ? (
             <button
               type="button"
@@ -279,7 +279,7 @@ export function CreateUserInviteSection({
         </button>
       </div>
       <h2 className="hidden text-lg font-semibold text-zinc-100 sm:block">Create user + invite</h2>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-zinc-400">
         Adds a crew member and sends them a sign-in invite. They&apos;ll stay inactive until
         they accept. Use Preview to see the email before sending.
       </p>
@@ -311,7 +311,7 @@ export function CreateUserInviteSection({
           }}
         />
         <div>
-          <label className="mb-1 block text-xs text-zinc-500 max-sm:mb-2 max-sm:text-[13px]">Role</label>
+          <label className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">Role</label>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
@@ -324,7 +324,7 @@ export function CreateUserInviteSection({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-500 max-sm:mb-2 max-sm:text-[13px]">Delivery</label>
+          <label className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">Delivery</label>
           <select
             value={delivery}
             onChange={(e) => setDelivery(e.target.value)}
@@ -336,7 +336,7 @@ export function CreateUserInviteSection({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-500 max-sm:mb-2 max-sm:text-[13px]">
+          <label className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
             Access expiry (optional)
           </label>
           <input
@@ -414,7 +414,7 @@ export function InvitePreviewModal({
           onClick={onClose}
           aria-label="Close"
           disabled={createBusy}
-          className="absolute right-3 top-3 rounded p-1 text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-200 disabled:opacity-40"
+          className="absolute right-3 top-3 rounded p-1 text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-200 disabled:opacity-40"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path strokeLinecap="round" d="m18 6-12 12M6 6l12 12" />
@@ -455,7 +455,7 @@ export function InvitePreviewModal({
               <span className="font-medium text-zinc-300">Entrance:</span> Dark screen, bolt
               animation, Skedaddle reveal. Then a short generative greeting, then registration.
             </p>
-            <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-2 text-xs leading-relaxed text-zinc-400">
               {delivery === 'sms'
                 ? 'The recipient gets a text with a direct link and can open it on their phone.'
                 : delivery === 'nfc'
@@ -463,9 +463,9 @@ export function InvitePreviewModal({
                   : 'The recipient gets an email with a direct link.'}
             </p>
             <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Sample greeting</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Sample greeting</p>
               {previewLoading ? (
-                <p className="mt-2 text-sm text-zinc-500">Loading greeting…</p>
+                <p className="mt-2 text-sm text-zinc-400">Loading greeting…</p>
               ) : previewError ? (
                 <p className="mt-2 text-sm text-red-300">{previewError}</p>
               ) : (
@@ -473,7 +473,7 @@ export function InvitePreviewModal({
               )}
             </div>
             <div className="mt-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Registration steps</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Registration steps</p>
               <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
                 <li>Email (must match invite)</li>
                 <li>6-digit code (sent to email)</li>

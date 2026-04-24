@@ -37,7 +37,7 @@ export function LandingPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-400">
         <p className="animate-pulse text-sm">Loading…</p>
       </div>
     )

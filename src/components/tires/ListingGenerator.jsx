@@ -35,7 +35,7 @@ function MarkPostedControl({ tire, platformKey, shortLabel, actionLabel, phase, 
   const ts = tire?.platformListings?.[platformKey]?.lastPostedAt
 
   if (phase === 'saving') {
-    return <span className="text-xs text-zinc-500">Saving…</span>
+    return <span className="text-xs text-zinc-400">Saving…</span>
   }
   if (phase === 'done') {
     return <span className="text-xs font-medium text-emerald-400">Posted ✓</span>
@@ -48,7 +48,7 @@ function MarkPostedControl({ tire, platformKey, shortLabel, actionLabel, phase, 
       onClick={onMark}
       className={
         recent
-          ? 'rounded-lg border border-transparent px-2 py-1.5 text-left text-xs text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+          ? 'rounded-lg border border-transparent px-2 py-1.5 text-left text-xs text-zinc-400 hover:border-zinc-700 hover:text-zinc-300'
           : 'rounded-lg border border-zinc-600 bg-zinc-900/50 px-2 py-1.5 text-xs font-medium text-zinc-200 hover:border-zinc-500'
       }
     >
@@ -421,7 +421,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
             >
               Listing script generator
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-zinc-400">
               {tires.length} tire type{tires.length === 1 ? '' : 's'} selected · AI listing advisor for titles,
               copy, sell probability, and suggested price
             </p>
@@ -453,7 +453,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-400">
               Platform target
             </label>
             <select
@@ -484,12 +484,12 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                   <p className="text-sm font-medium text-zinc-200">
                     {t.brand} · {t.description}
                   </p>
-                  <p className="mt-0.5 font-mono text-xs text-zinc-500">
+                  <p className="mt-0.5 font-mono text-xs text-zinc-400">
                     {t.mspn}
                   </p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs text-zinc-500">Quantity</label>
+                      <label className="text-xs text-zinc-400">Quantity</label>
                       <input
                         type="number"
                         min={1}
@@ -501,7 +501,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-zinc-500">
+                      <label className="text-xs text-zinc-400">
                         Price / tire (USD)
                       </label>
                       <input
@@ -518,7 +518,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                   </div>
 
                   {adv?.status === 'loading' ? (
-                    <p className="mt-3 text-xs text-zinc-500">AI advisor running…</p>
+                    <p className="mt-3 text-xs text-zinc-400">AI advisor running…</p>
                   ) : null}
                   {adv?.status === 'error' ? (
                     <div className="mt-3 space-y-2">
@@ -528,7 +528,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                           <summary className="cursor-pointer select-none text-[11px] text-zinc-400 hover:text-zinc-300">
                             Raw callable payload (debug)
                           </summary>
-                          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-relaxed text-zinc-500">
+                          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-relaxed text-zinc-400">
                             {adv.rawDebug}
                           </pre>
                           <button
@@ -569,20 +569,20 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                           / tire
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-zinc-400">
                         <span className="font-medium text-zinc-400">Platform:</span>{' '}
                         {adv.listing.platformNotes || '--'}
                       </p>
                       <div>
                         <div className="mb-1 flex items-center justify-between gap-2">
-                          <span className="text-xs text-zinc-500">AI title</span>
+                          <span className="text-xs text-zinc-400">AI title</span>
                         </div>
                         <pre className="whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 text-xs text-zinc-200">
                           {adv.listing.title}
                         </pre>
                       </div>
                       <div>
-                        <div className="mb-1 text-xs text-zinc-500">AI description</div>
+                        <div className="mb-1 text-xs text-zinc-400">AI description</div>
                         <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 text-xs text-zinc-300">
                           {adv.listing.description}
                         </pre>
@@ -650,7 +650,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                     </div>
                     <div>
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Title</span>
+                        <span className="text-xs text-zinc-400">Title</span>
                         <button
                           type="button"
                           onClick={() => copyText(g.title)}
@@ -665,7 +665,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                     </div>
                     <div>
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs text-zinc-500">Description</span>
+                        <span className="text-xs text-zinc-400">Description</span>
                         <button
                           type="button"
                           onClick={() => copyText(g.description)}
@@ -680,7 +680,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                     </div>
                     {tire?.id ? (
                       <div className="border-t border-zinc-800/80 pt-3">
-                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
                           Listing activity
                         </p>
                         <div className="flex flex-wrap gap-2">

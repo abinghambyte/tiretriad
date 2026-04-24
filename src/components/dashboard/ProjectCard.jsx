@@ -87,7 +87,7 @@ export function ProjectCard({
     </Link>
   ) : (
     <div
-      className="mt-4 flex w-full items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-900/70 py-3 text-sm font-bold tracking-tight text-zinc-500"
+      className="mt-4 flex w-full items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-900/70 py-3 text-sm font-bold tracking-tight text-zinc-400"
       aria-disabled
     >
       {primaryCta}
@@ -154,7 +154,7 @@ export function ProjectCard({
           {description}
         </p>
         <div className={`border-t border-zinc-800/80 ${compact ? 'mt-3 pt-3' : 'mt-5 pt-4'}`}>
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">{statLabel}</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">{statLabel}</p>
           <p className="sk-figures mt-1 text-sm text-zinc-200">{stat}</p>
         </div>
       </div>

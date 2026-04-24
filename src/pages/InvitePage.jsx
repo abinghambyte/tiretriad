@@ -216,7 +216,7 @@ export function InvitePage() {
 
   if (phase === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center bg-black text-zinc-400">
         <p className="animate-pulse text-sm tracking-wide">Checking…</p>
       </div>
     )
@@ -245,8 +245,8 @@ export function InvitePage() {
         <div
           className={`${MODAL_CENTER_PANEL_BASE} max-w-sm border-zinc-800 bg-black p-6 text-zinc-100 sm:p-8`}
         >
-          <p className="mb-2 text-xs tracking-[0.3em] text-zinc-500">SKEDADDLE</p>
-          <p id="invite-reg-title" className="mb-8 text-sm text-zinc-500">
+          <p className="mb-2 text-xs tracking-[0.3em] text-zinc-400">SKEDADDLE</p>
+          <p id="invite-reg-title" className="mb-8 text-sm text-zinc-400">
             Step {regStep + 1} of {regTitles.length}. {regTitles[regStep]}
           </p>
           <form
@@ -413,7 +413,7 @@ export function InvitePage() {
                   </p>
                 )}
                 {slackJoined ? (
-                  <p className="text-xs text-zinc-500">✓ Nice. Hit &quot;I&apos;m in&quot; to open the portal.</p>
+                  <p className="text-xs text-zinc-400">✓ Nice. Hit &quot;I&apos;m in&quot; to open the portal.</p>
                 ) : null}
               </div>
             ) : null}
@@ -489,7 +489,7 @@ export function InvitePage() {
                 <button
                   type="button"
                   onClick={() => setPhase('register')}
-                  className="text-xs tracking-[0.25em] text-zinc-500 underline-offset-4 transition hover:text-zinc-300 hover:underline"
+                  className="text-xs tracking-[0.25em] text-zinc-400 underline-offset-4 transition hover:text-zinc-300 hover:underline"
                 >
                   Continue
                 </button>

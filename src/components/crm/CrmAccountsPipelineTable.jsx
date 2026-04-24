@@ -114,13 +114,13 @@ export function CrmAccountsPipelineTable({ accounts, avgBuyPerTire, onOpen }) {
             <tr key={raw.id} className="border-b border-zinc-800/80 hover:bg-zinc-900/30">
               <td className="px-3 py-2 font-medium text-zinc-100">{raw.companyName}</td>
               <td className="px-3 py-2 text-zinc-400">{crmStageLabel(raw.pipelineStage, raw)}</td>
-              <td className="px-3 py-2 text-xs text-zinc-500">{fmtTs(nextDueTs(raw))}</td>
+              <td className="px-3 py-2 text-xs text-zinc-400">{fmtTs(nextDueTs(raw))}</td>
               <td className="px-3 py-2 text-zinc-300">
                 {estimatedDealValue(raw.vehicleProfile || {}, avgBuyPerTire) != null
                   ? formatCurrency(estimatedDealValue(raw.vehicleProfile || {}, avgBuyPerTire))
                   : '--'}
               </td>
-              <td className="px-3 py-2 text-xs text-zinc-500">{fmtTs(lastActivityAt(raw))}</td>
+              <td className="px-3 py-2 text-xs text-zinc-400">{fmtTs(lastActivityAt(raw))}</td>
               <td className="px-3 py-2 text-right">
                 <button
                   type="button"

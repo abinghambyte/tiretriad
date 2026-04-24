@@ -330,7 +330,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-sm font-semibold text-zinc-200">Availability</h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-400">
             Green = open · Slate = booked · Red = blocked (8am–6pm Denver)
           </p>
         </div>
@@ -364,7 +364,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
 
       {canPickSubject ? (
         <div className="mt-4">
-          <label className="mb-1 block text-xs text-zinc-500">Crew member</label>
+          <label className="mb-1 block text-xs text-zinc-400">Crew member</label>
           <select
             value={subjectUid}
             onChange={(e) => setSubjectUid(e.target.value)}
@@ -394,7 +394,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
           className="inline-grid min-w-[720px] gap-px bg-zinc-800/90 p-px sm:min-w-0 sm:w-full"
           style={{ gridTemplateColumns: `88px repeat(7, minmax(0,1fr))` }}
         >
-          <div className="bg-zinc-950 p-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          <div className="bg-zinc-950 p-2 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
             Hour
           </div>
           {weekDays.map(({ ymd }) => (
@@ -405,7 +405,7 @@ export function AvailabilityBlocker({ profile, initialSubjectUid, crewUsers }) {
 
           {hours.map((h) => (
             <Fragment key={h}>
-              <div className="flex items-center bg-zinc-950 px-2 py-1 text-[11px] text-zinc-500">
+              <div className="flex items-center bg-zinc-950 px-2 py-1 text-[11px] text-zinc-400">
                 {formatHourAmpm(h)}
               </div>
               {weekDays.map(({ ymd }) => {
