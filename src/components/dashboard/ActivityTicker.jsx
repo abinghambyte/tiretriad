@@ -15,12 +15,12 @@ function chipClass(kind) {
 }
 
 /**
- * Activity ticker. Full-width horizontally-scrolling chip bar. Each chip is
- * rendered exactly once; the track is pre-padded by a full container-width
- * so the first chip enters from offscreen-right. Animation translates the
- * track from 0 to -100% of its own width, then loops with a viewport-wide
- * breathing gap. Pauses on hover or focus. Color-coded by `kind`; unknown
- * kinds render as `neutral`.
+ * Activity ticker. Full-width horizontally-scrolling chip bar moving
+ * left-to-right. Each chip is rendered exactly once; the track uses
+ * `pl-[100%]` plus a reversed `ticker-scroll` keyframe so chips enter from
+ * offscreen-left, cross the container, and exit offscreen-right, with a
+ * viewport-wide breathing gap between cycles. Pauses on hover or focus.
+ * Color-coded by `kind`; unknown kinds render as `neutral`.
  */
 export function ActivityTicker({ chips = [] }) {
   if (!Array.isArray(chips) || chips.length === 0) return null
