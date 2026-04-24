@@ -15,15 +15,43 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
 import { resolve } from 'node:path'
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 
-const require = createRequire(import.meta.url)
-const { defaultRevenueDoc } = require('../functions/financeStats.js')
+// NOTE: do not import defaultRevenueDoc() from functions/financeStats.js.
+// That module's FieldValue is resolved from functions/node_modules/firebase-admin,
+// while this script's getFirestore() lives on root node_modules/firebase-admin —
+// two different SDK instances. Firestore rejects the cross-package sentinel with
+// "Couldn't serialize object of type ServerTimestampTransform". Keep the zeroed
+// doc inline here so it uses the same FieldValue as the db it writes to.
+function defaultRevenueDoc() {
+  return {
+    dailyWindow: '',
+    weeklyWindow: '',
+    monthlyWindow: '',
+    ytdYear: 0,
+    dailyRevenue: 0,
+    weeklyRevenue: 0,
+    monthlyRevenue: 0,
+    ytdRevenue: 0,
+    allTimeRevenue: 0,
+    dailyCost: 0,
+    weeklyCost: 0,
+    monthlyCost: 0,
+    ytdCost: 0,
+    allTimeCost: 0,
+    dailyMargin: 0,
+    weeklyMargin: 0,
+    monthlyMargin: 0,
+    ytdMargin: 0,
+    allTimeMargin: 0,
+    dailyHistory: {},
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+}
 
 const BATCH_SIZE = 400
 
