@@ -54,10 +54,48 @@ files are checked in alongside the Linux ones.
 
 ## Auth bypass
 
-The suite logs in via a DEV-gated bypass at `src/firebase/testBypass.js`.
-It only activates when both `import.meta.env.DEV` is true and a
-`?e2e=1` query param is present, so production bundles are not affected.
-The Playwright fixture sets that param automatically.
+The suite logs in via a build-flag-gated bypass at `src/firebase/testBypass.js`.
+It activates when EITHER `import.meta.env.DEV` is true (local `npm run dev`)
+OR `import.meta.env.VITE_E2E_BYPASS` is set (CI test builds), AND a
+`skedaddle.test.bypassAuth` localStorage flag is set to `'1'`. Production
+deploys never set the build flag, so the bypass code is dead-code-eliminated
+from the production bundle entirely. The Playwright fixture in `setup.ts`
+sets the localStorage flag via `addInitScript` before any page navigation.
+
+CI builds with `cross-env VITE_E2E_BYPASS=1 npm run build` then `npm run preview`
+so the bypass is reachable. See `playwright.config.ts` `webServer.command`.
+
+## Playwright `--update-snapshots` tolerance-skip quirk
+
+**If you regenerate baselines and the bot PR shows zero file changes**, you
+may be hitting Playwright's tolerance-skip behavior. `--update-snapshots`
+does NOT unconditionally rewrite baseline PNGs — when a fresh render is
+within the configured `maxDiffPixelRatio` tolerance (1% by default in this
+project), Playwright treats the existing baseline as still-valid and skips
+the write, even when the new render is visibly different to a human.
+
+This bit us once when PR-1's mobile chrome changes only landed in the
+`tires-mobile-375-linux.png` baseline; the other four mobile routes' chrome
+changes were within tolerance of the pre-PR-132 baselines and got skipped
+silently. See `docs/superpowers/audits/2026-04-25-partial-diff-investigation.md`.
+
+**The fix when this happens:** delete the platform-suffixed baselines first,
+then run `--update-snapshots` to force a fresh write.
+
+```sh
+# Local Linux:
+rm tests/visual/routes.spec.ts-snapshots/*-linux.png
+npm run test:visual:update
+
+# Local Windows / macOS:
+rm tests/visual/routes.spec.ts-snapshots/*-win32.png   # or *-darwin.png
+npm run test:visual:update
+```
+
+The `Visual tests - update Linux baselines` GitHub workflow does NOT
+auto-delete first — if a manual run produces an empty PR, edit the
+workflow to add a `rm` step before `npm run test:visual:update` for that
+run, or do the delete + commit + push from a local Linux environment.
 
 ## Adding a new route
 
