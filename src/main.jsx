@@ -1,4 +1,7 @@
+import { initSentry } from './sentry.js'
 import { StrictMode } from 'react'
+
+initSentry()
 
 try {
   const t = localStorage.getItem('skedaddle-theme')
