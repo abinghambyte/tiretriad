@@ -16,7 +16,7 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: (...args) => onSnapshotMock(...args),
 }))
 
-import { usePayoutConfig } from './usePayoutConfig.js'
+import { usePayoutConfig, deriveMarginFloorPct } from './usePayoutConfig.js'
 
 function renderHook(callback) {
   const container = document.createElement('div')
@@ -130,5 +130,35 @@ describe('usePayoutConfig', () => {
     hook.mount()
     hook.unmount()
     expect(unsub).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('deriveMarginFloorPct', () => {
+  it('falls back to 20 when config is null', () => {
+    expect(deriveMarginFloorPct(null)).toBe(20)
+  })
+
+  it('falls back to 20 when neither field is set', () => {
+    expect(deriveMarginFloorPct({})).toBe(20)
+  })
+
+  it('uses marginFloorPct directly when set', () => {
+    expect(deriveMarginFloorPct({ marginFloorPct: 25 })).toBe(25)
+  })
+
+  it('converts marginFloor fraction to percent', () => {
+    expect(deriveMarginFloorPct({ marginFloor: 0.15 })).toBe(15)
+  })
+
+  it('prefers marginFloorPct over marginFloor when both are set', () => {
+    expect(deriveMarginFloorPct({ marginFloorPct: 25, marginFloor: 0.15 })).toBe(25)
+  })
+
+  it('ignores zero or negative marginFloorPct and falls back to marginFloor', () => {
+    expect(deriveMarginFloorPct({ marginFloorPct: 0, marginFloor: 0.18 })).toBe(18)
+  })
+
+  it('ignores non-numeric values', () => {
+    expect(deriveMarginFloorPct({ marginFloorPct: 'oops', marginFloor: 'nope' })).toBe(20)
   })
 })
