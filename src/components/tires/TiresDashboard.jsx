@@ -7,6 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
+import { usePayoutConfig } from '../../hooks/usePayoutConfig.js'
 import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
@@ -170,6 +171,8 @@ export function TiresDashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
+  const { config: payoutConfig } = usePayoutConfig()
+  const floorPct = Number(payoutConfig?.marginFloorPct) || 20
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
   const highlightParam = searchParams.get('highlight') || ''
@@ -1215,7 +1218,7 @@ export function TiresDashboard() {
       {haggleTire ? (
         <HaggleSheet
           tire={haggleTire}
-          floorPct={20}
+          floorPct={floorPct}
           onClose={() => setHaggleTire(null)}
           onAccept={(offer) => {
             const target = haggleTire
