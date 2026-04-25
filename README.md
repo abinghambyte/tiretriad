@@ -49,6 +49,18 @@ Deploy path: lint → test → build → Firebase (functions first) → Vercel p
 
 ---
 
+### Production error tracking (Sentry)
+
+Sentry is initialized in production builds only. Configure these Vercel env vars:
+
+- `VITE_SENTRY_DSN`: the Skedaddle Sentry project DSN (required)
+- `VITE_RELEASE_SHA`: set to `$VERCEL_GIT_COMMIT_SHA` for source-map mapping
+
+In dev / preview builds Sentry is dead-code-eliminated and these env vars are
+ignored. See `src/sentry.js`.
+
+---
+
 ## Repo notes
 
 This is a **production system**, not an open-source library. The code is public to show the work. Internal docs, field semantics, and runbooks live in [`docs/`](docs/).

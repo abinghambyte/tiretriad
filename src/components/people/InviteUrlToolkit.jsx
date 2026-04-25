@@ -155,11 +155,11 @@ export function isTannerPortalBlocked(firstName, lastName, emailAddr) {
 
 function Field({ label, value, onChange, type = 'text', required, inputMode, autoComplete, placeholder }) {
   return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
         {label}
         {required ? ' *' : ''}
-      </label>
+      </span>
       <input
         type={type}
         required={required}
@@ -167,10 +167,11 @@ function Field({ label, value, onChange, type = 'text', required, inputMode, aut
         inputMode={inputMode}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        aria-label={label}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition-shadow duration-200 placeholder:text-zinc-600 focus:border-amber-600/45 focus:ring-2 focus:ring-amber-500/25 max-sm:min-h-[44px] max-sm:py-3"
       />
-    </div>
+    </label>
   )
 }
 
@@ -310,11 +311,12 @@ export function CreateUserInviteSection({
             setPhone(formatPhoneInputForDisplay(national.slice(0, 10)))
           }}
         />
-        <div>
-          <label className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">Role</label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">Role</span>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
+            aria-label="Role"
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm max-sm:min-h-[44px] max-sm:py-3"
           >
             <option value="admin">{crewTagFromRole('admin')}</option>
@@ -322,30 +324,32 @@ export function CreateUserInviteSection({
             <option value="mechanic">{crewTagFromRole('mechanic')}</option>
             <option value="viewer">{crewTagFromRole('viewer')}</option>
           </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">Delivery</label>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">Delivery</span>
           <select
             value={delivery}
             onChange={(e) => setDelivery(e.target.value)}
+            aria-label="Delivery"
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm max-sm:min-h-[44px] max-sm:py-3"
           >
             <option value="sms">SMS</option>
             <option value="nfc">NFC</option>
             <option value="email">Email</option>
           </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-zinc-400 max-sm:mb-2 max-sm:text-[13px]">
             Access expiry (optional)
-          </label>
+          </span>
           <input
             type="date"
             value={accessDate}
             onChange={(e) => setAccessDate(e.target.value)}
+            aria-label="Access expiry"
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm max-sm:min-h-[44px] max-sm:py-3"
           />
-        </div>
+        </label>
         <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:flex-wrap sm:items-end lg:col-span-3">
           <button
             type="button"
