@@ -208,12 +208,14 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                 sub={`${quote.qty} × ${formatCurrencyOrDash(overheadPerTire)}`}
                 value={formatCurrency(quote.overheadTotal)}
               />
-              <QuoteRow
-                label="FET total"
-                sub={`${quote.qty} × ${formatCurrencyOrDash(fetPerTire)} (already in buy)`}
-                value={formatCurrency(fetReferenceTotal)}
-                muted
-              />
+              {fetPerTire > 0 ? (
+                <QuoteRow
+                  label="FET total"
+                  sub={`${quote.qty} × ${formatCurrencyOrDash(fetPerTire)} (already in buy)`}
+                  value={formatCurrency(fetReferenceTotal)}
+                  muted
+                />
+              ) : null}
               <QuoteRow
                 label="Revenue total"
                 sub={`${quote.qty} × ${formatCurrencyOrDash(quote.salePrice)}`}
