@@ -6,8 +6,25 @@ a PR from - then stop.
 
 ## Active rollout
 
-None. Batch 5 closed out below; the next rollout will land here when its
-briefs are drafted.
+**Batch 6 — testing-process foundation (April 25, 2026).** Five
+parallelizable, frontend-only patches that put guardrails in place
+before the bigger mobile-chrome and testing-foundation PRs land. All
+five are independent and can be dispatched in any order; none touch
+shared application code.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 101 `pr-template` | `pr-template` | `.github/pull_request_template.md` with mobile / a11y / perf checklist |
+| 102 `codeowners` | `codeowners` | `.github/CODEOWNERS` auto-routes chrome / auth / backend changes |
+| 103 `eslint-jsx-a11y` | `eslint-jsx-a11y` | Adds `eslint-plugin-jsx-a11y` to lint pipeline |
+| 104 `size-limit` | `size-limit` | `.size-limit.cjs` budgets + CI step to fail PRs that grow bundles |
+| 105 `quarterly-audit-cron` | `quarterly-audit-cron` | Quarterly GHA that runs Playwright + axe + Lighthouse against prod |
+
+Coordination notes:
+- 101, 102, 103, 104 have no shared file conflicts and can ship in parallel.
+- 105's script references `npm run test:visual` which lands in the parallel
+  testing-foundation PR (admin-driven, not via Cursor). 105 degrades
+  gracefully if test:visual is missing — ship in any order.
 
 ## Conventions
 
