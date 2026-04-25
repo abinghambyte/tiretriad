@@ -26,6 +26,7 @@ import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
+import { TirePhotoGallery } from './TirePhotoGallery.jsx'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { BrandBolt } from '../ui/BrandBolt.jsx'
@@ -46,6 +47,7 @@ const TIRE_COLUMNS = [
   { key: 'mspn', label: 'MSPN', defaultVisible: true },
   { key: 'lr', label: 'LR', defaultVisible: true },
   { key: 'listed', label: 'Listed', defaultVisible: true },
+  { key: 'photos', label: 'Photos', defaultVisible: false },
   { key: 'buy', label: 'Buy Price', defaultVisible: true },
   { key: 'retail', label: 'Retail', defaultVisible: true },
   { key: 'fet', label: 'FET', defaultVisible: false },
@@ -61,6 +63,7 @@ const SORT_LABELS = {
   mspn: 'MSPN',
   lr: 'LR',
   listed: 'Listed',
+  photos: 'Photos',
   buy: 'Buy Price',
   retail: 'Retail',
   fet: 'FET',
@@ -166,6 +169,31 @@ function listedScore(row) {
   return active * 10 + stale
 }
 
+function tireKey(tire) {
+  return tire?.mspn || tire?.id || ''
+}
+
+function tirePhotoKey(photo) {
+  return photo?.storagePath || photo?.url || ''
+}
+
+function mergeTirePhotos(serverPhotos, pendingAdds = [], pendingDeletes = []) {
+  const deleted = new Set(pendingDeletes)
+  const base = (Array.isArray(serverPhotos) ? serverPhotos : []).filter(
+    (photo) => !deleted.has(tirePhotoKey(photo)),
+  )
+  const existing = new Set(base.map(tirePhotoKey))
+  const additions = pendingAdds.filter((photo) => {
+    const key = tirePhotoKey(photo)
+    return key && !existing.has(key) && !deleted.has(key)
+  })
+  return [...base, ...additions]
+}
+
+function samePendingPhotoState(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 export function TiresDashboard() {
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -207,6 +235,9 @@ export function TiresDashboard() {
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
   const [haggleTire, setHaggleTire] = useState(null)
+  const [photoGalleryTire, setPhotoGalleryTire] = useState(null)
+  const [pendingPhotoAdds, setPendingPhotoAdds] = useState({})
+  const [pendingPhotoDeletes, setPendingPhotoDeletes] = useState({})
   const [justJumpedToId, setJustJumpedToId] = useState(null)
   const marginTableRef = useRef(null)
   const jumpHighlightTimerRef = useRef(null)
@@ -310,20 +341,69 @@ export function TiresDashboard() {
     setBulkCtsOpen(false)
   }
 
+  function onMobilePhotoUploaded(tire, photo) {
+    const key = tireKey(tire)
+    setPendingPhotoAdds((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] || []), photo],
+    }))
+  }
+
+  function onGalleryPhotoDeleted(tire, photo) {
+    const key = tireKey(tire)
+    const photoKey = tirePhotoKey(photo)
+    setPendingPhotoAdds((prev) => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((p) => tirePhotoKey(p) !== photoKey),
+    }))
+    setPendingPhotoDeletes((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] || []), photoKey],
+    }))
+    setPhotoGalleryTire((current) =>
+      current && tireKey(current) === key
+        ? {
+            ...current,
+            photos: (current.photos || []).filter((p) => tirePhotoKey(p) !== photoKey),
+          }
+        : current,
+    )
+  }
+
   const brands = useMemo(
     () => uniqueSorted(tires.map((t) => t.brand)),
     [tires],
   )
   const lrs = useMemo(() => uniqueSorted(tires.map((t) => t.lr)), [tires])
   const enriched = useMemo(() => {
-    return tires.map((t) => ({
-      ...t,
-      margin: computeMargin(t),
-      listingMargin: computeListingMargin(t),
-      derivedUseTags: deriveTireTags(t),
-      opportunity: computeOpportunityScore(t, { haggleDiscount }),
-    }))
-  }, [tires, haggleDiscount])
+    return tires.map((t) => {
+      const key = tireKey(t)
+      return {
+        ...t,
+        photos: mergeTirePhotos(t.photos, pendingPhotoAdds[key], pendingPhotoDeletes[key]),
+        margin: computeMargin(t),
+        listingMargin: computeListingMargin(t),
+        derivedUseTags: deriveTireTags(t),
+        opportunity: computeOpportunityScore(t, { haggleDiscount }),
+      }
+    })
+  }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes])
+
+  useEffect(() => {
+    if (Object.keys(pendingPhotoAdds).length === 0 && Object.keys(pendingPhotoDeletes).length === 0) return
+    const nextAdds = {}
+    const nextDeletes = {}
+    for (const tire of tires) {
+      const key = tireKey(tire)
+      const serverKeys = new Set((Array.isArray(tire.photos) ? tire.photos : []).map(tirePhotoKey))
+      const adds = (pendingPhotoAdds[key] || []).filter((photo) => !serverKeys.has(tirePhotoKey(photo)))
+      const deletes = (pendingPhotoDeletes[key] || []).filter((photoKey) => serverKeys.has(photoKey))
+      if (adds.length > 0) nextAdds[key] = adds
+      if (deletes.length > 0) nextDeletes[key] = deletes
+    }
+    if (!samePendingPhotoState(nextAdds, pendingPhotoAdds)) setPendingPhotoAdds(nextAdds)
+    if (!samePendingPhotoState(nextDeletes, pendingPhotoDeletes)) setPendingPhotoDeletes(nextDeletes)
+  }, [tires, pendingPhotoAdds, pendingPhotoDeletes])
 
   const useTags = useMemo(() => {
     const tags = []
@@ -418,6 +498,9 @@ export function TiresDashboard() {
       }
       if (sortKey === 'listed') {
         return numCmp(listedScore(a), listedScore(b))
+      }
+      if (sortKey === 'photos') {
+        return numCmp(Array.isArray(a.photos) ? a.photos.length : 0, Array.isArray(b.photos) ? b.photos.length : 0)
       }
       if (sortKey === 'buy') {
         return numCmp(tireCatalogBuyNumber(a), tireCatalogBuyNumber(b))
@@ -1196,6 +1279,8 @@ export function TiresDashboard() {
                         selected={selectedIds.has(tire.id)}
                         onTestOffer={(t) => setHaggleTire(t)}
                         onToggleSelect={(t) => toggle(t.id)}
+                        onPhotoUploaded={onMobilePhotoUploaded}
+                        onOpenPhotos={setPhotoGalleryTire}
                       />
                     </li>
                   ))}
@@ -1304,6 +1389,14 @@ export function TiresDashboard() {
             })
             setSaleOpen(true)
           }}
+        />
+      ) : null}
+      {photoGalleryTire ? (
+        <TirePhotoGallery
+          tire={photoGalleryTire}
+          open
+          onClose={() => setPhotoGalleryTire(null)}
+          onDeleted={(photo) => onGalleryPhotoDeleted(photoGalleryTire, photo)}
         />
       ) : null}
     </div>
