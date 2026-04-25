@@ -1,10 +1,19 @@
 import { formatCurrency } from '../../utils/format'
+import { TirePhotoButton } from './TirePhotoButton.jsx'
 
-export function TireCardMobile({ tire, selected = false, onTestOffer, onToggleSelect }) {
+export function TireCardMobile({
+  tire,
+  selected = false,
+  onTestOffer,
+  onToggleSelect,
+  onPhotoUploaded,
+  onOpenPhotos,
+}) {
   const ring = selected ? 'ring-2 ring-amber-500/70' : 'ring-1 ring-zinc-800'
   const checkboxClass = selected
     ? 'absolute right-3 top-3 inline-flex h-9 w-9 min-w-[36px] items-center justify-center rounded-md border border-amber-500/70 bg-amber-500/20 text-amber-300 hover:border-amber-400 hover:bg-amber-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
     : 'absolute right-3 top-3 inline-flex h-9 w-9 min-w-[36px] items-center justify-center rounded-md border border-zinc-700 bg-zinc-950 text-amber-300 hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
+  const photoCount = Array.isArray(tire.photos) ? tire.photos.length : 0
   return (
     <div className={`relative rounded-xl bg-zinc-900 p-3 ${ring}`}>
       <button
@@ -31,13 +40,31 @@ export function TireCardMobile({ tire, selected = false, onTestOffer, onToggleSe
         <div><span className="text-zinc-400">FET</span> <span className="font-mono text-zinc-300">{formatCurrency(tire.fet || 0)}</span></div>
         <div className="col-span-2"><span className="text-zinc-400">Listed</span> <span className="text-zinc-300">{tire.listedCount} platforms</span></div>
       </div>
-      <button
-        type="button"
-        onClick={() => onTestOffer?.(tire)}
-        className="mt-3 w-full min-h-[44px] rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
-      >
-        Test offer
-      </button>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <TirePhotoButton
+            tire={tire}
+            count={photoCount}
+            onUploaded={(photo) => onPhotoUploaded?.(tire, photo)}
+          />
+          {photoCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => onOpenPhotos?.(tire)}
+              className="inline-flex h-9 items-center rounded-md border border-zinc-700 px-2 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
+            >
+              View
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => onTestOffer?.(tire)}
+          className="min-h-[44px] flex-1 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
+        >
+          Test offer
+        </button>
+      </div>
     </div>
   )
 }
