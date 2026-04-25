@@ -3,6 +3,11 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { useEffect, useMemo, useState } from 'react'
 import { UserProfileContext } from '../../context/UserProfileContext.jsx'
 import { db, functions } from '../../firebase/config'
+import {
+  isTestBypassEnabled,
+  getTestBypassRole,
+  makeBypassProfile,
+} from '../../firebase/testBypass.js'
 import { ROLE_DEFAULTS } from '../../constants/peoplePermissions'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -15,6 +20,15 @@ export function UserProfileProvider({ children }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    if (import.meta.env.DEV && isTestBypassEnabled()) {
+      queueMicrotask(() => {
+        setProfile(makeBypassProfile(getTestBypassRole()))
+        setLoading(false)
+        setError(null)
+      })
+      return undefined
+    }
+
     if (authLoading) return undefined
 
     if (!user) {
