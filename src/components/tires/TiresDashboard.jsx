@@ -1037,7 +1037,7 @@ export function TiresDashboard() {
                       type="button"
                       aria-pressed={allVisibleSelected}
                       onClick={() => toggleAllFilteredSelection(sortedRows)}
-                      className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
+                      className={`min-h-[44px] whitespace-nowrap rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
                         allVisibleSelected
                           ? 'border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60'
                           : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
@@ -1063,13 +1063,13 @@ export function TiresDashboard() {
                     }}
                     aria-pressed={sortKey === 'opportunity'}
                     title="Sort catalog by expected profit per tire after haggle, weighted by retail confidence."
-                    className={`min-h-[44px] rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
+                    className={`min-h-[44px] whitespace-nowrap rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
                       sortKey === 'opportunity'
                         ? 'border-amber-600 bg-amber-950/40 text-amber-100 hover:border-amber-500 hover:bg-amber-950/60'
                         : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
                     }`}
                   >
-                    Sort: Opportunity
+                    {`Sort: ${visibleColumnLabel}`}
                   </button>
                   <Popover
                     label="Table options"
@@ -1077,7 +1077,7 @@ export function TiresDashboard() {
                     anchor={
                       <button
                         type="button"
-                        className="min-h-[44px] rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 sm:min-h-0"
+                        className="min-h-[44px] whitespace-nowrap rounded-lg border border-zinc-600 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60 sm:min-h-0"
                       >
                         Table options
                       </button>

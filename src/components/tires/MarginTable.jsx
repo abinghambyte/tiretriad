@@ -1045,7 +1045,7 @@ export function MarginTable({
     ? 'Loading…'
     : rows.length === 0
       ? 'No tires shown'
-      : `Showing 1-${rows.length} of ${rows.length} · sorted by ${sortColumnLabel || 'Margin %'} ${sortDirLabel || 'descending'}`
+      : `Showing 1-${rows.length} of ${rows.length} · ${sortDirLabel === 'ascending' ? '↑' : '↓'} ${sortColumnLabel || 'Margin %'}`
 
   const ariaSortFor = useCallback(
     (key) => (sortKey === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'),
@@ -1069,8 +1069,8 @@ export function MarginTable({
               filtered count and current sort state; updates whenever filters or
               sort change. */}
           {!loading && rows.length > 0 ? (
-            <div className="sticky top-0 z-[17] flex items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900/95 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur">
-              <span aria-live="polite">{summaryText}</span>
+            <div className="sticky top-0 z-[17] flex items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur">
+              <span aria-live="polite" className="truncate whitespace-nowrap">{summaryText}</span>
             </div>
           ) : null}
           <div
