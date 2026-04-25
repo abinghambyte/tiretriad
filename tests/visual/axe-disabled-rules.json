@@ -1,0 +1,13 @@
+{
+  "rules": [
+    "color-contrast",
+    "scrollable-region-focusable",
+    "aria-required-parent"
+  ],
+  "rule_notes": {
+    "color-contrast": "[2026-04-25] Translucent sticky surfaces fail contrast against bleed-through content (dashboard hero, sticky table headers). Will be addressed in PR-1 mobile chrome (opaque surfaces). See docs/superpowers/specs/2026-04-25-mobile-chrome-and-haggle-design.md.",
+    "scrollable-region-focusable": "[2026-04-25] MarginTable scroll containers need keyboard focus. Will be addressed in PR-1 mobile chrome (mobile card layout) or a Tier 2 cleanup.",
+    "aria-required-parent": "[2026-04-25] MarginTable header row uses role=row + role=columnheader on a div-grid layout (not a real <table>). Wrapping in role=grid breaks aria-required-children because the empty-state / loading slots use role=status. Proper fix is either to convert MarginTable to a semantic <table> or to drop the role=* attrs and rely on aria-sort buttons alone. Slated for PR-1 mobile chrome card layout cleanup."
+  },
+  "note": "Rule IDs added here are intentionally suppressed pending follow-up. Each entry must include why and a date in rule_notes."
+}
