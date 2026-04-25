@@ -29,9 +29,21 @@ function readCustomHttps() {
 const customHttps = devHttps ? readCustomHttps() : null
 const useBasicSsl = Boolean(devHttps && !customHttps)
 
+// Auto-derive the release SHA from Vercel's system env at build time so we
+// never have to manually update VITE_RELEASE_SHA in Vercel project settings.
+// VERCEL_GIT_COMMIT_SHA is always present on Vercel deploys; falls back to
+// 'dev' for local builds so Sentry tagging still works.
+const releaseSha =
+  process.env.VITE_RELEASE_SHA ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  'dev'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), ...(useBasicSsl ? [basicSsl()] : [])],
+  define: {
+    'import.meta.env.VITE_RELEASE_SHA': JSON.stringify(releaseSha),
+  },
   server: {
     host: true,
     ...(devHttps ? { https: customHttps || true } : {}),
