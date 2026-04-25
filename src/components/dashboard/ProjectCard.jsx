@@ -104,7 +104,6 @@ export function ProjectCard({
           ? 'border-zinc-700/90'
           : 'border-zinc-800/80 bg-zinc-950/50 opacity-60 saturate-50',
       ].join(' ')}
-      aria-disabled={!clickable}
     >
       {!clickable ? (
         <div

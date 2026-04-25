@@ -10,7 +10,7 @@ function prefersReducedMotion() {
 
 /**
  * Top Sellers card. Flips through the provided sellers list every
- * FLIP_INTERVAL_MS and pauses on hover or focus. Respects prefers-
+ * FLIP_INTERVAL_MS and pauses on hover. Respects prefers-
  * reduced-motion (freezes on the current seller). Left half: rank digit
  * and sold count share a baseline with a `SOLD` caption 8px below.
  * Right half: SKU / description / category for the current seller.
@@ -18,18 +18,17 @@ function prefersReducedMotion() {
 export function TopSellersCard({ sellers = [] }) {
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
-  const [focused, setFocused] = useState(false)
   const sellersLength = Array.isArray(sellers) ? sellers.length : 0
 
   useEffect(() => {
-    if (paused || focused) return undefined
+    if (paused) return undefined
     if (prefersReducedMotion()) return undefined
     if (sellersLength <= 1) return undefined
     const handle = setInterval(() => {
       setIdx((i) => (i + 1) % sellersLength)
     }, FLIP_INTERVAL_MS)
     return () => clearInterval(handle)
-  }, [paused, focused, sellersLength])
+  }, [paused, sellersLength])
 
   if (!sellers || sellers.length === 0) {
     return (
@@ -49,9 +48,6 @@ export function TopSellersCard({ sellers = [] }) {
       className="pc-card relative rounded-xl bg-zinc-900/60 p-[14px] focus-within:ring-1 focus-within:ring-amber-500/40"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      tabIndex={0}
       role="region"
       aria-label="Top sellers, rotating"
       aria-live="polite"
