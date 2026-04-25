@@ -75,29 +75,15 @@ describe('AnalyticsPage oversight tabs', () => {
     expect(screen.queryByText('Margin archive')).toBeNull()
   })
 
-  it('shows admin tabs and renders the verification-queue panel for admins', async () => {
+  // The verification-queue admin tab was a read-only mirror of /my-queue and
+  // was removed (audit recommendation). Admins access the live queue via the
+  // top-nav "My Queue" entry. The route still falls back to the default tab
+  // when verification-queue is requested directly.
+  it('falls back to the default wall tab when an admin deep-links to the removed verification-queue tab', () => {
     useUserProfileMock.mockReturnValue({ profile: { role: 'admin' }, loading: false })
-    useTiresMock.mockReturnValue({
-      tires: [
-        {
-          id: 't1',
-          mspn: 'AAA11',
-          price: 100,
-          priceIntel: { retailPrice: 110 },
-          researchQueue: { at: 100, reason: 'below-margin-floor', resolvedAt: null, by: 'kyle' },
-        },
-      ],
-      loading: false,
-      error: null,
-    })
     renderAt('/analytics?tab=verification-queue')
-    await waitFor(() => {
-      expect(
-        screen.getByText('Live view of pending verification items. Resolve from /my-queue.'),
-      ).toBeTruthy()
-    })
-    expect(screen.getByText('AAA11')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Punt' })).toBeNull()
+    expect(screen.queryByText('Live view of pending verification items. Resolve from /my-queue.')).toBeNull()
+    expect(screen.getByTestId('wall-embed')).toBeTruthy()
   })
 
   it('renders margin-archive tab with search filter for admins', async () => {

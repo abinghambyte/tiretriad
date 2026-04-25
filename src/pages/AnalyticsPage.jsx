@@ -20,8 +20,6 @@ import { addDaysToYmd, denverYm, isoWeekKey } from '../utils/isoWeekDenver.js'
 import { marginPercentOfPayment, poolDollarsForOrder } from '../utils/orderPoolMargin.js'
 import { useUserProfile } from '../hooks/useUserProfile.js'
 import { useTires } from '../hooks/useTires.js'
-import { QueueRow } from '../components/queue/QueueRow.jsx'
-import { selectOpenQueueRows } from '../utils/queueSelectors.js'
 import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail.js'
 import { computeListingMargin } from '../utils/marginCalc.js'
 import { SampleCapBanner } from '../components/ui/SampleCapBanner.jsx'
@@ -29,7 +27,7 @@ import { EmptyState } from '../components/shared/EmptyState.jsx'
 import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 
 const BASE_TAB_IDS = ['wall', 'metrics', 'revenue', 'leaderboard']
-const ADMIN_TAB_IDS = ['verification-queue', 'margin-archive']
+const ADMIN_TAB_IDS = ['margin-archive']
 const ARCHIVE_PAGE_SIZE = 50
 
 function completedMs(o) {
@@ -103,7 +101,6 @@ const TAB_LABELS = {
   metrics: 'Metrics',
   revenue: 'Revenue',
   leaderboard: 'Leaderboard',
-  'verification-queue': 'Verification queue',
   'margin-archive': 'Margin archive',
 }
 
@@ -435,8 +432,6 @@ export function AnalyticsPage() {
     active: tab === id,
   }))
 
-  const verificationRows = useMemo(() => selectOpenQueueRows(allTires || []), [allTires])
-
   const archivedTires = useMemo(() => {
     const rows = []
     const q = archiveQuery.trim().toLowerCase()
@@ -628,21 +623,6 @@ export function AnalyticsPage() {
           </div>
         ) : null}
 
-        {tab === 'verification-queue' && isAdmin ? (
-          <div className="space-y-4">
-            <p className="text-xs text-zinc-400">
-              Live view of pending verification items. Resolve from /my-queue.
-            </p>
-            {tiresLoadingForTabs ? (
-              <LoadingBlock />
-            ) : verificationRows.length === 0 ? (
-              <EmptyState title="No pending items." />
-            ) : (
-              <VerificationOversightList rows={verificationRows} />
-            )}
-          </div>
-        ) : null}
-
         {tab === 'margin-archive' && isAdmin ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
@@ -771,47 +751,6 @@ function LeaderBlock({ title, body }) {
           Not enough data yet
         </p>
       )}
-    </div>
-  )
-}
-
-function VerificationOversightList({ rows }) {
-  const groups = new Map()
-  for (const t of rows) {
-    const reason = String(t?.researchQueue?.reason || 'other')
-    if (!groups.has(reason)) groups.set(reason, [])
-    groups.get(reason).push(t)
-  }
-  const reasonOrder = ['below-margin-floor', 'unutilized-needs-research']
-  const reasonLabels = {
-    'below-margin-floor': 'Below margin floor',
-    'unutilized-needs-research': 'Needs research',
-  }
-  const keys = [...groups.keys()].sort((a, b) => {
-    const ai = reasonOrder.indexOf(a)
-    const bi = reasonOrder.indexOf(b)
-    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
-  })
-  return (
-    <div className="space-y-6">
-      {keys.map((reason) => (
-        <section key={reason}>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            {reasonLabels[reason] || reason} · {groups.get(reason).length}
-          </h3>
-          <ul className="space-y-2">
-            {groups.get(reason).map((t) => (
-              <QueueRow
-                key={String(t.id)}
-                tire={t}
-                onResolve={() => undefined}
-                readOnly
-                resolvedBy={String(t?.researchQueue?.by || '') || undefined}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
     </div>
   )
 }
