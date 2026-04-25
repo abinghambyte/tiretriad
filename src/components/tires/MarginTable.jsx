@@ -487,15 +487,6 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
   )
 }
 
-/** Pure-looking header cell that isn't sortable. */
-function StaticHeader({ label, className = '', title: titleAttr }) {
-  return (
-    <span className={className} title={titleAttr || undefined}>
-      {label}
-    </span>
-  )
-}
-
 /**
  * Virtual list row: main grid row + optional CTS editor block (same list item).
  * Props come from react-window `rowProps` plus `index` and `style`.
@@ -1239,80 +1230,6 @@ export function MarginTable({
               </div>
             ) : null}
           </div>
-          {isMobileTable && !loading && rows.length > 0 ? (
-            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
-              <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
-                {/* Empty spacer to preserve alignment with per-row pick column. */}
-                <div className="w-11 shrink-0 px-0.5 py-0.5" aria-hidden="true" />
-                <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">
-                  <StaticHeader label="Desc" />
-                </div>
-                <div className="flex w-[70px] shrink-0 items-center border-r border-zinc-800/60 px-1">
-                  <StaticHeader label="MSPN" />
-                </div>
-                <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1">
-                  <SortButton
-                    label="Buy"
-                    columnKey="buy"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onClick={onHeaderSortClick}
-                    disabled={loading}
-                    touchWide
-                  />
-                </div>
-                <div className="flex w-20 shrink-0 items-center px-1">
-                  <SortButton
-                    label="Margin"
-                    columnKey="margin"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onClick={onHeaderSortClick}
-                    disabled={loading}
-                    touchWide
-                  />
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center divide-x divide-zinc-800/60 text-center">
-                <div className="w-[76px] shrink-0 px-1">
-                  <SortButton
-                    label="Brand"
-                    columnKey="brand"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onClick={onHeaderSortClick}
-                    disabled={loading}
-                    touchWide
-                  />
-                </div>
-                <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
-                  <StaticHeader label="LR" />
-                </div>
-                <div className="flex min-w-[5.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 text-[10px]">
-                  <StaticHeader label="Listed" />
-                </div>
-                {vis.fet !== false ? (
-                  <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
-                    <StaticHeader label="FET" title={FET_HEADER_TOOLTIP} />
-                  </div>
-                ) : null}
-                <div className="flex min-w-[5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
-                  <SortButton
-                    label="Retail"
-                    columnKey="retail"
-                    sortKey={sortKey}
-                    sortDir={sortDir}
-                    onClick={onHeaderSortClick}
-                    disabled={loading}
-                    touchWide
-                  />
-                </div>
-                <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
-                  <StaticHeader label="OH" />
-                </div>
-              </div>
-            </div>
-          ) : null}
           {loading ? (
             isMobileTable ? (
               <div className="space-y-2 py-4 md:hidden">

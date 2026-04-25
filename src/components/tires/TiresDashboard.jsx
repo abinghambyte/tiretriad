@@ -18,11 +18,13 @@ import { computeOpportunityScore } from '../../utils/opportunityScore'
 import { matchesQuery } from '../../utils/tireSearchHaystack'
 import { setTireSelection } from '../../context/tireSelectionStore'
 import { BulkCtsModal } from './BulkCtsModal'
+import { HaggleSheet } from './HaggleSheet'
 import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
+import { TireCardMobile } from './TireCardMobile'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { Popover } from '../ui/Popover.jsx'
@@ -200,6 +202,7 @@ export function TiresDashboard() {
   const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
+  const [haggleTire, setHaggleTire] = useState(null)
   const [justJumpedToId, setJustJumpedToId] = useState(null)
   const marginTableRef = useRef(null)
   const jumpHighlightTimerRef = useRef(null)
@@ -1126,7 +1129,23 @@ export function TiresDashboard() {
               </div>
             </div>
 
-            <div className="-mx-2 rounded-b-xl border-x border-b border-zinc-800 overflow-hidden">
+            <div className="sm:hidden">
+              {!loading && sortedRows.length > 0 ? (
+                <ul className="space-y-2 px-1 pt-2">
+                  {sortedRows.map((tire) => (
+                    <li key={tire.id}>
+                      <TireCardMobile
+                        tire={tire}
+                        selected={selectedIds.has(tire.id)}
+                        onTestOffer={(t) => setHaggleTire(t)}
+                        onToggleSelect={(t) => toggle(t.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            <div className="hidden sm:block -mx-2 rounded-b-xl border-x border-b border-zinc-800 overflow-hidden">
               <MarginTable
                 rows={sortedRows}
                 selectedIds={selectedIds}
@@ -1193,6 +1212,23 @@ export function TiresDashboard() {
         onClose={() => setBulkCtsOpen(false)}
         tires={selectedTires}
       />
+      {haggleTire ? (
+        <HaggleSheet
+          tire={haggleTire}
+          floorPct={20}
+          onClose={() => setHaggleTire(null)}
+          onAccept={(offer) => {
+            const target = haggleTire
+            setHaggleTire(null)
+            setSaleInitial({
+              mspn: target?.mspn,
+              quantity: 1,
+              pricePerTire: offer,
+            })
+            setSaleOpen(true)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
