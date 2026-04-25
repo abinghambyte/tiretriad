@@ -1,0 +1,35 @@
+# CODEOWNERS for skedaddleinc/skedaddleinc
+#
+# Lines listed later take precedence. Each rule maps a glob to a reviewer.
+# An owner is auto-requested on any PR that touches a matching file.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: admin owns everything we don't list explicitly
+*                                @abinghambyte
+
+# Security boundary - Firestore rules + functions backend
+firestore.rules                  @abinghambyte
+functions/                       @abinghambyte
+
+# Auth + identity
+src/firebase/                    @abinghambyte
+src/hooks/useUserProfile.js      @abinghambyte
+src/constants/peoplePermissions* @abinghambyte
+
+# Shared chrome - every change here can break every page
+src/components/layout/           @abinghambyte
+src/components/ui/               @abinghambyte
+src/index.css                    @abinghambyte
+
+# CI + workflows + deploy config
+.github/                         @abinghambyte
+vercel.json                      @abinghambyte
+package.json                     @abinghambyte
+package-lock.json                @abinghambyte
+playwright.config.ts             @abinghambyte
+tailwind.config.js               @abinghambyte
+vite.config.js                   @abinghambyte
+
+# Specs and plans - admin should sign off on architectural docs
+docs/superpowers/specs/          @abinghambyte
+docs/superpowers/plans/          @abinghambyte
