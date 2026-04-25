@@ -463,6 +463,13 @@ function CopyDescriptionButton({ text }) {
 function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, touchWide }) {
   const active = sortKey === columnKey
   const dir = active ? sortDir : null
+  // Sort state is communicated to assistive tech via the button's `title`
+  // (e.g. "Sort Brand descending (click again to clear)") and the visible
+  // arrow glyph. aria-sort is not used because: (a) it requires a
+  // columnheader/rowheader role on the host element, (b) the header cells
+  // here are plain divs in a virtualized react-window grid (no real
+  // <table>), and (c) jsx-a11y rejects aria-sort on a <button> as not
+  // supported by the implicit button role.
   return (
     <button
       type="button"
@@ -1012,11 +1019,6 @@ export function MarginTable({
       ? 'No tires shown'
       : `Showing 1-${rows.length} of ${rows.length} · sorted by ${sortColumnLabel || 'Margin %'} ${sortDirLabel || 'descending'}`
 
-  const ariaSortFor = useCallback(
-    (key) => (sortKey === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'),
-    [sortKey, sortDir],
-  )
-
   return (
     <div>
       <div
@@ -1041,12 +1043,11 @@ export function MarginTable({
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 md:grid"
             style={gridStyle}
-            role="row"
           >
             {/* Empty cell to preserve grid alignment with per-row select checkbox column. */}
-            <div className="px-1" role="columnheader" aria-hidden="true" />
+            <div className="px-1" aria-hidden="true" />
             {vis.brand !== false ? (
-              <div className="px-1.5 text-center" role="columnheader" aria-sort={ariaSortFor('brand')}>
+              <div className="px-1.5 text-center">
                 <SortButton
                   label="Brand"
                   columnKey="brand"
@@ -1059,7 +1060,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.description !== false ? (
-              <div className="px-3" role="columnheader" aria-sort={ariaSortFor('description')}>
+              <div className="px-3">
                 <SortButton
                   label="Description"
                   columnKey="description"
@@ -1071,7 +1072,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.mspn !== false ? (
-              <div className="px-3" role="columnheader" aria-sort={ariaSortFor('mspn')}>
+              <div className="px-3">
                 <SortButton
                   label="MSPN"
                   columnKey="mspn"
@@ -1083,7 +1084,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.lr !== false ? (
-              <div className="whitespace-nowrap px-2 text-center" role="columnheader" aria-sort={ariaSortFor('lr')}>
+              <div className="whitespace-nowrap px-2 text-center">
                 <SortButton
                   label="LR"
                   columnKey="lr"
@@ -1095,11 +1096,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.listed !== false ? (
-              <div
-                className="whitespace-nowrap px-1 text-center"
-                role="columnheader"
-                aria-sort={ariaSortFor('listed')}
-              >
+              <div className="whitespace-nowrap px-1 text-center">
                 <SortButton
                   label="Listed"
                   columnKey="listed"
@@ -1111,11 +1108,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.buy !== false ? (
-              <div
-                className="min-w-0 whitespace-nowrap px-2 text-right"
-                role="columnheader"
-                aria-sort={ariaSortFor('buy')}
-              >
+              <div className="min-w-0 whitespace-nowrap px-2 text-right">
                 <SortButton
                   label="Buy Price"
                   columnKey="buy"
@@ -1130,8 +1123,6 @@ export function MarginTable({
             {vis.retail !== false ? (
               <div
                 className="min-w-0 whitespace-nowrap px-2 text-right"
-                role="columnheader"
-                aria-sort={ariaSortFor('retail')}
                 title="Typical retail price from the nightly research job."
               >
                 <SortButton
@@ -1148,8 +1139,6 @@ export function MarginTable({
             {vis.fet !== false ? (
               <div
                 className="whitespace-nowrap px-2 text-center"
-                role="columnheader"
-                aria-sort={ariaSortFor('fet')}
                 title={FET_HEADER_TOOLTIP}
               >
                 <SortButton
@@ -1163,11 +1152,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.overhead !== false ? (
-              <div
-                className="whitespace-nowrap px-2 text-right"
-                role="columnheader"
-                aria-sort={ariaSortFor('overhead')}
-              >
+              <div className="whitespace-nowrap px-2 text-right">
                 <SortButton
                   label="Overhead"
                   columnKey="overhead"
@@ -1181,8 +1166,6 @@ export function MarginTable({
             {vis.net !== false ? (
               <div
                 className="whitespace-nowrap px-2 text-right"
-                role="columnheader"
-                aria-sort={ariaSortFor('net')}
                 title="Projected net per tire at the current haggle discount"
               >
                 <SortButton
@@ -1198,8 +1181,6 @@ export function MarginTable({
             {vis.floor !== false ? (
               <div
                 className="whitespace-nowrap px-2 text-right"
-                role="columnheader"
-                aria-sort={ariaSortFor('floor')}
                 title="All-in per-tire floor: buy + overhead + FET"
               >
                 <SortButton
@@ -1213,11 +1194,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.margin !== false ? (
-              <div
-                className="min-w-0 whitespace-nowrap px-2 text-right"
-                role="columnheader"
-                aria-sort={ariaSortFor('margin')}
-              >
+              <div className="min-w-0 whitespace-nowrap px-2 text-right">
                 <SortButton
                   label="Margin %"
                   columnKey="margin"
