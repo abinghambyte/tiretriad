@@ -578,7 +578,16 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           toast={toast}
         />
 
-        <section className="overflow-x-auto rounded-2xl border border-zinc-800">
+        {/* tabIndex={0} so keyboard users can scroll the horizontally-overflowing
+            table (axe rule scrollable-region-focusable). aria-label promotes the
+            <section> to a named landmark, satisfying both axe and jsx-a11y when
+            the rule is configured to accept labeled sections (see eslint.config.js). */}
+        <section
+          aria-label="Crew members table"
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+          className="overflow-x-auto rounded-2xl border border-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
+        >
           <table className="w-full min-w-0 border-collapse text-left text-sm sm:min-w-[960px]">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-900/60 text-xs font-semibold uppercase tracking-wide text-zinc-300">
