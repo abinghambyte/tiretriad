@@ -13,6 +13,7 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "test:visual:ui": "playwright test --ui",
+    "size": "size-limit",
     "preview": "vite preview",
     "seed:tires": "node scripts/seed-tires.mjs",
     "import:tires-csv": "node scripts/import-tires-csv.mjs",
@@ -36,6 +37,7 @@
     "@axe-core/playwright": "^4.11.2",
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.59.1",
+    "@size-limit/file": "^12.1.0",
     "@tailwindcss/vite": "^4.2.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -53,6 +55,7 @@
     "firebase-tools": "^15.14.0",
     "globals": "^17.4.0",
     "jsdom": "^29.0.2",
+    "size-limit": "^12.1.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.4",
     "vitest": "^4.1.4"
