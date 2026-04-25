@@ -5,6 +5,7 @@ import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
+import { usePayoutConfig } from '../../hooks/usePayoutConfig'
 
 /**
  * Lightweight inline "Quote" calculator: pick a tire, set qty + sale price,
@@ -29,6 +30,8 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
   const overheadPerTire = effectiveCts(tire)
   const retailPerTire = tireCatalogRetailNumber(tire)
   const fetPerTire = Number(tire?.fet) || 0
+  const { config: payoutConfig } = usePayoutConfig()
+  const floorPct = Number(payoutConfig?.marginFloorPct) || 20
 
   const defaultPrice = retailPerTire > 0 ? retailPerTire : buyPerTire
 
@@ -71,6 +74,9 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
   const brand = String(tire?.brand || '').trim() || '--'
   const description = String(tire?.description || '').trim() || '--'
   const mspn = String(tire?.mspn || '').trim() || '--'
+  const { size: tireSize, pattern: tirePattern } = splitTireDescription(
+    tire?.description,
+  )
 
   const canLog =
     typeof onLogSale === 'function' &&
@@ -118,16 +124,28 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
               Tire
             </p>
-            <div className="mt-1 flex flex-col gap-0.5">
-              <p className="text-sm font-semibold text-zinc-100">
-                <span className="text-zinc-400">{brand}</span>
-                <span className="mx-1.5 text-zinc-600">/</span>
-                <span className="break-words">{description}</span>
+            <header className="mt-1 flex flex-col gap-0.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                {brand}
               </p>
-              <p className="sk-figures text-xs text-zinc-400">
+              {tireSize ? (
+                <p className="break-words text-base font-semibold text-zinc-100">
+                  {tireSize}
+                </p>
+              ) : null}
+              {tirePattern ? (
+                <p className="break-words text-sm text-zinc-300">
+                  {tirePattern}
+                </p>
+              ) : !tireSize ? (
+                <p className="break-words text-sm text-zinc-300">
+                  {description}
+                </p>
+              ) : null}
+              <p className="sk-figures mt-0.5 text-xs text-zinc-400">
                 MSPN <span className="text-zinc-300">{mspn}</span>
               </p>
-            </div>
+            </header>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -208,12 +226,14 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                 sub={`${quote.qty} × ${formatCurrencyOrDash(overheadPerTire)}`}
                 value={formatCurrency(quote.overheadTotal)}
               />
-              <QuoteRow
-                label="FET total"
-                sub={`${quote.qty} × ${formatCurrencyOrDash(fetPerTire)} (already in buy)`}
-                value={formatCurrency(fetReferenceTotal)}
-                muted
-              />
+              {fetPerTire > 0 ? (
+                <QuoteRow
+                  label="FET total"
+                  sub={`${quote.qty} × ${formatCurrencyOrDash(fetPerTire)} (already in buy)`}
+                  value={formatCurrency(fetReferenceTotal)}
+                  muted
+                />
+              ) : null}
               <QuoteRow
                 label="Revenue total"
                 sub={`${quote.qty} × ${formatCurrencyOrDash(quote.salePrice)}`}
@@ -238,11 +258,19 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                 (revenue − cost) / revenue
               </p>
             </div>
-            <span className={`${marginClasses} sk-figures`} title={marginLabel}>
-              {quote.marginPct == null
-                ? 'no revenue yet'
-                : `${formatPercent(quote.marginPct, 1)} · ${marginLabel}`}
-            </span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span
+                className={`${marginClasses} sk-figures`}
+                title={`${marginLabel} (target ≥ ${floorPct}%)`}
+              >
+                {quote.marginPct == null
+                  ? 'no revenue yet'
+                  : `${formatPercent(quote.marginPct, 1)} · ${marginLabel}`}
+              </span>
+              <span className="sk-figures text-[10px] text-zinc-500">
+                target ≥ {floorPct}%
+              </span>
+            </div>
           </div>
         </div>
 
@@ -274,6 +302,38 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
       </div>
     </div>
   )
+}
+
+/**
+ * Split a tire description like "LT 265/70R17 121/118S E KO2 All-Terrain"
+ * or "LT265/70R17/E123/120SATT/A KO3" into a leading size token and the
+ * remaining pattern text, so the header can render brand / size / pattern
+ * on separate lines with hierarchy.
+ *
+ * Heuristic: the size is the first whitespace-or-slash token that contains
+ * a digit (covers "265/70R17", "LT265/70R17", "31X10.50R15", "31X10.50R15LT").
+ * Everything after that token is the pattern. If no digit-bearing token is
+ * found, returns an empty size and the original description as the pattern.
+ *
+ * @param {unknown} desc
+ * @returns {{ size: string, pattern: string }}
+ */
+function splitTireDescription(desc) {
+  const raw = String(desc || '').trim()
+  if (!raw) return { size: '', pattern: '' }
+  // Tokenise on whitespace and slashes so "LT265/70R17/E123" parses cleanly.
+  const tokens = raw.split(/[\s/]+/).filter(Boolean)
+  let sizeIdx = -1
+  for (let i = 0; i < tokens.length; i += 1) {
+    if (/\d/.test(tokens[i])) {
+      sizeIdx = i
+      break
+    }
+  }
+  if (sizeIdx === -1) return { size: '', pattern: raw }
+  const size = tokens[sizeIdx]
+  const remainder = tokens.slice(sizeIdx + 1).join(' ').trim()
+  return { size, pattern: remainder }
 }
 
 /**
