@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency, formatQty } from '../../utils/format'
+import { BrandBolt } from '../ui/BrandBolt.jsx'
 import { TopSellersCard } from './TopSellersCard'
 
 const MS_PER_DAY = 86_400_000
@@ -47,6 +48,7 @@ export function TodayStrip({
   const ageLabel = saleMs != null ? daysAgoLabel(saleMs, now) : null
   const daysSince = saleMs != null ? Math.floor((now - saleMs) / MS_PER_DAY) : null
   const stale = !loading && daysSince != null && daysSince >= 7
+  const fresh = !loading && daysSince != null && daysSince <= 1
 
   return (
     <section
@@ -75,7 +77,12 @@ export function TodayStrip({
 
       <Link
         to="/orders?status=completed"
-        className="pc-card rounded-xl bg-gradient-to-b from-emerald-500/10 to-transparent p-[14px] transition-colors hover:from-emerald-500/15"
+        className={[
+          'pc-card rounded-xl bg-gradient-to-b from-emerald-500/10 to-transparent p-[14px] transition-colors hover:from-emerald-500/15',
+          fresh ? 'ring-1 ring-violet-500/40 shadow-[0_0_20px_rgba(126,20,255,0.15)]' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
       >
         <p className="pc-eyebrow">Last sale</p>
         {loading ? (
@@ -95,9 +102,11 @@ export function TodayStrip({
             <p
               data-testid="hero-last-sale"
               data-stale={stale ? 'true' : 'false'}
-              className="mt-1 text-[34px] font-bold tabular-nums tracking-[-0.02em] text-emerald-300"
+              data-fresh={fresh ? 'true' : 'false'}
+              className="mt-1 flex items-baseline gap-2 text-[34px] font-bold tabular-nums tracking-[-0.02em] text-emerald-300"
             >
               {formatCurrency(saleAmount)}
+              {fresh ? <BrandBolt size={16} tone="glow" /> : null}
             </p>
             <p
               className={[

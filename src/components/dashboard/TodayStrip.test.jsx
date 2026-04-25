@@ -76,6 +76,20 @@ describe('TodayStrip', () => {
     expect(screen.getByTestId('hero-last-sale').dataset.stale).toBe('false')
   })
 
+  it('flags the hero as fresh when the last sale is within 24h', () => {
+    renderStrip({
+      lastSale: { amount: 500, completedAtMs: Date.now() - 6 * 60 * 60 * 1000 },
+    })
+    expect(screen.getByTestId('hero-last-sale').dataset.fresh).toBe('true')
+  })
+
+  it('leaves the hero non-fresh when the last sale is older than 24h', () => {
+    renderStrip({
+      lastSale: { amount: 500, completedAtMs: Date.now() - 2 * MS_PER_DAY },
+    })
+    expect(screen.getByTestId('hero-last-sale').dataset.fresh).toBe('false')
+  })
+
   it('renders a days-ago caption for recent sales', () => {
     const { container } = renderStrip({
       lastSale: { amount: 500, completedAtMs: Date.now() - 3 * MS_PER_DAY },
