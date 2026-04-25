@@ -1130,7 +1130,7 @@ export function TiresDashboard() {
             </div>
 
             <div className="sm:hidden">
-              {!loading && sortedRows.length > 0 ? (
+              {sortedRows.length > 0 ? (
                 <ul className="space-y-2 px-1 pt-2">
                   {sortedRows.map((tire) => (
                     <li key={tire.id}>
@@ -1143,7 +1143,27 @@ export function TiresDashboard() {
                     </li>
                   ))}
                 </ul>
-              ) : null}
+              ) : loading ? (
+                <ul className="space-y-2 px-1 pt-2" aria-label="Loading tires">
+                  {[1, 2, 3].map((k) => (
+                    <li
+                      key={k}
+                      className="h-32 animate-pulse rounded-xl bg-zinc-900/60"
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <div className="px-3 py-8 text-center" role="status">
+                  <p className="text-sm font-medium text-zinc-300">
+                    Catalog is empty
+                  </p>
+                  <p className="mt-2 text-xs text-zinc-400">
+                    Import rows into the Firestore{' '}
+                    <code className="text-zinc-400">tires</code> collection
+                    (CSV import script or console), then refresh.
+                  </p>
+                </div>
+              )}
             </div>
             <div className="hidden sm:block -mx-2 rounded-b-xl border-x border-b border-zinc-800 overflow-hidden">
               <MarginTable
