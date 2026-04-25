@@ -16,8 +16,11 @@ const FIRESTORE_HOSTS = /firestore\.googleapis\.com|firebaseio\.com|googleapis\.
  * Tier 1 is a chrome-regression net (top bar, nav, popovers, sticky stacking,
  * breakpoints) — data-state coverage is a Tier 2 / emulator concern.
  *
- * The src-side bypass handler is gated on `import.meta.env.DEV`, so the
- * production bundle never honors these localStorage flags.
+ * The src-side bypass handler is gated on `import.meta.env.DEV ||
+ * import.meta.env.VITE_E2E_BYPASS`. Playwright's webServer builds with
+ * VITE_E2E_BYPASS=1 so the bypass is alive in the test bundle; production
+ * Vercel deploys never set that var, so the bundle dead-code-eliminates the
+ * bypass and never honors these localStorage flags.
  */
 export async function loginAsAdmin(page: Page): Promise<void> {
   await page.addInitScript(() => {

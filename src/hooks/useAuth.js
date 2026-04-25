@@ -8,7 +8,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (import.meta.env.DEV && isTestBypassEnabled()) {
+    if ((import.meta.env.DEV || import.meta.env.VITE_E2E_BYPASS) && isTestBypassEnabled()) {
       queueMicrotask(() => {
         setUser(makeBypassUser())
         setLoading(false)
