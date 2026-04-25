@@ -9,6 +9,7 @@ import {
   MODAL_CENTER_PANEL_BASE,
 } from '../components/ui/modalChrome.js'
 import { callRecordLogin } from '../utils/callRecordLogin'
+import { BrandBolt } from '../components/ui/BrandBolt.jsx'
 
 const resolveInviteFn = httpsCallable(functions, 'resolveInvite')
 const getInviteGreetingFn = httpsCallable(functions, 'getInviteGreeting')
@@ -245,7 +246,10 @@ export function InvitePage() {
         <div
           className={`${MODAL_CENTER_PANEL_BASE} max-w-sm border-zinc-800 bg-black p-6 text-zinc-100 sm:p-8`}
         >
-          <p className="mb-2 text-xs tracking-[0.3em] text-zinc-400">SKEDADDLE</p>
+          <div className="mb-2 flex flex-col items-center gap-4">
+            <BrandBolt size={56} tone="glow" aria-label="Skedaddle" />
+            <p className="text-xs tracking-[0.3em] text-zinc-400">SKEDADDLE</p>
+          </div>
           <p id="invite-reg-title" className="mb-8 text-sm text-zinc-400">
             Step {regStep + 1} of {regTitles.length}. {regTitles[regStep]}
           </p>
@@ -475,14 +479,17 @@ export function InvitePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.55 }}
               >
-                <Motion.h1
-                  className="mb-10 text-3xl font-extralight tracking-[0.45em] sm:text-4xl"
-                  initial={{ opacity: 0, letterSpacing: '0.2em' }}
-                  animate={{ opacity: 1, letterSpacing: '0.45em' }}
-                  transition={{ duration: 0.7, ease: 'easeOut' }}
-                >
-                  SKEDADDLE
-                </Motion.h1>
+                <div className="mb-10 flex flex-col items-center gap-4">
+                  <BrandBolt size={56} tone="glow" aria-label="Skedaddle" />
+                  <Motion.h1
+                    className="text-3xl font-extralight tracking-[0.45em] sm:text-4xl"
+                    initial={{ opacity: 0, letterSpacing: '0.2em' }}
+                    animate={{ opacity: 1, letterSpacing: '0.45em' }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                  >
+                    SKEDADDLE
+                  </Motion.h1>
+                </div>
                 <p className="mb-12 min-h-[3rem] text-sm font-light leading-relaxed text-zinc-400">
                   {greeting || '…'}
                 </p>
