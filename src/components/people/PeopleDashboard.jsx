@@ -537,11 +537,13 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const inner = (
     <>
       <main className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
-        <CrewDirectoryWidget
-          crew={crewPreview}
-          crewSignals={crewSignals?.map || {}}
-          loading={Boolean(crewSignals?.loading) || crewPreview.loading}
-        />
+        <div className="hidden sm:block">
+          <CrewDirectoryWidget
+            crew={crewPreview}
+            crewSignals={crewSignals?.map || {}}
+            loading={Boolean(crewSignals?.loading) || crewPreview.loading}
+          />
+        </div>
         {isMobilePeople && !createDrawerOpen ? (
           <button
             type="button"
