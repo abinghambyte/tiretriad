@@ -6,7 +6,9 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   // Worktrees and tooling copies under .claude are not part of the main package
-  globalIgnores(['dist', '.claude/**']),
+  // TS specs in tests/visual use Playwright's bundled TS runtime; lint them
+  // separately if/when a TS parser is added.
+  globalIgnores(['dist', '.claude/**', 'tests/visual/**/*.ts', 'playwright.config.ts']),
   {
     files: ['functions/**/*.js'],
     extends: [js.configs.recommended],
@@ -36,14 +38,6 @@ export default defineConfig([
     },
   },
   {
-    files: ['playwright.config.js', 'tests/e2e/**/*.{js,ts}'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      globals: { ...globals.node },
-      sourceType: 'module',
-    },
-  },
-  {
     files: ['scripts/**/*.js'],
     extends: [js.configs.recommended],
     languageOptions: {
@@ -54,7 +48,7 @@ export default defineConfig([
   },
   {
     files: ['**/*.{js,jsx}'],
-    ignores: ['functions/**', 'vite.config.js', 'playwright.config.js', 'tests/e2e/**'],
+    ignores: ['functions/**', 'vite.config.js'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,

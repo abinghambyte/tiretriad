@@ -1,0 +1,79 @@
+# Visual + a11y tests
+#
+# Runs the Playwright visual snapshot suite (tests/visual/routes.spec.ts) and
+# the axe-core a11y scan (tests/visual/a11y.spec.ts) on every PR and on push
+# to main. Linux-only — Playwright tracks platform-suffixed snapshots, so the
+# committed `*-linux.png` baselines are what this workflow compares against.
+#
+# Baseline regen procedure (when an intentional UI change lands):
+#   1. Preferred: run the `Visual tests — update Linux baselines` workflow
+#      (`.github/workflows/visual-tests-update.yml`) via workflow_dispatch.
+#      It runs `npm run test:visual:update` on Linux and opens a PR with the
+#      regenerated `*-linux.png` snapshots.
+#   2. Local fallback: download this run's `playwright-report` and
+#      `test-results` artifacts from the failed job, replace the win32 PNGs
+#      with the linux PNGs Playwright produced, commit them.
+#
+# See tests/visual/README.md for the full local workflow.
+
+name: Visual + a11y tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: visual-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    name: Playwright (visual + a11y)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Run visual + a11y tests
+        run: npm run test:visual
+
+      - name: Upload Playwright HTML report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload test results (diffs + traces)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 14
