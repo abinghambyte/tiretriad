@@ -1,7 +1,24 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals.js'
+
+function readFullPortalFlag() {
+  try {
+    return window.localStorage.getItem('skedaddle.mobile.fullPortal') === '1'
+  } catch {
+    return false
+  }
+}
+
+function IconHome() {
+  return (
+    <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 10.75 12 4l8.25 6.75v8.5a1 1 0 0 1-1 1h-4.5v-6h-5.5v6h-4.5a1 1 0 0 1-1-1v-8.5Z" />
+    </svg>
+  )
+}
 
 function IconTires() {
   return (
@@ -82,6 +99,7 @@ function IconAdmin() {
 }
 
 export function MobileBottomNav() {
+  const [fullMode] = useState(readFullPortalFlag)
   const { permissionFor, profile } = useUserProfile()
   const { kylesQueueCount } = useDashboardSignals()
   const role = String(profile?.role || '').toLowerCase()
@@ -94,23 +112,28 @@ export function MobileBottomNav() {
 
   const canOps = profile?.role === 'admin'
 
-  const items = [
-    canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
-    canMyQueue
-      ? { to: '/my-queue', label: 'My Queue', icon: <IconQueue />, badge: queueBadge }
-      : null,
-    canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
-    canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
-    canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
-    canOps ? { to: '/ops', label: 'Ops', icon: <IconOps /> } : null,
-    canOps ? { to: '/admin', label: 'Admin', icon: <IconAdmin /> } : null,
-  ].filter(Boolean)
+  const items = fullMode
+    ? [
+        canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
+        canMyQueue
+          ? { to: '/my-queue', label: 'My Queue', icon: <IconQueue />, badge: queueBadge }
+          : null,
+        canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
+        canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
+        canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
+        canOps ? { to: '/ops', label: 'Ops', icon: <IconOps /> } : null,
+        canOps ? { to: '/admin', label: 'Admin', icon: <IconAdmin /> } : null,
+      ].filter(Boolean)
+    : [
+        { to: '/dashboard', label: 'Home', icon: <IconHome /> },
+        canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
+      ].filter(Boolean)
 
   if (items.length === 0) return null
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-[120] flex border-t border-zinc-800 bg-zinc-950/98 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md sm:hidden"
+      className="fixed bottom-0 left-0 right-0 z-[120] flex border-t border-zinc-800 bg-zinc-950 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md sm:hidden"
       aria-label="Primary mobile"
     >
       {items.map((item) => (
@@ -118,6 +141,7 @@ export function MobileBottomNav() {
           key={item.to}
           to={item.to}
           end={item.to === '/analytics'}
+          aria-label={item.label}
           className={({ isActive }) => `${navCls} ${isActive ? activeCls : ''}`}
         >
           <span className="relative">

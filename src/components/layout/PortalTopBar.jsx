@@ -1,6 +1,7 @@
 import { signOut } from 'firebase/auth'
 import { Link } from 'react-router-dom'
 import { auth } from '../../firebase/config'
+import { Popover } from '../ui/Popover.jsx'
 import { displayFirstName } from '../../utils/displayFirstName'
 import { buildBreadcrumbs } from '../../utils/moduleTitleFromPath'
 import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
@@ -75,21 +76,74 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
             <path strokeLinecap="round" d="M20 20l-3-3" />
           </svg>
         </button>
-        {themeToggle}
         {shortcutHint}
-        <div
-          className="ml-1 max-w-[min(220px,48vw)] truncate rounded-full border border-zinc-700/90 bg-zinc-900/90 px-2.5 py-1 text-xs font-semibold text-zinc-100 sm:max-w-xs sm:px-3 sm:text-sm"
-          title={nameBadge}
-        >
-          {nameBadge}
+        {/* Desktop (≥ sm): theme toggle + role pill + sign out */}
+        <div className="hidden sm:flex sm:items-center sm:gap-2">
+          {themeToggle}
+          <div
+            className="ml-1 max-w-[min(220px,48vw)] truncate rounded-full border border-zinc-700/90 bg-zinc-900/90 px-2.5 py-1 text-xs font-semibold text-zinc-100 sm:max-w-xs sm:px-3 sm:text-sm"
+            title={nameBadge}
+          >
+            {nameBadge}
+          </div>
+          <button
+            type="button"
+            onClick={() => void onSignOut()}
+            className="shrink-0 rounded-lg border border-zinc-600 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition-colors duration-200 hover:border-zinc-500 hover:bg-zinc-800/90 hover:text-white sm:px-3 sm:text-sm"
+          >
+            Sign out
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void onSignOut()}
-          className="shrink-0 rounded-lg border border-zinc-600 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition-colors duration-200 hover:border-zinc-500 hover:bg-zinc-800/90 hover:text-white sm:px-3 sm:text-sm"
-        >
-          Sign out
-        </button>
+        {/* Mobile (< sm): avatar dropdown collapses role pill + sign-out */}
+        <div className="sm:hidden">
+          <Popover
+            label={`Account menu — ${first}, ${tagLabel}`}
+            align="end"
+            anchor={
+              <button
+                type="button"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-amber-900/40 text-sm font-bold text-amber-200 ring-1 ring-amber-700/50"
+                aria-label={`Account menu — ${first}, ${tagLabel}`}
+              >
+                {first.charAt(0).toUpperCase()}
+              </button>
+            }
+          >
+            <div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-zinc-400">
+              {nameBadge}
+            </div>
+            <div className="border-t border-zinc-800" />
+            {themeToggle ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 text-zinc-300">
+                <span className="text-sm">Theme</span>
+                {themeToggle}
+              </div>
+            ) : null}
+            {/* TODO: add Settings link here once a /settings route exists in src/App.jsx */}
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.localStorage.setItem('skedaddle.mobile.fullPortal', '1')
+                } catch {
+                  /* ignore */
+                }
+                window.location.reload()
+              }}
+              className="block w-full px-3 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-800/80"
+            >
+              Switch to full portal
+            </button>
+            <div className="border-t border-zinc-800" />
+            <button
+              type="button"
+              onClick={() => void onSignOut()}
+              className="block w-full px-3 py-2.5 text-left text-sm text-rose-300 hover:bg-zinc-800/80"
+            >
+              Sign out
+            </button>
+          </Popover>
+        </div>
       </div>
     </div>
   )

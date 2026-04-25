@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
 import { crewTagFromRole } from '../../constants/peoplePermissions'
+import { Popover } from '../ui/Popover.jsx'
 
 function formatTs(ts) {
   if (!ts || typeof ts.toDate !== 'function') return '--'
@@ -47,58 +47,36 @@ function elevationCountdownLabel(u, tick) {
 }
 
 function PeopleRowActionsMenu({ u, onHistory, onEdit }) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return undefined
-    function onDoc(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
   return (
-    <div className="relative flex justify-end sm:hidden" ref={rootRef}>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="true"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-600/90 bg-zinc-900/50 text-lg leading-none text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80"
-        aria-label="Row actions"
+    <div className="flex justify-end sm:hidden">
+      <Popover
+        label="Row actions"
+        align="end"
+        anchor={
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-600/90 bg-zinc-900/50 text-lg leading-none text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/80"
+            aria-label="Row actions"
+          >
+            ⋯
+          </button>
+        }
       >
-        ⋯
-      </button>
-      {open ? (
-        <ul className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-zinc-700 bg-zinc-900 py-1 text-left text-sm shadow-xl">
-          <li>
-            <button
-              type="button"
-              className="block w-full px-3 py-2.5 text-left text-zinc-200 hover:bg-zinc-800/80"
-              onClick={() => {
-                setOpen(false)
-                void onHistory(u)
-              }}
-            >
-              History
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              className="block w-full px-3 py-2.5 text-left text-violet-100 hover:bg-zinc-800/80"
-              onClick={() => {
-                setOpen(false)
-                onEdit(u)
-              }}
-            >
-              Edit
-            </button>
-          </li>
-        </ul>
-      ) : null}
+        <button
+          type="button"
+          className="block w-full px-3 py-2.5 text-left text-zinc-200 hover:bg-zinc-800/80"
+          onClick={() => void onHistory(u)}
+        >
+          History
+        </button>
+        <button
+          type="button"
+          className="block w-full px-3 py-2.5 text-left text-violet-100 hover:bg-zinc-800/80"
+          onClick={() => onEdit(u)}
+        >
+          Edit
+        </button>
+      </Popover>
     </div>
   )
 }

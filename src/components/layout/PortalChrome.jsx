@@ -219,7 +219,7 @@ export function PortalChrome() {
 
   return (
     <>
-      <div className="sticky top-0 z-[100] border-b border-zinc-800/90 bg-zinc-950/95 backdrop-blur-md">
+      <div className="sticky top-0 z-[100] border-b border-zinc-800/90 bg-zinc-950 backdrop-blur-md">
         <SessionExpiryBanner />
         <PortalTopBar
           pathname={loc.pathname}

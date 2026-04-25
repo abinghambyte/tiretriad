@@ -587,7 +587,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
                 <th className="hidden px-3 py-3 sm:table-cell">Streak</th>
                 <th className="hidden px-3 py-3 sm:table-cell">Last seen</th>
                 <th className="px-3 py-3 text-right sm:hidden"> </th>
-                <th className="sticky right-0 z-[3] hidden border-l border-zinc-800/90 bg-zinc-900/95 px-3 py-3 text-right pc-sticky-col-shadow sm:table-cell">
+                <th className="sticky right-0 z-[3] hidden border-l border-zinc-800/90 bg-zinc-900 px-3 py-3 text-right pc-sticky-col-shadow sm:table-cell">
                   Actions
                 </th>
               </tr>
@@ -706,7 +706,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-md">
+      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
           <div className="min-w-0">
             <Link
