@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { Popover } from './Popover.jsx'
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 function Harness({ initialOpen = false, onClose }) {
   return (
@@ -69,5 +72,23 @@ describe('Popover', () => {
     const wrapper = screen.getByTestId('content').closest('[data-popover-flip]')
     // Tailwind class assertion — accepts any of the bg-zinc-9XX flavors with no slash
     expect(wrapper?.className).toMatch(/\bbg-zinc-(800|900|950)\b/)
+  })
+
+  it('keeps an end-aligned popover at least 8px from the right viewport edge', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 320, writable: true })
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(180)
+
+    render(<Harness />)
+    const anchor = screen.getByTestId('anchor')
+    anchor.getBoundingClientRect = () => ({
+      top: 100, bottom: 140, left: 236, right: 316, width: 80, height: 40, x: 236, y: 100, toJSON: () => ({}),
+    })
+
+    act(() => {
+      fireEvent.click(anchor)
+    })
+
+    const wrapper = screen.getByTestId('content').closest('[data-popover-flip]')
+    expect(parseFloat(wrapper?.style.right || '0')).toBeGreaterThanOrEqual(8)
   })
 })

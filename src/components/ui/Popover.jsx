@@ -32,13 +32,17 @@ export function Popover({ anchor, children, initialOpen = false, onClose, label,
     if (!open || !anchorRef.current) return
     const rect = anchorRef.current.getBoundingClientRect()
     const viewportH = typeof window !== 'undefined' ? window.innerHeight : 800
+    const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024
     const flip = rect.top + rect.height / 2 > viewportH / 2 ? 'up' : 'down'
     const top = flip === 'down' ? rect.bottom + 6 : rect.top - 6
-    const right = window.innerWidth - rect.right
-    const left = rect.left
+    const popoverWidth = popoverRef.current?.offsetWidth || 180
+    const safeLeft = align === 'end'
+      ? Math.max(8, viewportW - Math.max(8, viewportW - rect.right) - popoverWidth)
+      : Math.min(Math.max(8, rect.left), Math.max(8, viewportW - popoverWidth - 8))
+    const safeRight = Math.max(8, viewportW - safeLeft - popoverWidth)
     setPos({
       ...(flip === 'down' ? { top } : { bottom: viewportH - rect.top + 6 }),
-      ...(align === 'end' ? { right } : { left }),
+      ...(align === 'end' ? { right: safeRight } : { left: safeLeft }),
       flip,
     })
   }, [open, align])

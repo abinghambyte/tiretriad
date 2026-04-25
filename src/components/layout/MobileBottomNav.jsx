@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
@@ -100,6 +100,7 @@ function IconAdmin() {
 
 export function MobileBottomNav() {
   const [fullMode] = useState(readFullPortalFlag)
+  const [selectionActive, setSelectionActive] = useState(false)
   const { permissionFor, profile } = useUserProfile()
   const { kylesQueueCount } = useDashboardSignals()
   const role = String(profile?.role || '').toLowerCase()
@@ -111,6 +112,14 @@ export function MobileBottomNav() {
   const queueBadge = Number.isFinite(Number(kylesQueueCount)) ? Number(kylesQueueCount) : 0
 
   const canOps = profile?.role === 'admin'
+
+  useEffect(() => {
+    function onSelectionChange(e) {
+      setSelectionActive(Boolean(e.detail?.active))
+    }
+    window.addEventListener('skedaddle:tires-selection', onSelectionChange)
+    return () => window.removeEventListener('skedaddle:tires-selection', onSelectionChange)
+  }, [])
 
   const items = fullMode
     ? [
@@ -129,7 +138,7 @@ export function MobileBottomNav() {
         canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
       ].filter(Boolean)
 
-  if (items.length === 0) return null
+  if (selectionActive || items.length === 0) return null
 
   return (
     <nav
