@@ -1,18 +1,23 @@
 import { test as base, type Page } from '@playwright/test'
 
 /**
- * For Tier 1 we use a hard-coded fixture admin login.
+ * For Tier 1 we use a localStorage-seeded admin login. Setting the seed via
+ * `addInitScript` runs the snippet before any page navigation, so the very
+ * first request renders as the bypassed admin — no extra round-trip and no
+ * brief flash of the unauthenticated app.
+ *
+ * The corresponding `src/`-side handler that consumes these flags has not
+ * been wired yet. Whoever wires it MUST gate the read on a build-time flag
+ * (`import.meta.env.DEV` or a dedicated `VITE_E2E_BYPASS`) so the production
+ * bundle never honors them.
+ *
  * Replace with Firebase Auth emulator integration in Tier 2.
  */
 export async function loginAsAdmin(page: Page): Promise<void> {
-  await page.goto('/')
-  // TODO: replace with actual auth flow once we know which path works in CI.
-  // For now, bypass via a localStorage seed if the app supports a test mode.
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem('skedaddle.test.bypassAuth', '1')
     window.localStorage.setItem('skedaddle.test.role', 'admin')
   })
-  await page.reload()
 }
 
 export const test = base.extend<{ adminPage: Page }>({

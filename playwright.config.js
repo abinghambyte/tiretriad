@@ -1,12 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * Playwright config for visual regression. v1 scope targets public,
- * unauthenticated routes only; the dashboard baseline is tracked in
- * issue #80 pending a Firestore-emulator or auth-bypass strategy.
+ * @deprecated Pending deletion in the testing-foundation Task 4.
+ * Superseded by `playwright.config.ts` which targets `tests/visual/`.
+ * Do not edit — Playwright auto-picks the .ts config; this file only
+ * still runs when invoked explicitly with `--config playwright.config.js`.
  *
- * CI integration is deferred until the baseline has proven stable
- * locally. Run tests with `npm run test:e2e`.
+ * Original v1 scope: visual regression on public unauthenticated routes
+ * only; dashboard baseline tracked in issue #80 pending auth-bypass.
  */
 export default defineConfig({
   testDir: 'tests/e2e',
