@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase/config'
 import { useUserProfile } from '../hooks/useUserProfile'
+import { BrandBolt } from '../components/ui/BrandBolt.jsx'
 
 function handshakeSentence(firstName, crewTag, role) {
   const fn = (firstName || 'There').trim() || 'There'
@@ -90,7 +91,10 @@ export function HandshakePage() {
         transition={{ duration: 0.45 }}
         className="max-w-md space-y-6"
       >
-        <p className="text-xs tracking-[0.35em] text-zinc-400">SKEDADDLE</p>
+        <div className="flex flex-col items-center gap-4">
+          <BrandBolt size={56} tone="glow" aria-label="Skedaddle" />
+          <p className="text-xs tracking-[0.35em] text-zinc-400">SKEDADDLE</p>
+        </div>
         <p className="text-lg font-light leading-relaxed text-zinc-200 md:text-xl">{line}</p>
         <p className="text-xs text-zinc-600">Tap anywhere to continue</p>
       </Motion.div>

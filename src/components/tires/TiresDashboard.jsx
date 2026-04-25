@@ -28,6 +28,7 @@ import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
+import { BrandBolt } from '../ui/BrandBolt.jsx'
 import { Popover } from '../ui/Popover.jsx'
 
 const createProspectiveOrder = httpsCallable(functions, 'createProspectiveOrder')
@@ -1101,7 +1102,11 @@ export function TiresDashboard() {
                       onClick={() => void logSelectedProspective()}
                       className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
                     >
-                      {loggingProspective && <Spinner className="h-4 w-4 text-fuchsia-100" />}
+                      {loggingProspective ? (
+                        <Spinner className="h-4 w-4 text-fuchsia-100" />
+                      ) : (
+                        <BrandBolt size={14} tone="solid" />
+                      )}
                       {loggingProspective ? 'Logging…' : 'Log prospective order'}
                     </button>
                   </div>
