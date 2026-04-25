@@ -6,6 +6,27 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Batch 10 — God-component refactors (April 25, 2026).** Six sequential patches that decompose the four largest files in the codebase using a shared "Option D" pattern: pure selectors + page hook + thin shell + presentation subcomponents. Read `BATCH-10-PATTERN.md` before any of these.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 401 `refactor-people-dashboard` | `refactor-people-dashboard` | PeopleDashboard.jsx (737 lines) — pattern reference implementation |
+| 402 `refactor-crm-page` | `refactor-crm-page` | CrmPage.jsx (1260 lines) — depends on 401 |
+| 403 `refactor-crm-account-detail` | `refactor-crm-account-detail` | CrmAccountDetailPanel.jsx (918 lines) — parallel with 402 |
+| 404 `refactor-orders-list` | `refactor-orders-list` | OrdersList.jsx (964 lines) — parallel with 402, 403 |
+| 405 `refactor-tires-dashboard` | `refactor-tires-dashboard` | TiresDashboard.jsx (1262 lines) — depends on 401-404 lessons |
+| 406 `refactor-margin-table` | `refactor-margin-table` | MarginTable.jsx (1275 lines, desktop path only) — depends on 405 |
+
+Coordination notes:
+- **Dispatch 401 first**, in isolation. It validates the pattern. Once 401's PR is reviewed and merged, the established hook/selector/subcomponent shape becomes the reference for the rest.
+- **402, 403, 404 can ship in parallel** after 401 merges — they touch independent files (CRM page, CRM account detail panel, OrdersList).
+- **405 ships after 401-404 are merged** — Tires is the most state-heavy and most-trafficked surface.
+- **406 ships after 405** — MarginTable is the highest-risk file, with two hard constraints: do NOT touch the mobile cards path (battle-tested), and preserve the react-window grid-layout invariant (column widths must match between header and rows or the table visually breaks).
+- Every patch must satisfy the **G1 guardrail**: no single hook over 150 lines or returning more than 12 named values; split into composable sub-hooks if it would.
+- Every patch must add **behavioral test coverage** (renderHook for state transitions, unit tests for selectors). The visual safety net only catches chrome diffs, not behavioral regressions.
+
+## Previous rollout
+
 **Batch 8 — Desktop scope cleanup (April 25, 2026).** Eight parallelizable patches sourced from `docs/superpowers/audits/2026-04-25-desktop-scope-audit.md`. Each ships an audit-driven win: dead code removal, scope decisions made by the admin, small chrome polish, and one larger codemod. All frontend-only.
 
 | Patch | Branch | What it ships |
