@@ -4,13 +4,18 @@ on:
     branches: [main]
   push:
     branches: [main]
+# Force pinned actions onto Node 24 so we don't get the v4 (Node 20)
+# deprecation warning on every run. Removable once we explicitly bump
+# every action to a v5+ release.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 jobs:
   size:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: npm }
+        with: { node-version: '22', cache: npm }
       - run: npm ci
       - run: npm run build
       - run: npm run size

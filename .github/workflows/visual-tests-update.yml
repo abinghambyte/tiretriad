@@ -20,6 +20,11 @@ permissions:
   contents: write
   pull-requests: write
 
+# Force pinned actions onto Node 24 to silence the v4 (Node 20)
+# deprecation warning. Removable once every action is bumped to v5+.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   regen:
     name: Regenerate Linux snapshots

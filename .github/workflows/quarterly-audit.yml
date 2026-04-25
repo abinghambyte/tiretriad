@@ -9,6 +9,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# Force pinned actions onto Node 24 so we don't trip the v4 (Node 20)
+# deprecation warning on quarterly runs. Removable once every action is
+# explicitly bumped to a v5+ release.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   audit:
     runs-on: ubuntu-latest
