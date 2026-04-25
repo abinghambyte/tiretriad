@@ -15,6 +15,7 @@ import { listingStatus } from '../../utils/listingStatus'
 import { ListingAdvisorPanel } from './ListingAdvisorPanel.jsx'
 import { flags } from '../../utils/featureFlags.js'
 import { useAdvisorSignals } from '../../hooks/useAdvisorSignals.js'
+import { BrandBolt } from '../ui/BrandBolt.jsx'
 
 const PLATFORMS = ['Facebook Marketplace', 'OfferUp', 'Craigslist']
 
@@ -446,8 +447,9 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
               type="button"
               disabled={!canGenerate || advisorRunning}
               onClick={() => void runAllAdvisors()}
-              className="mt-3 w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-6"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-6"
             >
+              <BrandBolt size={14} tone="solid" />
               {advisorRunning ? 'Analyzing…' : 'Run AI advisor for all SKUs'}
             </button>
           </div>
