@@ -6,19 +6,34 @@ a PR from - then stop.
 
 ## Active rollout
 
-**Batch 7 — Mobile selection UX redesign + per-tire photo library (April 25, 2026).** Three patches that finish the mobile-first product cycle. The audit has surfaced that selection actions take over the viewport and there's no way to capture tire photos for re-listing.
+**Batch 8 — Desktop scope cleanup (April 25, 2026).** Eight parallelizable patches sourced from `docs/superpowers/audits/2026-04-25-desktop-scope-audit.md`. Each ships an audit-driven win: dead code removal, scope decisions made by the admin, small chrome polish, and one larger codemod. All frontend-only.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 301 `commit-advisor-mode` | `commit-advisor-mode` | Pick NextToPostSurface as the canonical listing surface; delete HiddenGemsSurface + the `listingAdvisor` flag |
+| 302 `growth-lab-admin-nav` | `growth-lab-admin-nav` | Add a Growth Lab discoverability link under the Admin panel |
+| 303 `remove-tanner-block` | `remove-tanner-block` | Remove the `isTannerPortalBlocked` carve-out (no longer relevant) |
+| 304 `multi-user-mode-flag` | `multi-user-mode-flag` | Gate AvailabilityBlocker, FieldDispatch tab, CrewDirectoryWidget behind a `multiUserMode` flag (default off until Kyle/DJ onboard) |
+| 305 `inline-single-file-modules` | `inline-single-file-modules` | Verify SinchChatMount is mounted; flatten 3 single-file "module" dirs into callsites |
+| 306 `button-styles-codemod` | `button-styles-codemod` | Codemod inline button class strings to BTN_PRIMARY / BTN_SECONDARY constants |
+| 307 `credit-tracker-placement` | `credit-tracker-placement` | Give CreditTrackerCard its own Ops tab instead of rendering above every tab |
+| 308 `small-chrome-cleanups` | `small-chrome-cleanups` | Drop stale `/settings` TODO + add inverse "Back to focused mobile" toggle in avatar dropdown |
+
+Coordination notes:
+- All 8 patches have non-overlapping file sets and can ship in parallel.
+- 304 modifies `featureFlags.js`; 305 doesn't touch it. No shared-file conflicts expected.
+- 306 (button codemod) may produce visual snapshot diffs depending on how strict the tolerance is — regenerate baselines via `Visual tests - update Linux baselines` workflow_dispatch after merge if so.
+- All 8 are P1 / P2 / P3 — none gate any in-flight feature work.
+
+## Previous rollout
+
+**Batch 7 — Mobile selection UX redesign + per-tire photo library (April 25, 2026).** Three patches that finished the mobile-first product cycle.
 
 | Patch | Branch | What it ships |
 | --- | --- | --- |
 | 201 `mobile-selection-bar` | `mobile-selection-bar` | Replace mobile bulk-action stack with sticky bottom bar (Quote + List only); fix Popover off-screen clipping |
 | 202 `multi-tire-quote` | `multi-tire-quote` | HaggleSheet handles N tires with per-tire qty steppers + bundle margin |
 | 203 `tire-photo-library` | `tire-photo-library` | Per-tire photo upload, gallery, and count badge on catalog cards |
-
-Coordination notes:
-- 202 depends on 201 (the mobile selection bar wires the Quote button that 202 extends to multi-tire). Land 201 first.
-- 203 is independent of 201/202 — different files, can ship in parallel.
-- 203 modifies `firestore.rules` (the only patch in this batch that does). Verify rules deploy after merge (check `npm run deploy:firebase` or whatever the existing workflow is).
-- All three should produce visual snapshot diffs that need a baseline regen via the `Visual tests - update Linux baselines` workflow_dispatch after merge.
 
 ## Previous rollout
 
