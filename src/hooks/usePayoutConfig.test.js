@@ -39,8 +39,15 @@ function renderHook(callback) {
       })
     },
     async flushMicrotasks() {
+      // React 18 schedules commits via MessageChannel; awaiting a single
+      // Promise.resolve() does not drain that queue, so under suite-wide
+      // CPU contention the assertion can race the commit and observe
+      // loading=true. Two awaits + a setTimeout(0) covers both microtasks
+      // (state effects) and the next macrotask (MessageChannel commit).
       await act(async () => {
         await Promise.resolve()
+        await Promise.resolve()
+        await new Promise((r) => setTimeout(r, 0))
       })
     },
     unmount() {

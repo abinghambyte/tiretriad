@@ -37,8 +37,12 @@ function renderHook(callback) {
       })
     },
     async flushMicrotasks() {
+      // Match usePayoutConfig.test.js: React 18's MessageChannel commits
+      // require both microtask drains and a macrotask tick under load.
       await act(async () => {
         await Promise.resolve()
+        await Promise.resolve()
+        await new Promise((r) => setTimeout(r, 0))
       })
     },
     unmount() {
