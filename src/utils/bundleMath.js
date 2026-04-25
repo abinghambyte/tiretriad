@@ -21,7 +21,12 @@ export function bundleMath(tires, qtyByMspn = {}, floorPct = 0, testOffer = 0) {
   for (let index = 0; index < rows.length; index += 1) {
     const tire = rows[index]
     const qty = quantityFor(tire, index, qtyByMspn)
-    const buy = positiveMoney(tire?.buy) + positiveMoney(tire?.cts)
+    // Match the single-tire HaggleSheet math: buyAllIn = buy + cts + fet.
+    // FET is a real per-unit federal excise tax on LT-rated tires (~$7-15)
+    // and must be in cost. Excluding it inflates margin and silently
+    // mis-reports profit on truck/SUV bundles.
+    const buy =
+      positiveMoney(tire?.buy) + positiveMoney(tire?.cts) + positiveMoney(tire?.fet)
     const sell = positiveMoney(tire?.retail)
     revenue += sell * qty
     cost += buy * qty

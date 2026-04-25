@@ -8,8 +8,8 @@ import { bundleMath } from '../../utils/bundleMath'
  * against the margin floor in real time. Renders via a portal at z-150 so it
  * floats above modals.
  *
- * Math:
- *   buyAllIn    = buy + cts
+ * Math (matches the single-tire flow):
+ *   buyAllIn    = buy + cts + fet
  *   profit      = testOffer - bundleCost
  *   testMargin  = profit / testOffer * 100
  *   counter     = bundleCost / (1 - floorPct/100)   // price at floor margin
