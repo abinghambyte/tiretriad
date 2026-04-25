@@ -6,6 +6,22 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Batch 7 — Mobile selection UX redesign + per-tire photo library (April 25, 2026).** Three patches that finish the mobile-first product cycle. The audit has surfaced that selection actions take over the viewport and there's no way to capture tire photos for re-listing.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 201 `mobile-selection-bar` | `mobile-selection-bar` | Replace mobile bulk-action stack with sticky bottom bar (Quote + List only); fix Popover off-screen clipping |
+| 202 `multi-tire-quote` | `multi-tire-quote` | HaggleSheet handles N tires with per-tire qty steppers + bundle margin |
+| 203 `tire-photo-library` | `tire-photo-library` | Per-tire photo upload, gallery, and count badge on catalog cards |
+
+Coordination notes:
+- 202 depends on 201 (the mobile selection bar wires the Quote button that 202 extends to multi-tire). Land 201 first.
+- 203 is independent of 201/202 — different files, can ship in parallel.
+- 203 modifies `firestore.rules` (the only patch in this batch that does). Verify rules deploy after merge (check `npm run deploy:firebase` or whatever the existing workflow is).
+- All three should produce visual snapshot diffs that need a baseline regen via the `Visual tests - update Linux baselines` workflow_dispatch after merge.
+
+## Previous rollout
+
 **Batch 6 — testing-process foundation (April 25, 2026).** Five
 parallelizable, frontend-only patches that put guardrails in place
 before the bigger mobile-chrome and testing-foundation PRs land. All
