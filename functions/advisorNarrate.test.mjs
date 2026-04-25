@@ -3,6 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const require = createRequire(import.meta.url)
 
+// Require advisorNarrate ONCE at top-level. Previously each test called
+// vi.resetModules() + deleted require.cache to re-pull the module, which
+// re-imported firebase-admin five times per file. Under suite-wide CPU
+// contention that re-import could exceed the 5s default timeout and
+// surface as an intermittent failure. The module is a pure factory with
+// no mutable module-level state; a single require is correct.
+const advisorNarrateMod = require('./advisorNarrate.js')
+
 const geminiMock = vi.fn()
 const now = new Date('2026-04-23T12:00:00Z').getTime()
 
@@ -32,11 +40,11 @@ function makeFirestoreStub(initial = {}) {
 }
 
 async function load(firestore) {
-  vi.resetModules()
-  // Re-require after resetModules to get a fresh module instance.
-  delete require.cache[require.resolve('./advisorNarrate.js')]
-  const mod = require('./advisorNarrate.js')
-  const make = await mod._testonly.handle({ firestore, now, callGemini: geminiMock })
+  const make = await advisorNarrateMod._testonly.handle({
+    firestore,
+    now,
+    callGemini: geminiMock,
+  })
   return make
 }
 
