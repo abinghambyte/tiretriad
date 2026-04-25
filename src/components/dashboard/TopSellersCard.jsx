@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { paletteForRank } from './topSellersPalette'
+import { BrandBolt } from '../ui/BrandBolt.jsx'
 
 const FLIP_INTERVAL_MS = 3000
 
@@ -34,7 +35,10 @@ export function TopSellersCard({ sellers = [] }) {
     return (
       <div className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
         <p className="pc-eyebrow">Top Sellers</p>
-        <p className="mt-2 text-sm text-zinc-400">No sales yet.</p>
+        <div className="mt-2 flex items-center gap-2">
+          <BrandBolt size={28} tone="muted" />
+          <p className="text-sm text-zinc-400">No sales yet.</p>
+        </div>
       </div>
     )
   }

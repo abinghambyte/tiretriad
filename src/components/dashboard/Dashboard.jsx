@@ -12,6 +12,7 @@ import { flags } from '../../utils/featureFlags.js'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { statusPillTone } from '../ui/statusPillTone.js'
 import { EmptyState } from '../shared/EmptyState.jsx'
+import { BrandBolt } from '../ui/BrandBolt.jsx'
 
 const ORDER_ACTIVITY_STATUS = {
   pending: 'Pending',
@@ -223,7 +224,8 @@ export function Dashboard() {
                 ))}
               </ul>
             ) : recentActivity.orders.length === 0 ? (
-              <div className="mt-4">
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <BrandBolt size={28} tone="muted" />
                 <EmptyState variant="compact" title="No orders yet." />
               </div>
             ) : (
