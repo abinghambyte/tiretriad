@@ -20,7 +20,7 @@ export function UserProfileProvider({ children }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (import.meta.env.DEV && isTestBypassEnabled()) {
+    if ((import.meta.env.DEV || import.meta.env.VITE_E2E_BYPASS) && isTestBypassEnabled()) {
       queueMicrotask(() => {
         setProfile(makeBypassProfile(getTestBypassRole()))
         setLoading(false)

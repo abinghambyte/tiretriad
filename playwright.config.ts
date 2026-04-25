@@ -18,9 +18,16 @@ export default defineConfig({
     { name: 'desktop-1280', use: { viewport: { width: 1280, height: 800 } } },
   ],
   webServer: {
-    command: 'npm run dev -- --port 4173 --host',
+    // Build with the E2E bypass flag enabled, then serve via `vite preview`.
+    // We deliberately avoid `vite dev` here: dev mode lazy-transforms modules
+    // on first import, which can cause routes that weren't navigated during a
+    // test run to serve stale chrome from a previous build's cache, producing
+    // false-pass visual diffs. A real production build eliminates that risk.
+    // VITE_E2E_BYPASS=1 keeps the test-only auth bypass alive in the bundle;
+    // production deploys never set this var.
+    command: 'cross-env VITE_E2E_BYPASS=1 npm run build && npm run preview -- --port 4173',
     url: 'http://localhost:4173',
-    timeout: 60_000,
+    timeout: 120_000,
     reuseExistingServer: !process.env.CI,
   },
   expect: {
