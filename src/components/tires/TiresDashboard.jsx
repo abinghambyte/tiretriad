@@ -200,8 +200,7 @@ export function TiresDashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
-  const { config: payoutConfig } = usePayoutConfig()
-  const floorPct = Number(payoutConfig?.marginFloorPct) || 20
+  const { marginFloorPct: floorPct } = usePayoutConfig()
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
   const highlightParam = searchParams.get('highlight') || ''
