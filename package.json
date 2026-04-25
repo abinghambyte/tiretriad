@@ -9,6 +9,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "postinstall": "cd functions && npm ci || true",
     "test:watch": "vitest",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
