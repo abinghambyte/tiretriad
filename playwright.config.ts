@@ -18,7 +18,7 @@ export default defineConfig({
     { name: 'desktop-1280', use: { viewport: { width: 1280, height: 800 } } },
   ],
   webServer: {
-    command: 'npm run preview -- --port 4173',
+    command: 'npm run dev -- --port 4173 --host',
     url: 'http://localhost:4173',
     timeout: 60_000,
     reuseExistingServer: !process.env.CI,
