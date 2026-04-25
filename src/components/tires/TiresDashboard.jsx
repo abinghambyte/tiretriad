@@ -864,7 +864,7 @@ export function TiresDashboard() {
               </div>
             ) : null}
 
-            <div className="sticky top-[92px] z-10 -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900/80 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur supports-[backdrop-filter]:bg-zinc-900/70 sm:top-[108px]">
+            <div className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
                   <span className="sr-only">Search by MSPN or description</span>

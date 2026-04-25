@@ -110,7 +110,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-[120] flex border-t border-zinc-800 bg-zinc-950/98 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md sm:hidden"
+      className="fixed bottom-0 left-0 right-0 z-[120] flex border-t border-zinc-800 bg-zinc-950 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md sm:hidden"
       aria-label="Primary mobile"
     >
       {items.map((item) => (

@@ -1,3 +1,17 @@
+/* Stacking order — keep this in sync with components.
+   0       page content
+   10      sticky table column heads
+   17      sticky table top row
+   20      ModuleSubheader
+   50      mobile bottom nav (sm:hidden, no z effect on desktop)
+   100     PortalChrome top bar
+   120     popovers (must escape parent stacking via portal)
+   130     drawers (CRM panels)
+   140     full-screen modals
+   150     haggle sheet (above modals so it can open from one)
+   200     CommandPalette
+*/
+
 @import 'tailwindcss';
 
 @theme {

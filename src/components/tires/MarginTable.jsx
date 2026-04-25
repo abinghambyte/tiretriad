@@ -1043,7 +1043,7 @@ export function MarginTable({
               filtered count and current sort state; updates whenever filters or
               sort change. */}
           {!loading && rows.length > 0 ? (
-            <div className="sticky top-0 z-[17] flex items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900/95 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur">
+            <div className="sticky top-0 z-[17] flex items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur">
               <span aria-live="polite">{summaryText}</span>
             </div>
           ) : null}
@@ -1240,8 +1240,8 @@ export function MarginTable({
             ) : null}
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
-            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
-              <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
+            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
+              <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
                 {/* Empty spacer to preserve alignment with per-row pick column. */}
                 <div className="w-11 shrink-0 px-0.5 py-0.5" aria-hidden="true" />
                 <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">

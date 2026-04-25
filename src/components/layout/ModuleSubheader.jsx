@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom'
  */
 export function ModuleSubheader({ title, subtitle, tabs = [], maxWidthClass = 'max-w-6xl' }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-zinc-950 backdrop-blur-md">
       <div className={`mx-auto px-4 py-4 sm:px-6 ${maxWidthClass}`}>
         <h1 className="text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl">
           {title}
