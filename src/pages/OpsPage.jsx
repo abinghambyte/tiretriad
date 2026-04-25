@@ -1,5 +1,6 @@
 import {
   addDoc,
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -218,18 +219,42 @@ export function OpsPage() {
     }
   }
 
-  const removeReorderEntry = useCallback(
-    async (id) => {
+  // Resolve a reorder-queue entry with an explicit outcome ('fulfilled' or
+  // 'dismissed'). Removes the entry from the active queue, appends a record
+  // to the doc's history array so we have an audit trail, and surfaces a
+  // distinct toast so the operator gets clear feedback. Capped at the most
+  // recent 100 history entries to keep the doc size bounded.
+  const resolveReorderEntry = useCallback(
+    async (id, outcome) => {
+      const target = reorderEntries.find((x) => x.id === id)
+      if (!target) return
       const next = reorderEntries.filter((x) => x.id !== id)
+      const historyRecord = {
+        id: target.id,
+        mspn: target.mspn || null,
+        qty: Number(target.qty) || 0,
+        requestedBy: target.requestedBy || null,
+        requestedAt: target.requestedAt || null,
+        outcome,
+        resolvedAt: new Date().toISOString(),
+        resolvedBy: profile?.id || profile?.uid || null,
+      }
       setFulfillingId(id)
       try {
         await setDoc(
           doc(db, 'meta', 'reorderQueue'),
           {
             entries: next,
+            history: arrayUnion(historyRecord),
             updatedAt: serverTimestamp(),
           },
           { merge: true },
+        )
+        toast(
+          outcome === 'fulfilled'
+            ? `Marked ${target.mspn || 'entry'} fulfilled`
+            : `Dismissed ${target.mspn || 'entry'}`,
+          outcome === 'fulfilled' ? 'success' : 'info',
         )
       } catch (err) {
         toast(err?.message || 'Could not update reorder queue.', 'error')
@@ -237,7 +262,7 @@ export function OpsPage() {
         setFulfillingId(null)
       }
     },
-    [reorderEntries, toast],
+    [reorderEntries, profile, toast],
   )
 
   async function runTaxExport() {
@@ -491,7 +516,7 @@ export function OpsPage() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => void removeReorderEntry(row.id)}
+                            onClick={() => void resolveReorderEntry(row.id, 'fulfilled')}
                             disabled={fulfillingId === row.id}
                             className="inline-flex items-center gap-1.5 rounded border border-emerald-800/80 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-950/50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
@@ -500,7 +525,7 @@ export function OpsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => void removeReorderEntry(row.id)}
+                            onClick={() => void resolveReorderEntry(row.id, 'dismissed')}
                             disabled={fulfillingId === row.id}
                             className="inline-flex items-center gap-1.5 rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800/80 disabled:cursor-not-allowed disabled:opacity-50"
                           >
