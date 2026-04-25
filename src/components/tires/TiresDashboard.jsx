@@ -23,7 +23,6 @@ import { HaggleSheet } from './HaggleSheet'
 import { ListingGenerator } from './ListingGenerator'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
-import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
@@ -193,7 +192,6 @@ export function TiresDashboard() {
   const [listingOpen, setListingOpen] = useState(false)
   const [saleOpen, setSaleOpen] = useState(false)
   const [saleInitial, setSaleInitial] = useState(null)
-  const [quoteOpen, setQuoteOpen] = useState(false)
   const [bulkCtsOpen, setBulkCtsOpen] = useState(false)
   const [notifyingTeam, setNotifyingTeam] = useState(false)
   const [loggingProspective, setLoggingProspective] = useState(false)
@@ -206,7 +204,7 @@ export function TiresDashboard() {
   const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
-  const [haggleTire, setHaggleTire] = useState(null)
+  const [haggleTires, setHaggleTires] = useState(null)
   const [justJumpedToId, setJustJumpedToId] = useState(null)
   const marginTableRef = useRef(null)
   const jumpHighlightTimerRef = useRef(null)
@@ -226,12 +224,6 @@ export function TiresDashboard() {
   useEffect(() => {
     writeHaggleDiscount(haggleDiscount)
   }, [haggleDiscount])
-
-  useEffect(() => {
-    // The Quote modal is single-tire only. Auto-close if the selection
-    // changes to zero or many so we don't render against a stale tire.
-    if (quoteOpen && selectedIds.size !== 1) setQuoteOpen(false)
-  }, [quoteOpen, selectedIds])
 
   useEffect(() => {
     writeFiltersOpen(filtersOpen)
@@ -599,6 +591,11 @@ export function TiresDashboard() {
     [tires, selectedIds],
   )
 
+  function openSelectedQuote() {
+    if (selectedTires.length === 0) return
+    setHaggleTires(selectedTires)
+  }
+
   const allVisibleSelected =
     sortedRows.length > 0 && sortedRows.every((r) => selectedIds.has(r.id))
 
@@ -692,14 +689,14 @@ export function TiresDashboard() {
   const runnersRef = useRef({
     logSelectedSale,
     clearSelection,
-    setQuoteOpen,
+    openSelectedQuote,
     setListingOpen,
     setBulkCtsOpen,
   })
   runnersRef.current = {
     logSelectedSale,
     clearSelection,
-    setQuoteOpen,
+    openSelectedQuote,
     setListingOpen,
     setBulkCtsOpen,
   }
@@ -712,11 +709,11 @@ export function TiresDashboard() {
     }
     setTireSelection({
       count,
-      canQuote: !loading && selectedTires.length === 1,
+      canQuote: !loading && selectedTires.length > 0,
       canLogSale: !loading,
       canGenerateListings: !loading && selectedTires.length > 0,
       canBulkOverhead: !loading,
-      runQuote: () => runnersRef.current.setQuoteOpen(true),
+      runQuote: () => runnersRef.current.openSelectedQuote(),
       runLogSale: () => runnersRef.current.logSelectedSale(),
       runGenerateListings: () => runnersRef.current.setListingOpen(true),
       runBulkOverhead: () => runnersRef.current.setBulkCtsOpen(true),
@@ -1074,12 +1071,12 @@ export function TiresDashboard() {
                       </button>
                       <button
                         type="button"
-                        disabled={loading || selectedTires.length !== 1}
-                        onClick={() => setQuoteOpen(true)}
+                        disabled={loading || selectedTires.length === 0}
+                        onClick={openSelectedQuote}
                         title={
-                          selectedTires.length === 1
+                          selectedTires.length > 0
                             ? 'Open the bundle quote calculator'
-                            : 'Select exactly one tire to open a bundle quote'
+                            : 'Select at least one tire to open a bundle quote'
                         }
                         className="min-h-[44px] rounded-lg border border-sky-900/60 bg-sky-950/35 px-3 py-2 text-sm font-medium text-sky-100 hover:bg-sky-950/55 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
                       >
@@ -1169,8 +1166,8 @@ export function TiresDashboard() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setQuoteOpen(true)}
-                  disabled={loading || selectedTires.length !== 1}
+                  onClick={openSelectedQuote}
+                  disabled={loading || selectedTires.length === 0}
                   className="min-h-[40px] rounded-lg bg-amber-500 px-4 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Quote
@@ -1194,7 +1191,7 @@ export function TiresDashboard() {
                       <TireCardMobile
                         tire={tire}
                         selected={selectedIds.has(tire.id)}
-                        onTestOffer={(t) => setHaggleTire(t)}
+                        onTestOffer={(t) => setHaggleTires([t])}
                         onToggleSelect={(t) => toggle(t.id)}
                       />
                     </li>
@@ -1272,37 +1269,29 @@ export function TiresDashboard() {
           }}
         />
       ) : null}
-      {quoteOpen && selectedTires.length === 1 ? (
-        <QuoteCalculator
-          key={selectedTires[0].id}
-          tire={selectedTires[0]}
-          onClose={() => setQuoteOpen(false)}
-          onLogSale={({ mspn, quantity, pricePerTire }) => {
-            setQuoteOpen(false)
-            setSaleInitial({ mspn, quantity, pricePerTire })
-            setSaleOpen(true)
-          }}
-        />
-      ) : null}
       <BulkCtsModal
         open={bulkCtsOpen && selectedIds.size > 0}
         onClose={() => setBulkCtsOpen(false)}
         tires={selectedTires}
       />
-      {haggleTire ? (
+      {haggleTires?.length ? (
         <HaggleSheet
-          tire={haggleTire}
+          key={haggleTires.map((t) => t.id || t.mspn).join('-')}
+          tires={haggleTires}
           floorPct={floorPct}
-          onClose={() => setHaggleTire(null)}
+          onClose={() => setHaggleTires(null)}
           onAccept={(offer) => {
-            const target = haggleTire
-            setHaggleTire(null)
-            setSaleInitial({
-              mspn: target?.mspn,
-              quantity: 1,
-              pricePerTire: offer,
-            })
-            setSaleOpen(true)
+            const targets = haggleTires
+            setHaggleTires(null)
+            if (targets.length === 1) {
+              const target = targets[0]
+              setSaleInitial({
+                mspn: target?.mspn,
+                quantity: 1,
+                pricePerTire: offer,
+              })
+              setSaleOpen(true)
+            }
           }}
         />
       ) : null}

@@ -14,6 +14,15 @@ const tire = {
   fet: 0,
 }
 
+const secondTire = {
+  description: 'MICHELIN DEFENDER LTX LT275/65R18',
+  mspn: '22222',
+  buy: 300,
+  retail: 450,
+  cts: 25,
+  fet: 0,
+}
+
 afterEach(() => cleanup())
 
 function renderSheet(overrides = {}) {
@@ -98,5 +107,45 @@ describe('HaggleSheet', () => {
     renderSheet()
     const acceptBtn = screen.getByRole('button', { name: /accept this offer/i })
     expect(acceptBtn.disabled).toBe(true)
+  })
+
+  it('renders a qty stepper for each tire in a bundle', () => {
+    renderSheet({ tires: [tire, secondTire] })
+
+    expect(screen.getByText(/BFGOODRICH KO3/)).toBeTruthy()
+    expect(screen.getByText(/MICHELIN DEFENDER/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /increase quantity for 09100/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /increase quantity for 22222/i })).toBeTruthy()
+  })
+
+  it('updates bundle totals when a tire quantity changes', () => {
+    renderSheet({ tires: [tire, secondTire] })
+
+    expect(screen.getByTestId('bundle-quantity').textContent).toMatch(/2 tires/)
+    expect(screen.getByTestId('bundle-revenue').textContent).toMatch(/\$1,049\.00/)
+    fireEvent.click(screen.getByRole('button', { name: /increase quantity for 22222/i }))
+
+    expect(screen.getByTestId('bundle-quantity').textContent).toMatch(/3 tires/)
+    expect(screen.getByTestId('bundle-revenue').textContent).toMatch(/\$1,499\.00/)
+    expect(screen.getByTestId('bundle-cost').textContent).toMatch(/\$1,062\.50/)
+  })
+
+  it('shows bundle totals for multi-tire quotes', () => {
+    renderSheet({ tires: [tire, secondTire] })
+
+    expect(screen.getByText(/^Bundle$/)).toBeTruthy()
+    expect(screen.getByTestId('bundle-profit').textContent).toMatch(/\$311\.50/)
+    expect(screen.getByTestId('bundle-margin').textContent).toMatch(/29\.7%/)
+  })
+
+  it('calls onAccept with the bundle test offer for multi-tire quotes', () => {
+    const { props } = renderSheet({ tires: [tire, secondTire] })
+    const input = screen.getByLabelText(/test offer/i)
+    fireEvent.change(input, { target: { value: '1200' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /accept this offer/i }))
+
+    expect(props.onAccept).toHaveBeenCalledWith(1200)
+    expect(props.onClose).toHaveBeenCalled()
   })
 })
