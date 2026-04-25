@@ -1,11 +1,22 @@
 import { formatCurrency } from '../../utils/format'
 
-// eslint-disable-next-line no-unused-vars -- onToggleSelect reserved for Task 8 wiring
 export function TireCardMobile({ tire, selected = false, onTestOffer, onToggleSelect }) {
   const ring = selected ? 'ring-2 ring-amber-500/70' : 'ring-1 ring-zinc-800'
+  const checkboxClass = selected
+    ? 'absolute right-3 top-3 inline-flex h-9 w-9 min-w-[36px] items-center justify-center rounded-md border border-amber-500/70 bg-amber-500/20 text-amber-300 hover:border-amber-400 hover:bg-amber-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
+    : 'absolute right-3 top-3 inline-flex h-9 w-9 min-w-[36px] items-center justify-center rounded-md border border-zinc-700 bg-zinc-950 text-amber-300 hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
   return (
-    <div className={`rounded-xl bg-zinc-900 p-3 ${ring}`}>
-      <div className="flex items-start justify-between gap-2">
+    <div className={`relative rounded-xl bg-zinc-900 p-3 ${ring}`}>
+      <button
+        type="button"
+        aria-label={selected ? `Deselect ${tire.description}` : `Select ${tire.description}`}
+        aria-pressed={selected}
+        onClick={() => onToggleSelect?.(tire)}
+        className={checkboxClass}
+      >
+        {selected ? '✓' : ''}
+      </button>
+      <div className="flex items-start justify-between gap-2 pr-12">
         <p className="line-clamp-2 text-sm font-medium text-zinc-100">
           {tire.description}
         </p>

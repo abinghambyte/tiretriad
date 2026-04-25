@@ -34,4 +34,17 @@ describe('TireCardMobile', () => {
     const { container } = render(<TireCardMobile tire={tire} selected />)
     expect(container.firstChild?.className).toMatch(/ring-amber-/)
   })
+
+  it('calls onToggleSelect when the checkbox is tapped', () => {
+    const onToggleSelect = vi.fn()
+    render(<TireCardMobile tire={tire} onToggleSelect={onToggleSelect} />)
+    fireEvent.click(screen.getByRole('button', { name: /select bfgoodrich/i }))
+    expect(onToggleSelect).toHaveBeenCalledWith(tire)
+  })
+
+  it('shows a checkmark when selected', () => {
+    render(<TireCardMobile tire={tire} selected />)
+    const btn = screen.getByRole('button', { name: /deselect bfgoodrich/i })
+    expect(btn.textContent).toContain('✓')
+  })
 })
