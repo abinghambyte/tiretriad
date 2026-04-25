@@ -1,9 +1,5 @@
 {
-  "rules": [
-    "aria-required-parent"
-  ],
-  "rule_notes": {
-    "aria-required-parent": "[2026-04-25] MarginTable header row uses role=row + role=columnheader on a div-grid layout (not a real <table>). Wrapping in role=grid breaks aria-required-children because the empty-state / loading slots use role=status. Proper fix is either to convert MarginTable to a semantic <table> or to drop the role=* attrs and rely on aria-sort buttons alone. Slated for a follow-up beyond PR-1 since the desktop MarginTable still ships."
-  },
-  "note": "Rule IDs added here are intentionally suppressed pending follow-up. Each entry must include why and a date in rule_notes. Removed in PR after PR-1 merge: color-contrast (sticky surfaces are now opaque) and scrollable-region-focusable (mobile catalog uses cards now, not horizontal-scroll table)."
+  "rules": [],
+  "rule_notes": {},
+  "note": "Rule IDs added here are intentionally suppressed pending follow-up. Each entry must include why and a date in rule_notes. All rules previously suppressed pending PR-1 are now genuinely fixed: color-contrast (sticky surfaces are now opaque) and scrollable-region-focusable (mobile catalog uses cards now, not horizontal-scroll table) were resolved in the chrome work; aria-required-parent is now resolved by dropping the unsupported role=row/columnheader scaffold from MarginTable (the div-grid is virtualized via react-window, so a real <table> conversion is infeasible). Sort state is communicated via the sort buttons' visible arrow glyph and `title` attribute (e.g. 'Sort Brand descending'); aria-sort cannot be retained without the columnheader role host."
 }
