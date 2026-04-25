@@ -26,6 +26,7 @@ import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
+import { TirePhotoGallery } from './TirePhotoGallery.jsx'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { BrandBolt } from '../ui/BrandBolt.jsx'
@@ -46,6 +47,7 @@ const TIRE_COLUMNS = [
   { key: 'mspn', label: 'MSPN', defaultVisible: true },
   { key: 'lr', label: 'LR', defaultVisible: true },
   { key: 'listed', label: 'Listed', defaultVisible: true },
+  { key: 'photos', label: 'Photos', defaultVisible: false },
   { key: 'buy', label: 'Buy Price', defaultVisible: true },
   { key: 'retail', label: 'Retail', defaultVisible: true },
   { key: 'fet', label: 'FET', defaultVisible: false },
@@ -61,6 +63,7 @@ const SORT_LABELS = {
   mspn: 'MSPN',
   lr: 'LR',
   listed: 'Listed',
+  photos: 'Photos',
   buy: 'Buy Price',
   retail: 'Retail',
   fet: 'FET',
@@ -166,14 +169,38 @@ function listedScore(row) {
   return active * 10 + stale
 }
 
+function tireKey(tire) {
+  return tire?.mspn || tire?.id || ''
+}
+
+function tirePhotoKey(photo) {
+  return photo?.storagePath || photo?.url || ''
+}
+
+function mergeTirePhotos(serverPhotos, pendingAdds = [], pendingDeletes = []) {
+  const deleted = new Set(pendingDeletes)
+  const base = (Array.isArray(serverPhotos) ? serverPhotos : []).filter(
+    (photo) => !deleted.has(tirePhotoKey(photo)),
+  )
+  const existing = new Set(base.map(tirePhotoKey))
+  const additions = pendingAdds.filter((photo) => {
+    const key = tirePhotoKey(photo)
+    return key && !existing.has(key) && !deleted.has(key)
+  })
+  return [...base, ...additions]
+}
+
+function samePendingPhotoState(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
 export function TiresDashboard() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
-  const { config: payoutConfig } = usePayoutConfig()
-  const floorPct = Number(payoutConfig?.marginFloorPct) || 20
+  const { marginFloorPct: floorPct } = usePayoutConfig()
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
   const highlightParam = searchParams.get('highlight') || ''
@@ -207,6 +234,9 @@ export function TiresDashboard() {
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
   const [haggleTire, setHaggleTire] = useState(null)
+  const [photoGalleryTire, setPhotoGalleryTire] = useState(null)
+  const [pendingPhotoAdds, setPendingPhotoAdds] = useState({})
+  const [pendingPhotoDeletes, setPendingPhotoDeletes] = useState({})
   const [justJumpedToId, setJustJumpedToId] = useState(null)
   const marginTableRef = useRef(null)
   const jumpHighlightTimerRef = useRef(null)
@@ -310,20 +340,69 @@ export function TiresDashboard() {
     setBulkCtsOpen(false)
   }
 
+  function onMobilePhotoUploaded(tire, photo) {
+    const key = tireKey(tire)
+    setPendingPhotoAdds((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] || []), photo],
+    }))
+  }
+
+  function onGalleryPhotoDeleted(tire, photo) {
+    const key = tireKey(tire)
+    const photoKey = tirePhotoKey(photo)
+    setPendingPhotoAdds((prev) => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((p) => tirePhotoKey(p) !== photoKey),
+    }))
+    setPendingPhotoDeletes((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] || []), photoKey],
+    }))
+    setPhotoGalleryTire((current) =>
+      current && tireKey(current) === key
+        ? {
+            ...current,
+            photos: (current.photos || []).filter((p) => tirePhotoKey(p) !== photoKey),
+          }
+        : current,
+    )
+  }
+
   const brands = useMemo(
     () => uniqueSorted(tires.map((t) => t.brand)),
     [tires],
   )
   const lrs = useMemo(() => uniqueSorted(tires.map((t) => t.lr)), [tires])
   const enriched = useMemo(() => {
-    return tires.map((t) => ({
-      ...t,
-      margin: computeMargin(t),
-      listingMargin: computeListingMargin(t),
-      derivedUseTags: deriveTireTags(t),
-      opportunity: computeOpportunityScore(t, { haggleDiscount }),
-    }))
-  }, [tires, haggleDiscount])
+    return tires.map((t) => {
+      const key = tireKey(t)
+      return {
+        ...t,
+        photos: mergeTirePhotos(t.photos, pendingPhotoAdds[key], pendingPhotoDeletes[key]),
+        margin: computeMargin(t),
+        listingMargin: computeListingMargin(t),
+        derivedUseTags: deriveTireTags(t),
+        opportunity: computeOpportunityScore(t, { haggleDiscount }),
+      }
+    })
+  }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes])
+
+  useEffect(() => {
+    if (Object.keys(pendingPhotoAdds).length === 0 && Object.keys(pendingPhotoDeletes).length === 0) return
+    const nextAdds = {}
+    const nextDeletes = {}
+    for (const tire of tires) {
+      const key = tireKey(tire)
+      const serverKeys = new Set((Array.isArray(tire.photos) ? tire.photos : []).map(tirePhotoKey))
+      const adds = (pendingPhotoAdds[key] || []).filter((photo) => !serverKeys.has(tirePhotoKey(photo)))
+      const deletes = (pendingPhotoDeletes[key] || []).filter((photoKey) => serverKeys.has(photoKey))
+      if (adds.length > 0) nextAdds[key] = adds
+      if (deletes.length > 0) nextDeletes[key] = deletes
+    }
+    if (!samePendingPhotoState(nextAdds, pendingPhotoAdds)) setPendingPhotoAdds(nextAdds)
+    if (!samePendingPhotoState(nextDeletes, pendingPhotoDeletes)) setPendingPhotoDeletes(nextDeletes)
+  }, [tires, pendingPhotoAdds, pendingPhotoDeletes])
 
   const useTags = useMemo(() => {
     const tags = []
@@ -418,6 +497,9 @@ export function TiresDashboard() {
       }
       if (sortKey === 'listed') {
         return numCmp(listedScore(a), listedScore(b))
+      }
+      if (sortKey === 'photos') {
+        return numCmp(Array.isArray(a.photos) ? a.photos.length : 0, Array.isArray(b.photos) ? b.photos.length : 0)
       }
       if (sortKey === 'buy') {
         return numCmp(tireCatalogBuyNumber(a), tireCatalogBuyNumber(b))
@@ -728,6 +810,17 @@ export function TiresDashboard() {
   useEffect(() => {
     return () => setTireSelection(null)
   }, [])
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('skedaddle:tires-selection', {
+      detail: { active: selectedIds.size > 0 },
+    }))
+    return () => {
+      window.dispatchEvent(new CustomEvent('skedaddle:tires-selection', {
+        detail: { active: false },
+      }))
+    }
+  }, [selectedIds.size])
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -1046,96 +1139,134 @@ export function TiresDashboard() {
                 </div>
               </div>
               {selectedIds.size > 0 ? (
-                <div
-                  role="toolbar"
-                  aria-label="Selected tire actions"
-                  className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap" role="group" aria-label="Selling actions">
-                    <button
-                      type="button"
-                      disabled={selectedTires.length === 0 || loading}
-                      onClick={() => setListingOpen(true)}
-                      className="min-h-[44px] rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
-                    >
-                      Generate listings
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading || selectedTires.length !== 1}
-                      onClick={() => setQuoteOpen(true)}
-                      title={
-                        selectedTires.length === 1
-                          ? 'Open the bundle quote calculator'
-                          : 'Select exactly one tire to open a bundle quote'
-                      }
-                      className="min-h-[44px] rounded-lg border border-sky-900/60 bg-sky-950/35 px-3 py-2 text-sm font-medium text-sky-100 hover:bg-sky-950/55 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
-                    >
-                      Quote
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => {
-                        if (selectedIds.size > 0) logSelectedSale()
-                        else {
-                          setSaleInitial(null)
-                          setSaleOpen(true)
-                        }
-                      }}
-                      className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
-                    >
-                      Log sale
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading || notifyingTeam}
-                      onClick={() => void notifySelectedQuick()}
-                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
-                    >
-                      {notifyingTeam && <Spinner className="h-4 w-4 text-cyan-100" />}
-                      {notifyingTeam ? 'Notifying…' : 'Notify team'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading || loggingProspective}
-                      onClick={() => void logSelectedProspective()}
-                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
-                    >
-                      {loggingProspective ? (
-                        <Spinner className="h-4 w-4 text-fuchsia-100" />
-                      ) : (
-                        <BrandBolt size={14} tone="solid" />
-                      )}
-                      {loggingProspective ? 'Logging…' : 'Log prospective order'}
-                    </button>
-                  </div>
-                  <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />
+                <div className="hidden sm:block">
                   <div
-                    className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end"
-                    role="group"
-                    aria-label="Admin actions"
+                    role="toolbar"
+                    aria-label="Selected tire actions"
+                    className="flex flex-col gap-3 border-t border-zinc-800/80 pt-3 lg:flex-row lg:items-center lg:justify-between"
                   >
-                    <button
-                      type="button"
-                      onClick={clearSelection}
-                      className="min-h-[44px] rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 sm:min-h-0"
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap" role="group" aria-label="Selling actions">
+                      <button
+                        type="button"
+                        disabled={selectedTires.length === 0 || loading}
+                        onClick={() => setListingOpen(true)}
+                        className="min-h-[44px] rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                      >
+                        Generate listings
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading || selectedTires.length !== 1}
+                        onClick={() => setQuoteOpen(true)}
+                        title={
+                          selectedTires.length === 1
+                            ? 'Open the bundle quote calculator'
+                            : 'Select exactly one tire to open a bundle quote'
+                        }
+                        className="min-h-[44px] rounded-lg border border-sky-900/60 bg-sky-950/35 px-3 py-2 text-sm font-medium text-sky-100 hover:bg-sky-950/55 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
+                      >
+                        Quote
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => {
+                          if (selectedIds.size > 0) logSelectedSale()
+                          else {
+                            setSaleInitial(null)
+                            setSaleOpen(true)
+                          }
+                        }}
+                        className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
+                      >
+                        Log sale
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading || notifyingTeam}
+                        onClick={() => void notifySelectedQuick()}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-cyan-900/50 bg-cyan-950/35 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/55 disabled:opacity-50 sm:min-h-0"
+                      >
+                        {notifyingTeam && <Spinner className="h-4 w-4 text-cyan-100" />}
+                        {notifyingTeam ? 'Notifying…' : 'Notify team'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading || loggingProspective}
+                        onClick={() => void logSelectedProspective()}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-fuchsia-900/50 bg-fuchsia-950/30 px-3 py-2 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/50 disabled:opacity-50 sm:min-h-0"
+                      >
+                        {loggingProspective ? (
+                          <Spinner className="h-4 w-4 text-fuchsia-100" />
+                        ) : (
+                          <BrandBolt size={14} tone="solid" />
+                        )}
+                        {loggingProspective ? 'Logging…' : 'Log prospective order'}
+                      </button>
+                    </div>
+                    <div className="hidden w-px self-stretch bg-zinc-800 lg:block" aria-hidden />
+                    <div
+                      className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end"
+                      role="group"
+                      aria-label="Admin actions"
                     >
-                      Clear selection
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => setBulkCtsOpen(true)}
-                      className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
-                    >
-                      Bulk overhead edit
-                    </button>
+                      <button
+                        type="button"
+                        onClick={clearSelection}
+                        className="min-h-[44px] rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 sm:min-h-0"
+                      >
+                        Clear selection
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setBulkCtsOpen(true)}
+                        className="min-h-[44px] rounded-lg border border-amber-800/60 bg-amber-950/35 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-950/55 disabled:opacity-50 sm:min-h-0"
+                      >
+                        Bulk overhead edit
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
               </div>
             </div>
+
+            {selectedIds.size > 0 ? (
+              <div
+                role="toolbar"
+                aria-label="Tire selection actions"
+                className="fixed inset-x-0 bottom-0 z-[125] flex items-center gap-2 border-t border-zinc-800 bg-zinc-950 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden"
+              >
+                <button
+                  type="button"
+                  aria-label="Clear selection"
+                  onClick={clearSelection}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/60"
+                >
+                  ×
+                </button>
+                <span className="flex-1 text-sm font-medium text-zinc-200">
+                  {selectedIds.size} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuoteOpen(true)}
+                  disabled={loading || selectedTires.length !== 1}
+                  className="min-h-[40px] rounded-lg bg-amber-500 px-4 text-sm font-semibold text-zinc-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Quote
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListingOpen(true)}
+                  disabled={selectedTires.length === 0 || loading}
+                  className="min-h-[40px] rounded-lg border border-zinc-600 bg-zinc-900 px-4 text-sm font-medium text-zinc-100 hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  List
+                </button>
+              </div>
+            ) : null}
 
             <div className="sm:hidden">
               {sortedRows.length > 0 ? (
@@ -1147,6 +1278,8 @@ export function TiresDashboard() {
                         selected={selectedIds.has(tire.id)}
                         onTestOffer={(t) => setHaggleTire(t)}
                         onToggleSelect={(t) => toggle(t.id)}
+                        onPhotoUploaded={onMobilePhotoUploaded}
+                        onOpenPhotos={setPhotoGalleryTire}
                       />
                     </li>
                   ))}
@@ -1255,6 +1388,14 @@ export function TiresDashboard() {
             })
             setSaleOpen(true)
           }}
+        />
+      ) : null}
+      {photoGalleryTire ? (
+        <TirePhotoGallery
+          tire={photoGalleryTire}
+          open
+          onClose={() => setPhotoGalleryTire(null)}
+          onDeleted={(photo) => onGalleryPhotoDeleted(photoGalleryTire, photo)}
         />
       ) : null}
     </div>

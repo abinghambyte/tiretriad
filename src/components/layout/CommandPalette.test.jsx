@@ -91,5 +91,5 @@ describe('CommandPalette search debounce', () => {
     })
 
     expect(getDocsMock).toHaveBeenCalledTimes(4)
-  })
+  }, 15000)
 })

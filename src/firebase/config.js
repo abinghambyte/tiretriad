@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getFunctions } from 'firebase/functions'
+import { getStorage } from 'firebase/storage'
 
 // Use `||` (not `??`) so empty env vars like VITE_FIREBASE_API_KEY= fall back to defaults.
 const firebaseConfig = {
@@ -30,6 +31,7 @@ export const firebaseProjectId = firebaseConfig.projectId
 export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+export const storage = getStorage(app)
 
 const region = import.meta.env.VITE_FUNCTIONS_REGION || 'us-central1'
 export const functions = getFunctions(app, region)

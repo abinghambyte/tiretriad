@@ -6,6 +6,58 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Batch 10 — God-component refactors (April 25, 2026).** Six sequential patches that decompose the four largest files in the codebase using a shared "Option D" pattern: pure selectors + page hook + thin shell + presentation subcomponents. Read `BATCH-10-PATTERN.md` before any of these.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 401 `refactor-people-dashboard` | `refactor-people-dashboard` | PeopleDashboard.jsx (737 lines) — pattern reference implementation |
+| 402 `refactor-crm-page` | `refactor-crm-page` | CrmPage.jsx (1260 lines) — depends on 401 |
+| 403 `refactor-crm-account-detail` | `refactor-crm-account-detail` | CrmAccountDetailPanel.jsx (918 lines) — parallel with 402 |
+| 404 `refactor-orders-list` | `refactor-orders-list` | OrdersList.jsx (964 lines) — parallel with 402, 403 |
+| 405 `refactor-tires-dashboard` | `refactor-tires-dashboard` | TiresDashboard.jsx (1262 lines) — depends on 401-404 lessons |
+| 406 `refactor-margin-table` | `refactor-margin-table` | MarginTable.jsx (1275 lines, desktop path only) — depends on 405 |
+
+Coordination notes:
+- **Dispatch 401 first**, in isolation. It validates the pattern. Once 401's PR is reviewed and merged, the established hook/selector/subcomponent shape becomes the reference for the rest.
+- **402, 403, 404 can ship in parallel** after 401 merges — they touch independent files (CRM page, CRM account detail panel, OrdersList).
+- **405 ships after 401-404 are merged** — Tires is the most state-heavy and most-trafficked surface.
+- **406 ships after 405** — MarginTable is the highest-risk file, with two hard constraints: do NOT touch the mobile cards path (battle-tested), and preserve the react-window grid-layout invariant (column widths must match between header and rows or the table visually breaks).
+- Every patch must satisfy the **G1 guardrail**: no single hook over 150 lines or returning more than 12 named values; split into composable sub-hooks if it would.
+- Every patch must add **behavioral test coverage** (renderHook for state transitions, unit tests for selectors). The visual safety net only catches chrome diffs, not behavioral regressions.
+
+## Previous rollout
+
+**Batch 8 — Desktop scope cleanup (April 25, 2026).** Eight parallelizable patches sourced from `docs/superpowers/audits/2026-04-25-desktop-scope-audit.md`. Each ships an audit-driven win: dead code removal, scope decisions made by the admin, small chrome polish, and one larger codemod. All frontend-only.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 301 `commit-advisor-mode` | `commit-advisor-mode` | Pick NextToPostSurface as the canonical listing surface; delete HiddenGemsSurface + the `listingAdvisor` flag |
+| 302 `growth-lab-admin-nav` | `growth-lab-admin-nav` | Add a Growth Lab discoverability link under the Admin panel |
+| 303 `remove-tanner-block` | `remove-tanner-block` | Remove the `isTannerPortalBlocked` carve-out (no longer relevant) |
+| 304 `multi-user-mode-flag` | `multi-user-mode-flag` | Gate AvailabilityBlocker, FieldDispatch tab, CrewDirectoryWidget behind a `multiUserMode` flag (default off until Kyle/DJ onboard) |
+| 305 `inline-single-file-modules` | `inline-single-file-modules` | Verify SinchChatMount is mounted; flatten 3 single-file "module" dirs into callsites |
+| 306 `button-styles-codemod` | `button-styles-codemod` | Codemod inline button class strings to BTN_PRIMARY / BTN_SECONDARY constants |
+| 307 `credit-tracker-placement` | `credit-tracker-placement` | Give CreditTrackerCard its own Ops tab instead of rendering above every tab |
+| 308 `small-chrome-cleanups` | `small-chrome-cleanups` | Drop stale `/settings` TODO + add inverse "Back to focused mobile" toggle in avatar dropdown |
+
+Coordination notes:
+- All 8 patches have non-overlapping file sets and can ship in parallel.
+- 304 modifies `featureFlags.js`; 305 doesn't touch it. No shared-file conflicts expected.
+- 306 (button codemod) may produce visual snapshot diffs depending on how strict the tolerance is — regenerate baselines via `Visual tests - update Linux baselines` workflow_dispatch after merge if so.
+- All 8 are P1 / P2 / P3 — none gate any in-flight feature work.
+
+## Previous rollout
+
+**Batch 7 — Mobile selection UX redesign + per-tire photo library (April 25, 2026).** Three patches that finished the mobile-first product cycle.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 201 `mobile-selection-bar` | `mobile-selection-bar` | Replace mobile bulk-action stack with sticky bottom bar (Quote + List only); fix Popover off-screen clipping |
+| 202 `multi-tire-quote` | `multi-tire-quote` | HaggleSheet handles N tires with per-tire qty steppers + bundle margin |
+| 203 `tire-photo-library` | `tire-photo-library` | Per-tire photo upload, gallery, and count badge on catalog cards |
+
+## Previous rollout
+
 **Batch 6 — testing-process foundation (April 25, 2026).** Five
 parallelizable, frontend-only patches that put guardrails in place
 before the bigger mobile-chrome and testing-foundation PRs land. All

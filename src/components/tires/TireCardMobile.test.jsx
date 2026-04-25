@@ -3,12 +3,26 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+
+vi.mock('./TirePhotoButton.jsx', () => ({
+  TirePhotoButton: ({ tire, count, onUploaded }) => (
+    <button
+      type="button"
+      aria-label={`Add photo for ${tire.description}`}
+      onClick={() => onUploaded?.({ url: 'https://example.test/tire.jpg' })}
+    >
+      📷 {count} +
+    </button>
+  ),
+}))
+
 import { TireCardMobile } from './TireCardMobile.jsx'
 
 const tire = {
   id: 't1', mspn: '09100', description: 'BFGOODRICH LT265/70R17 KO3',
   brand: 'BFGoodrich', buy: 412.50, retail: 599, marginPct: 23.5, fet: 0,
   listedCount: 2,
+  photos: [{ url: 'https://example.test/one.jpg', storagePath: 'tires/09100/one.jpg' }],
 }
 
 afterEach(() => cleanup())
@@ -46,5 +60,13 @@ describe('TireCardMobile', () => {
     render(<TireCardMobile tire={tire} selected />)
     const btn = screen.getByRole('button', { name: /deselect bfgoodrich/i })
     expect(btn.textContent).toContain('✓')
+  })
+
+  it('shows photo count and opens the gallery affordance when photos exist', () => {
+    const onOpenPhotos = vi.fn()
+    render(<TireCardMobile tire={tire} onOpenPhotos={onOpenPhotos} />)
+    expect(screen.getByRole('button', { name: /add photo for bfgoodrich/i }).textContent).toContain('1')
+    fireEvent.click(screen.getByRole('button', { name: /view/i }))
+    expect(onOpenPhotos).toHaveBeenCalledWith(tire)
   })
 })

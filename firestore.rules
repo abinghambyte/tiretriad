@@ -37,6 +37,23 @@ service cloud.firestore {
       return crmPerm() in ['edit', 'manage'];
     }
 
+    function tirePerm() {
+      return signedIn() && exists(userDocPath())
+        && userData().keys().hasAll(['permissions'])
+        && userData().permissions.keys().hasAll(['tires'])
+        ? userData().permissions.tires
+        : 'none';
+    }
+
+    function tireEdit() {
+      return tirePerm() in ['edit', 'manage'];
+    }
+
+    function validTirePhotos() {
+      return request.resource.data.photos is list
+        && request.resource.data.photos.size() <= 80;
+    }
+
     function userRole() {
       return signedIn() && exists(userDocPath()) && userData().keys().hasAll(['role'])
         ? userData().role
@@ -109,18 +126,25 @@ service cloud.firestore {
       // The `researchQueue`, `marginConfirmed`, and `marginFloor` fields are
       // server-owned (nightly sweep + enqueueToResearch/resolveQueueItem
       // callables via Admin SDK). Clients can read them but never write.
-      allow update: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'cost',
-          'mountCost',
-          'deliveryCost',
-          'otherCost',
-          'cts',
-          'grade',
-          'platformListings',
-        ])
-        && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['researchQueue', 'marginConfirmed', 'marginFloor']);
+      allow update: if (
+          request.auth != null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'cost',
+            'mountCost',
+            'deliveryCost',
+            'otherCost',
+            'cts',
+            'grade',
+            'platformListings',
+          ])
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['researchQueue', 'marginConfirmed', 'marginFloor'])
+        )
+        || (
+          tireEdit()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photos'])
+          && validTirePhotos()
+        );
     }
 
     match /portal/{docId} {

@@ -82,6 +82,19 @@ function ListedPlatformsCell({ row }) {
   )
 }
 
+function PhotoCountCell({ row }) {
+  const count = Array.isArray(row?.photos) ? row.photos.length : 0
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300"
+      title={`${count} tire ${count === 1 ? 'photo' : 'photos'}`}
+    >
+      <span aria-hidden>📷</span>
+      <span>{count}</span>
+    </span>
+  )
+}
+
 /** @type {Record<string, string>} */
 const COLUMN_TEMPLATE = {
   // select is always first and fixed-width
@@ -95,6 +108,7 @@ const COLUMN_TEMPLATE = {
   mspn: '5rem',
   lr: '3rem',
   listed: '6.25rem',
+  photos: '4.25rem',
   buy: '6rem',
   retail: '5rem',
   fet: '4.5rem',
@@ -124,6 +138,7 @@ const COLUMN_MIN_PX = {
   mspn: 80,
   lr: 48,
   listed: 100,
+  photos: 68,
   buy: 96,
   retail: 80,
   fet: 72,
@@ -140,6 +155,7 @@ const COLUMN_ORDER = [
   'mspn',
   'lr',
   'listed',
+  'photos',
   'buy',
   'retail',
   'fet',
@@ -487,6 +503,15 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
   )
 }
 
+/** Pure-looking header cell that isn't sortable. */
+function StaticHeader({ label, className = '', title: titleAttr }) {
+  return (
+    <span className={className} title={titleAttr || undefined}>
+      {label}
+    </span>
+  )
+}
+
 /**
  * Virtual list row: main grid row + optional CTS editor block (same list item).
  * Props come from react-window `rowProps` plus `index` and `style`.
@@ -695,6 +720,11 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             <div className="flex min-w-[6.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
               <ListedPlatformsCell row={row} />
             </div>
+            {columnVisibility?.photos !== false ? (
+              <div className="flex min-w-[4.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                <PhotoCountCell row={row} />
+              </div>
+            ) : null}
             {columnVisibility?.fet !== false ? (
               <div
                 className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 font-mono text-xs font-semibold tabular-nums text-zinc-300"
@@ -776,6 +806,11 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         {vis.listed !== false ? (
           <div className="flex min-w-0 items-center justify-center px-1">
             <ListedPlatformsCell row={row} />
+          </div>
+        ) : null}
+        {vis.photos !== false ? (
+          <div className="flex min-w-0 items-center justify-center px-1">
+            <PhotoCountCell row={row} />
           </div>
         ) : null}
         {vis.buy !== false ? (
@@ -1110,6 +1145,22 @@ export function MarginTable({
                 />
               </div>
             ) : null}
+            {vis.photos !== false ? (
+              <div
+                className="whitespace-nowrap px-1 text-center"
+                role="columnheader"
+                aria-sort={ariaSortFor('photos')}
+              >
+                <SortButton
+                  label="Photos"
+                  columnKey="photos"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onClick={onHeaderSortClick}
+                  disabled={loading}
+                />
+              </div>
+            ) : null}
             {vis.buy !== false ? (
               <div
                 className="min-w-0 whitespace-nowrap px-2 text-right"
@@ -1230,6 +1281,85 @@ export function MarginTable({
               </div>
             ) : null}
           </div>
+          {isMobileTable && !loading && rows.length > 0 ? (
+            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
+              <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
+                {/* Empty spacer to preserve alignment with per-row pick column. */}
+                <div className="w-11 shrink-0 px-0.5 py-0.5" aria-hidden="true" />
+                <div className="flex w-[180px] shrink-0 items-center border-r border-zinc-800/60 px-2">
+                  <StaticHeader label="Desc" />
+                </div>
+                <div className="flex w-[70px] shrink-0 items-center border-r border-zinc-800/60 px-1">
+                  <StaticHeader label="MSPN" />
+                </div>
+                <div className="flex w-20 shrink-0 items-center border-r border-zinc-800/60 px-1">
+                  <SortButton
+                    label="Buy"
+                    columnKey="buy"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onHeaderSortClick}
+                    disabled={loading}
+                    touchWide
+                  />
+                </div>
+                <div className="flex w-20 shrink-0 items-center px-1">
+                  <SortButton
+                    label="Margin"
+                    columnKey="margin"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onHeaderSortClick}
+                    disabled={loading}
+                    touchWide
+                  />
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center divide-x divide-zinc-800/60 text-center">
+                <div className="w-[76px] shrink-0 px-1">
+                  <SortButton
+                    label="Brand"
+                    columnKey="brand"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onHeaderSortClick}
+                    disabled={loading}
+                    touchWide
+                  />
+                </div>
+                <div className="flex w-12 min-w-[2.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
+                  <StaticHeader label="LR" />
+                </div>
+                <div className="flex min-w-[5.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5 text-[10px]">
+                  <StaticHeader label="Listed" />
+                </div>
+                {vis.photos !== false ? (
+                  <div className="flex min-w-[4.25rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                    <StaticHeader label="Photos" />
+                  </div>
+                ) : null}
+                {vis.fet !== false ? (
+                  <div className="flex min-w-[4.5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                    <StaticHeader label="FET" title={FET_HEADER_TOOLTIP} />
+                  </div>
+                ) : null}
+                <div className="flex min-w-[5rem] shrink-0 items-center justify-center whitespace-nowrap px-0.5">
+                  <SortButton
+                    label="Retail"
+                    columnKey="retail"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onClick={onHeaderSortClick}
+                    disabled={loading}
+                    touchWide
+                  />
+                </div>
+                <div className="flex min-w-[5.75rem] shrink-0 items-center justify-center whitespace-nowrap px-1">
+                  <StaticHeader label="OH" />
+                </div>
+              </div>
+            </div>
+          ) : null}
           {loading ? (
             isMobileTable ? (
               <div className="space-y-2 py-4 md:hidden">
