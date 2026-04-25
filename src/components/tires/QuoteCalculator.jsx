@@ -5,6 +5,7 @@ import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
+import { usePayoutConfig } from '../../hooks/usePayoutConfig'
 
 /**
  * Lightweight inline "Quote" calculator: pick a tire, set qty + sale price,
@@ -29,6 +30,8 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
   const overheadPerTire = effectiveCts(tire)
   const retailPerTire = tireCatalogRetailNumber(tire)
   const fetPerTire = Number(tire?.fet) || 0
+  const { config: payoutConfig } = usePayoutConfig()
+  const floorPct = Number(payoutConfig?.marginFloorPct) || 20
 
   const defaultPrice = retailPerTire > 0 ? retailPerTire : buyPerTire
 
@@ -255,11 +258,19 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                 (revenue − cost) / revenue
               </p>
             </div>
-            <span className={`${marginClasses} sk-figures`} title={marginLabel}>
-              {quote.marginPct == null
-                ? 'no revenue yet'
-                : `${formatPercent(quote.marginPct, 1)} · ${marginLabel}`}
-            </span>
+            <div className="flex flex-col items-end gap-0.5">
+              <span
+                className={`${marginClasses} sk-figures`}
+                title={`${marginLabel} (target ≥ ${floorPct}%)`}
+              >
+                {quote.marginPct == null
+                  ? 'no revenue yet'
+                  : `${formatPercent(quote.marginPct, 1)} · ${marginLabel}`}
+              </span>
+              <span className="sk-figures text-[10px] text-zinc-500">
+                target ≥ {floorPct}%
+              </span>
+            </div>
           </div>
         </div>
 
