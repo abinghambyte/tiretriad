@@ -28,6 +28,12 @@ concurrency:
   group: visual-tests-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Force pinned actions onto Node 24 so we don't trip the v4 (Node 20)
+# deprecation warning every run. Removable once we explicitly bump every
+# action to a v5+ release.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   visual:
     name: Playwright (visual + a11y)
