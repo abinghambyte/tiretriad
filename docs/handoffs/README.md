@@ -6,6 +6,25 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Batch 11 — Production observations (April 25, 2026 evening).** Sourced from a live walk-through of skedaddleinc.com after today's PR batch landed. Two patches; sibling specs cover the bigger investigations that need brainstorming first.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 501 `advisor-fallback-resilience` | `advisor-fallback-resilience` | Listing Advisor — surface fallback state clearly + actual retry button |
+| 502 `analytics-wall-presets` | `analytics-wall-presets` | Analytics Wall — date-range presets + default to last 30 days |
+
+Sibling specs (need brainstorm before implementation):
+- `docs/superpowers/specs/2026-04-25-tire-retail-backfill-design.md` — every tire has estimated retail; all margin math is unreliable until real prices land
+- `docs/superpowers/specs/2026-04-25-wipe-safety-and-customer-recovery-design.md` — wipe-test-orders.mjs deleted real customer history; need recovery + future-proofing
+
+Sibling audit:
+- `docs/superpowers/audits/2026-04-25-production-observations.md` — full triage of 8 findings with severity buckets and dispatch destinations
+
+Coordination notes:
+- 501 and 502 are independent; can ship in any order, in parallel
+- Both are frontend-only and small (~50 lines each)
+- The two specs require admin brainstorm before plans/briefs; do NOT auto-dispatch them
+
 **Batch 10 — God-component refactors (April 25, 2026).** Six sequential patches that decompose the four largest files in the codebase using a shared "Option D" pattern: pure selectors + page hook + thin shell + presentation subcomponents. Read `BATCH-10-PATTERN.md` before any of these.
 
 | Patch | Branch | What it ships |
