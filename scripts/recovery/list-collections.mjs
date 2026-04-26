@@ -1,18 +1,32 @@
 /**
  * scripts/recovery/list-collections.mjs
  *
- * Diagnostic: lists every top-level collection in BOTH the recovery and live
- * databases with doc counts, so we can find the ~58 docs the 6-collection
- * diff didn't account for.
+ * Diagnostic: lists every top-level collection in one or more Firestore
+ * databases with doc counts. Used to verify what each daily backup contains.
  *
- * Run:  node scripts/recovery/list-collections.mjs
+ * Default behavior (no args): lists recovery-2026-04-25 + (default).
+ *
+ * To compare an arbitrary DB against live:
+ *   node scripts/recovery/list-collections.mjs --db=recovery-2026-04-24
+ *
+ * To list only one DB:
+ *   node scripts/recovery/list-collections.mjs --db=recovery-2026-04-24 --no-live
+ *
+ * To list multiple comma-separated:
+ *   node scripts/recovery/list-collections.mjs --db=recovery-2026-04-24,recovery-2026-04-25
  */
 
 import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 
 const PROJECT_ID = 'skedaddle-inventory'
-const RECOVERY_DB = 'recovery-2026-04-25'
+
+const args = process.argv.slice(2)
+const dbArg = args.find((a) => a.startsWith('--db='))
+const NO_LIVE = args.includes('--no-live')
+const DBS = dbArg
+  ? dbArg.split('=')[1].split(',').map((s) => s.trim()).filter(Boolean)
+  : ['recovery-2026-04-25']
 
 function makeApp(name) {
   return (
@@ -20,9 +34,6 @@ function makeApp(name) {
     initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID }, name)
   )
 }
-
-const liveDb = getFirestore(makeApp('live'))
-const recoveryDb = getFirestore(makeApp('recovery'), RECOVERY_DB)
 
 async function listWithCounts(db, label) {
   const cols = await db.listCollections()
@@ -43,8 +54,14 @@ async function listWithCounts(db, label) {
 }
 
 async function main() {
-  await listWithCounts(recoveryDb, 'RECOVERY (recovery-2026-04-25)')
-  await listWithCounts(liveDb, 'LIVE ((default))')
+  for (const dbName of DBS) {
+    const db = getFirestore(makeApp(`db-${dbName}`), dbName)
+    await listWithCounts(db, dbName)
+  }
+  if (!NO_LIVE) {
+    const live = getFirestore(makeApp('live'))
+    await listWithCounts(live, '(default) — LIVE')
+  }
 }
 
 main()
