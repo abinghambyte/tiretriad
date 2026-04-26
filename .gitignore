@@ -34,6 +34,8 @@ functions/.env
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/environment.json
+!.cursor/settings.json
 .vscode/*
 !.vscode/extensions.json
 .idea
