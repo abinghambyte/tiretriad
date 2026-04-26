@@ -1146,7 +1146,6 @@ export function MarginTable({
               <div
                 className="whitespace-nowrap px-1 text-center"
                 role="columnheader"
-                aria-sort={ariaSortFor('photos')}
               >
                 <SortButton
                   label="Photos"
