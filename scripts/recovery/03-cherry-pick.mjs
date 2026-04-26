@@ -39,7 +39,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
 const PROJECT_ID = 'skedaddle-inventory'
 const RECOVERY_DB = 'recovery-2026-04-25'
-const SOURCE_LABEL = '2026-04-25T091801Z'
+const SOURCE_LABEL = '2026-04-25T091703Z'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MANIFEST_PATH = join(__dirname, 'recovery-manifest-2026-04-25.json')

@@ -32,7 +32,7 @@ import { execSync, spawnSync } from 'node:child_process'
 const PROJECT_ID = 'skedaddle-inventory'
 const RECOVERY_DB = 'recovery-2026-04-25'
 const SOURCE_BUCKET = 'skedaddle-inventory-firestore-backups'
-const SOURCE_FOLDER = '2026-04-25T091801Z' // confirmed from console screenshot
+const SOURCE_FOLDER = '2026-04-25T091703Z' // confirmed via gcloud storage ls 2026-04-26
 const SOURCE_URI = `gs://${SOURCE_BUCKET}/firestore/${SOURCE_FOLDER}`
 
 const APPLY = process.argv.includes('--apply')

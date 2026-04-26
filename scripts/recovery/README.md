@@ -2,7 +2,7 @@
 
 Runbook for restoring customer/order data lost in the 2026-04-25 wipe.
 
-**Source backup:** `gs://skedaddle-inventory-firestore-backups/firestore/2026-04-25T091801Z/`
+**Source backup:** `gs://skedaddle-inventory-firestore-backups/firestore/2026-04-25T091703Z/`
 (daily Firestore export, captured at 03:18 AM Mountain on 2026-04-25, **before** the wipe)
 
 **Recovery database:** `recovery-2026-04-25` (named DB in same project, isolated from live)
@@ -36,7 +36,7 @@ node scripts/recovery/01-import-snapshot.mjs --apply
 
 What it does:
 
-1. Verifies the source backup exists at `gs://.../firestore/2026-04-25T091801Z/`
+1. Verifies the source backup exists at `gs://.../firestore/2026-04-25T091703Z/`
 2. Reads the location of `(default)` so the recovery DB matches
 3. Creates `recovery-2026-04-25` Firestore database (Native mode)
 4. Triggers `gcloud firestore import` async, returns operation ID
@@ -116,7 +116,7 @@ Each restored doc gets:
 ```js
 {
   ...originalFields,
-  restoredFrom: '2026-04-25T091801Z',
+  restoredFrom: '2026-04-25T091703Z',
   restoredAt: serverTimestamp(),
   restoredBy: 'recovery-2026-04-25-script',
   _wasModified: false,  // true if from the `modified` set
@@ -125,7 +125,7 @@ Each restored doc gets:
 
 The provenance fields make it easy to:
 
-- Audit what came back via the recovery later (`where('restoredFrom', '==', '2026-04-25T091801Z')`)
+- Audit what came back via the recovery later (`where('restoredFrom', '==', '2026-04-25T091703Z')`)
 - Roll back the recovery selectively if needed (a separate script could query on `restoredFrom`)
 
 ### Recommended sequence
@@ -162,7 +162,7 @@ Anytime later, list everything that came back via the recovery:
 ```js
 const restored = await db
   .collectionGroup('orders')
-  .where('restoredFrom', '==', '2026-04-25T091801Z')
+  .where('restoredFrom', '==', '2026-04-25T091703Z')
   .get()
 ```
 

@@ -217,7 +217,7 @@ async function main() {
     projectId: PROJECT_ID,
     recoveryDatabase: RECOVERY_DB,
     liveDatabase: LIVE_DB,
-    backupSource: 'gs://skedaddle-inventory-firestore-backups/firestore/2026-04-25T091801Z',
+    backupSource: 'gs://skedaddle-inventory-firestore-backups/firestore/2026-04-25T091703Z',
     collections: results,
     summary: {
       totalMissingInLive: results.reduce(
