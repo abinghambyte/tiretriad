@@ -1,5 +1,5 @@
 // src/components/tires/ListingAdvisorPanel.jsx
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatPercent } from '../../utils/format.js'
 import { useAdvisorNarrate } from '../../hooks/useAdvisorNarrate.js'
 import { DEFAULT_ADVISOR_MODE } from '../../utils/listingAdvisor/modeWeights.js'
@@ -18,6 +18,7 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
   const narrate = useAdvisorNarrate()
   const [narration, setNarration] = useState(null)
   const [error, setError] = useState(null)
+  const [retrying, setRetrying] = useState(false)
 
   const position = useMemo(() => {
     if (!Array.isArray(ranked)) return null
@@ -41,6 +42,20 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
       alive = false
     }
   }, [narrate, tireId, mode, tire])
+
+  // Patch-501: real retry button replacing the static "(retry)" text.
+  const retryNarrative = useCallback(async () => {
+    setRetrying(true)
+    setError(null)
+    try {
+      const r = await narrate(tireId, mode)
+      setNarration(r)
+    } catch (e) {
+      setError(String(e?.message || e))
+    } finally {
+      setRetrying(false)
+    }
+  }, [narrate, tireId, mode])
 
   if (!tire) {
     return (
@@ -70,7 +85,19 @@ export function ListingAdvisorPanel({ tireId, ranked = [], mode = DEFAULT_ADVISO
           : 'never'} &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d ago &middot; Velocity {velDays} &middot;{' '}
         Margin {marginPct} &middot; Missing {tire.missingPlatformCount} platform(s)
       </p>
-      {error ? <p className="mt-2 text-rose-300">Narrative unavailable (retry).</p> : null}
+      {error ? (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-amber-700/40 bg-amber-950/20 px-2 py-1.5">
+          <p className="text-sm text-amber-200">Narrative unavailable.</p>
+          <button
+            type="button"
+            onClick={() => void retryNarrative()}
+            disabled={retrying}
+            className="rounded border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-xs text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            {retrying ? 'Retrying…' : 'Retry'}
+          </button>
+        </div>
+      ) : null}
       {narration ? (
         <div className="mt-2 text-zinc-300">
           <p>{narration.narrative}</p>

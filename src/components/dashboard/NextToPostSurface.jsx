@@ -148,14 +148,9 @@ function ExpandableRow({ tire, mode, narrate }) {
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
 
-  const toggle = useCallback(async () => {
-    if (open) {
-      setOpen(false)
-      return
-    }
-    setOpen(true)
-    if (result) return
+  const fetchNarrative = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const r = await narrate(tire.id, mode)
       setResult(r)
@@ -164,7 +159,17 @@ function ExpandableRow({ tire, mode, narrate }) {
     } finally {
       setLoading(false)
     }
-  }, [open, result, narrate, tire.id, mode])
+  }, [narrate, tire.id, mode])
+
+  const toggle = useCallback(async () => {
+    if (open) {
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    if (result) return
+    await fetchNarrative()
+  }, [open, result, fetchNarrative])
 
   return (
     <div>
@@ -180,7 +185,21 @@ function ExpandableRow({ tire, mode, narrate }) {
       {open ? (
         <div className="mt-2 rounded-lg bg-zinc-900/60 p-2 text-[12px] text-zinc-300">
           {loading ? 'Thinking...' : null}
-          {error ? <span className="text-rose-300">Narrative unavailable (retry).</span> : null}
+          {/* Patch-501: replace static '(retry)' text with a real button.
+              Visual stays muted/amber to signal degraded but not broken. */}
+          {error ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-rose-300">Narrative unavailable.</span>
+              <button
+                type="button"
+                onClick={() => void fetchNarrative()}
+                disabled={loading}
+                className="rounded border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[11px] text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800 disabled:opacity-50"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
           {result ? (
             <>
               <p>{result.narrative}</p>
