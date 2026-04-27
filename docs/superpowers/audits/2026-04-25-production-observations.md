@@ -29,19 +29,21 @@ These complement (not replace) the morning's `2026-04-25-desktop-scope-audit.md`
 - Auto-derive `retail = buy * (1 + targetMarginPct/100)` as a starting estimate, marked clearly as derived
 - Manual MarginTable inline-edit campaign (1160 rows × 5 sec each = ~90 min of admin time)
 
-### 🔴 P0-B — Customer history was wiped along with test orders
+### ✅ P0-B — Customer history wipe — INVESTIGATED, NO DATA LOSS
+
+> **Resolution (2026-04-26):** Investigated via the recovery toolkit in `scripts/recovery/` (PR #162). Imported the April 24 backup (last pre-wipe snapshot) into a sandbox database and diffed against live. Result: only 6 orders existed pre-wipe, all confirmed by admin to be **test data deleted on purpose**. No real customer/contact data was ever in the destroyed set. Backup pipeline confirmed working (30 days of clean exports in `gs://skedaddle-inventory-firestore-backups/`).
 
 **Files:** `orders` collection (post-wipe), `contacts` collection (likely also affected if any contact cleanup ran), `users` collection (test invites linger).
 
-**Symptom:** `/people?tab=customers` shows "No contacts yet" with the explanation "Customer contacts fill in automatically after their first completed order." Combined with admin's confirmation that real sales did happen pre-wipe, this means real customer relationship history was deleted by `scripts/wipe-test-orders.mjs` along with the intended test data.
+**Symptom (original interpretation, since corrected):** `/people?tab=customers` shows "No contacts yet" with the explanation "Customer contacts fill in automatically after their first completed order." Combined with admin's confirmation that real sales did happen pre-wipe, this *was* read as real customer relationship history being deleted by `scripts/wipe-test-orders.mjs`.
 
-**Why it matters:** Customer relationships are the long-tail asset of the business. Losing them means the next time a real customer phones, there's no history of the deal we did with them.
+**Actual state:** The "No contacts yet" message is the genuine state of the system. Skedaddle was pre-revenue at the time of the wipe. The 6 orders in the April 24 backup were test fixtures from early development, intentionally cleared. Nothing of value was destroyed.
 
-**Recovery option (worth checking):** Firebase Firestore Point-in-Time Recovery (PITR) keeps point-in-time snapshots for 7 days by default if enabled at the project level. If PITR is on, the wiped customer docs can be restored from a pre-wipe timestamp.
+**Original recovery option:** Firebase Firestore Point-in-Time Recovery (PITR) plus the daily export bucket. PITR was disabled but the daily export bucket (`skedaddle-inventory-firestore-backups`) had complete coverage going back to 2026-03-28 — which is what made the verification possible.
 
-**Effort:** S to investigate (check PITR status); M to restore (export pre-wipe snapshot, diff against current, cherry-pick real customer docs).
+**Effort spent:** S — recovery toolkit written and run end-to-end against April 25 + April 24 backups. Toolkit kept on main as future-proofing infrastructure (`scripts/recovery/`).
 
-**Future-proofing:** Spec a "soft-delete" or "tombstone" pattern for future wipes so customer-tied data is never bulk-deleted again.
+**Future-proofing (still worth doing):** Spec a "soft-delete" or "testFixture" pattern in the wipe-safety spec so a future cleanup that DOES touch real data is recoverable without scripting.
 
 ### 🟡 P1-A — Skedaddle Inc is a CRM lead in its own CRM
 
@@ -125,7 +127,7 @@ Eight findings; mapped to the dispatch backlog like this:
 | ID | Type | Destination |
 | --- | --- | --- |
 | P0-A retail prices estimated | Spec needed | New: `docs/superpowers/specs/tire-retail-backfill-design.md` (when ready) |
-| P0-B customer history wiped | Investigation + spec | New: `docs/superpowers/specs/wipe-safety-and-customer-recovery.md` |
+| ~~P0-B customer history wiped~~ | ✅ Resolved 2026-04-26 — no data loss | Recovery toolkit shipped as `scripts/recovery/` (PR #162) and kept as future-proofing |
 | P1-A Skedaddle Inc CRM lead | Manual cleanup | User does it via Firebase Console (30 sec) |
 | P1-B advisor fallback unhealthy | Patch (medium) | New: patch-501 (advisor fallback resilience) |
 | P1-C test crew accounts | Manual cleanup | User does it via People page actions (30 sec) |
@@ -137,7 +139,7 @@ Eight findings; mapped to the dispatch backlog like this:
 ## Recommended next moves (in order)
 
 1. **Manual cleanup right now** — admin deletes Skedaddle Inc CRM lead + test crew accounts. 1 minute total.
-2. **Check Firestore PITR** — go to Firebase Console → Firestore Database → Backups. If PITR is enabled, customer recovery is possible. If not, enable it for the future and accept the loss this time.
+2. ~~**Check Firestore PITR**~~ — ✅ resolved 2026-04-26: daily export bucket gave full recovery surface; verified no data loss. PITR remains worth enabling as a defense-in-depth measure (separate sub-issue).
 3. **Add Wall date presets (patch-502)** — small, immediate UX improvement.
 4. **Investigate advisor fallback (patch-501)** — find out why the primary model is failing. Likely API budget; may resolve naturally if you switch the listing advisor's model to Cursor's free `gpt-5.5-medium` or to Gemini via your cloud credits.
 5. **Spec the retail backfill** — biggest data-quality issue, needs design before any code.
