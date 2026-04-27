@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
-import { useDashboardSignals } from '../../hooks/useDashboardSignals.js'
 
 function IconHome() {
   return (
@@ -93,14 +92,10 @@ function IconAdmin() {
 export function MobileBottomNav() {
   const [selectionActive, setSelectionActive] = useState(false)
   const { permissionFor, profile } = useUserProfile()
-  const { kylesQueueCount } = useDashboardSignals()
-  const role = String(profile?.role || '').toLowerCase()
   const canTires = permissionMeets(permissionFor('tires'), 'view')
   const canCrm = permissionMeets(permissionFor('crm'), 'view')
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
   const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
-  const canMyQueue = role === 'sourcer' || role === 'admin'
-  const queueBadge = Number.isFinite(Number(kylesQueueCount)) ? Number(kylesQueueCount) : 0
 
   const canOps = profile?.role === 'admin'
 
@@ -116,12 +111,11 @@ export function MobileBottomNav() {
   // permissions" case via `.filter(Boolean)`. Always render the full nav so
   // every reachable destination is one tap away from the home screen on mobile.
   // (See docs/superpowers/audits/2026-04-26-comprehensive-ui-ux-audit.md §0.2.)
+  // Patch-628: My Queue moved to a header bell + dashboard widget.
+  // /my-queue route still works as a deep-link fallback; just not in nav.
   const items = [
     { to: '/dashboard', label: 'Home', icon: <IconHome /> },
     canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
-    canMyQueue
-      ? { to: '/my-queue', label: 'My Queue', icon: <IconQueue />, badge: queueBadge }
-      : null,
     canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
     canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
     canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,

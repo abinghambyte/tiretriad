@@ -13,6 +13,7 @@ import { httpsCallable } from 'firebase/functions'
 import { useEffect, useMemo, useState } from 'react'
 import { db, functions } from '../firebase/config'
 import { useTires } from './useTires'
+import { useUserProfile } from './useUserProfile'
 import { useCrewPreview } from './useCrewPreview'
 import { useAdvisorSignals } from './useAdvisorSignals.js'
 import { DEFAULT_ADVISOR_MODE } from '../utils/listingAdvisor/modeWeights.js'
@@ -170,6 +171,56 @@ export function deriveKylesQueueCount(tires, loading) {
   return n
 }
 
+/**
+ * Derive list of top-N queue items for the My Queue bell + widget (patch-628).
+ * Currently a thin wrapper over Kyle's research queue; extends as more queue
+ * sources land (e.g., field-crew assigned jobs from CRM, admin moderation).
+ *
+ * @param {Array<Record<string, unknown>>} tires
+ * @param {{ role?: string } | null | undefined} profile
+ * @param {number} limit how many items to return
+ * @returns {Array<{ id: string, label: string, relativeTime: string, href: string }>}
+ */
+export function deriveMyQueueItems(tires, profile, limit = 10) {
+  const role = String(profile?.role || '').toLowerCase()
+  if (role !== 'admin' && role !== 'sourcer') return []
+  if (!Array.isArray(tires)) return []
+  const items = []
+  for (const t of tires) {
+    const rq = t?.researchQueue
+    if (!rq || typeof rq !== 'object') continue
+    if (rq.resolvedAt != null) continue
+    const enqueuedMs = typeof rq.enqueuedAt?.toMillis === 'function'
+      ? rq.enqueuedAt.toMillis()
+      : 0
+    items.push({
+      id: t.id,
+      label: `Research ${t.mspn || t.id} — ${rq.reason || 'queued'}`,
+      sortMs: enqueuedMs,
+      href: `/my-queue?focus=${encodeURIComponent(t.id)}`,
+    })
+  }
+  // Newest first (recently enqueued surfaces first)
+  items.sort((a, b) => b.sortMs - a.sortMs)
+  return items.slice(0, limit).map((it) => ({
+    id: it.id,
+    label: it.label,
+    relativeTime: it.sortMs ? relativeFromMs(it.sortMs) : '—',
+    href: it.href,
+  }))
+}
+
+function relativeFromMs(ms) {
+  const diff = Date.now() - ms
+  if (diff < 60_000) return 'just now'
+  const m = Math.floor(diff / 60_000)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
+}
+
 export function deriveCrewSignals(users, orders, tires, nowMs) {
   const now = Number.isFinite(nowMs) ? nowMs : Date.now()
   const todayYmd = localYmdFromMs(now)
@@ -253,6 +304,7 @@ export function useDashboardSignals() {
   const { tires, loading: tiresLoading } = useTires()
   const { crewPreview, crewSignals: crewSignalsState } = useCrewPreview()
   const advisor = useAdvisorSignals(DEFAULT_ADVISOR_MODE)
+  const { profile } = useUserProfile()
 
   const needsRepostingCount = useMemo(() => {
     if (tiresLoading) return null
@@ -292,6 +344,13 @@ export function useDashboardSignals() {
     () => deriveKylesQueueCount(tires, tiresLoading),
     [tires, tiresLoading],
   )
+
+  // Patch-628: top-N items for the My Queue bell + dashboard widget.
+  const myQueueItems = useMemo(
+    () => deriveMyQueueItems(tires, profile, 10),
+    [tires, profile],
+  )
+  const myQueueCount = myQueueItems.length
 
   const [crm, setCrm] = useState({
     accounts: null,
@@ -596,6 +655,8 @@ export function useDashboardSignals() {
     crewPreview,
     crewSignals: crewSignalsState,
     kylesQueueCount,
+    myQueueItems,
+    myQueueCount,
     hiddenGems,
     topSellers,
     allTimeMargin,

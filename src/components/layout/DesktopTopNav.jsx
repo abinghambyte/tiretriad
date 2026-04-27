@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
-import { useDashboardSignals } from '../../hooks/useDashboardSignals.js'
 
 /**
  * Desktop-only primary navigation strip. Mirrors the link set + permission
@@ -14,20 +13,17 @@ const linkActive = 'border-amber-500 text-amber-100'
 
 export function DesktopTopNav() {
   const { permissionFor, profile } = useUserProfile()
-  const { kylesQueueCount } = useDashboardSignals()
-  const role = String(profile?.role || '').toLowerCase()
   const canTires = permissionMeets(permissionFor('tires'), 'view')
   const canCrm = permissionMeets(permissionFor('crm'), 'view')
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
   const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
   const canOps = profile?.role === 'admin'
-  const canMyQueue = role === 'sourcer' || role === 'admin'
-  const queueBadge = Number.isFinite(Number(kylesQueueCount)) ? Number(kylesQueueCount) : 0
 
+  // Patch-628: My Queue moved to a header bell + dashboard widget.
+  // /my-queue route still works as a deep-link fallback; not in nav.
   const items = [
     { to: '/dashboard', label: 'Dashboard', show: true },
     { to: '/tires', label: 'Tires', show: canTires },
-    { to: '/my-queue', label: 'My Queue', show: canMyQueue, badge: queueBadge },
     { to: '/crm', label: 'CRM', show: canCrm },
     { to: '/people', label: 'People', show: canPeople },
     { to: '/analytics', label: 'Analytics', show: canAnalytics },

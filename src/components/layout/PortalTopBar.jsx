@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { auth } from '../../firebase/config'
 import { Popover } from '../ui/Popover.jsx'
 import { BrandBolt } from '../ui/BrandBolt.jsx'
+import { MyQueueBell } from './MyQueueBell.jsx'
 import { displayFirstName } from '../../utils/displayFirstName'
 import { buildBreadcrumbs } from '../../utils/moduleTitleFromPath'
 import { portalCrewTagFromRole } from '../../utils/portalCrewTag.js'
@@ -86,6 +87,9 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
           </svg>
         </button>
         {shortcutHint}
+        {/* Patch-628: My Queue bell replaces /my-queue nav entry. Hidden by
+            its own internal role gate when the user has no queue surface. */}
+        <MyQueueBell />
         {/* Desktop (≥ sm): theme toggle + role pill + sign out */}
         <div className="hidden sm:flex sm:items-center sm:gap-2">
           {themeToggle}
