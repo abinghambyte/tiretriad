@@ -8,6 +8,7 @@ import {
   subscribeTireSelection,
 } from '../../context/tireSelectionStore'
 import { buildPaletteActions, filterPaletteActions } from './paletteActions.js'
+import { isArchived } from '../../utils/isArchived.js'
 
 /**
  * Universal command palette. Cmd+K / Ctrl+K opens it. Lists:
@@ -139,6 +140,7 @@ export function CommandPalette({ open, onClose }) {
         .slice(0, 12)
       const contacts = cSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((c) => !isArchived(c))
         .filter(
           (c) =>
             String(c.name || '')
@@ -151,6 +153,7 @@ export function CommandPalette({ open, onClose }) {
         .slice(0, 10)
       const crm = aSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => !isArchived(a))
         .filter((a) =>
           String(a.companyName || '')
             .toLowerCase()

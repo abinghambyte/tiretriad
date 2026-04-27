@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { db } from '../firebase/config'
 import { useTires } from './useTires'
 import { deriveCrewSignals } from './useDashboardSignals'
+import { isArchived } from '../utils/isArchived.js'
 
 const STREAK_CAP = 99
 
@@ -47,7 +48,10 @@ export function useCrewPreview() {
       try {
         const snap = await getDocs(query(collection(db, 'users'), limit(60)))
         if (cancelled) return
-        const rows = snap.docs.map((d) => ({ id: d.id, data: d.data() }))
+        const rows = snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          // Hide soft-deleted docs (archivedAt set). See utils/isArchived.js.
+          .filter((u) => !isArchived(u.data))
         function rank(u) {
           const inv = String(u.data?.inviteStatus || '')
           const accepted = Boolean(u.data?.inviteAccepted)
@@ -98,7 +102,11 @@ export function useCrewPreview() {
           ),
         ])
         if (cancelled) return
-        const users = usersSnap.docs.map((d) => ({ id: d.id, data: d.data() }))
+        const users = usersSnap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          // Hide soft-deleted docs from crew signals so derived metrics
+          // (today's completions, streaks) don't count archived users.
+          .filter((u) => !isArchived(u.data))
         const orders = [
           ...wipSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
           ...completedSnap.docs.map((d) => ({ id: d.id, data: d.data() })),

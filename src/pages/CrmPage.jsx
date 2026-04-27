@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
+import { isArchived } from '../utils/isArchived.js'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
 import { useTires } from '../hooks/useTires'
@@ -322,7 +323,12 @@ export function CrmPage() {
     return onSnapshot(
       q,
       (snap) => {
-        setAccounts(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setAccounts(
+          snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            // Hide soft-deleted accounts. See utils/isArchived.js.
+            .filter((a) => !isArchived(a)),
+        )
         setLoading(false)
       },
       () => setLoading(false),
@@ -332,7 +338,11 @@ export function CrmPage() {
   useEffect(() => {
     const q = query(collection(db, 'crmLeads'), orderBy('createdAt', 'desc'), limit(200))
     return onSnapshot(q, (snap) => {
-      setLeads(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setLeads(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((l) => !isArchived(l)),
+      )
     })
   }, [])
 

@@ -31,6 +31,7 @@ import {
 import { UserEditorModal } from './PermissionEditor.jsx'
 import { UserRow } from './UserRow.jsx'
 import { UserHistoryModal } from './UserHistoryModal.jsx'
+import { isArchived } from '../../utils/isArchived.js'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -101,7 +102,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const rows = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          // Hide soft-deleted docs (archivedAt set). See utils/isArchived.js.
+          .filter((u) => !isArchived(u))
         rows.sort((a, b) => {
           const am = a.createdAt?.toMillis?.() ?? 0
           const bm = b.createdAt?.toMillis?.() ?? 0
