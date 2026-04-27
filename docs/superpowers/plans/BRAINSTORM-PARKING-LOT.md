@@ -36,7 +36,23 @@ Pre-storm shipped foundation: PR #161 (archive script), #162 (recovery toolkit),
 
 ---
 
-## Topic 3: Cmd+K command palette
+## ✅ Topic 3: Cmd+K command palette — STORMED 2026-04-27
+
+**Outcome:** The palette already exists and is substantial; storm closed gaps not the architecture. Three decisions:
+
+1. **Trigger UX:** dual-presentation single component. Desktop wide-bar styled `<div>` (`max-w-sm`, magnifying glass + placeholder + ⌘K kbd badge); mobile keeps the 44×44 icon.
+2. **Empty-state behavior:** Recent (5-cap localStorage, FIFO, action-execute commits only) → Suggested (route-keyed map at `src/lib/palette/suggestions.js`) → Selection → Navigation. Footer hint "Type 2+ characters…" until user types. Dedupe across sections.
+3. **Aliases:** add bare module words + canonical names + recent renames (`fleet crm` for muscle memory). Mobile palette = full-screen overlay with explicit close button. Theme/sign-out exclusion stays, comment updated with date + revisit condition.
+
+**Spec:** `docs/superpowers/specs/2026-04-27-command-palette-refresh-design.md`
+
+**Patch:**
+- `docs/handoffs/patch-623-command-palette-refresh.md` — single PR, all three decisions
+
+---
+
+<details>
+<summary>Original Topic 3 framing (pre-storm)</summary>
 
 **Source:** `2026-04-26-comprehensive-ui-ux-audit.md` §1 ("Upgrade global search").
 
@@ -48,6 +64,8 @@ Pre-storm shipped foundation: PR #161 (archive script), #162 (recovery toolkit),
 3. **Mobile fallback.** Cmd+K is desktop-only. On mobile, does the same trigger become a full-screen search overlay, or do we just ship desktop and leave mobile alone?
 4. **Indexing strategy.** Static config (manually maintained list of pages/actions) vs. dynamic registry (each page registers its commands)? Static is simpler; dynamic scales better.
 5. **Shortcuts inside the palette.** Should results show keyboard shortcuts next to them so users learn them? (Big UX win, low-effort.)
+
+</details>
 
 ---
 
