@@ -6,6 +6,87 @@
 
 ---
 
+## 0. Homepage architecture (the actual blocker)
+
+This section was missing from the first pass and is the most consequential set of findings. The homepage is the single most-touched view in the portal and currently fails the spec.
+
+### 0.1 Verified: 6-card module grid is missing entirely
+
+**Spec:** `docs/AI-CONTEXT.md` lines 71-78 define the canonical homepage as a grid of six module cards in this order:
+
+1. Skedaddle Tires → `/tires`
+2. Rubber CRM → `/crm`
+3. People Systems → `/people`
+4. Analytics → `/analytics`
+5. Growth Lab → `/growth` (Overwatch-only)
+6. Ops Command → `/ops` (Overwatch-only)
+
+Plus Credit Tracker as an admin-only header strip.
+
+**Reality:** The Dashboard component (`src/components/dashboard/Dashboard.jsx`) renders metric cards, hidden gems, and activity widgets but **no module-card grid exists**. The six core destinations have no entry point on the homepage. The home is six empty-state placeholders stacked vertically — the worst possible use of screen real estate when there are no sales yet AND the spec calls for module cards in their place.
+
+**Effort:** L. New `<HomepageModuleGrid />` component. Each card is a tap target with icon, title, one-line description, and (optionally) a single live metric. The spec already names the modules and routes, so naming/IA is settled. Permission gating is already encoded in `peoplePermissions.js`.
+
+### 0.2 Verified: Mobile bottom nav is broken by default
+
+**Files:** `src/components/layout/MobileBottomNav.jsx:7-13` (the default flag) + `src/components/layout/PortalTopBar.jsx:131-144` (the toggle).
+
+**Behavior:** `MobileBottomNav` reads `localStorage.skedaddle.mobile.fullPortal`. If absent or not `'1'`, it shows **only Home + Tires**. The user has to find a "Switch to full portal" button in the profile dropdown to flip the flag and see CRM, People, Analytics, Ops in the nav.
+
+**Why it matters:** From a phone, the admin literally cannot tap-to-reach CRM, People, Analytics, or Ops Command without first discovering an opt-in toggle. This isn't polish — it's a navigation defect. The default should be the full nav for an admin; the reduced nav was probably intended as a single-spotter mode and has the wrong default.
+
+**Effort:** S. Either:
+- (a) Default `fullMode` to `true` for admins (read user role, ignore the flag for Overwatch+)
+- (b) Remove the flag entirely (always show full nav, gated by permission per item — which the code already does)
+
+(b) is simpler and more correct. The reduced nav exists as a fallback when the user has zero permissions, which is already handled by the `.filter(Boolean)` chain.
+
+### 0.3 Empty-state cards are doing double duty wrong
+
+- "Pending Orders 0" in 48pt font is a giant number announcing the *absence* of work
+- Top Sellers, Last Sale, Recent Activity are all "no sales yet" with the brand lightning bolt as the placeholder graphic
+- The lightning bolt is wayfinding (top-left logo anchor), not a generic placeholder. Using it as fallback iconography dilutes the brand
+- Either consolidate into a single "Getting Started" module (per §2) OR hide the cards entirely until they have data
+
+### 0.4 Inconsistent emphasis on empty cards
+
+- Last Sale has a green tint, Total Profit has a green outline, the others are flat gray
+- **Both highlighted cards are empty.** Either both are aspirational and should look the same as the rest until they have data, or the highlight is meaningful and shouldn't fire on empty.
+- Pick one rule: highlight = "card has data exceeding threshold X". Apply consistently.
+
+### 0.5 Bottom nav is huge for two items
+
+- Each pill is ~100px tall
+- With 4-6 destinations the bar earns that height
+- With two it just steals 100px from content
+- Resolves automatically when 0.2 ships (full nav → 6+ items)
+
+### 0.6 Header redundancy
+
+- Top: SKEDADDLE wordmark + lightning bolt
+- Bottom nav says "Home"
+- The wordmark is only useful as a "you are signed in to the Skedaddle portal" assurance — once that lands, it's pure decoration on every subsequent view
+- Collapse to bolt-only on inner pages, free ~60px
+
+### 0.7 Search icon scope is unclear
+
+- Tiny `[Q]` icon with no label, no scope hint
+- What does it search from home? Tires? Everything? Pages?
+- Either label it ("Search tires…", "Find anything…") or roll into the Cmd+K command palette (§1)
+- Connects to **§1's command-palette decision**: scope of Cmd+K and behavior of this icon should be settled together.
+
+### 0.8 Reframe what home is for
+
+What home actually needs (not what it currently shows):
+
+- **Quick-glance KPIs that change** — today's revenue, this week's orders, credit limit remaining, inventory on hand. Hide each one until it has non-zero data so the home doesn't lead with "0".
+- **Tap targets to the six modules** (per AI-CONTEXT.md, per §0.1)
+- **Active alerts only** — anything requiring action (new SMS, low margin, expiring access). Empty state for these = nothing rendered, not "0 alerts".
+
+Empty placeholders for stats that are *always* zero in dev should hide until they have data, OR be tucked into Analytics where the operator goes looking on purpose.
+
+---
+
 ## 1. Global architecture & the header
 
 The application suffers from "Russian nesting doll" architecture and a cluttered utility header.
@@ -81,20 +162,27 @@ Findings in §2 that overlap:
 
 ### B. New patches to draft (one brief per item, dispatchable)
 
-| # | Brief | Section | Effort |
-|---|---|---|---|
-| patch-601 | Margin sort string→float fix (functional bug) | §3 | XS |
-| patch-602 | Margin pills (color-coded badges) | §3 | S |
-| patch-603 | Tires table viewport width release + fixed column widths | §3 | M |
-| patch-604 | Overhead column → header label only; pagination text cleanup | §3 | XS |
-| patch-605 | Orders empty-state: B2B icon + actionable CTA + tooltip-ized workflow text | §4 | S |
-| patch-606 | My Queue removal from nav → dashboard widget OR header bell | §5 | M (needs decision) |
-| patch-607 | Header utility consolidation: profile dropdown for Sign out / Settings / Theme / Help | §1 | M |
-| patch-608 | Lightning Bolt audit: replace fallback usages, preserve logo anchor only | §1 | S |
-| patch-609 | Eliminate redundant H1s when breadcrumb + tab already define location | §1 | M |
-| patch-610 | Dashboard metric-card standardization + WCAG contrast on subtext | §2 | S |
-| patch-611 | Dashboard buttons: solid → outline; emphasize tire data weight | §2 | S |
-| patch-612 | "Next to Post" tab active states + "3 Photos Missing" terminology fix | §2 | XS |
+🚨 = critical functional/navigation defect, not polish
+
+| # | Brief | Section | Effort | Priority |
+|---|---|---|---|---|
+| **patch-600** | 🚨 **Mobile bottom nav: default to full nav (remove `fullPortal` localStorage gate)** | §0.2 | XS | **P0 — nav defect** |
+| **patch-600b** | 🚨 **Build `<HomepageModuleGrid />` with 6 cards per AI-CONTEXT spec** | §0.1 | M | **P0 — spec gap** |
+| patch-601 | Margin sort string→float fix (functional bug) | §3 | XS | P0 |
+| patch-602 | Margin pills (color-coded badges) | §3 | S | P1 |
+| patch-603 | Tires table viewport width release + fixed column widths | §3 | M | P1 |
+| patch-604 | Overhead column → header label only; pagination text cleanup | §3 | XS | P2 |
+| patch-605 | Orders empty-state: B2B icon + actionable CTA + tooltip-ized workflow text | §4 | S | P2 |
+| patch-606 | My Queue removal from nav → dashboard widget OR header bell | §5 | M (needs decision) | P2 |
+| patch-607 | Header utility consolidation: profile dropdown for Sign out / Settings / Theme / Help | §1 | M | P2 |
+| patch-608 | Lightning Bolt audit: replace fallback usages, preserve logo anchor only | §1 + §0.3 | S | P1 |
+| patch-609 | Eliminate redundant H1s when breadcrumb + tab already define location | §1 + §0.6 | M | P2 |
+| patch-610 | Dashboard metric-card standardization + WCAG contrast on subtext | §2 | S | P1 |
+| patch-611 | Dashboard buttons: solid → outline; emphasize tire data weight | §2 | S | P2 |
+| patch-612 | "Next to Post" tab active states + "3 Photos Missing" terminology fix | §2 | XS | P2 |
+| **patch-613** | Hide empty-state KPI cards until they have data (no more "0" hero numbers) | §0.3 + §0.8 | S | P1 |
+| **patch-614** | Fix inconsistent emphasis on metric cards (highlight = has data, not aspiration) | §0.4 | XS | P2 |
+| **patch-615** | Header collapse: bolt-only on inner pages (drop wordmark redundancy) | §0.6 | XS | P2 |
 
 ### C. Needs brainstorm before plan
 
@@ -114,7 +202,13 @@ Findings in §2 that overlap:
 
 ## Sequence proposal
 
-**Round 1 (low-risk, mostly-mechanical):** patch-601, 604, 612, 608, 605, 602
+**Round 0 (P0 — ship before everything else):** patch-600, patch-600b, patch-601
+- patch-600 (one localStorage flag → mobile nav fixed in 5 lines)
+- patch-600b (homepage module grid — biggest UX impact for least code)
+- patch-601 (margin sort bug — pure functional fix)
+- These three change the operator's daily experience the most. No coordination needed; can run in parallel.
+
+**Round 1 (low-risk, mostly-mechanical):** patch-604, 612, 608, 605, 602, 613, 614, 615
 - All XS/S effort, isolated files, low coordination
 - Dispatches via Cursor; merges in any order
 
@@ -135,10 +229,13 @@ Findings in §2 that overlap:
 
 Before any patch is dispatched:
 
-1. **My Queue (§5):** Dashboard widget OR header bell? (Affects patch-606 scope.)
-2. **Margin pill thresholds (§3):** Confirm green ≥ 25%, amber 20–25%, red < 20% — or different breakpoints?
-3. **Overhead column (§3):** Drop the column entirely, or keep it with the "Flat $3" header label and a single value displayed once?
-4. **Lightning bolt fallback (§1):** When we strip the logo from empty states, what replaces it — a generic icon (Lucide `Inbox`, `Package`, etc.) or a context-specific icon per widget?
-5. **CRM stage names (§6):** Confirm `Spotted → Researched → Contacted → Evaluating → Negotiating` is final.
-6. **"Won" terminus for CRM (§6):** Where does a lead go after Negotiating? Is there a `Won` column, or do they convert to a Customer doc and disappear from the board?
-7. **`Cmd+K` scope (§1):** Page navigation only, or also actions (e.g., "Log a sale", "Open Sale Messenger")?
+1. **Mobile nav default (§0.2):** Confirm we're removing the `fullPortal` localStorage gate entirely (everyone gets the full nav, gated by their permissions per-item). Anyone we'd want to see the reduced nav?
+2. **Homepage module cards (§0.1):** Each card design — icon + title + one-line description, OR also a single live metric per card (e.g., Tires shows "1,160 catalog · 0 pending"; CRM shows "1 lead · 0% conversion")? Live metrics tighter, more useful, but more code.
+3. **Empty-state hide-or-show (§0.8):** When a KPI is zero in dev, do we hide the card entirely, or show it dimmed/muted with a subtle "no data yet" hint? Hiding is cleaner; showing dimmed preserves layout consistency.
+4. **My Queue (§5):** Dashboard widget OR header bell? (Affects patch-606 scope.)
+5. **Margin pill thresholds (§3):** Confirm green ≥ 25%, amber 20–25%, red < 20% — or different breakpoints?
+6. **Overhead column (§3):** Drop the column entirely, or keep it with the "Flat $3" header label and a single value displayed once?
+7. **Lightning bolt fallback (§1 + §0.3):** When we strip the logo from empty states, what replaces it — a generic icon (Lucide `Inbox`, `Package`, etc.) or a context-specific icon per widget?
+8. **CRM stage names (§6):** Confirm `Spotted → Researched → Contacted → Evaluating → Negotiating` is final.
+9. **"Won" terminus for CRM (§6):** Where does a lead go after Negotiating? Is there a `Won` column, or do they convert to a Customer doc and disappear from the board?
+10. **`Cmd+K` scope (§1 + §0.7):** Page navigation only, or also actions (e.g., "Log a sale", "Open Sale Messenger")? The home-page search icon (§0.7) feeds into this answer.
