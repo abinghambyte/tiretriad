@@ -182,6 +182,11 @@ export function Dashboard() {
       />
 
       <main className="relative mx-auto max-w-6xl space-y-6 px-6 py-8 sm:py-10">
+        {/* Visually-hidden top-level heading. The dashboard relies on
+            breadcrumbs + tab chips for visual orientation, but assistive tech
+            (and WAVE) require a single h1 per page so users have a stable
+            landmark to jump to. */}
+        <h1 className="sr-only">Dashboard</h1>
         {notice === 'access' ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-900/50 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
             <span>That module is not available for your current clearance.</span>
