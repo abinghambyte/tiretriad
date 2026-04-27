@@ -152,7 +152,49 @@ DnD library: dnd-kit (existing or to add — React 19 default).
 
 ---
 
-## Topic 6: My Queue relocation
+## ✅ Topic 6: My Queue relocation — STORMED 2026-04-27
+
+**Outcome:** Bell + dashboard widget combination. Bell in `<PortalTopBar>`; widget below the homepage module grid. Queue-only content (no notification scope creep). Universal access with role-filtered content. `/my-queue` route stays as fallback.
+
+**Spec:** `docs/superpowers/specs/2026-04-27-my-queue-relocation-design.md`
+
+**Patch:**
+- `docs/handoffs/patch-628-my-queue-relocation.md` — single PR
+
+---
+
+## ✅ Spawn from Storm 6: Catalog visual refresh — STORMED 2026-04-27
+
+**Outcome:** Import 7 visual hierarchy patterns from the parked Michelin eFleet HTML reference: brand accent bars, MSPN monospace+blue+700, FET conditional styling (grey/orange), brand-grouped accordion (desktop-only toggle), unconfirmed-price italic-red treatment, pricing-event disclaimer bar at top, print stylesheet. All visual layer — no data changes.
+
+**Spec:** `docs/superpowers/specs/2026-04-27-catalog-visual-refresh-design.md`
+
+**Patch:**
+- `docs/handoffs/patch-629-catalog-visual-refresh.md` — single PR
+
+**Reference:** `docs/reference/Michelin_eFleet_Catalog_SKEDADDLE_v2.html` parked as canonical visual spec.
+
+---
+
+## Topic 8 (NEW from Storm 6 spawn): Source-mode catalog
+
+**Why it matters:** The eFleet has ~1,947 products; Skedaddle's live catalog has 1,160. The delta is **Kyle's broader sourcing universe vs Alex's current inventory**. The portal currently treats those as the same thing — the catalog IS the inventory. There's a real distinction worth modeling.
+
+**Decisions blocking the plan:**
+1. **UI shape.** A "Source mode" toggle on the existing catalog (showing dimmed-out non-active SKUs)? OR a parallel `/sourcing` surface separate from the active catalog?
+2. **Data shape.** New `sourcingCatalog` collection? Or boolean `inActiveCatalog: true|false` field on existing `tires` docs?
+3. **Sync mechanism.** Manual import from supplier feeds? Auto-pull from Kyle's eFleet refresh? Both?
+4. **Activation flow.** When a sourcing-only SKU enters Skedaddle's active catalog, what triggers it? Manual flip, or automatic when first sale logged?
+5. **Tie-in to Listing Advisor (patch-501) and pricing tiers (Storm 1).** Does Source-mode trigger Tier 1 baseline ingest for any newly-activated SKU?
+
+**Pre-storm reading:** The Michelin eFleet HTML at `docs/reference/Michelin_eFleet_Catalog_SKEDADDLE_v2.html` and Storm 1's pricing-architecture spec (`2026-04-25-tire-retail-backfill-design.md`).
+
+**Storm when:** after pricing-architecture patches 617-621 ship. Source-mode catalog without baseline data is a half-feature.
+
+---
+
+<details>
+<summary>Original Topic 6 framing (pre-storm)</summary>
 
 **Source:** `2026-04-26-comprehensive-ui-ux-audit.md` §5.
 
@@ -162,6 +204,8 @@ DnD library: dnd-kit (existing or to add — React 19 default).
 1. **Dashboard widget OR header notification bell?** Or both (widget for persistent task view, bell for unread-only)?
 2. **What populates "My Queue"?** Open quotes? Pending photos? Stale leads? Define before we build the widget — otherwise we build a generic shell.
 3. **Persistence.** Once I dismiss a task, gone forever, or revives if the underlying condition recurs?
+
+</details>
 
 ---
 

@@ -6,6 +6,20 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Catalog visual refresh (April 27, 2026, stormed — spawn from Storm 6).** Import 7 visual-hierarchy patterns from Michelin eFleet HTML reference into the live MarginTable. All visual layer.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 629 `catalog-visual-refresh` | `catalog-visual-refresh` | Brand accent bars + MSPN monospace+blue+700 + FET conditional styling + group-by-brand toggle (desktop) + unconfirmed-price treatment + disclaimer bar (reads pricingEvents from patch-621) + print stylesheet |
+
+Reference: `docs/reference/Michelin_eFleet_Catalog_SKEDADDLE_v2.html` parked as canonical visual spec.
+
+**My Queue relocation (April 27, 2026, stormed).** Bell + dashboard widget combo replaces the nav entry. Route stays as fallback.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 628 `my-queue-relocation` | `my-queue-relocation` | `<MyQueueBell>` in PortalTopBar (count badge + popover); `<MyQueueWidget>` below the homepage module grid; drop nav entries from desktop top nav and mobile bottom nav; keep `/my-queue` route |
+
 **Dashboard onboarding (April 27, 2026, stormed).** The grid IS the onboarding — single surface replaces the missing 6-card module grid AND the 5 empty KPI widgets. Same work as audit's patch-600b.
 
 | Patch | Branch | What it ships |
