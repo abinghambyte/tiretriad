@@ -105,7 +105,8 @@ function ThemeToggle({ mode, onToggle }) {
       type="button"
       title={mode === 'dark' ? 'Light mode' : 'Dark mode'}
       onClick={onToggle}
-      className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 sm:h-8 sm:min-h-0 sm:w-8 sm:min-w-0"
+      // 44x44 on every viewport for WCAG 2.5.5 AAA tap target.
+      className="flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
       aria-label="Toggle color theme"
     >
       {mode === 'dark' ? (
@@ -132,7 +133,8 @@ function ShortcutHint() {
     <div className="relative hidden sm:block">
       <button
         type="button"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-xs font-semibold text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+        // 44x44 on every viewport for WCAG 2.5.5 AAA tap target.
+        className="flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-700 text-xs font-semibold text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
         aria-label="Keyboard shortcuts"
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}

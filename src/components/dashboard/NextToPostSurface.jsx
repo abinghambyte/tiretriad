@@ -127,7 +127,10 @@ function ModeToggle({ mode, onChange }) {
             role="tab"
             aria-selected={active}
             onClick={() => onChange(m)}
-            className={`rounded-full px-2 py-0.5 ${
+            // min-h-[44px] meets WCAG 2.5.5 AAA tap target. sm:min-h-0
+            // restores compact desktop chip; py-2 keeps the visible
+            // height tight while expanding the hitbox via min-height.
+            className={`min-h-[44px] rounded-full px-3 py-2 sm:min-h-0 sm:px-2 sm:py-0.5 ${
               active ? 'bg-amber-500/30 text-amber-100' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
