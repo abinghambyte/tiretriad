@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { functions, firebaseProjectId } from '../firebase/config'
 import { useToast } from '../context/ToastContext.jsx'
 import { ModuleSubheader } from '../components/layout/ModuleSubheader.jsx'
@@ -47,6 +47,23 @@ export function AdminPage() {
       />
 
       <main className="mx-auto max-w-6xl space-y-10 px-6 py-10 sm:py-12">
+        {/* Growth Lab discoverability link — patch-302. The /growth route
+            stays out of the main nav (admin-only experimental tools) but
+            this card surfaces it to admins who land on /admin. */}
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-white">Growth Lab</h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Experimental tools and admin-only sandbox: task dispatcher, session notes, and ad-hoc admin
+            playgrounds. Not in the main nav by design.
+          </p>
+          <Link
+            to="/growth"
+            className="mt-4 inline-flex min-h-[44px] items-center rounded-lg border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-100 transition-colors hover:border-amber-600/40 hover:bg-zinc-800/80 sm:min-h-0"
+          >
+            Open Growth Lab →
+          </Link>
+        </section>
+
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Price research</h2>
           <p className="mt-2 text-sm text-zinc-400">
