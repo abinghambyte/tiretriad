@@ -641,12 +641,14 @@ export function CrmPage() {
               </label>
               <input
                 type="number"
+                aria-label="Minimum score"
                 placeholder="Min score"
                 value={minScore}
                 onChange={(e) => setMinScore(e.target.value)}
                 className="w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
               />
               <input
+                aria-label="Search company name"
                 placeholder="Search company"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1062,12 +1064,14 @@ export function CrmPage() {
               </label>
               <input
                 type="number"
+                aria-label="Minimum score"
                 placeholder="Min score"
                 value={minScore}
                 onChange={(e) => setMinScore(e.target.value)}
                 className="w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
               />
               <input
+                aria-label="Search company name"
                 placeholder="Search company"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

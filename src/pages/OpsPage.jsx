@@ -335,8 +335,9 @@ export function OpsPage() {
             className="mt-5 grid max-sm:gap-3 sm:grid-cols-[1fr_1fr_2fr_auto_auto] sm:items-end sm:gap-3"
           >
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Amount</label>
+              <label htmlFor="ops-expense-amount" className="block text-xs font-medium text-zinc-400">Amount</label>
               <input
+                id="ops-expense-amount"
                 type="number"
                 min="0"
                 step="0.01"
@@ -347,8 +348,9 @@ export function OpsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Category</label>
+              <label htmlFor="ops-expense-category" className="block text-xs font-medium text-zinc-400">Category</label>
               <select
+                id="ops-expense-category"
                 value={category}
                 onChange={(ev) => setCategory(ev.target.value)}
                 className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm"
@@ -361,8 +363,9 @@ export function OpsPage() {
               </select>
             </div>
             <div className="sm:col-span-1">
-              <label className="block text-xs font-medium text-zinc-400">Note</label>
+              <label htmlFor="ops-expense-note" className="block text-xs font-medium text-zinc-400">Note</label>
               <input
+                id="ops-expense-note"
                 type="text"
                 value={note}
                 onChange={(ev) => setNote(ev.target.value)}
@@ -371,8 +374,9 @@ export function OpsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-400">Date</label>
+              <label htmlFor="ops-expense-date" className="block text-xs font-medium text-zinc-400">Date</label>
               <input
+                id="ops-expense-date"
                 type="date"
                 value={expDate}
                 onChange={(ev) => setExpDate(ev.target.value)}
