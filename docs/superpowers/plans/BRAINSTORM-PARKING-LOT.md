@@ -6,20 +6,20 @@
 
 ---
 
-## Topic 1: Tire retail backfill
+## ✅ Topic 1: Tire retail backfill — STORMED 2026-04-27
 
-**Spec draft:** `docs/superpowers/specs/2026-04-25-tire-retail-backfill-design.md`
+**Outcome:** Single-field framing replaced by 5-tier pricing architecture (manufacturer baseline → MAP → live retail → sold-price intel → promo events). Resolver picks per-confidence + recency.
 
-**Why it matters:** All 1,160 tires use estimated retail. Every margin/quote/HaggleSheet/Listing Advisor number is computed against estimates. Until this is real, we can't trust any pricing-aware feature.
+**Spec:** `docs/superpowers/specs/2026-04-25-tire-retail-backfill-design.md` (updated to "STORMED")
 
-**Decisions blocking the plan:**
-1. Do we have a master spreadsheet of MSPN → retail? (If yes, Option A wins outright.)
-2. What target margin does the auto-derive formula use? `1.30` × buy? `1.40`? `payoutConfig.targetMarginPct`?
-3. Track `retail.source` = `'priceIntel' | 'derived' | 'manual'` so the UI can warn on derived prices?
-4. Should manual edits get a `retail.locked: true` flag so future bulk-derives skip them?
-5. Hybrid recommendation: C → D → E (priceIntel copy → derive `buy×1.30` → manual MarginTable edits). Confirm or pick differently.
+**Patches:**
+- `docs/handoffs/patch-617-baseline-price-ingest.md` — Tier 1 (ready to dispatch, $0 cost, ship first)
+- `docs/handoffs/patch-618-map-feed.md` — Tier 2 (outline; Gemini-extract vs Tireweb decision pending)
+- `docs/handoffs/patch-619-resolver-and-confidence.md` — Tier 3 + resolver (ready to dispatch after 617)
+- `docs/handoffs/patch-620-sold-price-intel.md` — Tier 4 (outline; Apify-first recommended)
+- `docs/handoffs/patch-621-pricing-events.md` — Tier 5 (ready to dispatch after 617)
 
-**Pre-storm reading:** Section "Options to consider" in the spec lists 5 alternatives.
+**Recommended dispatch sequence:** 617 → 619 → 621 → 620 → 618.
 
 ---
 

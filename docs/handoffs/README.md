@@ -6,6 +6,22 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Pricing architecture (April 27, 2026, stormed).** Five-tier canonical pricing model that replaces the original "fix the retail field" framing with manufacturer baseline → MAP → live retail → sold-price intel → promo events. Resolver picks per-confidence + recency. See `docs/superpowers/specs/2026-04-25-tire-retail-backfill-design.md`.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 617 `baseline-price-ingest` | `baseline-price-ingest` | Tier 1 — ingest manufacturer MSRP from `Tire SKU Pricing Research.pdf`; stamp `baselinePrice` per tire. $0 cost. **Ship first.** |
+| 619 `retail-resolver` | `retail-resolver` | Tier 3 + resolver — adds confidence scoring to nightly Gemini cascade, Cloud Function that computes `tires/{mspn}.retail` from highest-confidence available signal, respects manual lock |
+| 621 `pricing-events` | `pricing-events` | Tier 5 — `pricingEvents` Firestore collection for manufacturer rebates / tariffs / promo windows; weekly Cloud Scheduler poll; Slack notifications |
+| 620 `sold-price-intel` | `sold-price-intel` | Tier 4 — Apify ebay-sold-listings actor first, eBay Marketplace Insights API submitted in parallel, GovDeals deferred. **Outline only — needs vendor decision.** |
+| 618 `map-feed` | `map-feed` | Tier 2 — MAP feed via Tireweb ($) OR Gemini-extracted ($0). **Outline only — needs vendor decision.** |
+
+Coordination notes:
+- 617 ships first; everything else depends on baseline data existing
+- 619 + 621 can ship in parallel after 617
+- 620 + 618 are outline-only until admin decides on vendor paths
+- Recommended sequence: 617 → 619 → 621 → 620 (Apify) → 618
+
 **Batch 11 — Production observations (April 25, 2026 evening).** Sourced from a live walk-through of skedaddleinc.com after today's PR batch landed. Two patches; sibling specs cover the bigger investigations that need brainstorming first.
 
 | Patch | Branch | What it ships |
