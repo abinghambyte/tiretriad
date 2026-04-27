@@ -16,6 +16,7 @@ import { parseDescription } from '../../utils/parseTireDescription.js'
 import { copyToClipboard } from '../../utils/copyToClipboard.js'
 import { timeAgo } from '../../utils/timeAgo'
 import { listingStatus } from '../../utils/listingStatus'
+import { brandColorCssVar } from '../../utils/brandColor.js'
 
 /** Main data row height (px) -- desktop. CTS editor expands total row height via `rowHeight`. */
 const ROW_BASE_PX = 56
@@ -770,7 +771,8 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
 
   return (
     <div
-      style={style}
+      style={{ ...style, borderLeft: `8px solid ${brandColorCssVar(row.brand)}` }}
+      data-brand={row.brand || ''}
       className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${jumpHighlightClass}`}
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...gridStyle, height: ROW_BASE_PX }}>
@@ -803,7 +805,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </div>
         ) : null}
         {vis.mspn !== false ? (
-          <div className="truncate px-3 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
+          <div className="truncate px-3 font-mono text-sm font-bold tabular-nums text-[color:var(--color-brand-michelin)]">
             {row.mspn || '--'}
           </div>
         ) : null}
@@ -841,7 +843,14 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
           </div>
         ) : null}
         {vis.fet !== false ? (
-          <div className="whitespace-nowrap px-2 text-center font-mono text-sm font-semibold text-zinc-300 tabular-nums" title={FET_CELL_TOOLTIP}>
+          <div
+            className={`whitespace-nowrap px-2 text-center font-mono text-sm tabular-nums ${
+              Number(row.fet) > 0 && row.hasFet !== false
+                ? 'font-semibold text-[color:var(--color-brand-fet)]'
+                : 'font-semibold text-zinc-600'
+            }`}
+            title={FET_CELL_TOOLTIP}
+          >
             {row.hasFet === false ? '--' : formatCurrencyOrDash(Number(row.fet) || 0)}
           </div>
         ) : null}

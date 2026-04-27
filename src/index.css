@@ -24,6 +24,17 @@
   --color-bolt-accent: #863bff;
   --color-bolt-highlight: #ede6ff;
   --color-bolt-spark: #47bfff;
+
+  /* Tire brand identity tokens — used by the catalog row accent bars,
+     MSPN column color, and FET conditional styling. See:
+     - src/utils/brandColor.js for the brand → token mapping
+     - src/components/tires/MarginTable.jsx for the row treatment
+     - docs/superpowers/specs/2026-04-27-catalog-visual-refresh-design.md */
+  --color-brand-bfg: #b22234;
+  --color-brand-michelin: #2a4d9c;
+  --color-brand-uniroyal: #2e7d4a;
+  --color-brand-fet: #f59e0b;
+  --color-brand-default: #52525b;
 }
 
 @layer base {
