@@ -143,16 +143,6 @@ export function InviteUrlToolkit({ url }) {
   )
 }
 
-export function isTannerPortalBlocked(firstName, lastName, emailAddr) {
-  const f = String(firstName || '').trim().toLowerCase()
-  const l = String(lastName || '').trim().toLowerCase()
-  const local = String(emailAddr || '')
-    .trim()
-    .toLowerCase()
-    .split('@')[0]
-  return f === 'tanner' || l === 'tanner' || local === 'tanner'
-}
-
 function Field({ label, value, onChange, type = 'text', required, inputMode, autoComplete, placeholder }) {
   return (
     <label className="block">
@@ -256,7 +246,6 @@ export function CreateUserInviteSection({
   lastInviteUrl,
   onSubmitCreateUser,
   onOpenInvitePreview,
-  toast,
 }) {
   return (
     <section
@@ -287,10 +276,6 @@ export function CreateUserInviteSection({
       <form
         onSubmit={(e) => e.preventDefault()}
         onKeyDown={cmdEnterInvokeKeyDown(() => {
-          if (isTannerPortalBlocked(fn, ln, email)) {
-            toast('This partner is not provisioned in the People system.', 'error')
-            return
-          }
           void onSubmitCreateUser()
         })}
         className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"

@@ -26,7 +26,6 @@ import {
   CreateUserInviteSection,
   InvitePreviewModal,
   inviteUrlFromToken,
-  isTannerPortalBlocked,
 } from './InviteUrlToolkit.jsx'
 import { UserEditorModal } from './PermissionEditor.jsx'
 import { UserRow } from './UserRow.jsx'
@@ -335,10 +334,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   }
 
   async function submitCreateUser() {
-    if (isTannerPortalBlocked(fn, ln, email)) {
-      toast('This partner is not provisioned in the People system.', 'error')
-      return
-    }
     setCreateBusy(true)
     setLastInviteUrl('')
     const snapshot = {
@@ -438,10 +433,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       toast('Enter a valid email address before preview.', 'error')
-      return
-    }
-    if (isTannerPortalBlocked(fn, ln, email)) {
-      toast('This partner is not provisioned in the People system.', 'error')
       return
     }
     setPreviewOpen(true)
@@ -579,7 +570,6 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           lastInviteUrl={lastInviteUrl}
           onSubmitCreateUser={submitCreateUser}
           onOpenInvitePreview={openInvitePreview}
-          toast={toast}
         />
 
         {/* tabIndex={0} so keyboard users can scroll the horizontally-overflowing
