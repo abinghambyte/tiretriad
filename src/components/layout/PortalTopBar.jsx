@@ -128,20 +128,6 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
               </div>
             ) : null}
             {/* TODO: add Settings link here once a /settings route exists in src/App.jsx */}
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  window.localStorage.setItem('skedaddle.mobile.fullPortal', '1')
-                } catch {
-                  /* ignore */
-                }
-                window.location.reload()
-              }}
-              className="block w-full px-3 py-2.5 text-left text-sm text-zinc-300 hover:bg-zinc-800/80"
-            >
-              Switch to full portal
-            </button>
             <div className="border-t border-zinc-800" />
             <button
               type="button"

@@ -4,14 +4,6 @@ import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useDashboardSignals } from '../../hooks/useDashboardSignals.js'
 
-function readFullPortalFlag() {
-  try {
-    return window.localStorage.getItem('skedaddle.mobile.fullPortal') === '1'
-  } catch {
-    return false
-  }
-}
-
 function IconHome() {
   return (
     <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
@@ -99,7 +91,6 @@ function IconAdmin() {
 }
 
 export function MobileBottomNav() {
-  const [fullMode] = useState(readFullPortalFlag)
   const [selectionActive, setSelectionActive] = useState(false)
   const { permissionFor, profile } = useUserProfile()
   const { kylesQueueCount } = useDashboardSignals()
@@ -121,22 +112,22 @@ export function MobileBottomNav() {
     return () => window.removeEventListener('skedaddle:tires-selection', onSelectionChange)
   }, [])
 
-  const items = fullMode
-    ? [
-        canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
-        canMyQueue
-          ? { to: '/my-queue', label: 'My Queue', icon: <IconQueue />, badge: queueBadge }
-          : null,
-        canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
-        canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
-        canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
-        canOps ? { to: '/ops', label: 'Ops', icon: <IconOps /> } : null,
-        canOps ? { to: '/admin', label: 'Admin', icon: <IconAdmin /> } : null,
-      ].filter(Boolean)
-    : [
-        { to: '/dashboard', label: 'Home', icon: <IconHome /> },
-        canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
-      ].filter(Boolean)
+  // Per-item permission gating below already handles the "user has no
+  // permissions" case via `.filter(Boolean)`. Always render the full nav so
+  // every reachable destination is one tap away from the home screen on mobile.
+  // (See docs/superpowers/audits/2026-04-26-comprehensive-ui-ux-audit.md §0.2.)
+  const items = [
+    { to: '/dashboard', label: 'Home', icon: <IconHome /> },
+    canTires ? { to: '/tires', label: 'Tires', icon: <IconTires /> } : null,
+    canMyQueue
+      ? { to: '/my-queue', label: 'My Queue', icon: <IconQueue />, badge: queueBadge }
+      : null,
+    canCrm ? { to: '/crm', label: 'Rubber CRM', icon: <IconCrm /> } : null,
+    canPeople ? { to: '/people', label: 'People', icon: <IconPeople /> } : null,
+    canAnalytics ? { to: '/analytics', label: 'Analytics', icon: <IconAnalytics /> } : null,
+    canOps ? { to: '/ops', label: 'Ops', icon: <IconOps /> } : null,
+    canOps ? { to: '/admin', label: 'Admin', icon: <IconAdmin /> } : null,
+  ].filter(Boolean)
 
   if (selectionActive || items.length === 0) return null
 
