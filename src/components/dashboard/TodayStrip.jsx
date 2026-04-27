@@ -57,9 +57,14 @@ export function TodayStrip({
     >
       <Link
         to="/orders"
+        aria-label={
+          loading
+            ? 'Pending orders, loading'
+            : `Pending orders: ${formatQty(pendingValue ?? 0)}`
+        }
         className="pc-card rounded-xl bg-zinc-900/60 p-[14px] transition-colors hover:bg-zinc-900/80"
       >
-        <p className="pc-eyebrow">Pending orders</p>
+        <h2 className="pc-eyebrow">Pending orders</h2>
         {loading ? (
           <div className="mt-2 h-8 w-12 animate-pulse rounded-md bg-zinc-800/80" />
         ) : (
@@ -77,6 +82,13 @@ export function TodayStrip({
 
       <Link
         to="/orders?status=completed"
+        aria-label={
+          loading
+            ? 'Last sale, loading'
+            : saleAmount == null
+              ? 'Last sale: no sales yet, waiting on first completed order'
+              : `Last sale: ${formatCurrency(saleAmount)}${ageLabel ? `, ${ageLabel}` : ''}`
+        }
         className={[
           'pc-card rounded-xl bg-gradient-to-b from-emerald-500/10 to-transparent p-[14px] transition-colors hover:from-emerald-500/15',
           fresh ? 'ring-1 ring-violet-500/40 shadow-[0_0_20px_rgba(126,20,255,0.15)]' : '',
@@ -84,7 +96,7 @@ export function TodayStrip({
           .filter(Boolean)
           .join(' ')}
       >
-        <p className="pc-eyebrow">Last sale</p>
+        <h2 className="pc-eyebrow">Last sale</h2>
         {loading ? (
           <div className="mt-2 h-10 w-24 animate-pulse rounded-md bg-zinc-800/80" />
         ) : saleAmount == null ? (
@@ -123,9 +135,14 @@ export function TodayStrip({
 
       <Link
         to="/analytics?tab=revenue"
+        aria-label={
+          loading
+            ? 'Total profit, loading'
+            : `Total profit: ${formatCurrency(Number(allTimeMargin ?? 0))}`
+        }
         className="pc-card rounded-xl bg-zinc-900/60 p-[14px] transition-colors hover:bg-zinc-900/80"
       >
-        <p className="pc-eyebrow">Total profit</p>
+        <h2 className="pc-eyebrow">Total profit</h2>
         {loading ? (
           <div className="mt-2 h-8 w-20 animate-pulse rounded-md bg-zinc-800/80" />
         ) : (
