@@ -1,106 +1,57 @@
-# Wipe-script safety + customer recovery — design spec (DRAFT — needs admin brainstorm)
+# Wipe-script safety + customer recovery — design spec (STORMED 2026-04-27)
 
-**Status:** Draft. Surfaced from 2026-04-25 evening production observations. Needs admin input before any code is written.
+**Status:** Stormed. Original draft questioned PITR + soft-delete + testFixture in isolation. Storm session resolved: **named Firestore DB primary, testFixture contract secondary, fail-closed wipe-script signatures.** Implementation captured as `docs/handoffs/patch-622-firestore-isolation-and-fixtures.md`.
 
-## What happened
+## Already shipped before this storm
 
-Earlier today the admin ran `scripts/wipe-test-orders.mjs` to clear test orders in preparation for real sales tracking. The script worked as designed: it deleted every doc in the `orders` collection. But the `orders` collection contained both test data AND real customer relationships from prior sales. The wipe removed all of it.
+- ✅ Soft-delete primitive: `archivedAt` / `archivedReason` fields + `isArchived()` helper (PR #171)
+- ✅ Archive script with safety: dry-run by default, exclude list, restore mode (PR #161, fixed in PR #172)
+- ✅ Recovery toolkit on main: import-snapshot / diff / cherry-pick scripts (PR #162)
+- ✅ Daily Firestore exports confirmed working — 30 days of clean backups in `gs://skedaddle-inventory-firestore-backups/firestore/`
+- ✅ Bucket protection: Soft Delete (7d) + Object Versioning + Default event-based hold
+- ✅ Wipe investigation closed — no real customer data was lost; the 6 destroyed orders were confirmed test fixtures (PR #163)
 
-Symptom on the live app: `/people?tab=customers` shows "No contacts yet" with the explanation "Customer contacts fill in automatically after their first completed order." Real customers from before today are gone from this view.
+## What the storm closed
 
-## Why this happened
+The original four open decisions:
 
-The wipe script's contract was "delete everything in `orders`." It had no way to distinguish test orders from real orders because the data model didn't tag them. Two design assumptions failed:
+| Decision | Stormed answer |
+|---|---|
+| 1. PITR status check | Moot — daily exports give us 30 days of recovery. PITR can be added later as defense-in-depth. |
+| 2. Soft-delete adoption scope | Already adopted on `users` / `crmAccounts` / `crmLeads` / `contacts` (PR #171). Apply to any future production-relevant collection. |
+| 3. testFixture flag retrofitting | Don't retrofit. Enforce contract on new test data going forward. |
+| 4. Export-before-wipe | Already covered by the daily Cloud Run Job. Wipes targeting the `tests` DB don't threaten production exports anyway. |
 
-1. **Test data and production data shared a collection** with no marker
-2. **The cleanup script was destructive (hard delete) rather than soft (mark archived)**
+## Storm decision: structural isolation, not just discipline
 
-## Recovery options for the existing customer history
+**Primary: named Firestore database `tests` in the same project.** Production code only writes to the default DB. Test seeding, integration smoke runs, and load testing target `tests`. Wipe scripts targeting `tests` are safe by construction because they cannot reach production data even if invoked with the wrong flag. Named DBs are free when idle; isolation is at the credential boundary, so production service accounts shouldn't have write access to `tests` and the test runner shouldn't have write access to default.
 
-### Option A — Firestore Point-in-Time Recovery (PITR)
+**Secondary: `testFixture` contract.** Every doc written from a test context (in either DB) carries `testFixture: true` and `testFixtureExpiresAt: <timestamp>`. ESLint rule flags violations at PR time. Daily Cloud Function sweeps expired fixtures from `tests`.
 
-Firebase Firestore supports PITR for up to 7 days when enabled at the project level. Status as of 2026-04-25: **unknown — admin needs to verify in Firebase Console → Firestore Database → Backups.**
+**Tertiary: fail-closed wipe signatures.** No wipe script defaults to a database. `--db=tests` or `--db=production --i-understand-this-is-production` (two flags). Production path prints doc count and a 10-second countdown before proceeding.
 
-If PITR is enabled:
-- Restore a snapshot from before the wipe (e.g., 2026-04-25 06:00 UTC)
-- Restore TO a different project or different database
-- Diff restored docs against current production
-- Cherry-pick real customer/order docs back
+## Five-step rollout sequence (preserved in patch-622)
 
-If PITR is NOT enabled:
-- Customer history is gone
-- Enable PITR going forward so this never happens again
+1. **Audit** `scripts/` and `functions/scripts/` to determine whether Firestore client instantiation flows through a single helper or each script calls `getFirestore()` independently.
+2. **Standardize** on a shared `lib/firestore-client.mjs` helper across every script, then flip default to `tests`.
+3. **Create the `tests` named DB** via gcloud.
+4. **Migrate seed/wipe scripts** to require `--db`, add the ESLint rule, add the cleanup Cloud Function, update PR template, update AI-CONTEXT.md.
+5. **Deploy** the cleanup function with `npm run deploy:firebase` before merging the frontend PR-template change so the sweep is live the moment the new model is in place.
 
-**Action item:** admin checks PITR status. If on, schedule a restore.
+## Decision log
 
-### Option B — Client-side analytics or Slack message archives
+- **(b) named DB primary, (a) testFixture secondary** — chosen because (b) gets isolation at the credential boundary which (a) alone cannot. (a) layered on top means even a misconfigured client that writes to production gets a contract-flagged doc that the sweep job would catch.
+- **(c) suffix collections rejected** — doubles collection count; harder to grep; doesn't isolate at any layer the test runner can see.
+- **(d) pure-mock rejected** — loses real-Firestore confidence in the integration smoke runs we already do (recovery toolkit relies on it).
+- **`testFixtureExpiresAt` instead of fixed-window cleanup** — letting the test author choose the expiry means short-lived load tests can be cleaned up next morning while a long-lived dev fixture can survive a sprint.
+- **PR template checkbox** — explicit reviewer enforcement adds a second pair of eyes beyond the linter.
 
-If real sales were posted to Slack via the existing notify-team flow, the Slack message history may have enough information to reconstruct customer names + tire details for past sales. Not a full recovery, but partial.
+## Out of scope for this storm
 
-### Option C — Accept the loss and move on
-
-The admin has been the primary user; if customer data was light, the loss may be tolerable. Going forward, every real sale auto-populates the contact list again.
-
-## Future-proofing — design proposal
-
-### Soft-delete pattern
-
-Every collection that holds production-relevant data uses a `archivedAt: Timestamp | null` field instead of being hard-deleted. Wipes filter to `archivedAt != null` instead of removing docs. Reads filter `archivedAt == null` to hide archived rows.
-
-```js
-// Instead of: db.collection('orders').doc(id).delete()
-// Do:        db.collection('orders').doc(id).update({ archivedAt: serverTimestamp() })
-```
-
-Trade-off: Firestore costs scale with stored docs. If we accumulate 100K archived orders this becomes a real bill. Mitigation: a cron job that hard-deletes docs with `archivedAt < 90 days ago`.
-
-### Test-fixture flag
-
-Every doc created during testing gets a `testFixture: true` field. Wipe scripts filter on `testFixture == true` and never touch real data. Production code never writes this field, so the production path is unaffected.
-
-```js
-// Test setup
-await db.collection('orders').doc(testId).set({
-  ...realOrderShape,
-  testFixture: true,
-})
-
-// Wipe script
-const snap = await db.collection('orders').where('testFixture', '==', true).get()
-await Promise.all(snap.docs.map(d => d.ref.delete()))
-```
-
-### Cleanup-script PR template guard
-
-Add a section to `.github/pull_request_template.md` that requires PR authors of any `scripts/wipe-*.mjs` to:
-- Confirm the script is dry-run-able with `--dry-run`
-- Confirm the script's filter scope (testFixture, archivedAt, dateRange, MSPN whitelist, etc.)
-- Confirm what data is at risk if the filter is wrong
-
-### Backup snapshots before any cleanup script runs
-
-Before any cleanup script touches Firestore, it first runs a Firestore export to a Cloud Storage bucket. If something goes wrong, the snapshot is the recovery path.
-
-```js
-// Pseudo-code for the wrapper
-const snapshotPath = `gs://skedaddle-backups/wipe-${Date.now()}/`
-await admin.firestore().exportData({ collectionIds: ['orders'], outputUriPrefix: snapshotPath })
-// THEN run the actual wipe
-```
-
-## Decisions needed before any code
-
-1. **PITR status check** — admin confirms if PITR is enabled. If not, enable it now and accept this loss.
-2. **Should we adopt soft-delete across all production collections** or just orders/contacts/users?
-3. **Is the testFixture flag worth retrofitting** existing test data with, or only enforce on new test data going forward?
-4. **Should every cleanup script trigger a Firestore export first** as a hard rule, or just for "dangerous" ones (deletions across >100 docs)?
-
-## Out of scope for this spec
-
-- Restoring the lost customer data (separate restoration effort if PITR is on)
-- Full Firestore backup strategy (different concern; addresses disasters, not script accidents)
 - GDPR / customer-data retention policy (different concern; addresses customer rights, not us preserving the data)
+- Test isolation between Firebase projects (separate `skedaddle-inventory-test` project) — overkill; named DB suffices
+- Hard-delete cron threshold for `archivedAt`-stamped docs in production — the soft-delete pattern stays as-is; cron can come later if storage cost matters
 
 ## Next step
 
-Admin brainstorm: confirm PITR status, decide on soft-delete adoption, decide on the testFixture flag policy. Then write the implementation plan.
+Dispatch `docs/handoffs/patch-622-firestore-isolation-and-fixtures.md`. Sequence enforced by the brief itself.

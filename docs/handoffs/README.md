@@ -6,6 +6,12 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Data safety (April 27, 2026, stormed).** Single coherent migration: named `tests` Firestore DB + testFixture contract + fail-closed wipe signatures. Closes the 2026-04-25 wipe class of incident structurally.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 622 `firestore-isolation` | `firestore-isolation` | Named `tests` DB + shared client helper + ESLint rule + cleanupTestFixtures Cloud Function + PR template + AI-CONTEXT update. Sequence enforced inside the brief. |
+
 **Pricing architecture (April 27, 2026, stormed).** Five-tier canonical pricing model that replaces the original "fix the retail field" framing with manufacturer baseline → MAP → live retail → sold-price intel → promo events. Resolver picks per-confidence + recency. See `docs/superpowers/specs/2026-04-25-tire-retail-backfill-design.md`.
 
 | Patch | Branch | What it ships |

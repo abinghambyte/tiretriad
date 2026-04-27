@@ -23,19 +23,16 @@
 
 ---
 
-## Topic 2: Wipe-script safety + customer recovery
+## ✅ Topic 2: Wipe-script safety + testFixture pattern — STORMED 2026-04-27
 
-**Spec draft:** `docs/superpowers/specs/2026-04-25-wipe-safety-and-customer-recovery-design.md`
+**Outcome:** Three-layer defense — named Firestore DB `tests` (primary, credential-boundary isolation) + `testFixture` + `testFixtureExpiresAt` contract (secondary, ESLint-enforced, Cloud-Function-swept) + fail-closed wipe-script signatures (tertiary, two flags to touch production with countdown).
 
-**Why it matters:** The 2026-04-25 wipe took out real customer history because the script couldn't distinguish test from prod data. Going forward, every cleanup script needs guardrails OR we lose customer data again.
+**Spec:** `docs/superpowers/specs/2026-04-25-wipe-safety-and-customer-recovery-design.md` (updated to "STORMED")
 
-**Decisions blocking the plan:**
-1. **PITR status.** Operator must check Firebase Console → Firestore → Backups. If ON: restoration possible. If OFF: customer history is gone, enable for the future.
-2. Adopt **soft-delete** (`archivedAt: Timestamp | null`) across all production collections, or just orders/contacts/users?
-3. Retrofit existing test data with **`testFixture: true`** flag, or only enforce on new test data?
-4. Should every cleanup script trigger a **Firestore export first**, or only "dangerous" ones (>100 doc deletions)?
+**Patch:**
+- `docs/handoffs/patch-622-firestore-isolation-and-fixtures.md` — single coherent migration, ready to dispatch
 
-**Related:** GCP audit (`2026-04-26-gcp-resource-cleanup.md`) flags `skedaddle-os-firestore-backup` Cloud Run service may not be functioning. Storm this topic only after the backup investigation completes — the answer changes everything.
+Pre-storm shipped foundation: PR #161 (archive script), #162 (recovery toolkit), #163 (wipe investigation closed), #171 (UI filter), #172 (field-name fix). PITR check was moot — daily exports give us 30 days of recovery.
 
 ---
 
