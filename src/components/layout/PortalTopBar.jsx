@@ -135,7 +135,6 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
                 {themeToggle}
               </div>
             ) : null}
-            {/* TODO: add Settings link here once a /settings route exists in src/App.jsx */}
             <div className="border-t border-zinc-800" />
             <button
               type="button"
