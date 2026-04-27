@@ -35,13 +35,20 @@ const PROJECT_ID = 'skedaddle-inventory'
 // --------------------------------------------------------------------------
 const TARGETS = {
   crmAccounts: {
-    // Match by exact name. Add any other "us as a lead" docs that show up.
-    nameEquals: ['Skedaddle Inc', 'Skedaddle, Inc', 'Skedaddle, Inc.'],
+    // The CRM stores account names in `companyName`, not `name`/`displayName`.
+    // Verified via scripts/inspect-collections.mjs.
+    companyNameEquals: ['Skedaddle Inc', 'Skedaddle, Inc', 'Skedaddle, Inc.'],
   },
   users: {
-    // Match by display name OR email. Add/remove based on dry-run output.
-    displayNameEquals: ['User', 'Sinch Test'],
-    emailContains: ['sinch', 'test@', 'noreply@'],
+    // Users have firstName/lastName fields, not displayName. Filter by full
+    // first+last combination AND by suspicious-pattern emails.
+    // Verified via scripts/inspect-collections.mjs.
+    fullNameEquals: ['User', 'Sinch Test', 'User Test', 'Test User'],
+    firstNameOnlyEquals: ['User', 'Test'], // matches docs with firstName but no lastName
+    emailContains: ['+test@', 'noreply@', '@example.com'],
+    // EXCLUDE explicit list — never archive these even if a pattern matches.
+    // Add real-user UIDs here defensively.
+    excludeIds: ['jrDGTqdpieSdjZ7KCp3tYkPjd4R2'], // Alex Bingham
   },
 }
 
@@ -70,10 +77,15 @@ async function findCrmAccountMatches() {
   const snap = await db.collection('crmAccounts').get()
   for (const doc of snap.docs) {
     const data = doc.data() || {}
-    const name = (data.name || data.displayName || '').trim()
-    if (!name) continue
-    if (TARGETS.crmAccounts.nameEquals.some((n) => n.toLowerCase() === name.toLowerCase())) {
-      out.push({ ref: doc.ref, id: doc.id, name, currentArchived: data.archivedAt || null })
+    const company = (data.companyName || data.name || data.displayName || '').trim()
+    if (!company) continue
+    if (TARGETS.crmAccounts.companyNameEquals.some((n) => n.toLowerCase() === company.toLowerCase())) {
+      out.push({
+        ref: doc.ref,
+        id: doc.id,
+        name: company,
+        currentArchived: data.archivedAt || null,
+      })
     }
   }
   return out
@@ -83,18 +95,25 @@ async function findUserMatches() {
   const out = []
   const snap = await db.collection('users').get()
   for (const doc of snap.docs) {
+    if (TARGETS.users.excludeIds.includes(doc.id)) continue
     const data = doc.data() || {}
-    const dn = (data.displayName || '').trim()
+    const fn = (data.firstName || '').trim()
+    const ln = (data.lastName || '').trim()
+    const fullName = [fn, ln].filter(Boolean).join(' ').trim()
     const email = (data.email || '').toLowerCase()
-    const dnHit = TARGETS.users.displayNameEquals.some((n) => n.toLowerCase() === dn.toLowerCase())
-    const emailHit = TARGETS.users.emailContains.some((s) => email.includes(s.toLowerCase()))
-    if (dnHit || emailHit) {
+    const fullHit = fullName.length > 0 &&
+      TARGETS.users.fullNameEquals.some((n) => n.toLowerCase() === fullName.toLowerCase())
+    const firstOnlyHit = !ln && fn.length > 0 &&
+      TARGETS.users.firstNameOnlyEquals.some((n) => n.toLowerCase() === fn.toLowerCase())
+    const emailHit = email.length > 0 &&
+      TARGETS.users.emailContains.some((s) => email.includes(s.toLowerCase()))
+    if (fullHit || firstOnlyHit || emailHit) {
       out.push({
         ref: doc.ref,
         id: doc.id,
-        displayName: dn,
+        displayName: fullName || fn || '(no name)',
         email,
-        matchedBy: dnHit ? 'displayName' : 'email',
+        matchedBy: fullHit ? 'fullName' : firstOnlyHit ? 'firstName' : 'email',
         currentArchived: data.archivedAt || null,
       })
     }
