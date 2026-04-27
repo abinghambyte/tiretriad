@@ -6,6 +6,19 @@ a PR from - then stop.
 
 ## Active rollout
 
+**CRM rebuild (April 27, 2026, stormed).** 9 decisions resolved + 3 refinements. Three coordinated patches.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 624 `crm-schema-v3` | `crm-schema-v3` | Stage rename to `Spotted → Researched → Contacted → Quoted → Negotiating`; denormalize `estValueCents` + `lastTouchAt`; composite index; migration script. Ships first. |
+| 625 `crm-kanban-ui` | `crm-kanban-ui` | Kanban UI rebuild: 5 columns + 3 drag zones (Lost / Won / Park with picker) + `+ New Lead` + 5-field cards + filter row purge + ModuleSubheader metrics + hourly unpark cron |
+| 626 `sms-auto-spotted-dedup` | `sms-auto-spotted-dedup` | Inbound SMS classifier — 3 routes (existing prospect / existing customer / new lead) with phone-normalized dedup. Differentiated Slack messages |
+
+Coordination notes:
+- 624 ships first — schema must land before UI reads denormalized fields
+- 625 + 626 can ship in parallel after 624
+- 626 backend-only; 625 frontend-heavy
+
 **Command palette refresh (April 27, 2026, stormed).** Single PR closes the audit's "tiny [Q] icon" complaint plus adds Recent + Suggested empty-state acceleration. Existing palette is substantial; gap-closing not redesign.
 
 | Patch | Branch | What it ships |
