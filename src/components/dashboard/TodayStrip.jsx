@@ -103,11 +103,13 @@ export function TodayStrip({
           <>
             <p
               data-testid="hero-last-sale"
-              className="mt-1 text-[24px] font-semibold tabular-nums text-zinc-400"
+              className="mt-1 text-[24px] font-semibold tabular-nums text-zinc-600 dark:text-zinc-400"
             >
               No sales yet
             </p>
-            <p className="mt-1 text-[11px] text-zinc-500">Waiting on first completed order</p>
+            <p className="mt-1 text-[11px] text-zinc-700 dark:text-zinc-500">
+              Waiting on first completed order
+            </p>
           </>
         ) : (
           <>

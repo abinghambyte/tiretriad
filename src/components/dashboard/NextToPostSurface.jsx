@@ -67,8 +67,11 @@ function SignalStrip({ tire }) {
   const velDays = bd.velocity?.raw ? `${Math.round(100 / bd.velocity.raw)}d` : 'n/a'
   const listedRaw = bd.daysSinceLastListed?.raw
   const listedLabel = Number.isFinite(listedRaw) && listedRaw > 0 ? `${Math.round(listedRaw)}d` : 'never'
+  // text-zinc-400 on white is 2.85:1 (fails WCAG AA). text-zinc-600 in
+  // light mode is 7.83:1 (passes AAA); dark mode restores zinc-400 where
+  // it already passes (9.84:1 on zinc-950).
   return (
-    <p className="text-[11px] text-zinc-400">
+    <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
       Last posted {listedLabel} &middot; Repriced {Math.round(bd.daysSincePriceChange?.raw || 0)}d &middot; Vel {velDays} &middot;{' '}
       Margin {formatPercent((bd.margin?.raw || 0) * 100, 0)} &middot; Missing {tire.missingPlatformCount}
     </p>
