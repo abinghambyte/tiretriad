@@ -88,9 +88,16 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
         {/* Desktop (≥ sm): theme toggle + role pill + sign out */}
         <div className="hidden sm:flex sm:items-center sm:gap-2">
           {themeToggle}
+          {/*
+            No `title` attribute: WAVE / WCAG flag "Redundant title text" when
+            a `title` duplicates the element's visible content (it's announced
+            twice by some screen readers). The truncate is wide enough at
+            220px / 48vw that "Alex · Overwatch" almost never clips; if it
+            does, the user can hover to expand on a wider viewport rather
+            than relying on a tooltip.
+          */}
           <div
             className="ml-1 max-w-[min(220px,48vw)] truncate rounded-full border border-zinc-700/90 bg-zinc-900/90 px-2.5 py-1 text-xs font-semibold text-zinc-100 sm:max-w-xs sm:px-3 sm:text-sm"
-            title={nameBadge}
           >
             {nameBadge}
           </div>
