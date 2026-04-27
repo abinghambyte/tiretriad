@@ -10,6 +10,7 @@ import { AvailabilityBlocker } from './AvailabilityBlocker.jsx'
 import { EditorInviteColumn } from './InviteUrlToolkit.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL_BASE } from '../ui/modalChrome.js'
+import { flags } from '../../utils/featureFlags.js'
 
 /**
  * Permission matrix column in the user editor grid.
@@ -156,7 +157,11 @@ export function UserEditorModal({
             <PermissionEditor value={permDraft} onChange={setPermDraft} disabled={saving} />
           </div>
 
-          {profile &&
+          {/* Patch-304: gate AvailabilityBlocker behind multiUserMode.
+              Crew availability matters once DJ/Kyle have real schedules;
+              before then it's noise on a single-user install. */}
+          {flags.multiUserMode &&
+          profile &&
           selected &&
           (permissionMeets(profile.permissions?.people, 'manage') ||
             selected.id === auth.currentUser?.uid) ? (

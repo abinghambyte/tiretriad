@@ -31,6 +31,7 @@ import { UserEditorModal } from './PermissionEditor.jsx'
 import { UserRow } from './UserRow.jsx'
 import { UserHistoryModal } from './UserHistoryModal.jsx'
 import { isArchived } from '../../utils/isArchived.js'
+import { flags } from '../../utils/featureFlags.js'
 
 const createPortalUser = httpsCallable(functions, 'createPortalUser')
 const updatePortalUser = httpsCallable(functions, 'updatePortalUser')
@@ -532,13 +533,18 @@ export function PeopleDashboard({ omitPageChrome = false }) {
   const inner = (
     <>
       <main className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
-        <div className="hidden sm:block">
-          <CrewDirectoryWidget
-            crew={crewPreview}
-            crewSignals={crewSignals?.map || {}}
-            loading={Boolean(crewSignals?.loading) || crewPreview.loading}
-          />
-        </div>
+        {/* Patch-304: gate CrewDirectoryWidget behind multiUserMode. With a
+            single human in the system the widget renders zeros and noise;
+            flip flags.multiUserMode once Kyle/DJ have active accounts. */}
+        {flags.multiUserMode ? (
+          <div className="hidden sm:block">
+            <CrewDirectoryWidget
+              crew={crewPreview}
+              crewSignals={crewSignals?.map || {}}
+              loading={Boolean(crewSignals?.loading) || crewPreview.loading}
+            />
+          </div>
+        ) : null}
         {isMobilePeople && !createDrawerOpen ? (
           <button
             type="button"

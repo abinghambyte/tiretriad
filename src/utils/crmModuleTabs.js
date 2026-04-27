@@ -1,3 +1,5 @@
+import { flags } from './featureFlags.js'
+
 /**
  * Tab config for Rubber CRM (Board / Leads / Field Dispatch). All tabs live
  * on `/crm` with a `?tab=` selector so state and back-nav behave consistently.
@@ -11,7 +13,10 @@
 export function buildCrmTabs({ profile, pathname, searchParams }) {
   const rawTab = searchParams.get('tab')
   const tab = rawTab === 'leads' || rawTab === 'dispatch' ? rawTab : 'board'
-  const canDispatch = profile?.role === 'mechanic' || profile?.role === 'admin'
+  // Field Dispatch requires both an eligible role AND multi-user mode.
+  // Single-user installations don't have a mechanic, so the tab is noise.
+  const canDispatch =
+    flags.multiUserMode && (profile?.role === 'mechanic' || profile?.role === 'admin')
   const onCrm = pathname === '/crm'
   const tabs = [
     {
