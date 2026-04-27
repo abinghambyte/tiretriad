@@ -7,6 +7,7 @@ import { timeAgo } from '../../utils/timeAgo'
 import { TodayStrip } from './TodayStrip'
 import { ActivityTicker } from './ActivityTicker'
 import { HiddenGemsSurface } from './HiddenGemsSurface'
+import { MyQueueWidget } from './MyQueueWidget.jsx'
 import { NextToPostSurface } from './NextToPostSurface.jsx'
 import { flags } from '../../utils/featureFlags.js'
 import { StatusPill } from '../ui/StatusPill.jsx'
@@ -217,6 +218,11 @@ export function Dashboard() {
         />
 
         <ActivityTicker chips={tickerChips} />
+
+        {/* Patch-628: My Queue widget. Replaces /my-queue nav entry; full
+            page still available at /my-queue as fallback. Hidden by its own
+            internal role gate when the user has no queue surface. */}
+        <MyQueueWidget />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="pc-card rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
