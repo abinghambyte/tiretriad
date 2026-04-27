@@ -334,13 +334,28 @@ function MiniNum({ label, value, onChange }) {
   )
 }
 
+/**
+ * Patch-602: margin pill styling. Thresholds per audit decision:
+ *   green  ≥ 25%
+ *   amber  20–24.99%
+ *   red    < 20%
+ *
+ * Returns badge/pill classes (background + border + text + padding) so the
+ * margin reads as a status chip at a glance instead of a color-only number.
+ */
 function marginPctTone(pct) {
-  const t = 'transition-colors duration-300 ease-out '
-  if (pct == null || Number.isNaN(pct)) return t + 'text-zinc-400'
-  if (pct < 15) return t + 'text-red-400'
-  if (pct < 30) return t + 'text-amber-300'
-  if (pct < 45) return t + 'text-emerald-300'
-  return t + 'text-emerald-200'
+  const base =
+    'inline-flex items-center rounded-md border px-1.5 py-0.5 transition-colors duration-300 ease-out'
+  if (pct == null || Number.isNaN(pct)) {
+    return `${base} border-zinc-700 bg-zinc-900/40 text-zinc-400`
+  }
+  if (pct < 20) {
+    return `${base} border-rose-800/60 bg-rose-950/40 text-rose-200`
+  }
+  if (pct < 25) {
+    return `${base} border-amber-800/60 bg-amber-950/40 text-amber-200`
+  }
+  return `${base} border-emerald-800/60 bg-emerald-950/40 text-emerald-200`
 }
 
 /** Best-effort two-line split when parseKind is still raw (catalog edge cases). */
