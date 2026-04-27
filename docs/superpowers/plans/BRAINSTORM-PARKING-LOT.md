@@ -115,7 +115,26 @@ DnD library: dnd-kit (existing or to add — React 19 default).
 
 ---
 
-## Topic 5: Dashboard onboarding consolidation
+## ✅ Topic 5: Dashboard onboarding consolidation — STORMED 2026-04-27
+
+**Outcome:** The grid IS the onboarding. Each module card has empty-state (first-action CTA) and data-state (live metric) presentations. Single surface replaces both the missing 6-card grid AND the 5 empty KPI widgets. 6 decisions resolved.
+
+- **Threshold (hybrid):** per-card for inventory/CRM/People/Ops; global `firstSaleAt` for Analytics + Growth Lab
+- **Legacy KPI migration:** absorb (Pending → Tires; Top Sellers → Tires; Last Sale + Total Profit → Analytics; Recent Activity stays as separate widget)
+- **Layout:** auto-fit grid `repeat(auto-fit, minmax(280px, 1fr))` — handles role-gated 4/5/6 card variants
+- **Below-grid widgets:** keep as-is for ship; tucking them is follow-up
+- **Rollout:** big-bang (3-person crew, low risk)
+- **Regression:** snapshot tests + manual KPI checklist mandatory in PR
+
+**Spec:** `docs/superpowers/specs/2026-04-27-dashboard-onboarding-design.md`
+
+**Patch:**
+- `docs/handoffs/patch-627-homepage-module-grid.md` — single PR. Same work as audit's patch-600b.
+
+---
+
+<details>
+<summary>Original Topic 5 framing (pre-storm)</summary>
 
 **Source:** `2026-04-26-comprehensive-ui-ux-audit.md` §2.
 
@@ -128,6 +147,8 @@ DnD library: dnd-kit (existing or to add — React 19 default).
 4. **Trigger threshold.** At what point does the consolidated module disappear? First completed order? First $X revenue? Operator override toggle?
 5. **What setup steps belong on the checklist?** (Probable: import tires CSV, log first sale, invite Kyle, configure payouts, post first listing.)
 6. **Where does the Recent Activity feed go** when there's real data? Same widget that morphs from onboarding → activity? Separate panel?
+
+</details>
 
 ---
 
