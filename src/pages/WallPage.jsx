@@ -65,9 +65,41 @@ export function WallPage({ embedded = false }) {
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
+  // Patch-502: default to "Last 30 days" so the Wall isn't a blank slate.
+  // Compute defaults once on mount, but allow user to override via presets
+  // or manual entry.
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().slice(0, 10)
+  })
+  const [toDate, setToDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [minRevenue, setMinRevenue] = useState('')
+
+  function applyPreset(kind) {
+    const today = new Date()
+    const todayYmd = today.toISOString().slice(0, 10)
+    if (kind === 'all') {
+      setFromDate('')
+      setToDate('')
+      return
+    }
+    if (kind === 'ytd') {
+      setFromDate(`${today.getFullYear()}-01-01`)
+      setToDate(todayYmd)
+      return
+    }
+    if (kind === 'today') {
+      setFromDate(todayYmd)
+      setToDate(todayYmd)
+      return
+    }
+    const days = { '7d': 7, '30d': 30, '90d': 90 }[kind] || 30
+    const back = new Date()
+    back.setDate(back.getDate() - days)
+    setFromDate(back.toISOString().slice(0, 10))
+    setToDate(todayYmd)
+  }
 
   useEffect(() => {
     const q = query(
@@ -123,6 +155,27 @@ export function WallPage({ embedded = false }) {
       }
     >
         <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
+          {/* Patch-502: preset chips. Default loads "Last 30 days" via the
+              useState initializer above. Clicking a chip overrides. */}
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Date range presets">
+            {[
+              { id: 'today', label: 'Today' },
+              { id: '7d', label: '7d' },
+              { id: '30d', label: '30d' },
+              { id: '90d', label: '90d' },
+              { id: 'ytd', label: 'YTD' },
+              { id: 'all', label: 'All time' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p.id)}
+                className="min-h-[44px] rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-amber-600/40 hover:bg-zinc-800/80 hover:text-zinc-100 sm:min-h-0"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
           <label className="text-xs text-zinc-400">
             From
             <input
