@@ -69,7 +69,32 @@ Pre-storm shipped foundation: PR #161 (archive script), #162 (recovery toolkit),
 
 ---
 
-## Topic 4: CRM rebuild (Rubber CRM Kanban)
+## ✅ Topic 4: CRM rebuild (Rubber CRM Kanban) — STORMED 2026-04-27
+
+**Outcome:** 9 decisions resolved + 3 refinements layered.
+
+- **Stages v3:** `Spotted → Researched → Contacted → Quoted → Negotiating` (kept `Quoted` from current; rest from audit)
+- **Won terminus:** convert-to-Customer + archive
+- **Lost:** static column gone, toggle button stays
+- **Drag zones:** Lost / Won / Park (with 7d/30d/60d/90d/custom picker on Park, Esc cancels, hourly unpark cron with stage-aware Slack message)
+- **Lead intake:** single `+ New Lead` top-right; SMS auto-Spotted with dedup against `crmAccounts` + `contacts` (3 differentiated Slack messages); research-speculation deferred
+- **Card content:** 5 fields with denormalized `estValueCents` + `lastTouchAt`; composite index `(stage, lastTouchAt desc)`
+- **Filters:** drop geo/min-score/segment; keep owner/stage/source; **add Last touch**
+- **Metrics:** Total leads / Conversion rate / Avg cycle in `<ModuleSubheader>` right slot, cached on `meta/crmStats`
+
+**Spec:** `docs/superpowers/specs/2026-04-27-crm-rebuild-design.md`
+
+**Patches (3 coordinated):**
+- `docs/handoffs/patch-624-crm-schema-v3.md` — schema + denormalization + composite index + migration script (ships first)
+- `docs/handoffs/patch-625-crm-kanban-ui.md` — Kanban UI rebuild + drag zones + Park picker + filters + ModuleSubheader metrics + unpark cron
+- `docs/handoffs/patch-626-sms-auto-spotted-dedup.md` — inbound SMS classifier with 3-route dedup
+
+DnD library: dnd-kit (existing or to add — React 19 default).
+
+---
+
+<details>
+<summary>Original Topic 4 framing (pre-storm)</summary>
 
 **Source:** `2026-04-26-comprehensive-ui-ux-audit.md` §6.
 
@@ -85,6 +110,8 @@ Pre-storm shipped foundation: PR #161 (archive script), #162 (recovery toolkit),
 7. **Card content.** What 3-5 fields render on each kanban card? (Name, source, last touch, est. value, owner?)
 8. **Filters to keep.** Audit kills the geographical filter (NoCo only). Keeps owner? Stage? Date range? Tag?
 9. **Move "Total leads / Conversion rate" up.** Confirm the placement target (next to nav tabs vs. above the kanban board itself).
+
+</details>
 
 ---
 
