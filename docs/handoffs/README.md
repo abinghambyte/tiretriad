@@ -6,6 +6,12 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Command palette refresh (April 27, 2026, stormed).** Single PR closes the audit's "tiny [Q] icon" complaint plus adds Recent + Suggested empty-state acceleration. Existing palette is substantial; gap-closing not redesign.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 623 `command-palette-refresh` | `command-palette-refresh` | Trigger dual-presentation (wide bar desktop, icon mobile); Recent + Suggested at empty state; alias expansion (`tires` / `skedaddle` / `rubber` / `fleet crm` / `people systems` / `ops command` / `growth lab`); mobile full-screen overlay with explicit close button; comment update on theme/sign-out exclusion |
+
 **Data safety (April 27, 2026, stormed).** Single coherent migration: named `tests` Firestore DB + testFixture contract + fail-closed wipe signatures. Closes the 2026-04-25 wipe class of incident structurally.
 
 | Patch | Branch | What it ships |
