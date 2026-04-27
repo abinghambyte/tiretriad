@@ -15,4 +15,13 @@ function readFlag(name, defaultValue) {
 
 export const flags = Object.freeze({
   listingAdvisor: readFlag('LISTING_ADVISOR', import.meta.env?.DEV === true),
+  /**
+   * Aspirational multi-user features. False until Kyle (sourcer) and/or DJ
+   * (mechanic) have active accounts and meaningful activity. When false:
+   *   - CrewDirectoryWidget hides (Dashboard + People page)
+   *   - AvailabilityBlocker hides (People page)
+   *   - CRM Field Dispatch tab hidden in tab list and route redirect to Board
+   * When true: everything renders as before.
+   */
+  multiUserMode: readFlag('MULTI_USER_MODE', false),
 })

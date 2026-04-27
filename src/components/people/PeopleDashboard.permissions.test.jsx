@@ -21,6 +21,13 @@ vi.mock('../../context/ToastContext.jsx', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }))
 
+// Patch-304: AvailabilityBlocker is now gated behind flags.multiUserMode.
+// Mock the flag to true so the existing assertions about Availability
+// rendering still hold. A separate test below covers the gated-off case.
+vi.mock('../../utils/featureFlags.js', () => ({
+  flags: { multiUserMode: true, listingAdvisor: false },
+}))
+
 const noop = () => {}
 
 function EditorHarness({ profile, selected }) {

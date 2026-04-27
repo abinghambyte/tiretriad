@@ -16,6 +16,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { isArchived } from '../utils/isArchived.js'
+import { flags } from '../utils/featureFlags.js'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { useToast } from '../context/ToastContext.jsx'
 import { useTires } from '../hooks/useTires'
@@ -289,7 +290,11 @@ export function CrmPage() {
   const loc = useLocation()
   const [searchParams] = useSearchParams()
   const rawTab = searchParams.get('tab')
-  const tab = rawTab === 'leads' || rawTab === 'dispatch' ? rawTab : 'board'
+  // Patch-304: when multi-user mode is off, dispatch tab is hidden from the
+  // tab list and any direct deep link should fall back to board so users
+  // don't land on a dead surface.
+  const requestedTab = rawTab === 'leads' || rawTab === 'dispatch' ? rawTab : 'board'
+  const tab = requestedTab === 'dispatch' && !flags.multiUserMode ? 'board' : requestedTab
   const canEdit = permissionMeets(permissionFor('crm'), 'edit')
   const [accounts, setAccounts] = useState([])
   const [leads, setLeads] = useState([])
