@@ -1,0 +1,12 @@
+# Skedaddle Portal — authenticated operations app, not for indexing.
+# Combined with the <meta name="robots" content="noindex, nofollow">
+# tag in index.html, this gives both crawler-honored layers:
+#   - robots.txt blocks fetch (respected by Google, Bing, etc.)
+#   - meta tag blocks indexing if the URL is reached anyway
+
+User-agent: *
+Disallow: /
+
+# No sitemap is published. The portal is private and pages are not
+# meant to surface in search results. If a public marketing surface
+# is added later, generate a sitemap for that origin only.
