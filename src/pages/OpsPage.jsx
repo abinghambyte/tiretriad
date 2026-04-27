@@ -25,14 +25,16 @@ import { EmptyState, EmptyStateIcons } from '../components/shared/EmptyState.jsx
 import { LoadingBlock } from '../components/shared/LoadingBlock.jsx'
 import { PayoutConfigPanel } from '../components/ops/PayoutConfigPanel.jsx'
 
-const OPS_TAB_IDS = ['expenses', 'tax-prep', 'payouts', 'reorder']
+const OPS_TAB_IDS = ['credit', 'expenses', 'tax-prep', 'payouts', 'reorder']
 const OPS_TAB_LABELS = {
+  credit: 'Credit',
   expenses: 'Expenses',
   'tax-prep': 'Tax prep',
   payouts: 'Payouts',
   reorder: 'Reorder queue',
 }
 const OPS_TAB_SUBTITLES = {
+  credit: 'Available credit, balance, and pending refunds tracked from Slack ledger updates.',
   expenses: 'Log non-tire business spend and track category share.',
   'tax-prep': 'Denver-calendar CSV export for completed orders.',
   payouts: 'Crew payout rules and current-period accruals.',
@@ -305,9 +307,13 @@ export function OpsPage() {
       />
 
       <main className="mx-auto max-w-6xl space-y-10 px-6 py-10 sm:py-12">
-        <section aria-label="Credit tracker" className="rounded-2xl border border-zinc-800/90 bg-zinc-950/60 p-1">
-          <CreditTrackerCard compact />
-        </section>
+        {/* Patch-307: CreditTrackerCard now has its own dedicated tab
+            instead of rendering above every Ops tab in compact mode. */}
+        {tab === 'credit' ? (
+          <section aria-label="Credit tracker" className="rounded-2xl border border-zinc-800/90 bg-zinc-950/60 p-2 sm:p-4">
+            <CreditTrackerCard />
+          </section>
+        ) : null}
 
         {tab === 'expenses' ? (
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
