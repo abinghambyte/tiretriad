@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { paletteForRank } from './topSellersPalette'
-import { BrandBolt } from '../ui/BrandBolt.jsx'
 
 const FLIP_INTERVAL_MS = 3000
 
@@ -36,7 +35,19 @@ export function TopSellersCard({ sellers = [] }) {
       <div className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
         <p className="pc-eyebrow">Top Sellers</p>
         <div className="mt-2 flex items-center gap-2">
-          <BrandBolt size={28} tone="muted" />
+          {/* Generic trending-up icon, not the brand bolt. See
+              docs/superpowers/audits/2026-04-26-comprehensive-ui-ux-audit.md §0.3. */}
+          <svg
+            className="h-7 w-7 text-zinc-600"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m3 17 6-6 4 4 8-8" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 7h7v7" />
+          </svg>
           <p className="text-sm text-zinc-400">No sales yet.</p>
         </div>
       </div>

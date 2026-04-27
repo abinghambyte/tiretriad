@@ -12,7 +12,6 @@ import { flags } from '../../utils/featureFlags.js'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { statusPillTone } from '../ui/statusPillTone.js'
 import { EmptyState } from '../shared/EmptyState.jsx'
-import { BrandBolt } from '../ui/BrandBolt.jsx'
 
 const ORDER_ACTIVITY_STATUS = {
   pending: 'Pending',
@@ -230,7 +229,24 @@ export function Dashboard() {
               </ul>
             ) : recentActivity.orders.length === 0 ? (
               <div className="mt-4 flex flex-col items-center gap-2">
-                <BrandBolt size={28} tone="muted" />
+                {/* Generic inbox icon, not the brand bolt — see
+                    docs/superpowers/audits/2026-04-26-comprehensive-ui-ux-audit.md
+                    §0.3: the lightning bolt is wayfinding, not placeholder. */}
+                <svg
+                  className="h-7 w-7 text-zinc-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M22 12h-6l-2 3h-4l-2-3H2" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+                  />
+                </svg>
                 <EmptyState variant="compact" title="No orders yet." />
               </div>
             ) : (
