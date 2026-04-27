@@ -6,6 +6,12 @@ a PR from - then stop.
 
 ## Active rollout
 
+**Dashboard onboarding (April 27, 2026, stormed).** The grid IS the onboarding — single surface replaces the missing 6-card module grid AND the 5 empty KPI widgets. Same work as audit's patch-600b.
+
+| Patch | Branch | What it ships |
+| --- | --- | --- |
+| 627 `homepage-module-grid` | `homepage-module-grid` | 6-card module grid with empty-state CTAs and data-state metrics; auto-fit responsive layout; absorbs Pending / Top Sellers / Last Sale / Total Profit into the relevant cards; Recent Activity stays as own widget below |
+
 **CRM rebuild (April 27, 2026, stormed).** 9 decisions resolved + 3 refinements. Three coordinated patches.
 
 | Patch | Branch | What it ships |
