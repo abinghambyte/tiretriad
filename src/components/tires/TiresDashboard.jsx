@@ -23,6 +23,7 @@ import { BulkCtsModal } from './BulkCtsModal'
 import { HaggleSheet } from './HaggleSheet'
 import { ListingGenerator } from './ListingGenerator'
 import { CategoryTabs } from './CategoryTabs.jsx'
+import { categoryMapAgeStatus } from './categoryMapAgeStatus.js'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
@@ -982,6 +983,28 @@ export function TiresDashboard() {
                 </div>
               </div>
             ) : null}
+
+            {(() => {
+              const { status, ageDays } = categoryMapAgeStatus(categoryMap)
+              if (status === 'missing') {
+                return (
+                  <div className="mb-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300">
+                    Categorization data unavailable. Using fallback heuristic for all SKUs.{' '}
+                    <span className="text-zinc-500">
+                      Run <code className="font-mono text-zinc-300">npm run import:efleet</code> to populate.
+                    </span>
+                  </div>
+                )
+              }
+              if (status === 'stale') {
+                return (
+                  <div className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                    Categorization data is {ageDays} days old. Refresh recommended.
+                  </div>
+                )
+              }
+              return null
+            })()}
 
             <CategoryTabs
               selected={selectedCategory}
