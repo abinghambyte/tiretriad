@@ -35,6 +35,16 @@ but unused.
 
 ## Active queue
 
+### Slim `useCategoryMap` hook (extract from useDashboardSignals)
+*Discovered during category-tabs final review.* `TiresDashboard` now mounts
+`useDashboardSignals` solely to read `categoryMap`, but that hook also
+fires several Firestore reads (revenueStats, recentActivity, dashboard
+stats callable, useTires/useCrewPreview/useAdvisorSignals subtrees) that
+duplicate work already happening on the Dashboard route. Extract a
+~10-line `useCategoryMap()` hook that reads only `meta/categoryMap`, and
+have both `useDashboardSignals` and `TiresDashboard` consume it. Cuts
+the duplicate Firestore traffic on the catalog page.
+
 ### Catalog category sub-tabs (in flight)
 Spec: `docs/superpowers/specs/2026-04-29-tires-category-tabs-design.md`. Adds
 `[All] [Passenger] [Light Truck] [Truck]` sub-tabs above the existing Tires
