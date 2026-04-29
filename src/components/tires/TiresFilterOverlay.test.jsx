@@ -2,7 +2,7 @@
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useRef, useState } from 'react'
 import { TiresFilterOverlay } from './TiresFilterOverlay.jsx'
 
@@ -56,5 +56,19 @@ describe('TiresFilterOverlay', () => {
     const closeBtn = screen.getByRole('button', { name: /close filters/i })
     fireEvent.click(closeBtn)
     expect(screen.queryByRole('dialog', { name: /filter tires/i })).toBeNull()
+  })
+
+  it('re-measures overlay top on window scroll', () => {
+    render(<StaticHarness open />)
+    const panel = screen.getByRole('dialog', { name: /filter tires/i })
+    expect(panel.style.top).toBe('204px')
+    Element.prototype.getBoundingClientRect = vi.fn(() => ({
+      bottom: 400, top: 300, left: 0, right: 1000, width: 1000, height: 100,
+      x: 0, y: 300, toJSON: () => ({}),
+    }))
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+    })
+    expect(panel.style.top).toBe('404px')
   })
 })

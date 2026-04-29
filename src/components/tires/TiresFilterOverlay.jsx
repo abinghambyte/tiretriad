@@ -22,7 +22,14 @@ export function TiresFilterOverlay({ toolbarRef, open, onClose, children }) {
     }
     measure()
     window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
+    // Re-measure on scroll because the toolbar is `sticky`; its
+    // `getBoundingClientRect().bottom` changes as the user scrolls
+    // past the page header even though its DOM position is fixed.
+    window.addEventListener('scroll', measure, { passive: true })
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure)
+    }
   }, [open, toolbarRef])
 
   if (!open) return null
