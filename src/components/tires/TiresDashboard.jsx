@@ -236,8 +236,7 @@ export function TiresDashboard() {
   const [query, setQuery] = useState(() => searchParams.get('q') || '')
   const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
   const [selectedCategory, setSelectedCategoryState] = useState(() => {
-    if (typeof window === 'undefined') return 'all'
-    const fromUrl = new URLSearchParams(window.location.search).get('cat')
+    const fromUrl = searchParams.get('cat')
     return ['passenger', 'lightTruck', 'truck'].includes(fromUrl) ? fromUrl : 'all'
   })
 
@@ -250,16 +249,19 @@ export function TiresDashboard() {
       setLrFilters([])
       setMinMargin(0)
       setNeedsReposting(false)
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search)
-        if (cat === 'all') params.delete('cat')
-        else params.set('cat', cat)
-        const next = params.toString()
-        const url = window.location.pathname + (next ? `?${next}` : '')
-        window.history.replaceState(null, '', url)
-      }
+      // Sync URL via the same setSearchParams used for q/risk/highlight, so the
+      // `?cat=` param can never be clobbered by a stale searchParams snapshot.
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (cat === 'all') next.delete('cat')
+          else next.set('cat', cat)
+          return next
+        },
+        { replace: true },
+      )
     },
-    [],
+    [setSearchParams],
   )
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
@@ -1000,6 +1002,14 @@ export function TiresDashboard() {
                 return (
                   <div className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
                     Categorization data is {ageDays} days old. Refresh recommended.
+                  </div>
+                )
+              }
+              if (status === 'unknown') {
+                return (
+                  <div className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                    Categorization data has an unparseable import timestamp. Re-run{' '}
+                    <code className="font-mono text-amber-100">npm run import:efleet</code> to refresh.
                   </div>
                 )
               }
