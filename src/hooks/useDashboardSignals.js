@@ -437,6 +437,9 @@ export function useDashboardSignals() {
   const [revenueStatsDoc, setRevenueStatsDoc] = useState(
     /** @type {null | Record<string, unknown>} */ (null),
   )
+  const [categoryMap, setCategoryMap] = useState(
+    /** @type {null | Record<string, unknown>} */ (null),
+  )
 
   const [recentActivity, setRecentActivity] = useState({
     orders: /** @type {Array<{ id: string, data: Record<string, unknown> }>} */ ([]),
@@ -588,6 +591,16 @@ export function useDashboardSignals() {
           console.error('dashboard revenueStats read', e)
         }
         if (!cancelled) setRevenueStatsDoc(revenueDocData)
+        let categoryMapDocData = null
+        try {
+          const catMapSnap = await getDoc(doc(db, 'meta', 'categoryMap'))
+          if (catMapSnap.exists()) {
+            categoryMapDocData = catMapSnap.data() || null
+          }
+        } catch (e) {
+          console.error('dashboard categoryMap read', e)
+        }
+        if (!cancelled) setCategoryMap(categoryMapDocData)
         if (cancelled) return
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
@@ -706,6 +719,7 @@ export function useDashboardSignals() {
     myQueueCount,
     hiddenGems,
     topSellers,
+    categoryMap,
     allTimeMargin,
     rollingAverageRevenue,
     lastSale,
