@@ -983,6 +983,10 @@ export function TiresDashboard() {
                     ) : null}
                   </div>
                 </label>
+              </div>
+
+              <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -1022,12 +1026,6 @@ export function TiresDashboard() {
                       Clear filters
                     </button>
                   ) : null}
-                </div>
-              </div>
-
-              <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
                   {loading ? (
                     <span className="inline-flex items-center gap-2 text-sm text-zinc-400">
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
