@@ -6,6 +6,14 @@
  * Run: npm run import:efleet -- path/to/efleet.html
  */
 
+import { existsSync, readFileSync } from 'node:fs'
+import readline from 'node:readline/promises'
+import { stdin as input, stdout as output } from 'node:process'
+import { resolve, normalize } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+
 /**
  * @param {string} html
  * @returns {{
@@ -74,4 +82,136 @@ export function parseEfleetCatalog(html) {
   }
 }
 
-// CLI entry — implemented in Task 3.
+function isExecutedDirectly() {
+  const entry = process.argv[1]
+  if (!entry) return false
+  return normalize(fileURLToPath(import.meta.url)) === normalize(resolve(entry))
+}
+
+function parseArgs(argv) {
+  const out = { dryRun: false, yes: false, htmlPath: null }
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (a === '--dry-run' || a === '-n') out.dryRun = true
+    else if (a === '--yes') out.yes = true
+    else if (a.startsWith('-')) {
+      console.error(`Unknown flag: ${a}`)
+      console.error('Usage: npm run import:efleet -- path/to/efleet.html [--dry-run] [--yes]')
+      process.exit(1)
+    }
+    else out.htmlPath = a
+  }
+  return out
+}
+
+function requireCredentials() {
+  const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS
+  if (!raw || !String(raw).trim()) {
+    console.error('Missing GOOGLE_APPLICATION_CREDENTIALS. Set it to the path of your service account JSON key file.')
+    console.error('Generate a key: Firebase Console -> Settings -> Service accounts -> Generate new private key.')
+    process.exit(1)
+  }
+  if (!existsSync(raw)) {
+    console.error(`Service account file not found: ${raw}`)
+    process.exit(1)
+  }
+  const json = JSON.parse(readFileSync(raw, 'utf8'))
+  if (!json.project_id) {
+    console.error('Service account JSON missing project_id field.')
+    process.exit(1)
+  }
+  return json
+}
+
+function diffMaps(prev, next) {
+  const added = []
+  const removed = []
+  const changed = []
+  const prevKeys = prev ? Object.keys(prev) : []
+  const nextKeys = Object.keys(next)
+  const prevSet = new Set(prevKeys)
+  const nextSet = new Set(nextKeys)
+  for (const k of nextKeys) if (!prevSet.has(k)) added.push(k)
+  for (const k of prevKeys) if (!nextSet.has(k)) removed.push(k)
+  for (const k of nextKeys) if (prevSet.has(k) && prev[k] !== next[k]) changed.push({ mspn: k, from: prev[k], to: next[k] })
+  return { added, removed, changed }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2))
+  if (!args.htmlPath) {
+    console.error('Usage: npm run import:efleet -- path/to/efleet.html [--dry-run] [--yes]')
+    process.exit(1)
+  }
+  const html = readFileSync(resolve(args.htmlPath), 'utf8')
+  console.log(`Parsing ${args.htmlPath}…`)
+  const parsed = parseEfleetCatalog(html)
+  console.log(`  Source date: ${parsed.sourceReportDate || '(unknown)'}`)
+  console.log(`  Account: ${parsed.account || '(unknown)'}`)
+  console.log(`  Total parsed: ${parsed.totalParsed}`)
+  const cats = {}
+  for (const v of Object.values(parsed.mspns)) cats[v] = (cats[v] || 0) + 1
+  console.log(`    Light Truck: ${cats.lightTruck || 0}`)
+  console.log(`    Passenger:   ${cats.passenger || 0}`)
+  console.log(`    Truck:       ${cats.truck || 0}`)
+
+  if (args.dryRun) {
+    console.log('\n--dry-run: skipping Firestore write.')
+    process.exit(0)
+  }
+
+  const sa = requireCredentials()
+  if (!getApps().length) initializeApp({ credential: cert(sa), projectId: sa.project_id })
+  const db = getFirestore()
+  const projectId = db.app?.options?.projectId || '(unknown)'
+  console.log(`\nTarget Firestore project: ${projectId}`)
+
+  const ref = db.doc('meta/categoryMap')
+  const stagingRef = db.doc('meta/categoryMapStaging')
+  const prior = (await ref.get()).data() || null
+
+  const payload = {
+    version: 1,
+    importedAt: FieldValue.serverTimestamp(),
+    sourceFile: args.htmlPath,
+    sourceReportDate: parsed.sourceReportDate,
+    account: parsed.account,
+    totalParsed: parsed.totalParsed,
+    mspns: parsed.mspns,
+  }
+
+  // Diff
+  const diff = diffMaps(prior?.mspns, parsed.mspns)
+  console.log('\nDiff vs prior import:')
+  console.log(`  + ${diff.added.length} new MSPNs categorized`)
+  console.log(`  - ${diff.removed.length} MSPNs removed`)
+  console.log(`  ~ ${diff.changed.length} MSPNs changed category`)
+  if (diff.changed.length > 0 && diff.changed.length <= 20) {
+    diff.changed.forEach((c) => console.log(`    ${c.mspn}: ${c.from} → ${c.to}`))
+  }
+
+  if (!args.yes) {
+    const rl = readline.createInterface({ input, output })
+    const answer = await rl.question('\nContinue? [y/N] ')
+    rl.close()
+    if (answer.trim().toLowerCase() !== 'y') {
+      console.log('Aborted.')
+      process.exit(0)
+    }
+  }
+
+  // Stage first, then atomic move (Firestore docs are atomic per-doc;
+  // writing staging then ref preserves prior on staging-write failure).
+  await stagingRef.set(payload)
+  await ref.set(payload)
+  console.log(`\n✓ Wrote meta/categoryMap (${parsed.totalParsed} entries)`)
+  console.log('Done.')
+}
+
+// Only run main when invoked directly via the CLI, not when imported by tests.
+if (isExecutedDirectly()) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}
