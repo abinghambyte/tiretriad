@@ -35,6 +35,17 @@ but unused.
 
 ## Active queue
 
+### Shared `TIRE_CATEGORY_KEYS` constant
+*Discovered during category-tabs final review.* The literal
+`'passenger' | 'lightTruck' | 'truck'` triple appears across 5 files
+(`useDashboardSignals.js`, `TiresDashboard.jsx`, `CategoryTabs.jsx`,
+`import-efleet-categories.mjs`) — heuristic returns, override
+validation, map validation, URL whitelist, bucket init, tab list,
+parser title matcher. Extract a `src/constants/tireCategory.js`
+exporting `TIRE_CATEGORY_KEYS` (without 'all') and `CATEGORY_LABELS`
+(`{ passenger: 'Passenger', lightTruck: 'Light Truck', truck: 'Truck' }`)
+so adding a future category (e.g. OTR) is a one-file change.
+
 ### Slim `useCategoryMap` hook (extract from useDashboardSignals)
 *Discovered during category-tabs final review.* `TiresDashboard` now mounts
 `useDashboardSignals` solely to read `categoryMap`, but that hook also
