@@ -27,6 +27,7 @@ import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
 import { TirePhotoGallery } from './TirePhotoGallery.jsx'
+import { TiresFilterOverlay } from './TiresFilterOverlay.jsx'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { BrandBolt } from '../ui/BrandBolt.jsx'
@@ -240,6 +241,7 @@ export function TiresDashboard() {
   const [justJumpedToId, setJustJumpedToId] = useState(null)
   const marginTableRef = useRef(null)
   const jumpHighlightTimerRef = useRef(null)
+  const toolbarRef = useRef(null)
 
   useEffect(() => {
     return () => {
@@ -872,38 +874,30 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
-            {filtersOpen ? (
-              <>
-                <div
-                  className="fixed inset-0 z-30"
-                  onClick={() => setFiltersOpen(false)}
-                  aria-hidden
-                />
-                <div
-                  id="tires-filter-panel"
-                  className="fixed left-4 right-4 top-[148px] z-40 rounded-xl border border-zinc-700 bg-zinc-950 p-3 shadow-2xl sm:left-6 sm:right-6 sm:top-[164px]"
-                >
-                  <MarginFilters
-                    brands={brands}
-                    useTags={useTags}
-                    lrs={lrs}
-                    brand={brand}
-                    useTagFilters={useTagFilters}
-                    lrFilters={lrFilters}
-                    onBrand={setBrand}
-                    onUseTagFilters={setUseTagFilters}
-                    onLrFilters={setLrFilters}
-                    minMargin={minMargin}
-                    onMinMargin={setMinMargin}
-                    needsReposting={needsReposting}
-                    onNeedsReposting={setNeedsReposting}
-                    hasActiveFilters={hasActiveFilters}
-                    onClearAll={clearFilters}
-                    onApplyPreset={applyFilterPreset}
-                  />
-                </div>
-              </>
-            ) : null}
+            <TiresFilterOverlay
+              toolbarRef={toolbarRef}
+              open={filtersOpen}
+              onClose={() => setFiltersOpen(false)}
+            >
+              <MarginFilters
+                brands={brands}
+                useTags={useTags}
+                lrs={lrs}
+                brand={brand}
+                useTagFilters={useTagFilters}
+                lrFilters={lrFilters}
+                onBrand={setBrand}
+                onUseTagFilters={setUseTagFilters}
+                onLrFilters={setLrFilters}
+                minMargin={minMargin}
+                onMinMargin={setMinMargin}
+                needsReposting={needsReposting}
+                onNeedsReposting={setNeedsReposting}
+                hasActiveFilters={hasActiveFilters}
+                onClearAll={clearFilters}
+                onApplyPreset={applyFilterPreset}
+              />
+            </TiresFilterOverlay>
 
             {catalogRisk === 'missingOverhead' || catalogRisk === 'lowMargin' ? (
               <div className="-mx-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-sm">
@@ -941,7 +935,7 @@ export function TiresDashboard() {
               </div>
             ) : null}
 
-            <div className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
+            <div ref={toolbarRef} className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
                   <span className="sr-only">Search by MSPN or description</span>
