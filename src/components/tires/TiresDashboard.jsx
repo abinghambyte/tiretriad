@@ -774,7 +774,6 @@ export function TiresDashboard() {
   }
 
   const visibleColumnLabel = SORT_LABELS[sortKey] || 'Margin %'
-  const visibleDirLabel = sortDir === 'asc' ? 'ascending' : 'descending'
 
   // Publish selection + action runners to the module-level store so the
   // command palette (mounted in PortalChrome, outside this route tree) can
@@ -884,31 +883,6 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
-            <TiresFilterOverlay
-              toolbarRef={toolbarRef}
-              open={filtersOpen}
-              onClose={() => setFiltersOpen(false)}
-            >
-              <MarginFilters
-                brands={brands}
-                useTags={useTags}
-                lrs={lrs}
-                brand={brand}
-                useTagFilters={useTagFilters}
-                lrFilters={lrFilters}
-                onBrand={setBrand}
-                onUseTagFilters={setUseTagFilters}
-                onLrFilters={setLrFilters}
-                minMargin={minMargin}
-                onMinMargin={setMinMargin}
-                needsReposting={needsReposting}
-                onNeedsReposting={setNeedsReposting}
-                hasActiveFilters={hasActiveFilters}
-                onClearAll={clearFilters}
-                onApplyPreset={applyFilterPreset}
-              />
-            </TiresFilterOverlay>
-
             {catalogRisk === 'missingOverhead' || catalogRisk === 'lowMargin' ? (
               <div className="-mx-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-sm">
                 <span className="text-amber-100/95">
@@ -1030,6 +1004,14 @@ export function TiresDashboard() {
                     <span className="inline-flex items-center gap-2 text-sm text-zinc-400">
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                       Loading inventory…
+                    </span>
+                  ) : null}
+                  {!loading && sortedRows.length > 0 ? (
+                    <span
+                      aria-live="polite"
+                      className="truncate whitespace-nowrap text-[11px] font-medium text-zinc-400"
+                    >
+                      {`Showing 1-${sortedRows.length} of ${sortedRows.length} · ${sortDir === 'asc' ? '↑' : '↓'} ${visibleColumnLabel}`}
                     </span>
                   ) : null}
                 </div>
@@ -1238,6 +1220,30 @@ export function TiresDashboard() {
               </div>
             </div>
 
+            <TiresFilterOverlay
+              open={filtersOpen}
+              onClose={() => setFiltersOpen(false)}
+            >
+              <MarginFilters
+                brands={brands}
+                useTags={useTags}
+                lrs={lrs}
+                brand={brand}
+                useTagFilters={useTagFilters}
+                lrFilters={lrFilters}
+                onBrand={setBrand}
+                onUseTagFilters={setUseTagFilters}
+                onLrFilters={setLrFilters}
+                minMargin={minMargin}
+                onMinMargin={setMinMargin}
+                needsReposting={needsReposting}
+                onNeedsReposting={setNeedsReposting}
+                hasActiveFilters={hasActiveFilters}
+                onClearAll={clearFilters}
+                onApplyPreset={applyFilterPreset}
+              />
+            </TiresFilterOverlay>
+
             {selectedIds.size > 0 ? (
               <div
                 role="toolbar"
@@ -1323,8 +1329,6 @@ export function TiresDashboard() {
                 loading={loading}
                 emptyState={emptyState}
                 columnVisibility={columnVisibility}
-                sortColumnLabel={visibleColumnLabel}
-                sortDirLabel={visibleDirLabel}
                 externalListRef={marginTableRef}
                 justJumpedToId={justJumpedToId}
               />
