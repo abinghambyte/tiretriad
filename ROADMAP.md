@@ -35,6 +35,166 @@ but unused.
 
 ## Active queue
 
+### Catalog category sub-tabs (in flight)
+Spec: `docs/superpowers/specs/2026-04-29-tires-category-tabs-design.md`. Adds
+`[All] [Passenger] [Light Truck] [Truck]` sub-tabs above the existing Tires
+toolbar. Categorization sourced authoritatively from `meta/categoryMap`
+(parsed from Michelin eFleet HTML by `scripts/import-efleet-categories.mjs`)
+with a size+LR fallback heuristic and an optional per-tire `categoryOverride`
+field. Within-category filter scope; selection and search persist across
+tabs. URL state via `?cat=`.
+
+Pre-launch checklist (must run before first deploy):
+- Run `npm run import:efleet -- path/to/efleet.html` against the latest
+  Michelin eFleet HTML so `meta/categoryMap` is populated. Otherwise every
+  tire falls to the heuristic and the catalog ships with a visible
+  "categorization data missing" banner.
+
+### Brand stats card row above catalog
+*Source: April 2026 eFleet comparison, item #1 from design recs (high prio).*
+Add a horizontal strip of brand pill cards above MarginTable showing
+`MICHELIN 627 SKUs · avg $328` + filter affordance. Click sets
+`brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual
+brand-mix summary without opening Filters.
+
+### Sidewall tag pills on rows
+*Source: eFleet comparison, item #2 (high prio).*
+Surface `XL`, `RWL`, `ORWL`, `MS` tags from descriptions as small uppercase
+pills next to the description column, similar to the existing platform
+pills. Color-code: XL=zinc, RWL/ORWL=zinc-400 italic, MS=cyan. Audit pass:
+the strings already live in `tires.csv` description text — extraction is a
+regex on existing data.
+
+### Three-category browse mode (sub-spec of Category sub-tabs)
+*Source: eFleet comparison, item #6 (high prio).*
+Subsumed into the Catalog category sub-tabs spec above.
+
+### Tread-family grouped view
+*Source: eFleet comparison, item #7 (medium prio).*
+Add a toolbar toggle: `Group: None | Brand | Tread`. Group rows are
+collapsible, expand to show size variants underneath. Mirrors how the
+eFleet HTML organizes (brand → tread family → sizes). Helps customers who
+know which model they want and just need a size.
+
+### Brand-tier hero strip on Dashboard
+*Source: eFleet comparison, item #8 (high prio).*
+Brand portfolio at-a-glance widget on the Dashboard:
+`MICHELIN — 627 SKUs · 22.6% avg margin`, etc. Surfaces missing brands
+as warnings (e.g. `UNIROYAL — 0 SKUs · NOT STOCKED ⚠`). Combines tire
+brand stats with the user's existing dashboard layout pattern.
+
+### Catalog export view (printable report)
+*Source: eFleet comparison, item #10.*
+"Share / Print" button that opens a printable view of the current filtered
+catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover
+page with account/date metadata, section breaks per brand, sticky table
+headers, A4 page geometry. The eFleet HTML's `@media print` block is a
+ready reference for the styles.
+
+### Catalog-first navigation (drill-down)
+*Source: eFleet comparison, item #11 (priority: best-margins-first).*
+Land on category → brand → tread breadcrumb instead of a 1,160-row table.
+Power users still get the existing flat catalog via "Show all SKUs."
+Casual users (and customer-facing modes) don't get vertigo from a flat
+view on first contact. Sort by margin% throughout so the highest-money
+tires surface fastest.
+
+### Product detail page with eFleet provenance
+*Source: eFleet comparison, item #12 (high prio).*
+Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR,
+Buy/Retail/FET/Margin, **pricing source: Michelin eFleet ([date])** with
+the matched MSRP, active platform listings + posting history, margin
+trend over 90 days, and "other sizes in this tread family" recommendations.
+
+### Customer-facing catalog mode
+*Source: eFleet comparison, item #13.*
+Read-only `/catalog` route with same data, no margins or buy prices, just
+retail + size + tread + image. Branded, printable, linkable. **Retail price
+shown should be the ideal medium between buy price and the highest list/sell
+price** — surfaces the value sweet spot, not the markup ceiling. Different
+filter set (no margin filters), different navigation (category-first).
+
+### Side-by-side eFleet diff view
+*Source: eFleet comparison, item #14.*
+Admin/audit page showing:
+- 🟡 SKUs in inventory but NOT in eFleet (potential aged stock)
+- 🔵 SKUs in eFleet but NOT in inventory (sales gap)
+- 🟢 SKUs aligned with current pricing
+- Price-drift detection
+Bulk-deprecate or bulk-add with one click. Diff regenerates on each new
+eFleet HTML upload.
+
+### Listing generator (replaces sticker idea)
+*Source: eFleet comparison, item #15.*
+Bulk action that generates listing copy + structured metadata for the
+selected tires, ready to post to platforms. Uses eFleet metadata
+(tread family, size, retail, MSPN as identifier) to draft listings
+consistently.
+
+### Sticky column header treatment
+*Source: eFleet comparison, item #18 (high prio).*
+The eFleet uses `thead { position: sticky }` with a solid color bar
+(navy `#002060`). Our MarginTable headers were just upgraded to
+`text-zinc-300 font-semibold uppercase tracking-wide`. Apply a subtle
+solid-color bar to the very-top header row only — locks visual attention
+as users scroll.
+
+### Tread/model typography hierarchy
+*Source: eFleet comparison, item #17 (high prio).*
+Two-line treatment in the Description column:
+```
+24R21
+ZL 176G (LRH)        ← muted, smaller
+```
+Already partly there via the `.sk-figures` mono class. Lean into the
+visual hierarchy more — MSPN bold mono, tread family muted secondary.
+
+### Brand color palette refresh (deferred until web color review)
+*Source: eFleet comparison, item #16.*
+The eFleet uses deeper saturated brand colors (Michelin `#002060`,
+BFG `#e31837`, Uniroyal `#006633`). Ours are softer. Hover/active states
+read better with the more saturated colors. **Coupled to a website
+visual refresh — color changes apply consistently across portal AND
+public site or not at all.**
+
+### Catalog freshness badge
+*Source: eFleet comparison data architecture.*
+Surface `Source data current as of [date] · imported from Michelin
+eFleet` in the catalog header. If the date drifts past 30 days, render
+in amber. Small but signals trust and triggers maintenance.
+
+### Disclaimer / footnote bar in catalog
+*(Skipped — internal tool only, no need to set expectations.)*
+
+### Admin upload UI for eFleet HTML
+*Deferred from category-tabs spec (Approach C).*
+Drag-and-drop HTML upload, dry-run preview, one-click apply. Replaces
+the current CLI script. Build when monthly cadence makes the dev
+bottleneck a real problem.
+
+### Override admin UI for category corrections
+*Deferred from category-tabs spec.*
+Inline UI to set `tire.categoryOverride` on individual tires. Currently
+edits go through Firestore console. Build when miscategorizations
+become a real complaint.
+
+### Multi-source categorization (BFG / Uniroyal)
+*Deferred from category-tabs spec.*
+If BFG or Uniroyal ever publish their own structured catalogs, extend
+`meta/categoryMap` to merge multiple sources. Today only Michelin eFleet
+feeds the map.
+
+### Automatic monthly catalog import
+*Deferred from category-tabs spec.*
+Cloud Function scheduled task that pulls/parses a fresh eFleet from a
+known location (email attachment, Drive folder, etc.) and runs the import
+script. Eliminates the manual run cadence.
+
+### Group-by-tread browse mode (within category tabs)
+*Deferred from category-tabs spec.*
+Could nest inside category sub-tabs as a secondary toolbar toggle. See
+"Tread-family grouped view" above for the broader version.
+
 ### AI sales advisor drawer
 Context-aware advisor that can read the full tire catalog + completed orders
 and surface suggestions inline on the Tires page (right-side drawer).
