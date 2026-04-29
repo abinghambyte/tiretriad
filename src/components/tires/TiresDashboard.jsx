@@ -28,6 +28,7 @@ import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
 import { TirePhotoGallery } from './TirePhotoGallery.jsx'
 import { TiresFilterOverlay } from './TiresFilterOverlay.jsx'
+import { SelectAllToggle } from './SelectAllToggle.jsx'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { BrandBolt } from '../ui/BrandBolt.jsx'
@@ -683,8 +684,17 @@ export function TiresDashboard() {
     [tires, selectedIds],
   )
 
+  // Two-stage Select All derived state. Today there is no pagination so
+  // `pageRows === sortedRows` and `moreBeyondVisible` is always false; the
+  // abstraction is kept so a future virtualized/paginated table can flip
+  // the secondary "Select all M matching" link on without further toolbar
+  // surgery.
+  const pageRows = sortedRows
   const allVisibleSelected =
+    pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id))
+  const allMatchingSelected =
     sortedRows.length > 0 && sortedRows.every((r) => selectedIds.has(r.id))
+  const moreBeyondVisible = sortedRows.length > pageRows.length
 
   function selectionPrimaryMspnRows() {
     const picks = sortedRows.filter((r) => selectedIds.has(r.id))
@@ -1027,20 +1037,24 @@ export function TiresDashboard() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
                   {!loading && sortedRows.length > 0 ? (
-                    <button
-                      type="button"
-                      aria-pressed={allVisibleSelected}
-                      onClick={() => toggleAllFilteredSelection(sortedRows)}
-                      className={`min-h-[44px] whitespace-nowrap rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
-                        allVisibleSelected
-                          ? 'border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60'
-                          : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
-                      }`}
-                    >
-                      {allVisibleSelected
-                        ? `Deselect all (${sortedRows.length})`
-                        : `Select all (${sortedRows.length})`}
-                    </button>
+                    <SelectAllToggle
+                      pageCount={pageRows.length}
+                      totalCount={sortedRows.length}
+                      selectedCount={selectedIds.size}
+                      visibleSelected={allVisibleSelected}
+                      allMatchingSelected={allMatchingSelected}
+                      moreBeyondVisible={moreBeyondVisible}
+                      onTogglePage={() => {
+                        if (allVisibleSelected) {
+                          clearSelection()
+                        } else {
+                          toggleAllFilteredSelection(pageRows)
+                        }
+                      }}
+                      onSelectAllMatching={() =>
+                        toggleAllFilteredSelection(sortedRows)
+                      }
+                    />
                   ) : null}
                   <button
                     type="button"
