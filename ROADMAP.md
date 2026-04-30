@@ -16,21 +16,6 @@ Within each tier, items are grouped by **surface** (Tires catalog, Dashboard, CR
 
 ## Now
 
-### 🛞 Tires catalog visual polish bundle
-A single PR that touches `MarginTable.jsx` rendering once and ships four small, related upgrades:
-
-- **Sidewall tag pills on rows** — surface `XL`, `RWL`, `ORWL`, `MS` tags from the description column as small uppercase pills next to the Description cell, similar to existing platform pills. Color-code: XL=zinc, RWL/ORWL=zinc-400 italic, MS=cyan. Detection is a regex on existing `tires.csv` desc text.
-- **Brand-color row-hover accent extension** — rows already have a left-edge brand accent strip; extend so the row's hover background tint subtly picks up the brand color too (`hover:bg-brand-bfg/5`, etc.).
-- **Sticky column-header solid bar** — eFleet uses `thead { position: sticky }` with a solid color bar (deep navy). Apply a subtle solid-color bar to the very-top header row only — locks visual attention as users scroll.
-- **Tread/model typography hierarchy** — push the Description column into a clean two-line treatment: MSPN bold mono on top, tread family muted secondary. Already partly there via `.sk-figures`; lean into the visual hierarchy.
-
-All four touch the same render path. Shipping individually means four reviews of the same surface; bundling cuts the overhead by 4x.
-
-### 🛞 XL filter chip in MarginFilters
-*430 SKUs carry the XL (Extra Load) tag in their descriptions and there's no way to filter by it today.* Add an `XL` chip alongside the existing LR row in `MarginFilters.jsx`. Detection: `\bXL\b` on the description column. Surfaces 430 SKUs invisible to "give me reinforced tires" customer asks.
-
-🔗 **Bundle with:** *Sidewall tag pills* (above) — the same regex powers both. If the regex moves to `src/utils/parseSidewallTags.js`, both the chip and the pill consume one source of truth.
-
 ### 🛞 Brand stats card row above the catalog
 Horizontal strip of brand pill cards above MarginTable showing `MICHELIN - 627 SKUs · avg $328` + filter affordance. Click sets `brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual brand-mix summary without opening Filters. Uniroyal data is now in (1,628 tire docs across MICHELIN/BFGOODRICH/UNIROYAL), so the pill counts are meaningful out of the gate.
 
@@ -239,6 +224,16 @@ reconciles.
 
 🔗 **Bundle with:** *eFleet account-number admin view* (Next) — both touch the import path; shipping together cuts script-review overhead.
 
+### 🔧 Replace `TireDescriptionCellForTest` export with `vi.importActual`
+*From the tires-table-polish PR code review.* `MarginTable.jsx` exports
+`TireDescriptionCellForTest = TireDescriptionCell` so the test file can render
+the memoized component directly. The export ships in the production bundle
+(zero runtime cost, but pollutes the module's public surface). Cleaner is to
+use `vi.importActual('./MarginTable.jsx')` inside the test or a Vitest module
+alias — keeps the production export surface focused on `MarginTable`.
+
+🔗 **Bundle with:** any next touch of `MarginTable.test.jsx`.
+
 ### 🔧 SelectAllToggle Stage-2 aria-pressed label clarity
 *From category-tabs final review.* In Stage 2 ("N selected"), `aria-pressed=true` and the visible label reads "N selected"; clicking will clear, but screen-reader users hear "5 selected, pressed, button" with no hint. Compute a richer `aria-label` like "Deselect 5 selected" while keeping the visible label terse.
 
@@ -254,6 +249,15 @@ Campaign submitted 2026-04-15 via Sinch dashboard (registration id `01kp9nnfdzpa
 ### 🔐 Firebase refresh token rotation
 An earlier Claude session asked for the Firebase auth blob from IndexedDB to drive a preview-browser walkthrough. The refresh token lives in that session's history. Sign out + back in on the normal browser when convenient — invalidates the old refresh token.
 
+### 💸 GitHub Actions usage at 90% of monthly quota (warning email 2026-04-30)
+Visual-snapshot regen + Playwright runs on every push to main are the heaviest line item. Two cheap mitigations to consider when usage spikes again:
+- Skip the visual workflow on `docs/`-only commits (path filters in `.github/workflows/visual-tests.yml`).
+- Reduce the visual matrix from `mobile-375 × everything` to `mobile-375 × dashboard, tires` since most other routes have stable layouts.
+Bigger lever: bump the GitHub plan if usage stays above 90% next month.
+
+### 🔐 Sinch HMAC webhook-signature receive-side wiring
+*From Sinch ticket #72178 (HMAC-SHA256 callback signing enabled 2026-04-30).* Secret is in Google Secret Manager as `SINCH_WEBHOOK_HMAC_SECRET`. Inbound Sinch callbacks now carry `x-sinch-webhook-signature`; receiver Cloud Function should verify the HMAC against the raw body and reject mismatches with 401. Until wired, signed callbacks pass through unverified. Use `req.rawBody` (not the parsed JSON body) and `crypto.timingSafeEqual`. Point implementer at the Cloud Function name handling Sinch incoming webhooks.
+
 ### 🔐 Sinch Chat frontend env vars
 After a mount location is picked and `<SinchChatMount />` is imported, populate in deployment env (Vercel / local `.env`):
 - `VITE_SINCH_CHAT_CLIENT_ID`
@@ -264,6 +268,17 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### Tires catalog visual polish bundle (shipped 2026-04-30)
+Spec: `docs/superpowers/specs/2026-04-30-tires-table-polish-design.md`. Single-PR bundle touching `MarginTable.jsx`:
+- `SidewallPill` component renders XL and M/S tags as inline pills on the description cell's secondary line. XL is no longer rendered as inline text in the primary size-spec — it's emitted as a pill from the row's `derivedUseTags`. New `MS` tag added to `deriveTireTags` (distinct from `All-Season`).
+- Sticky header bar: both desktop and mobile-table thead rows now stick to the top with `bg-slate-900` + `border-b-2 border-slate-700`; z-index 14 sits below the existing sticky-left checkbox column.
+- Brand-tinted row hover via `color-mix(in oklab, ...)` consuming `--color-brand-*` tokens. Michelin tints navy, BFG red, Uniroyal green; unknown brands fall through to `--color-brand-default`.
+- a11y: pills carry `role="img"` + `aria-label="Extra Load tire"` / `"Mud and Snow rated"` for cross-reader portability.
+- Pre-existing bugs swept up in the same branch: Margin % sort uses `listingMargin` (matches the displayed metric, not `computeMargin` which silently returned 100% on overhead-less rows); `BFGOODRICH` brand cell widened 6→7rem; Retail 5→6.5rem; Net/Floor 5→6rem; `est` text suffix dropped on estimated retails (italic amber + dot already signals it).
+- Hotfix: `scripts/fix-brand-conflict-tires.mjs` restored MSPN 54802 and 61309 to BFG-section truth after the 2026-04-29 eFleet importer overwrote their descriptions with the Michelin duplicates.
+
+XL filter chip and stronger typography hierarchy from the original bundle plan were dropped from scope: XL was already in the Tags chip row via existing `useTags` filtering; PR #193 already shipped the 2-line description hierarchy.
 
 ### Uniroyal brand support / eFleet importer extension (shipped 2026-04-29)
 Spec: `docs/superpowers/specs/2026-04-30-uniroyal-brand-support-design.md`. `scripts/import-efleet-categories.mjs` → `scripts/import-efleet.mjs`. 4-phase architecture: parser → planner → writer, with `set({merge:true})` inserts, off-program soft-tag (`offProgramAt`), diff-only-on-existing field updates (`--apply-updates`), and `--allow-mass-offprogram` safety override. First production run: 1,160 → 1,628 tire docs (MICHELIN + BFGOODRICH + UNIROYAL), 243 off-program tagged, 294 description updates applied, 2 vendor-side brand collisions caught (54802, 61309 — both appear under both BFG and Michelin sections of eFleet HTML; left as-is, source data error). Brand intentionally excluded from `EFLEET_SOURCED_FIELDS` — conflicts route to `brandConflicts[]` only, no auto-rebrand.
