@@ -100,7 +100,9 @@ function PhotoCountCell({ row }) {
 const COLUMN_TEMPLATE = {
   // select is always first and fixed-width
   select: '40px',
-  brand: '6rem',
+  // 7rem fits "BFGOODRICH" (10 chars) without truncation at the catalog font;
+  // 6rem clipped the trailing letter and forced the title-tooltip workaround.
+  brand: '7rem',
   // Description flexes but never collapses below 14rem so short rows still
   // have breathing room and wide rows don't squeeze the fixed columns to the
   // right. See Fix 1 in the PR notes: the old `2fr` let the grid overflow its

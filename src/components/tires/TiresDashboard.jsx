@@ -589,8 +589,12 @@ export function TiresDashboard() {
         if (as === bs) return 0
         return as < bs ? -dir : dir
       }
-      const am = a.margin
-      const bm = b.margin
+      // Default fallthrough: sort by Margin % column (sortKey === 'margin').
+      // The cell renders computeListingMargin (retail-based) per PR #34, so
+      // sort matches by reading row.listingMargin — using row.margin
+      // (markup-headroom) here causes apparent out-of-order display.
+      const am = a.listingMargin
+      const bm = b.listingMargin
       if (am == null && bm == null) return 0
       if (am == null) return 1
       if (bm == null) return -1
