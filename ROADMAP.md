@@ -35,6 +35,16 @@ but unused.
 
 ## Active queue
 
+### Fix `Target Firestore project: (unknown)` echo in import-efleet CLI
+*Discovered during first production import.* `scripts/import-efleet-categories.mjs`
+reads `db.app?.options?.projectId` after init, but that field is undefined
+when `initializeApp` is called with `projectId` passed alongside
+`credential`. The write still lands in the correct project (per the
+service account JSON), but the operator-safety echo is silenced. Fix:
+read directly from `sa.project_id` (already in scope), and print BEFORE
+the confirmation prompt so it actually serves as a sanity check rather
+than appearing post-write.
+
 ### Shared `TIRE_CATEGORY_KEYS` constant
 *Discovered during category-tabs final review.* The literal
 `'passenger' | 'lightTruck' | 'truck'` triple appears across 5 files
