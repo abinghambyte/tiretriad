@@ -12,30 +12,30 @@ const baseCounts = { all: 1160, passenger: 490, lightTruck: 502, truck: 168 }
 describe('CategoryTabs', () => {
   it('renders all four tabs with their labels and counts', () => {
     render(<CategoryTabs selected="all" counts={baseCounts} onSelect={() => {}} />)
-    expect(screen.getByRole('tab', { name: /All 1160/i })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /Passenger 490/i })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /Light Truck 502/i })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /Truck 168/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /All — 1160/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /Passenger — 490/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /Light Truck — 502/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /Truck — 168/i })).toBeTruthy()
   })
 
   it('marks the selected tab with aria-selected="true"', () => {
     render(<CategoryTabs selected="passenger" counts={baseCounts} onSelect={() => {}} />)
-    expect(screen.getByRole('tab', { name: /Passenger 490/i }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: /All 1160/i }).getAttribute('aria-selected')).toBe('false')
+    expect(screen.getByRole('tab', { name: /Passenger — 490/i }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: /All — 1160/i }).getAttribute('aria-selected')).toBe('false')
   })
 
   it('emits onSelect with the right value when a tab is clicked', () => {
     const onSelect = vi.fn()
     render(<CategoryTabs selected="all" counts={baseCounts} onSelect={onSelect} />)
-    fireEvent.click(screen.getByRole('tab', { name: /Light Truck 502/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /Light Truck — 502/i }))
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(onSelect).toHaveBeenCalledWith('lightTruck')
   })
 
   it('renders gracefully when counts are zero or missing', () => {
     render(<CategoryTabs selected="all" counts={{ all: 0, passenger: 0, lightTruck: 0, truck: 0 }} onSelect={() => {}} />)
-    expect(screen.getByRole('tab', { name: /^All 0$/i })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /^Truck 0$/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /^All — 0$/i })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /^Truck — 0$/i })).toBeTruthy()
   })
 
   it('each tab is at least 44 pixels tall (WCAG 2.5.5 AAA)', () => {
@@ -57,7 +57,7 @@ describe('CategoryTabs', () => {
   it('arrow keys navigate between tabs and call onSelect', () => {
     const onSelect = vi.fn()
     render(<CategoryTabs selected="all" counts={baseCounts} onSelect={onSelect} />)
-    const allTab = screen.getByRole('tab', { name: /All 1160/i })
+    const allTab = screen.getByRole('tab', { name: /All — 1160/i })
 
     fireEvent.keyDown(allTab, { key: 'ArrowRight' })
     expect(onSelect).toHaveBeenLastCalledWith('passenger')
