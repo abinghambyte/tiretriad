@@ -42,6 +42,10 @@ export function MarginFilters({
   hasActiveFilters,
   onClearAll,
   onApplyPreset,
+  // The brand filter UI moved to BrandStatsRow above this card, but the
+  // current brand value is still threaded through so saved filter presets
+  // can capture and restore it. Read-only here.
+  brand,
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 sm:gap-3 sm:p-3.5">
@@ -92,6 +96,7 @@ export function MarginFilters({
 
       {onApplyPreset != null ? (
         <FilterPresetsSection
+          brand={brand}
           useTagFilters={useTagFilters}
           lrFilters={lrFilters}
           minMargin={minMargin}
@@ -103,7 +108,7 @@ export function MarginFilters({
   )
 }
 
-function FilterPresetsSection({ useTagFilters, lrFilters, minMargin, needsReposting, onApplyPreset }) {
+function FilterPresetsSection({ brand, useTagFilters, lrFilters, minMargin, needsReposting, onApplyPreset }) {
   const [presets, setPresets] = useState(() => readPresets())
   const [namingOpen, setNamingOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
@@ -131,6 +136,7 @@ function FilterPresetsSection({ useTagFilters, lrFilters, minMargin, needsRepost
     const snapshot = {
       id: newId(),
       name: trimmed,
+      brand: brand || '',
       lrFilters: [...lrFilters],
       useTagFilters: [...useTagFilters],
       minMargin: Number(minMargin) || 0,
@@ -143,7 +149,7 @@ function FilterPresetsSection({ useTagFilters, lrFilters, minMargin, needsRepost
     })
     setNamingOpen(false)
     setDraftName('')
-  }, [draftName, useTagFilters, lrFilters, minMargin, needsReposting])
+  }, [draftName, brand, useTagFilters, lrFilters, minMargin, needsReposting])
 
   const onNameKeyDown = useCallback(
     (e) => {

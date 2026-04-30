@@ -1327,6 +1327,7 @@ export function TiresDashboard() {
               onClose={() => setFiltersOpen(false)}
             >
               <MarginFilters
+                brand={brand}
                 useTags={useTags}
                 lrs={lrs}
                 useTagFilters={useTagFilters}
