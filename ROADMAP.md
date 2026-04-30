@@ -116,6 +116,71 @@ Pre-launch checklist (must run before first deploy):
   tire falls to the heuristic and the catalog ships with a visible
   "categorization data missing" banner.
 
+### Add Uniroyal brand support to the catalog
+*Source: April 2026 eFleet comparison — biggest revenue gap.* The
+Michelin eFleet catalog explicitly lists Uniroyal as one of the three
+brands available to the Loveland account (1580951 SKEDADDLE INC
+LOVELAND). The portal currently has zero Uniroyal SKUs, yet eFleet has
+~120+ Uniroyal items including Laredo AT (34 SKUs, all-terrain LT),
+Laredo HT (32 SKUs, highway LT), Tiger Paw Touring A/S (~115 SKUs
+under TPTOURINAS — entry-level passenger volume play), Power Paw A/S
+(35 SKUs).
+
+Uniroyal is Michelin's value-tier brand — typically lower-priced,
+higher-velocity SKUs. Brand color token already defined in `index.css`
+(`--color-brand-uniroyal: #2e7d4a`). The portal is already wired to
+render Uniroyal — just needs the data import. Sample the entry-level
+14"–15" Tiger Paw band ($80–$99) for a clean volume play, plus the
+Laredo AT/HT lines for LT customers.
+
+### FET audit endpoint
+*Source: April 2026 eFleet comparison — 🟡 Important compliance signal.*
+267 eFleet items have FET > $0 (Federal Excise Tax on heavy-truck tires).
+A few outliers in the portal screenshots showed `$3.00` FET on items
+where the Michelin-quoted FET is `$0.00` (passenger) or `$30+`
+(commercial) — `$3.00` may be an overhead default that's being mistakenly
+treated as FET. Build an admin/audit page that lists SKUs where portal
+FET disagrees with the eFleet-quoted FET. Surfaces tax-compliance issues
+on heavy-truck quotes/invoices and catches misconfigured overhead rules.
+
+### XL filter chip in MarginFilters
+*Source: April 2026 eFleet comparison — 430 SKUs carry the XL (Extra
+Load / reinforced) tag in their descriptions, but there's no way to
+filter by it today.* Add an `XL` chip alongside the existing LR row in
+`MarginFilters.jsx`. Detection is a simple `\bXL\b` regex on the
+description column (already lives in `tires.csv`). Surfaces 430 SKUs
+that are otherwise invisible to "give me reinforced tires" customer
+asks.
+
+### Surface eFleet account number in admin / `meta/eFleetAccount`
+*Source: April 2026 eFleet comparison.* The eFleet HTML reports include
+a Ship-To account string (`1580951 SKEDADDLE INC LOVELAND`). Currently
+this is captured by the import script and stored on `meta/categoryMap`
+as a sibling field, but it's not surfaced anywhere in the UI. Add a
+small admin/ops view showing: account, last import date, total parsed,
+diff size on last import. Useful when verifying a fresh import lands
+against the right account, and for sanity-checking when Michelin
+reorganizes Loveland's program.
+
+### Brand-color row-hover accent extension
+*Source: eFleet comparison, item #4 from design recs (user said "add to
+roadmap").* Today MarginTable rows have a left-edge brand-color accent
+strip via `--color-brand-*` tokens. Extend this so the row's hover
+background tint also picks up the brand color subtly:
+`hover:bg-brand-bfg/5`, `hover:bg-brand-michelin/5`, etc. Reinforces the
+brand at-a-glance without being loud. Pairs naturally with the existing
+brand-color accent strip.
+
+### SelectAllToggle Stage-2 aria-pressed label clarity
+*Source: category-tabs final code review — minor a11y polish.* When
+`SelectAllToggle` is in Stage 2 ("N selected"), `aria-pressed=true` and
+the visible label reads "N selected" — clicking will clear. Screen-reader
+users hear "5 selected, pressed, button" with no hint that clicking
+clears. Either: (a) compute a richer `aria-label` like "Deselect 5
+selected" while keeping the visible label terse, or (b) revisit the
+two-stage label set entirely. Verify with a screen-reader run before
+deciding.
+
 ### Brand stats card row above catalog
 *Source: April 2026 eFleet comparison, item #1 from design recs (high prio).*
 Add a horizontal strip of brand pill cards above MarginTable showing
