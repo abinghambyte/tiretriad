@@ -14,13 +14,30 @@ import { fileURLToPath } from 'node:url'
 import { cert, getApps, initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
 
+const BRAND_CLASS_MAP = {
+  bfg: 'BFGOODRICH',
+  mich: 'MICHELIN',
+  uni: 'UNIROYAL',
+}
+
 /**
  * @param {string} html
  * @returns {{
  *   mspns: Record<string, 'passenger' | 'lightTruck' | 'truck'>,
+ *   tireRecords: Array<{
+ *     mspn: string,
+ *     brand: 'MICHELIN' | 'BFGOODRICH' | 'UNIROYAL',
+ *     tread: string,
+ *     description: string,
+ *     lr: string,
+ *     fet: number,
+ *     price: number,
+ *     category: 'passenger' | 'lightTruck' | 'truck',
+ *   }>,
  *   account: string | null,
  *   sourceReportDate: string | null,
  *   totalParsed: number,
+ *   warnings: Array<{ kind: string, message: string, mspn?: string }>,
  * }}
  */
 export function parseEfleetCatalog(html) {
@@ -30,10 +47,14 @@ export function parseEfleetCatalog(html) {
   const tables = html.match(/<table class="product-table">[\s\S]*?<\/table>/g) || []
   const catBlocks = html.split(/class="cat-section"/)
   if (tables.length === 0 || catBlocks.length < 2) {
-    throw new Error('parseEfleetCatalog: malformed input — no product-table or no cat-section blocks found')
+    throw new Error(
+      'parseEfleetCatalog: malformed input — no product-table or no cat-section blocks found',
+    )
   }
 
   const mspns = {}
+  const tireRecords = []
+  const warnings = []
 
   for (let i = 1; i < catBlocks.length; i++) {
     const block = catBlocks[i]
@@ -43,17 +64,92 @@ export function parseEfleetCatalog(html) {
     if (/light truck/i.test(title)) cat = 'lightTruck'
     else if (/passenger/i.test(title)) cat = 'passenger'
     else if (/^truck\b/i.test(title)) cat = 'truck'
-    if (!cat) continue // unknown category title — skip
+    if (!cat) continue
 
-    const mspnRe = /<td[^>]*style="[^"]*font-family:monospace[^"]*"[^>]*>([0-9]{4,7})<\/td>/g
-    let m
-    while ((m = mspnRe.exec(block)) !== null) {
-      mspns[m[1]] = cat
+    // Walk each brand-section inside this cat-section.
+    const brandBlocks = block.split(/class="brand-section"/)
+    for (let j = 1; j < brandBlocks.length; j++) {
+      const bblock = brandBlocks[j]
+      const brandTitleM = bblock.match(/class="brand-title\s+(\w+)"/)
+      const brandKey = brandTitleM ? brandTitleM[1].toLowerCase() : null
+      const brand = brandKey ? BRAND_CLASS_MAP[brandKey] : null
+      if (!brand) {
+        warnings.push({ kind: 'unknownBrand', message: `Unrecognized brand class: ${brandKey}` })
+        continue
+      }
+
+      // Each <tr> inside this brand's product-table is a row to parse.
+      const rowRe = /<tr>[\s\S]*?<\/tr>/g
+      const rows = bblock.match(rowRe) || []
+      for (const row of rows) {
+        // Skip header row (has <th>, not <td>)
+        if (row.includes('<th')) continue
+        const mspnM = row.match(/<td[^>]*style="[^"]*font-family:monospace[^"]*"[^>]*>([0-9]{4,7})<\/td>/)
+        if (!mspnM) continue
+        const mspn = mspnM[1]
+
+        // Extract remaining cells via greedy <td>(content)</td> walk
+        const cellsRe = /<td[^>]*>([\s\S]*?)<\/td>/g
+        const cells = []
+        let cm
+        while ((cm = cellsRe.exec(row)) !== null) {
+          cells.push(
+            cm[1]
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim(),
+          )
+        }
+        // Expected order: MSPN, Tread, Description, LR, FET, Price
+        if (cells.length < 6) {
+          warnings.push({ kind: 'malformedRow', message: 'Row had fewer than 6 cells', mspn })
+          continue
+        }
+        const tread = cells[1]
+        const description = cells[2]
+        const lrRaw = cells[3]
+        const fetRaw = cells[4]
+        const priceRaw = cells[5]
+
+        // PQL = price quoted locally, can't be priced from HTML.
+        if (/^PQL$/i.test(priceRaw)) {
+          warnings.push({ kind: 'pql', message: 'Price quoted locally; row skipped', mspn })
+          continue
+        }
+
+        const lr = lrRaw === '—' ? '' : lrRaw.toUpperCase()
+        const fet = Number(String(fetRaw).replace(/[^0-9.]/g, '')) || 0
+        const priceCleaned = String(priceRaw).replace(/[^0-9.]/g, '')
+        const price = Number(priceCleaned)
+        if (!Number.isFinite(price) || price <= 0) {
+          warnings.push({ kind: 'invalidPrice', message: `Invalid price: ${priceRaw}`, mspn })
+          continue
+        }
+
+        if (!tread) {
+          warnings.push({ kind: 'missingTread', message: 'Tread cell empty', mspn })
+        }
+
+        mspns[mspn] = cat
+        tireRecords.push({
+          mspn,
+          brand,
+          tread,
+          description,
+          lr,
+          fet,
+          price,
+          category: cat,
+        })
+      }
     }
   }
 
   if (Object.keys(mspns).length === 0) {
-    throw new Error('parseEfleetCatalog: malformed input — no MSPNs extracted (parser regex may need updating for new HTML format)')
+    throw new Error(
+      'parseEfleetCatalog: malformed input — no MSPNs extracted (parser regex may need updating for new HTML format)',
+    )
   }
 
   const acctM = html.match(/Ship To: ([^<]+)/)
@@ -62,7 +158,10 @@ export function parseEfleetCatalog(html) {
   const dateM = html.match(/Report Date:<\/td><td>([^<]+)/)
   let sourceReportDate = null
   if (dateM) {
-    const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ]
     const dm = dateM[1].match(/(\w+)\s+(\d{1,2}),\s+(\d{4})/)
     if (dm) {
       const idx = months.findIndex((mn) => mn.toLowerCase() === dm[1].toLowerCase())
@@ -76,9 +175,11 @@ export function parseEfleetCatalog(html) {
 
   return {
     mspns,
+    tireRecords,
     account,
     sourceReportDate,
-    totalParsed: Object.keys(mspns).length,
+    totalParsed: tireRecords.length,
+    warnings,
   }
 }
 
