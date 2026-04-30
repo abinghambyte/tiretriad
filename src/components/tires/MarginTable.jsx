@@ -383,9 +383,31 @@ function splitRawDescription(raw) {
   return { primary: r, secondary: null }
 }
 
-const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
+function SidewallPill({ tag }) {
+  const styles = {
+    XL: 'bg-zinc-700 text-zinc-100',
+    MS: 'bg-cyan-900/60 text-cyan-200',
+  }
+  const labels = {
+    XL: 'Extra Load tire',
+    MS: 'Mud and Snow rated',
+  }
+  const display = tag === 'MS' ? 'M/S' : tag
+  return (
+    <span
+      data-pill={tag}
+      aria-label={labels[tag] ?? tag}
+      className={`ml-1 inline-block rounded px-1.5 py-px text-[9px] font-bold tracking-wide align-middle ${styles[tag] ?? 'bg-zinc-700 text-zinc-100'}`}
+    >
+      {display}
+    </span>
+  )
+}
+
+const TireDescriptionCell = memo(function TireDescriptionCell({ description, pillTags }) {
   const d = String(description ?? '').trim()
   const parsed = useMemo(() => parseDescription(d), [d])
+  const tags = Array.isArray(pillTags) ? pillTags : []
   if (!d) return <span className="text-zinc-400">--</span>
 
   const hasMetric =
@@ -411,7 +433,8 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
     }
   }
   if (parsed.speedRating) loadParts.push(parsed.speedRating)
-  if (parsed.extraLoad) loadParts.push('XL')
+  // XL intentionally NOT pushed into primary -- it renders as a SidewallPill on
+  // the secondary line via pillTags.
   const loadSpeed = loadParts.join(' ')
 
   let primary = ''
@@ -442,6 +465,7 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
   }
 
   const fullText = secondary ? `${primary} ${secondary}` : primary
+  const hasPills = tags.length > 0
 
   return (
     <div className="group/desc relative min-w-0 max-w-full overflow-hidden pr-6 text-sm leading-snug text-zinc-300">
@@ -449,12 +473,30 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description }) {
       {secondary ? (
         <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs font-medium text-zinc-400 [overflow-wrap:anywhere]">
           {secondary}
+          {hasPills ? (
+            <>
+              {' · '}
+              {tags.map((t) => (
+                <SidewallPill key={t} tag={t} />
+              ))}
+            </>
+          ) : null}
+        </div>
+      ) : hasPills ? (
+        <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs">
+          {tags.map((t) => (
+            <SidewallPill key={t} tag={t} />
+          ))}
         </div>
       ) : null}
       <CopyDescriptionButton text={fullText} />
     </div>
   )
 })
+
+// Test-only export. Tests import this aliased name; production code uses the
+// memoized version above through the existing call sites.
+export const TireDescriptionCellForTest = TireDescriptionCell
 
 function CopyDescriptionButton({ text }) {
   const { toast } = useToast()
