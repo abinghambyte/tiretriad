@@ -10,6 +10,9 @@ import { HiddenGemsSurface } from './HiddenGemsSurface'
 import { MyQueueWidget } from './MyQueueWidget.jsx'
 import { NextToPostSurface } from './NextToPostSurface.jsx'
 import { flags } from '../../utils/featureFlags.js'
+import { BrandTierStrip } from './BrandTierStrip'
+import { useTires } from '../../hooks/useTires'
+import { useBrandAggregates } from '../../hooks/useBrandAggregates'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { statusPillTone } from '../ui/statusPillTone.js'
 import { EmptyState } from '../shared/EmptyState.jsx'
@@ -74,6 +77,9 @@ export function Dashboard() {
     kylesQueueCount,
     crm,
   } = useDashboardSignals()
+
+  const { tires } = useTires()
+  const brandAggregates = useBrandAggregates(tires, null)
 
   const topAdvisorPick = Array.isArray(advisorRanked) && advisorRanked.length > 0 ? advisorRanked[0] : null
   const tickerChips = useMemo(() => {
@@ -223,6 +229,13 @@ export function Dashboard() {
             page still available at /my-queue as fallback. Hidden by its own
             internal role gate when the user has no queue surface. */}
         <MyQueueWidget />
+
+        <section className="mb-4">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Brand portfolio
+          </h2>
+          <BrandTierStrip aggregates={brandAggregates} navigate={navigate} />
+        </section>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="pc-card rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
