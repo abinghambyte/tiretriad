@@ -757,8 +757,11 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
     const selected = selectedIds.has(row.id)
     return (
       <div
-        style={style}
-        className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${jumpHighlightClass}`}
+        style={{
+          ...style,
+          '--row-brand-hover': `color-mix(in oklab, ${brandColorCssVar(row.brand)} 8%, transparent)`,
+        }}
+        className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-[var(--row-brand-hover)] ${jumpHighlightClass}`}
       >
         <div className="flex w-max min-w-full text-sm" style={{ minHeight: ROW_MOBILE_BASE_PX }}>
             <div className="sticky left-0 z-[15] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-950 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.55)]">
@@ -848,9 +851,13 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
 
   return (
     <div
-      style={{ ...style, borderLeft: `8px solid ${brandColorCssVar(row.brand)}` }}
+      style={{
+        ...style,
+        borderLeft: `8px solid ${brandColorCssVar(row.brand)}`,
+        '--row-brand-hover': `color-mix(in oklab, ${brandColorCssVar(row.brand)} 8%, transparent)`,
+      }}
       data-brand={row.brand || ''}
-      className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-zinc-800/25 ${jumpHighlightClass}`}
+      className={`box-border flex flex-col border-b border-zinc-800/80 bg-zinc-950/0 transition-colors duration-150 hover:bg-[var(--row-brand-hover)] ${jumpHighlightClass}`}
     >
       <div className="grid shrink-0 px-0 py-0 text-sm" style={{ ...gridStyle, height: ROW_BASE_PX }}>
         <div className="flex items-center justify-center px-0.5">
