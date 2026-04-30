@@ -19,6 +19,13 @@
  *   ltPrefixedMetric: boolean,
  * }}
  */
+/** Sidewall codes that BFGoodrich and others slash-attach to the rim spec
+ * in eFleet HTML. Stripped wherever they appear so they don't break the
+ * metric size + load/speed split. The actual sidewall flag survives via
+ * the tag pipeline (deriveTireTags) and the tire's brand metadata. */
+const SLASH_PREFIXED_SIDEWALL_RE =
+  /\/(?:F|BSW|WSW|OWL|RWL|ORWL|RBL|MS)\b/gi
+
 /** Collapse whitespace; fix common catalog typos so metric/flotation patterns match. */
 function normalizeCatalogDescription(s) {
   let t = String(s ?? '')
@@ -26,6 +33,15 @@ function normalizeCatalogDescription(s) {
     .replace(/\s+/g, ' ')
   // Lowercase "r" before rim (265/70r17 → 265/70R17)
   t = t.replace(/(\d{2,3}\/\d{2})r(\d{2}(?:\.\d)?)(?=\s|$)/gi, '$1R$2')
+  // Collapse "LT 325/60R20" / "P 215/65R17" -> "LT325/60R20" / "P215/65R17"
+  // so the existing leading-prefix lead-regex picks up the LT/P flag.
+  t = t.replace(/^(LT|P)\s+(?=\d)/i, (_, kind) => kind.toUpperCase())
+  // Drop slash-prefixed sidewall codes (/F, /BSW, /OWL, /RWL, /ORWL, /WSW,
+  // /RBL, /MS). They're cosmetic flags on BFG/Michelin eFleet lines and
+  // breaking them out keeps the metric regex clean.
+  t = t.replace(SLASH_PREFIXED_SIDEWALL_RE, '')
+  // Re-collapse whitespace in case stripping left double spaces.
+  t = t.replace(/\s+/g, ' ').trim()
   return t
 }
 
