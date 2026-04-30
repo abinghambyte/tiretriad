@@ -25,6 +25,8 @@ import { HaggleSheet } from './HaggleSheet'
 import { ListingGenerator } from './ListingGenerator'
 import { CategoryTabs } from './CategoryTabs.jsx'
 import { categoryMapAgeStatus } from './categoryMapAgeStatus.js'
+import { useBrandAggregates } from '../../hooks/useBrandAggregates.js'
+import { BrandStatsRow } from './BrandStatsRow.jsx'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
@@ -423,6 +425,8 @@ export function TiresDashboard() {
       }
     })
   }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes])
+
+  const brandAggregates = useBrandAggregates(enriched, selectedCategory === 'all' ? null : selectedCategory)
 
   const categorizedRows = useMemo(() => {
     const buckets = { all: [], passenger: [], lightTruck: [], truck: [] }
@@ -1311,18 +1315,22 @@ export function TiresDashboard() {
               </div>
             </div>
 
+            <BrandStatsRow
+              brands={brandAggregates.brands}
+              total={brandAggregates.total}
+              selectedBrand={brand}
+              onBrandChange={setBrand}
+            />
+
             <TiresFilterOverlay
               open={filtersOpen}
               onClose={() => setFiltersOpen(false)}
             >
               <MarginFilters
-                brands={brands}
                 useTags={useTags}
                 lrs={lrs}
-                brand={brand}
                 useTagFilters={useTagFilters}
                 lrFilters={lrFilters}
-                onBrand={setBrand}
                 onUseTagFilters={setUseTagFilters}
                 onLrFilters={setLrFilters}
                 minMargin={minMargin}

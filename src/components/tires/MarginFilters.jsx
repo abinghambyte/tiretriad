@@ -29,13 +29,10 @@ function newId() {
 }
 
 export function MarginFilters({
-  brands,
   useTags,
   lrs,
-  brand,
   useTagFilters,
   lrFilters,
-  onBrand,
   onUseTagFilters,
   onLrFilters,
   minMargin,
@@ -48,10 +45,9 @@ export function MarginFilters({
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 sm:gap-3 sm:p-3.5">
-      {/* Row 1: min margin, brand, needs-reposting, clear. One compact line on sm+. */}
+      {/* Row 1: min margin, needs-reposting, clear. One compact line on sm+. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <InlineMinMargin value={minMargin} onChange={onMinMargin} />
-        <InlineBrand value={brand} onChange={onBrand} options={brands} />
         {onNeedsReposting != null ? (
           <InlineToggle
             checked={Boolean(needsReposting)}
@@ -96,7 +92,6 @@ export function MarginFilters({
 
       {onApplyPreset != null ? (
         <FilterPresetsSection
-          brand={brand}
           useTagFilters={useTagFilters}
           lrFilters={lrFilters}
           minMargin={minMargin}
@@ -108,7 +103,7 @@ export function MarginFilters({
   )
 }
 
-function FilterPresetsSection({ brand, useTagFilters, lrFilters, minMargin, needsReposting, onApplyPreset }) {
+function FilterPresetsSection({ useTagFilters, lrFilters, minMargin, needsReposting, onApplyPreset }) {
   const [presets, setPresets] = useState(() => readPresets())
   const [namingOpen, setNamingOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
@@ -136,7 +131,6 @@ function FilterPresetsSection({ brand, useTagFilters, lrFilters, minMargin, need
     const snapshot = {
       id: newId(),
       name: trimmed,
-      brand: brand || '',
       lrFilters: [...lrFilters],
       useTagFilters: [...useTagFilters],
       minMargin: Number(minMargin) || 0,
@@ -149,7 +143,7 @@ function FilterPresetsSection({ brand, useTagFilters, lrFilters, minMargin, need
     })
     setNamingOpen(false)
     setDraftName('')
-  }, [draftName, brand, useTagFilters, lrFilters, minMargin, needsReposting])
+  }, [draftName, useTagFilters, lrFilters, minMargin, needsReposting])
 
   const onNameKeyDown = useCallback(
     (e) => {
@@ -268,25 +262,6 @@ function InlineMinMargin({ value, onChange }) {
   )
 }
 
-function InlineBrand({ value, onChange, options }) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-zinc-400">
-      <span className="shrink-0">Brand</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm text-zinc-100 outline-none focus:border-zinc-500"
-      >
-        <option value="">All</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
 
 function InlineToggle({ checked, onChange, label, title }) {
   return (
