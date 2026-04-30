@@ -338,6 +338,53 @@ function diffMaps(prev, next) {
   return { added, removed, changed }
 }
 
+async function fetchExistingTireDocs(db) {
+  const snap = await db.collection('tires').get()
+  const docs = []
+  snap.forEach((d) => {
+    docs.push({ id: d.id, ...d.data() })
+  })
+  return docs
+}
+
+async function writeTireInserts(db, inserts) {
+  if (inserts.length === 0) return 0
+  // Firestore batch cap is 500 writes per batch.
+  const BATCH_SIZE = 400
+  let written = 0
+  for (let i = 0; i < inserts.length; i += BATCH_SIZE) {
+    const slice = inserts.slice(i, i + BATCH_SIZE)
+    const batch = db.batch()
+    for (const record of slice) {
+      const ref = db.collection('tires').doc(String(record.mspn))
+      const payload = {
+        mspn: record.mspn,
+        brand: record.brand,
+        tread: record.tread,
+        description: record.description,
+        lr: record.lr,
+        fet: record.fet,
+        price: record.price,
+        firstSeenInEfleetAt: FieldValue.serverTimestamp(),
+      }
+      batch.set(ref, payload, { merge: true })
+    }
+    await batch.commit()
+    written += slice.length
+  }
+  return written
+}
+
+function printPlanSummary(plan, label) {
+  console.log(`\n${label}`)
+  console.log(`  Inserts:           ${plan.inserts.length}`)
+  console.log(`  Off-program sets:  ${plan.offProgramSets.length}`)
+  console.log(`  Off-program clears: ${plan.offProgramClears.length}`)
+  console.log(`  Field diffs:       ${plan.fieldDiffs.length}`)
+  console.log(`  Brand conflicts:   ${plan.brandConflicts.length}`)
+  console.log(`  Skipped:           ${plan.skipped.length}`)
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (!args.htmlPath) {
@@ -356,7 +403,21 @@ async function main() {
   console.log(`    Passenger:   ${cats.passenger || 0}`)
   console.log(`    Truck:       ${cats.truck || 0}`)
 
+  if (parsed.warnings.length > 0) {
+    console.log(`\nWarnings (${parsed.warnings.length}):`)
+    const shown = parsed.warnings.slice(0, 10)
+    for (const w of shown) {
+      const tag = w.mspn ? ` [${w.mspn}]` : ''
+      console.log(`  - ${w.kind}${tag}: ${w.message}`)
+    }
+    if (parsed.warnings.length > shown.length) {
+      console.log(`  … and ${parsed.warnings.length - shown.length} more`)
+    }
+  }
+
   if (args.dryRun) {
+    const plan = planTirePhases([], parsed.tireRecords)
+    printPlanSummary(plan, 'Planned (vs empty Firestore - for dry-run sample):')
     console.log('\n--dry-run: skipping Firestore write.')
     process.exit(0)
   }
@@ -367,6 +428,7 @@ async function main() {
   const projectId = db.app?.options?.projectId || '(unknown)'
   console.log(`\nTarget Firestore project: ${projectId}`)
 
+  // Phase 1 prep: meta/categoryMap payload + diff
   const ref = db.doc('meta/categoryMap')
   const stagingRef = db.doc('meta/categoryMapStaging')
   const prior = (await ref.get()).data() || null
@@ -381,7 +443,6 @@ async function main() {
     mspns: parsed.mspns,
   }
 
-  // Diff
   const diff = diffMaps(prior?.mspns, parsed.mspns)
   console.log('\nDiff vs prior import:')
   console.log(`  + ${diff.added.length} new MSPNs categorized`)
@@ -390,6 +451,13 @@ async function main() {
   if (diff.changed.length > 0 && diff.changed.length <= 20) {
     diff.changed.forEach((c) => console.log(`    ${c.mspn}: ${c.from} → ${c.to}`))
   }
+
+  // Phase 2 prep: load existing tire docs and plan
+  console.log('\nFetching existing tire docs…')
+  const existingDocs = await fetchExistingTireDocs(db)
+  console.log(`  Loaded ${existingDocs.length} tire docs.`)
+  const plan = planTirePhases(existingDocs, parsed.tireRecords)
+  printPlanSummary(plan, 'Planned writes:')
 
   if (!args.yes) {
     const rl = readline.createInterface({ input, output })
@@ -401,11 +469,15 @@ async function main() {
     }
   }
 
-  // Stage first, then atomic move (Firestore docs are atomic per-doc;
-  // writing staging then ref preserves prior on staging-write failure).
+  // Phase 1 writes: stage first, then ref (per-doc atomicity preserves prior on staging-write failure).
   await stagingRef.set(payload)
   await ref.set(payload)
   console.log(`\n✓ Wrote meta/categoryMap (${parsed.totalParsed} entries)`)
+
+  // Phase 2 writes: insert new tire docs.
+  const insertedCount = await writeTireInserts(db, plan.inserts)
+  console.log(`✓ Inserted ${insertedCount} tire docs.`)
+
   console.log('Done.')
 }
 
