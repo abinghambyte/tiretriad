@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { timeAgo } from '../../utils/timeAgo'
+import { useToast } from '../../context/ToastContext.jsx'
 import { EmptyState } from '../shared/EmptyState.jsx'
 import {
   MODAL_CENTER_BACKDROP,
   MODAL_CENTER_PANEL_WIDE,
 } from '../ui/modalChrome.js'
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 const ALL_PLATFORMS = ['ebay', 'marketplace', 'craigslist']
 const PLATFORM_LABELS = {
@@ -54,15 +58,43 @@ function GemRow({ gem, onPost, compact = false }) {
 }
 
 function GemsModal({ gems, onPost, onClose }) {
+  const { toast } = useToast()
   const [selected, setSelected] = useState(() => new Set())
+  const [posting, setPosting] = useState(false)
+  const headingId = useId()
+  const dialogRef = useRef(null)
+  const previousFocusRef = useRef(null)
 
   useEffect(() => {
+    previousFocusRef.current = document.activeElement
+    const dialog = dialogRef.current
+    const firstFocusable = dialog?.querySelector(FOCUSABLE_SELECTOR)
+    firstFocusable?.focus()
+
     function onKey(e) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !posting) {
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab' || !dialog) return
+      const focusables = dialog.querySelectorAll(FOCUSABLE_SELECTOR)
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      previousFocusRef.current?.focus?.()
+    }
+  }, [onClose, posting])
 
   function toggleGem(id) {
     setSelected((prev) => {
@@ -73,22 +105,49 @@ function GemsModal({ gems, onPost, onClose }) {
     })
   }
 
-  function postSelected() {
-    for (const id of selected) onPost?.(id)
-    onClose()
+  async function postSelected() {
+    if (selected.size === 0 || posting) return
+    setPosting(true)
+    const ids = Array.from(selected)
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) => {
+          try {
+            return Promise.resolve(onPost?.(id))
+          } catch (err) {
+            return Promise.reject(err)
+          }
+        })
+      )
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0) {
+        toast(`${ids.length - failed} posted, ${failed} failed`, 'error')
+      } else {
+        toast(`${ids.length} posted`, 'success')
+      }
+      onClose()
+    } finally {
+      setPosting(false)
+    }
   }
 
   return (
-    <div className={MODAL_CENTER_BACKDROP} onClick={onClose}>
+    <div
+      className={MODAL_CENTER_BACKDROP}
+      onClick={() => {
+        if (!posting) onClose()
+      }}
+    >
       <div
+        ref={dialogRef}
         className={MODAL_CENTER_PANEL_WIDE}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="All hidden gems"
+        aria-labelledby={headingId}
       >
         <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-          <h2 className="text-sm font-semibold text-zinc-100">
+          <h2 id={headingId} className="text-sm font-semibold text-zinc-100">
             Hidden Gems ({gems.length})
           </h2>
           <button
@@ -124,17 +183,20 @@ function GemsModal({ gems, onPost, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800/60"
+              disabled={posting}
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-40"
             >
               Cancel
             </button>
             <button
               type="button"
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || posting}
               onClick={postSelected}
               className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/30 disabled:opacity-40"
             >
-              Post selected ({selected.size})
+              {posting
+                ? `Posting ${selected.size}…`
+                : `Post selected (${selected.size})`}
             </button>
           </div>
         </div>
@@ -146,8 +208,8 @@ function GemsModal({ gems, onPost, onClose }) {
 export function HiddenGemsSurface({ gems = [], onPost }) {
   const [modalOpen, setModalOpen] = useState(false)
   const list = Array.isArray(gems) ? gems : []
-  const first = list[0]
-  const remainingCount = list.length - 1
+  const previewCount = Math.min(3, list.length)
+  const remainingCount = list.length - previewCount
 
   return (
     <section className="pc-card rounded-xl bg-zinc-900/60 p-[14px]">
@@ -158,10 +220,12 @@ export function HiddenGemsSurface({ gems = [], onPost }) {
         </div>
       ) : (
         <>
-          <div className="mt-3">
-            <GemRow gem={first} onPost={onPost} />
+          <div className="mt-3 space-y-3">
+            {list.slice(0, 3).map((gem) => (
+              <GemRow key={gem.id} gem={gem} onPost={onPost} />
+            ))}
           </div>
-          {remainingCount > 0 ? (
+          {list.length > 3 ? (
             <button
               type="button"
               onClick={() => setModalOpen(true)}
@@ -174,7 +238,11 @@ export function HiddenGemsSurface({ gems = [], onPost }) {
       )}
 
       {modalOpen ? (
-        <GemsModal gems={list} onPost={onPost} onClose={() => setModalOpen(false)} />
+        <GemsModal
+          gems={list}
+          onPost={onPost}
+          onClose={() => setModalOpen(false)}
+        />
       ) : null}
     </section>
   )

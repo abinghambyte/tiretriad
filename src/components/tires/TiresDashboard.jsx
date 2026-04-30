@@ -30,6 +30,8 @@ import { QuoteCalculator } from './QuoteCalculator'
 import { SaleMessenger } from './SaleMessenger'
 import { TireCardMobile } from './TireCardMobile'
 import { TirePhotoGallery } from './TirePhotoGallery.jsx'
+import { TiresFilterOverlay } from './TiresFilterOverlay.jsx'
+import { SelectAllToggle } from './SelectAllToggle.jsx'
 import { ModuleSubheader } from '../layout/ModuleSubheader.jsx'
 import Spinner from '../ui/Spinner.jsx'
 import { BrandBolt } from '../ui/BrandBolt.jsx'
@@ -272,6 +274,7 @@ export function TiresDashboard() {
   const [justJumpedToId, setJustJumpedToId] = useState(null)
   const marginTableRef = useRef(null)
   const jumpHighlightTimerRef = useRef(null)
+  const toolbarRef = useRef(null)
 
   useEffect(() => {
     return () => {
@@ -726,8 +729,17 @@ export function TiresDashboard() {
     [tires, selectedIds],
   )
 
+  // Two-stage Select All derived state. Today there is no pagination so
+  // `pageRows === sortedRows` and `moreBeyondVisible` is always false; the
+  // abstraction is kept so a future virtualized/paginated table can flip
+  // the secondary "Select all M matching" link on without further toolbar
+  // surgery.
+  const pageRows = sortedRows
   const allVisibleSelected =
+    pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id))
+  const allMatchingSelected =
     sortedRows.length > 0 && sortedRows.every((r) => selectedIds.has(r.id))
+  const moreBeyondVisible = sortedRows.length > pageRows.length
 
   function selectionPrimaryMspnRows() {
     const picks = sortedRows.filter((r) => selectedIds.has(r.id))
@@ -807,7 +819,6 @@ export function TiresDashboard() {
   }
 
   const visibleColumnLabel = SORT_LABELS[sortKey] || 'Margin %'
-  const visibleDirLabel = sortDir === 'asc' ? 'ascending' : 'descending'
 
   // Publish selection + action runners to the module-level store so the
   // command palette (mounted in PortalChrome, outside this route tree) can
@@ -917,39 +928,6 @@ export function TiresDashboard() {
 
         {tab === 'catalog' ? (
           <>
-            {filtersOpen ? (
-              <>
-                <div
-                  className="fixed inset-0 z-30"
-                  onClick={() => setFiltersOpen(false)}
-                  aria-hidden
-                />
-                <div
-                  id="tires-filter-panel"
-                  className="fixed left-4 right-4 top-[148px] z-40 rounded-xl border border-zinc-700 bg-zinc-950 p-3 shadow-2xl sm:left-6 sm:right-6 sm:top-[164px]"
-                >
-                  <MarginFilters
-                    brands={brands}
-                    useTags={useTags}
-                    lrs={lrs}
-                    brand={brand}
-                    useTagFilters={useTagFilters}
-                    lrFilters={lrFilters}
-                    onBrand={setBrand}
-                    onUseTagFilters={setUseTagFilters}
-                    onLrFilters={setLrFilters}
-                    minMargin={minMargin}
-                    onMinMargin={setMinMargin}
-                    needsReposting={needsReposting}
-                    onNeedsReposting={setNeedsReposting}
-                    hasActiveFilters={hasActiveFilters}
-                    onClearAll={clearFilters}
-                    onApplyPreset={applyFilterPreset}
-                  />
-                </div>
-              </>
-            ) : null}
-
             {catalogRisk === 'missingOverhead' || catalogRisk === 'lowMargin' ? (
               <div className="-mx-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-sm">
                 <span className="text-amber-100/95">
@@ -1027,7 +1005,7 @@ export function TiresDashboard() {
               onSelect={setSelectedCategory}
             />
 
-            <div className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
+            <div ref={toolbarRef} className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
                   <span className="sr-only">Search by MSPN or description</span>
@@ -1065,6 +1043,10 @@ export function TiresDashboard() {
                     ) : null}
                   </div>
                 </label>
+              </div>
+
+              <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -1104,35 +1086,41 @@ export function TiresDashboard() {
                       Clear filters
                     </button>
                   ) : null}
-                </div>
-              </div>
-
-              <div className="mt-2 flex flex-col gap-3 border-t border-zinc-800/60 pt-2">
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
                   {loading ? (
                     <span className="inline-flex items-center gap-2 text-sm text-zinc-400">
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
                       Loading inventory…
                     </span>
                   ) : null}
+                  {!loading && sortedRows.length > 0 ? (
+                    <span
+                      aria-live="polite"
+                      className="truncate whitespace-nowrap text-[11px] font-medium text-zinc-400"
+                    >
+                      {`Showing 1-${sortedRows.length} of ${sortedRows.length} · ${sortDir === 'asc' ? '↑' : '↓'} ${visibleColumnLabel}`}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
                   {!loading && sortedRows.length > 0 ? (
-                    <button
-                      type="button"
-                      aria-pressed={allVisibleSelected}
-                      onClick={() => toggleAllFilteredSelection(sortedRows)}
-                      className={`min-h-[44px] whitespace-nowrap rounded-lg border px-3 py-2 text-sm sm:min-h-0 ${
-                        allVisibleSelected
-                          ? 'border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60'
-                          : 'border-zinc-600 text-zinc-200 hover:border-zinc-500 hover:bg-zinc-900/60'
-                      }`}
-                    >
-                      {allVisibleSelected
-                        ? `Deselect all (${sortedRows.length})`
-                        : `Select all (${sortedRows.length})`}
-                    </button>
+                    <SelectAllToggle
+                      pageCount={pageRows.length}
+                      totalCount={sortedRows.length}
+                      selectedCount={selectedIds.size}
+                      visibleSelected={allVisibleSelected}
+                      allMatchingSelected={allMatchingSelected}
+                      moreBeyondVisible={moreBeyondVisible}
+                      onTogglePage={() => {
+                        if (allVisibleSelected) {
+                          clearSelection()
+                        } else {
+                          toggleAllFilteredSelection(pageRows)
+                        }
+                      }}
+                      onSelectAllMatching={() =>
+                        toggleAllFilteredSelection(sortedRows)
+                      }
+                    />
                   ) : null}
                   <button
                     type="button"
@@ -1318,6 +1306,30 @@ export function TiresDashboard() {
               </div>
             </div>
 
+            <TiresFilterOverlay
+              open={filtersOpen}
+              onClose={() => setFiltersOpen(false)}
+            >
+              <MarginFilters
+                brands={brands}
+                useTags={useTags}
+                lrs={lrs}
+                brand={brand}
+                useTagFilters={useTagFilters}
+                lrFilters={lrFilters}
+                onBrand={setBrand}
+                onUseTagFilters={setUseTagFilters}
+                onLrFilters={setLrFilters}
+                minMargin={minMargin}
+                onMinMargin={setMinMargin}
+                needsReposting={needsReposting}
+                onNeedsReposting={setNeedsReposting}
+                hasActiveFilters={hasActiveFilters}
+                onClearAll={clearFilters}
+                onApplyPreset={applyFilterPreset}
+              />
+            </TiresFilterOverlay>
+
             {selectedIds.size > 0 ? (
               <div
                 role="toolbar"
@@ -1403,8 +1415,6 @@ export function TiresDashboard() {
                 loading={loading}
                 emptyState={emptyState}
                 columnVisibility={columnVisibility}
-                sortColumnLabel={visibleColumnLabel}
-                sortDirLabel={visibleDirLabel}
                 externalListRef={marginTableRef}
                 justJumpedToId={justJumpedToId}
               />

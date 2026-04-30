@@ -154,6 +154,44 @@ For local emulator: use .secret.local
 
 ---
 
+## Catalog UI/UX initiative (Apr 28, 2026)
+
+Derived from comparing the live portal catalog against the Michelin eFleet HTML report (~1,285 SKUs). Pricing is 100% aligned on the 817 overlapping SKUs. Items below are visual/interaction enhancements; data-import items (Uniroyal coverage, FET audit, eFleet diff job) are tracked separately under the Catalog Data initiative.
+
+### High priority
+
+- **Three-category browse mode (Light Truck / Passenger / Truck).** Add category filter chips above MarginTable; derive category from size + LR heuristics. Mirrors how customers shop and how Michelin organizes the eFleet.
+- **Brand-tier hero strip on dashboard.** Above existing KPI row: pill cards per brand with SKU count + avg margin. Calls out missing brands (e.g., "Uniroyal — NOT STOCKED ⚠"). Action chip per card.
+- **Product detail page with eFleet provenance.** Click a SKU → drill-down: title, size, MSPN, tread family, sidewall, LR, full pricing breakdown, "Pricing source: Michelin eFleet (date)" with matched MSRP, active platform listings, posting history, margin trend, "other sizes in this tread family" suggestions.
+- **Tread/model typography refinements.** Two-line treatment in the description column: bold MSPN/size on top line, muted tread family on second line. Already partly there; lean into the visual hierarchy.
+- **Sticky column header treatment.** Bolder solid background on the very top header row to anchor visual attention as users scroll long catalogs. Take cue from eFleet's `background:#002060` navy.
+- **Sidewall tag pills on rows.** Surface XL, RWL, ORWL, MS as color-coded pills next to descriptions. 430 XL SKUs and 81 RWL/ORWL SKUs become discoverable; today they're buried in description text.
+
+### Medium priority
+
+- **Tread-family grouped view.** Toolbar toggle: `Group: None | Brand | Tread`. Group rows are collapsible; Defender LTX M/S 2 (48 SKUs) collapses into a single row that expands to show size variants.
+- **Catalog-first navigation.** Land on `/tires` with a category → brand → tread breadcrumb experience (high-margin items still front and center). Power users keep flat catalog via "Show all SKUs" button. Priority axis: best margins / money first.
+- **Brand stats card row above catalog.** Horizontal pill cards showing per-brand SKU count + avg price + margin floor. Click sets brand filter. Provides instant brand-mix summary without opening Filters.
+- **Catalog freshness badge in header.** "Inventory current as of Apr 19, 2026 · imported from Michelin eFleet". Amber if >30 days old.
+- **Brand-color hover tint.** Existing left-edge brand accent extended to hover background tint (e.g., `hover:bg-brand-bfg/5`). Reinforces brand identity subtly.
+- **eFleet color-palette alignment.** Coordinate the portal's `--color-brand-*` tokens with the eFleet's deeper navy (`#002060`), red (`#e31837`), and green (`#006633`). **Coordinate with skedaddleinc.com web marketing site** — any change must propagate so brand identity stays consistent across surfaces.
+- **Catalog export view (print-friendly).** "Share / Print" action that opens a printable view formatted like Michelin's report — branded cover page, Skedaddle account/date metadata, brand section breaks, sticky table headers. For sales reps and customer handouts.
+- **Internal info / status footer bar.** Small footer or status bar surfacing: data sync status ("Inventory synced 9 min ago · 0 errors"), audit-trail link, margin policy reminder, keyboard shortcut hints (rotating tip), catalog version line. NOT the eFleet's customer-facing legal disclaimer — repurposed as a power-user orientation surface.
+- **Listing generator enhancement** (replaces Michelin's retail-sticker idea). Bulk action on selected tires that produces optimized platform listings (Marketplace/OfferUp/Craigslist/eBay) using eFleet metadata: tread family, size, retail, MSPN. Wires into existing Listing Generator. The bulk-print sticker concept is dropped.
+
+### Lower priority
+
+- **Side-by-side eFleet diff view (admin / audit page).** Tabs showing: 343 portal-only SKUs (potential aged stock), 468 eFleet-only SKUs (sales gaps), 817 aligned, 0 price drift. Each section filterable + bulk-actionable. Diff regenerates on new eFleet HTML upload.
+- **Customer-facing read-only catalog mode** (`/catalog`). Same data, no margins or buy prices, retail + size + tread + image only. **Retail price = ideal midpoint between buy price and current platform list price** (tunable margin-target slider). Becomes a brandable, printable, linkable artifact. Different filter set, category-first navigation.
+
+### Rejected (after review)
+
+- ~~Per-row "Source: Michelin eFleet" provenance pill.~~ Felt like noise — provenance lives on the detail page instead.
+- ~~Customer-facing pricing disclaimer bar.~~ Internal tool; replaced with the status/orientation bar above.
+- ~~Retail sticker generator.~~ Replaced by listing generator enhancement (more ROI).
+
+---
+
 ## Revenue Strategy
 
 **Fastest path to cash:**

@@ -510,8 +510,8 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
       title={
         active
           ? dir === 'asc'
-            ? `Sort ${label} descending (click again to clear)`
-            : `Clear sort (back to default)`
+            ? `Sort ${label} descending`
+            : `Sort ${label} ascending`
           : `Sort by ${label}`
       }
       className={`group inline-flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 font-medium transition-colors hover:bg-zinc-800/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
@@ -911,8 +911,6 @@ export function MarginTable({
   loading,
   emptyState,
   columnVisibility,
-  sortColumnLabel,
-  sortDirLabel,
   externalListRef,
   justJumpedToId,
 }) {
@@ -922,19 +920,17 @@ export function MarginTable({
   const scrollRef = useRef(null)
   const isMobileTable = useMediaQuery('(max-width: 767px)')
 
-  // Tri-state header cycle lives here so the table stays stateless for sort;
-  // parent only applies (nextKey, nextDir).
+  // Sort cycle: inactive column → asc; active column → toggle asc/desc.
+  // The "reset to default" affordance lives in the toolbar's
+  // "Sort: Margin %" button — clicking column headers should always
+  // change direction, never become a dead-end identity action.
   const onHeaderSortClick = useCallback(
     (columnKey) => {
       if (sortKey !== columnKey) {
         onSortChange(columnKey, 'asc')
         return
       }
-      if (sortDir === 'asc') {
-        onSortChange(columnKey, 'desc')
-        return
-      }
-      onSortChange('margin', 'desc')
+      onSortChange(columnKey, sortDir === 'asc' ? 'desc' : 'asc')
     },
     [sortKey, sortDir, onSortChange],
   )
@@ -1072,12 +1068,6 @@ export function MarginTable({
 
   const vis = columnVisibility || {}
 
-  const summaryText = loading
-    ? 'Loading…'
-    : rows.length === 0
-      ? 'No tires shown'
-      : `Showing 1-${rows.length} of ${rows.length} · ${sortDirLabel === 'ascending' ? '↑' : '↓'} ${sortColumnLabel || 'Margin %'}`
-
   return (
     <div>
       <div
@@ -1091,14 +1081,11 @@ export function MarginTable({
           </div>
         ) : null}
         <div className={`w-full text-left text-sm ${isMobileTable ? 'min-w-0' : 'min-w-[1148px]'}`}>
-          {/* Per-view counter pinned inside the table's scroll container. Shows
-              filtered count and current sort state; updates whenever filters or
-              sort change. */}
-          {!loading && rows.length > 0 ? (
-            <div className="sticky top-0 z-[17] flex items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur">
-              <span aria-live="polite" className="truncate whitespace-nowrap">{summaryText}</span>
-            </div>
-          ) : null}
+          {/* Per-view counter moved up to the catalog toolbar row. The
+              counter is now adjacent to the Filters/Sort/Table options
+              controls so the user sees the filtered count and current
+              sort glyph in the same horizontal scan as the controls
+              that change them. */}
           <div
             className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 md:grid"
             style={gridStyle}
