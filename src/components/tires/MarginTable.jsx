@@ -113,14 +113,16 @@ const COLUMN_TEMPLATE = {
   listed: '6.25rem',
   photos: '4.25rem',
   buy: '6rem',
-  retail: '5rem',
+  // 6.5rem fits four-figure retails like "$1,150.28" without clipping the
+  // leading dollar sign at the catalog font.
+  retail: '6.5rem',
   fet: '4.5rem',
   overhead: '5.5rem',
   // Net $ and Floor are opt-in columns hidden by default (see TiresDashboard
-  // initial columnVisibility). Kept tight so the grid total with FET hidden
-  // stays under the 1152px `max-w-6xl` content container.
-  net: '5rem',
-  floor: '5rem',
+  // initial columnVisibility). 6rem lets large positives like "+$383.86"
+  // breathe; 5rem clipped the leading sign.
+  net: '6rem',
+  floor: '6rem',
   // Slightly wider so "100.0%" never clips even with the mono `sk-figures`
   // font.
   margin: '6rem',
