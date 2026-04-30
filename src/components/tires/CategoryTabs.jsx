@@ -12,12 +12,11 @@
  */
 
 import { useRef } from 'react'
+import { TIRE_CATEGORY_KEYS, CATEGORY_LABELS } from '../../constants/tireCategory.js'
 
 const TABS = [
-  { key: 'all',         label: 'All' },
-  { key: 'passenger',   label: 'Passenger' },
-  { key: 'lightTruck',  label: 'Light Truck' },
-  { key: 'truck',       label: 'Truck' },
+  { key: 'all', label: 'All' },
+  ...TIRE_CATEGORY_KEYS.map((key) => ({ key, label: CATEGORY_LABELS[key] })),
 ]
 
 /**

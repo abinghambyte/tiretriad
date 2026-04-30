@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { functions } from '../../firebase/config'
+import { TIRE_CATEGORY_KEYS } from '../../constants/tireCategory.js'
 import { permissionMeets } from '../../constants/peoplePermissions'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -239,7 +240,7 @@ export function TiresDashboard() {
   const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
   const [selectedCategory, setSelectedCategoryState] = useState(() => {
     const fromUrl = searchParams.get('cat')
-    return ['passenger', 'lightTruck', 'truck'].includes(fromUrl) ? fromUrl : 'all'
+    return TIRE_CATEGORY_KEYS.includes(fromUrl) ? fromUrl : 'all'
   })
 
   const setSelectedCategory = useCallback(

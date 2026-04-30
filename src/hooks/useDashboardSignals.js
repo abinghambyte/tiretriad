@@ -12,6 +12,7 @@ import {
 import { httpsCallable } from 'firebase/functions'
 import { useEffect, useMemo, useState } from 'react'
 import { db, functions } from '../firebase/config'
+import { TIRE_CATEGORY_KEYS } from '../constants/tireCategory.js'
 import { useTires } from './useTires'
 import { useUserProfile } from './useUserProfile'
 import { useCrewPreview } from './useCrewPreview'
@@ -60,11 +61,11 @@ export function fallbackHeuristic(tire) {
 export function selectCategoryForTire(tire, categoryMap) {
   if (tire?.categoryOverride) {
     const v = String(tire.categoryOverride)
-    if (v === 'passenger' || v === 'lightTruck' || v === 'truck') return v
+    if (TIRE_CATEGORY_KEYS.includes(v)) return v
   }
   const mspn = String(tire?.mspn ?? '').trim()
   const mapped = categoryMap?.mspns?.[mspn]
-  if (mapped === 'passenger' || mapped === 'lightTruck' || mapped === 'truck') {
+  if (TIRE_CATEGORY_KEYS.includes(mapped)) {
     return mapped
   }
   return fallbackHeuristic(tire)
