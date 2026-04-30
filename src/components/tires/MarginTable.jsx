@@ -138,18 +138,18 @@ const COLUMN_TEMPLATE = {
  * room for every fixed column + the description's own minimum. */
 const COLUMN_MIN_PX = {
   select: 40,
-  brand: 96,
+  brand: 112, // 7rem
   description: 176, // matches the 11rem floor above
   mspn: 80,
   lr: 48,
   listed: 100,
   photos: 68,
   buy: 96,
-  retail: 80,
+  retail: 104, // 6.5rem
   fet: 72,
   overhead: 88,
-  net: 88,
-  floor: 88,
+  net: 96, // 6rem
+  floor: 96, // 6rem
   margin: 96,
 }
 
