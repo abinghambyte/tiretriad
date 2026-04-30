@@ -1152,7 +1152,7 @@ export function MarginTable({
               sort glyph in the same horizontal scan as the controls
               that change them. */}
           <div
-            className="box-border hidden border-b border-zinc-800 bg-zinc-900/90 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 md:grid"
+            className="sticky top-0 z-[14] box-border hidden border-b-2 border-slate-700 bg-slate-900 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-300 md:grid"
             style={gridStyle}
           >
             {/* Empty cell to preserve grid alignment with per-row select checkbox column. */}
@@ -1331,7 +1331,7 @@ export function MarginTable({
             ) : null}
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
-            <div className="flex w-max min-w-full border-b border-zinc-800 bg-zinc-900/90 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
+            <div className="sticky top-0 z-[14] flex w-max min-w-full border-b-2 border-slate-700 bg-slate-900 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300 md:hidden">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
                 {/* Empty spacer to preserve alignment with per-row pick column. */}
                 <div className="w-11 shrink-0 px-0.5 py-0.5" aria-hidden="true" />
