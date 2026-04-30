@@ -359,10 +359,16 @@ function marginPctTone(pct) {
 }
 
 /** Best-effort two-line split when parseKind is still raw (catalog edge cases). */
+// Two extra `(?:\.\d+)?` groups vs the prior version handle commercial
+// tire sizes that carry a decimal in the WIDTH (e.g. `16.00R20`) or in the
+// RIM diameter (e.g. `11R22.5`). Without these the splitter regex didn't
+// match and the description rendered as a single un-split line, while
+// neighboring rows with `/`-separated sizes (e.g. `395/85R20 XZL LRJ`)
+// got the cleaner two-line treatment — looked inconsistent.
 function splitRawDescription(raw) {
   const r = String(raw || '').trim()
   const m = r.match(
-    /^((?:LT|P)?\d{2,3}(?:[/X]\d{1,3}(?:\.\d+)?)?[A-Z]{1,2}\d{2}(?:LT)?(?:\/[A-F])?)\s*([0-9/]+[A-Z]{1,2})?\s*(.*)$/i,
+    /^((?:LT|P)?\d{2,3}(?:\.\d+)?(?:[/X]\d{1,3}(?:\.\d+)?)?[A-Z]{1,2}\d{2}(?:\.\d+)?(?:LT)?(?:\/[A-F])?)\s*([0-9/]+[A-Z]{1,2})?\s*(.*)$/i,
   )
   if (m) {
     const size = (m[1] || '').trim()
