@@ -16,6 +16,13 @@ Within each tier, items are grouped by **surface** (Tires catalog, Dashboard, CR
 
 ## Now
 
+### 🛞 eFleet importer: skip ALL field updates when brand conflicts (promoted from Tech debt)
+*From production import 2026-04-29 + the 2026-04-30 collateral hotfix.* The planner currently routes brand mismatches to `brandConflicts[]` and refuses to auto-rebrand, but `description`, `price`, `fet`, `lr`, and `tread` are still updated for the same row in Phase 4. Result: when an MSPN appears under two brand sections in the eFleet HTML (54802, 61309 in the April export), the existing tire keeps its brand but gets its description/buy/FET overwritten by the *other* brand's product. The catalog row becomes a frankenstein and the (stale) retail produces a junk margin.
+
+Fix in `scripts/import-efleet.mjs` planner: build a `brandConflictMspns` set during planning, then exclude those MSPNs from `fieldDiffs` entirely. Operator still sees the conflict in the summary; nothing on those rows changes until manual reconciliation. Promoted to Now because the next eFleet run will hit it again without the guard.
+
+🔗 **Bundle with:** *Fix `Target Firestore project: (unknown)` echo* — both touch `scripts/import-efleet.mjs`.
+
 ### 🛞 Brand stats card row above the catalog
 Horizontal strip of brand pill cards above MarginTable showing `MICHELIN - 627 SKUs · avg $328` + filter affordance. Click sets `brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual brand-mix summary without opening Filters. Uniroyal data is now in (1,628 tire docs across MICHELIN/BFGOODRICH/UNIROYAL), so the pill counts are meaningful out of the gate.
 
@@ -33,7 +40,7 @@ Brand portfolio at-a-glance widget on the Dashboard: `MICHELIN - 627 SKUs · 22.
 ### 🛞 Product detail page with eFleet provenance
 Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retail/FET/Margin, **pricing source: Michelin eFleet ([date])** with the matched MSRP, active platform listings + posting history, margin trend over 90 days, and "other sizes in this tread family" recommendations.
 
-🔗 **Bundle with:** *Tread/model typography* (Now). The same primary/secondary description treatment lives on this page's title.
+🔗 **Bundle with:** the existing 2-line description treatment in `TireDescriptionCell` — the same primary/secondary split + sidewall pills used on catalog rows lives at the top of this detail page.
 
 ### 🛞 FET audit endpoint
 *267 eFleet items have FET > $0.* Some portal screenshots show `$3.00` FET on items where Michelin-quoted FET is `$0.00` (passenger) or `$30+` (commercial) — `$3.00` may be an overhead default mistakenly typed as FET. Build an admin/audit page listing SKUs where portal FET disagrees with eFleet-quoted FET. Surfaces tax-compliance issues on heavy-truck quotes/invoices.
@@ -79,7 +86,7 @@ DJ marks an order as one he personally delivered or met the customer for, system
 ## Later
 
 ### 🛞 Catalog-first navigation (drill-down)
-Land on category → brand → tread breadcrumb instead of a 1,160-row table. Power users still get the existing flat catalog via "Show all SKUs." Casual users (and customer-facing modes) don't get vertigo from a flat view on first contact. Sort by margin% throughout so highest-money tires surface fastest.
+Land on category → brand → tread breadcrumb instead of a 1,628-row table. Power users still get the existing flat catalog via "Show all SKUs." Casual users (and customer-facing modes) don't get vertigo from a flat view on first contact. Sort by margin% throughout so highest-money tires surface fastest.
 
 🔗 **Subsumes:** *Tread-family grouped view*, *Group-by-tread browse mode (within category tabs)*. Both are alternative implementations of the same drill-down idea — when this lands, retire those entries.
 
@@ -200,25 +207,6 @@ Both are pure documentation fixes — no code change needed.
 
 🔗 **Bundle with:** *Slim useCategoryMap hook* (above) — both touch the same surface.
 
-### 🔧 eFleet importer: skip ALL field updates when brand conflicts, not just brand
-*From production import 2026-04-29 (run 5).* The planner currently routes brand
-mismatches to `brandConflicts[]` and refuses to auto-rebrand, but
-`description`, `price`, `fet`, `lr`, and `tread` are still updated for the same
-row in Phase 4. Result: when an MSPN is duplicated across two brand sections in
-the eFleet HTML (Michelin's report has at least two such collisions — 54802 and
-61309), the existing tire keeps its original brand but gets its description,
-buy price, and FET overwritten by the *other* brand's product. The catalog row
-becomes a frankenstein — old retail (researched against the original product)
-divided into the new buy price produces a junk margin %.
-
-Fix in `scripts/import-efleet.mjs` planner: build a `brandConflictMspns` set
-during planning, then exclude those MSPNs from `fieldDiffs` entirely (not just
-from `EFLEET_SOURCED_FIELDS` minus brand). Operator still sees the conflict in
-the summary; nothing on those rows changes until the operator manually
-reconciles.
-
-🔗 **Bundle with:** *Fix `Target Firestore project: (unknown)` echo* (below) — both touch the import script.
-
 ### 🔧 Fix `Target Firestore project: (unknown)` echo in import-efleet CLI
 *From first production import.* `scripts/import-efleet.mjs` reads `db.app?.options?.projectId` after init, but that field is undefined when `initializeApp` is called with `projectId` passed alongside `credential`. Write lands correctly, but the operator-safety echo is silenced. Fix: read from `sa.project_id` (already in scope), and print BEFORE the confirmation prompt.
 
@@ -255,8 +243,8 @@ Visual-snapshot regen + Playwright runs on every push to main are the heaviest l
 - Reduce the visual matrix from `mobile-375 × everything` to `mobile-375 × dashboard, tires` since most other routes have stable layouts.
 Bigger lever: bump the GitHub plan if usage stays above 90% next month.
 
-### 🔐 Sinch HMAC webhook-signature receive-side wiring
-*From Sinch ticket #72178 (HMAC-SHA256 callback signing enabled 2026-04-30).* Secret is in Google Secret Manager as `SINCH_WEBHOOK_HMAC_SECRET`. Inbound Sinch callbacks now carry `x-sinch-webhook-signature`; receiver Cloud Function should verify the HMAC against the raw body and reject mismatches with 401. Until wired, signed callbacks pass through unverified. Use `req.rawBody` (not the parsed JSON body) and `crypto.timingSafeEqual`. Point implementer at the Cloud Function name handling Sinch incoming webhooks.
+### 🔐 Sinch HMAC webhook-signature receive-side wiring (code change pending)
+*From Sinch ticket #72178 (HMAC-SHA256 callback signing enabled 2026-04-30).* Secret is in Google Secret Manager as `SINCH_WEBHOOK_HMAC_SECRET` (version 2; version 1 was a placeholder write and is disabled). Inbound Sinch callbacks now carry `x-sinch-webhook-signature`; receiver Cloud Function should verify the HMAC against the raw body and reject mismatches with 401. Until wired, signed callbacks pass through unverified. Use `req.rawBody` (not the parsed JSON body) and `crypto.timingSafeEqual`. Point implementer at the Cloud Function name handling Sinch incoming webhooks (likely `createSinchChatLead` or a new `sinchCallbackReceiver`).
 
 ### 🔐 Sinch Chat frontend env vars
 After a mount location is picked and `<SinchChatMount />` is imported, populate in deployment env (Vercel / local `.env`):
@@ -269,10 +257,18 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 
 Trim periodically.
 
+### eFleet description parser: slash-prefixed sidewall codes + spaced LT/P (shipped 2026-04-30)
+`src/utils/parseTireDescription.js` now strips slash-attached sidewall codes (`/F`, `/BSW`, `/OWL`, `/RWL`, `/ORWL`, `/WSW`, `/RBL`, `/MS`) and collapses leading `LT `/`P ` (with space) into the no-space form before the metric size regex runs. MSPN 13906 (`LT 325/60R20 /F 128S AT T/A KO3 F`) and similar BFG/Michelin lines now parse cleanly — primary shows the size + load + speed, secondary shows the tread family. Test file `parseTireDescription.test.js` adds 11 cases covering both regression and the new format quirks.
+
+### People page: legacy zombie users + createPortalUser self-heal (shipped 2026-04-30)
+Two soft-archived `users/{uid}` docs (`alexbingham@skedaddleinc.com`, `bingham@skedaddle.co`) from a prior project still held live Firebase Auth records. Their `archivedAt` field hid them from the People table but Auth's email reservation kept blocking re-registration. `scripts/purge-legacy-users.mjs` ran in production to hard-delete both Firestore docs + inviteTokens + Auth accounts. `scripts/cleanup-orphan-auth-users.mjs` is the generic diagnostic for the broader pattern (kept as a template; default dry-run, `--apply` to commit).
+
+`functions/peopleCallables.js` `createPortalUser` now self-heals on `auth/email-already-exists`: looks up the conflicting Auth user, checks Firestore state, and either retries after deleting a residual zombie / archived account or returns a clearer error naming the active conflict. Prevents recurrence.
+
 ### Tires catalog visual polish bundle (shipped 2026-04-30)
-Spec: `docs/superpowers/specs/2026-04-30-tires-table-polish-design.md`. Single-PR bundle touching `MarginTable.jsx`:
+Spec: `docs/superpowers/specs/2026-04-30-tires-table-polish-design.md`. Bundle touching `MarginTable.jsx`:
 - `SidewallPill` component renders XL and M/S tags as inline pills on the description cell's secondary line. XL is no longer rendered as inline text in the primary size-spec — it's emitted as a pill from the row's `derivedUseTags`. New `MS` tag added to `deriveTireTags` (distinct from `All-Season`).
-- Sticky header bar: both desktop and mobile-table thead rows now stick to the top with `bg-slate-900` + `border-b-2 border-slate-700`; z-index 14 sits below the existing sticky-left checkbox column.
+- Sticky header bar: both desktop and mobile-table thead rows now stick to the top of the scroll container; z-index 14 sits below the existing sticky-left checkbox column. Theme-aware: `bg-zinc-50 / text-zinc-700` in light mode, `dark:bg-zinc-900 / dark:text-zinc-100` in dark mode (initial `bg-slate-900` was reverted after dim-text feedback against the light table card).
 - Brand-tinted row hover via `color-mix(in oklab, ...)` consuming `--color-brand-*` tokens. Michelin tints navy, BFG red, Uniroyal green; unknown brands fall through to `--color-brand-default`.
 - a11y: pills carry `role="img"` + `aria-label="Extra Load tire"` / `"Mud and Snow rated"` for cross-reader portability.
 - Pre-existing bugs swept up in the same branch: Margin % sort uses `listingMargin` (matches the displayed metric, not `computeMargin` which silently returned 100% on overhead-less rows); `BFGOODRICH` brand cell widened 6→7rem; Retail 5→6.5rem; Net/Floor 5→6rem; `est` text suffix dropped on estimated retails (italic amber + dot already signals it).
