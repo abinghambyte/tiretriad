@@ -192,6 +192,30 @@ Contractor-facing chat from job detail page. Low volume, not worth building unti
 
 Surfaced during recent reviews. Each is small enough to bundle into the first PR that touches the relevant file.
 
+### 🔧 Uniroyal-import spec doc cleanups
+*Two doc-gaps surfaced in the final cross-branch review of the
+uniroyal-import branch:*
+
+1. **`priceIntel.activeBuyPrice` override semantic.** The spec at lines
+   206-218 lists `priceIntel.activeBuyPrice` among "override fields the
+   importer NEVER touches." The reviewer noted this is technically
+   misleading: the importer always overwrites `tire.price`, and the
+   override actually takes effect at READ time via
+   `tireCatalogBuyNumber` (which prefers `priceIntel.activeBuyPrice`
+   over `price` when set). The override is preserved in the sense that
+   the importer leaves the `priceIntel` subobject alone — but `price`
+   itself does get rewritten. Update the spec wording to clarify
+   read-time vs. write-time semantics.
+
+2. **`brand` field handling.** The spec lists `brand` among the
+   "eFleet-sourced fields the importer's update phase touches" (Data
+   Model section). The implementation excludes brand from
+   `EFLEET_SOURCED_FIELDS` and routes brand mismatches to
+   `brandConflicts[]` only. The code is right (auto-rebrand without
+   operator action is dangerous). Update the spec to match the code.
+
+Both are pure documentation fixes — no code change needed.
+
 ### 🔧 Slim `useCategoryMap` hook (extract from useDashboardSignals)
 *From category-tabs final review.* `TiresDashboard` mounts `useDashboardSignals` solely to read `categoryMap`, but that hook fires multiple Firestore reads (revenueStats, recentActivity, dashboard stats callable, etc.) that duplicate work already happening on the Dashboard route. Extract a ~10-line `useCategoryMap()` reading only `meta/categoryMap`; have both `useDashboardSignals` and `TiresDashboard` consume it.
 
