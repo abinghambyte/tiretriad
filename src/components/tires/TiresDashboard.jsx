@@ -7,6 +7,7 @@ import { useUserProfile } from '../../hooks/useUserProfile'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrdersList } from '../orders/OrdersList'
 import { useTires } from '../../hooks/useTires'
+import { selectCategoryForTire, useDashboardSignals } from '../../hooks/useDashboardSignals'
 import { usePayoutConfig } from '../../hooks/usePayoutConfig.js'
 import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
@@ -21,6 +22,8 @@ import { setTireSelection } from '../../context/tireSelectionStore'
 import { BulkCtsModal } from './BulkCtsModal'
 import { HaggleSheet } from './HaggleSheet'
 import { ListingGenerator } from './ListingGenerator'
+import { CategoryTabs } from './CategoryTabs.jsx'
+import { categoryMapAgeStatus } from './categoryMapAgeStatus.js'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
 import { QuoteCalculator } from './QuoteCalculator'
@@ -202,6 +205,7 @@ export function TiresDashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
+  const { categoryMap } = useDashboardSignals()
   const { marginFloorPct: floorPct } = usePayoutConfig()
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
@@ -233,6 +237,34 @@ export function TiresDashboard() {
 
   const [query, setQuery] = useState(() => searchParams.get('q') || '')
   const [filtersOpen, setFiltersOpen] = useState(() => readFiltersOpen())
+  const [selectedCategory, setSelectedCategoryState] = useState(() => {
+    const fromUrl = searchParams.get('cat')
+    return ['passenger', 'lightTruck', 'truck'].includes(fromUrl) ? fromUrl : 'all'
+  })
+
+  const setSelectedCategory = useCallback(
+    (cat) => {
+      setSelectedCategoryState(cat)
+      // Reset within-category filters on tab switch; keep search/sort/selection.
+      setBrand('')
+      setUseTagFilters([])
+      setLrFilters([])
+      setMinMargin(0)
+      setNeedsReposting(false)
+      // Sync URL via the same setSearchParams used for q/risk/highlight, so the
+      // `?cat=` param can never be clobbered by a stale searchParams snapshot.
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (cat === 'all') next.delete('cat')
+          else next.set('cat', cat)
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
   const [columnVisibility, setColumnVisibility] = useState(() => readColumnVisibility())
   const [haggleDiscount, setHaggleDiscount] = useState(() => readHaggleDiscount())
   const [haggleTire, setHaggleTire] = useState(null)
@@ -391,6 +423,17 @@ export function TiresDashboard() {
     })
   }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes])
 
+  const categorizedRows = useMemo(() => {
+    const buckets = { all: [], passenger: [], lightTruck: [], truck: [] }
+    if (loading || !Array.isArray(enriched)) return buckets
+    for (const t of enriched) {
+      const cat = selectCategoryForTire(t, categoryMap)
+      buckets.all.push(t)
+      buckets[cat].push(t)
+    }
+    return buckets
+  }, [enriched, loading, categoryMap])
+
   useEffect(() => {
     if (Object.keys(pendingPhotoAdds).length === 0 && Object.keys(pendingPhotoDeletes).length === 0) return
     const nextAdds = {}
@@ -421,7 +464,8 @@ export function TiresDashboard() {
   // Single memo for filter plus sort so MarginTable only sees a new rows
   // reference when inputs that affect ordering or membership actually change.
   const sortedRows = useMemo(() => {
-    const filtered = enriched.filter((row) => {
+    const source = categorizedRows[selectedCategory] || []
+    const filtered = source.filter((row) => {
       if (catalogRisk === 'lowMargin') {
         // Uses listingMargin (researched-retail based) per PR #34.
         const m = row.listingMargin
@@ -555,7 +599,8 @@ export function TiresDashboard() {
     })
     return rows
   }, [
-    enriched,
+    categorizedRows,
+    selectedCategory,
     brand,
     lrFilters,
     useTagFilters,
@@ -918,6 +963,47 @@ export function TiresDashboard() {
                 </div>
               </div>
             ) : null}
+
+            {(() => {
+              const { status, ageDays } = categoryMapAgeStatus(categoryMap)
+              if (status === 'missing') {
+                return (
+                  <div className="mb-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs text-zinc-300">
+                    Categorization data unavailable. Using fallback heuristic for all SKUs.{' '}
+                    <span className="text-zinc-500">
+                      Run <code className="font-mono text-zinc-300">npm run import:efleet</code> to populate.
+                    </span>
+                  </div>
+                )
+              }
+              if (status === 'stale') {
+                return (
+                  <div className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                    Categorization data is {ageDays} days old. Refresh recommended.
+                  </div>
+                )
+              }
+              if (status === 'unknown') {
+                return (
+                  <div className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                    Categorization data has an unparseable import timestamp. Re-run{' '}
+                    <code className="font-mono text-amber-100">npm run import:efleet</code> to refresh.
+                  </div>
+                )
+              }
+              return null
+            })()}
+
+            <CategoryTabs
+              selected={selectedCategory}
+              counts={{
+                all: categorizedRows.all.length,
+                passenger: categorizedRows.passenger.length,
+                lightTruck: categorizedRows.lightTruck.length,
+                truck: categorizedRows.truck.length,
+              }}
+              onSelect={setSelectedCategory}
+            />
 
             <div ref={toolbarRef} className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
               <div className="flex flex-col gap-2">

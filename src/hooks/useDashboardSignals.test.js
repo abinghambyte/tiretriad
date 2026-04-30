@@ -24,6 +24,8 @@ const {
   selectHiddenGems,
   selectTopSellersFromRevenueDoc,
   selectRollingAverageRevenue,
+  fallbackHeuristic,
+  selectCategoryForTire,
 } = await import('./useDashboardSignals.js')
 
 function ts(ms) {
@@ -267,5 +269,91 @@ describe('selectRollingAverageRevenue', () => {
     // last 7 closed days keys 14..20 map to values 400..1000 (i = 4..10)
     // mean = (400+500+600+700+800+900+1000) / 7 = 700
     expect(avg).toBe(700)
+  })
+})
+
+describe('fallbackHeuristic', () => {
+  it('returns truck for wheel diameter ≥ 22.5"', () => {
+    expect(fallbackHeuristic({ desc: '11R22.5 X INCITY Z LRH', lr: 'H' })).toBe('truck')
+    expect(fallbackHeuristic({ desc: '275/80R22.5 XDA ENERGY', lr: '' })).toBe('truck')
+    expect(fallbackHeuristic({ desc: '11R24.5 XDN2 LRH', lr: 'H' })).toBe('truck')
+  })
+
+  it('returns truck for heavy load range (H/J/L/M) regardless of wheel', () => {
+    expect(fallbackHeuristic({ desc: '24R21 XZL 176G', lr: 'H' })).toBe('truck')
+    expect(fallbackHeuristic({ desc: '455/55R22.5 X1LGD', lr: 'L' })).toBe('truck')
+    expect(fallbackHeuristic({ desc: '215/75R17.5 XMT2', lr: 'J' })).toBe('truck')
+  })
+
+  it('returns lightTruck for LT prefix', () => {
+    expect(fallbackHeuristic({ desc: 'LT245/75R16 XPS RIB', lr: 'E' })).toBe('lightTruck')
+    expect(fallbackHeuristic({ desc: 'LT225/75R16 LTX A/T2', lr: '' })).toBe('lightTruck')
+  })
+
+  it('returns lightTruck for medium load range (C/D/E/F/G)', () => {
+    expect(fallbackHeuristic({ desc: '12.00R20 XML', lr: 'G' })).toBe('lightTruck')
+    expect(fallbackHeuristic({ desc: '215/75R17.5 XMZ', lr: 'G' })).toBe('lightTruck')
+  })
+
+  it('returns passenger for everything else (default)', () => {
+    expect(fallbackHeuristic({ desc: '215/55R17 98V XL DEFENDER2', lr: '' })).toBe('passenger')
+    expect(fallbackHeuristic({ desc: '235/55R19 105HXL PA5 SUV', lr: '' })).toBe('passenger')
+  })
+
+  it('handles missing/empty fields without throwing', () => {
+    expect(fallbackHeuristic({})).toBe('passenger')
+    expect(fallbackHeuristic({ desc: '', lr: '' })).toBe('passenger')
+    expect(fallbackHeuristic(null)).toBe('passenger')
+  })
+
+  it('locks current 19.5" edge-case behavior (LRG → lightTruck, LRH → truck)', () => {
+    expect(fallbackHeuristic({ desc: '225/70R19.5 AGILIS HD Z LRG', lr: 'G' })).toBe('lightTruck')
+    expect(fallbackHeuristic({ desc: '245/70R19.5 AGILIS HD Z LRH', lr: 'H' })).toBe('truck')
+  })
+})
+
+describe('selectCategoryForTire', () => {
+  const map = { mspns: { '13712': 'truck', '76025': 'lightTruck' } }
+
+  it('returns categoryOverride when set (regardless of map)', () => {
+    expect(selectCategoryForTire({ mspn: '13712', categoryOverride: 'passenger' }, map))
+      .toBe('passenger')
+  })
+
+  it('returns map value when MSPN is in the map and no override', () => {
+    expect(selectCategoryForTire({ mspn: '13712', desc: '11R22.5 ...' }, map))
+      .toBe('truck')
+    expect(selectCategoryForTire({ mspn: '76025', desc: '24R21 ...' }, map))
+      .toBe('lightTruck')
+  })
+
+  it('falls back to heuristic when MSPN is not in the map', () => {
+    expect(selectCategoryForTire({ mspn: '99999', desc: '215/55R17 DEFENDER2', lr: '' }, map))
+      .toBe('passenger')
+    expect(selectCategoryForTire({ mspn: '99999', desc: '11R22.5 XZE2', lr: 'G' }, map))
+      .toBe('truck')
+  })
+
+  it('falls back to heuristic when map is null/undefined', () => {
+    expect(selectCategoryForTire({ mspn: '13712', desc: '11R22.5 X INCITY Z', lr: 'H' }, null))
+      .toBe('truck')
+    expect(selectCategoryForTire({ mspn: '13712', desc: '11R22.5 X INCITY Z', lr: 'H' }, undefined))
+      .toBe('truck')
+  })
+
+  it('falls back to heuristic when map has no mspns field', () => {
+    expect(selectCategoryForTire({ mspn: '13712', desc: '215/55R17', lr: '' }, {}))
+      .toBe('passenger')
+  })
+
+  it('coerces mspn to string and trims whitespace', () => {
+    expect(selectCategoryForTire({ mspn: 13712 /* number */, desc: '215/55R17', lr: '' }, map))
+      .toBe('truck')
+    expect(selectCategoryForTire({ mspn: ' 13712 ', desc: '215/55R17', lr: '' }, map))
+      .toBe('truck')
+  })
+
+  it('handles null tire safely', () => {
+    expect(selectCategoryForTire(null, map)).toBe('passenger')
   })
 })

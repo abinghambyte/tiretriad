@@ -24,6 +24,53 @@ import { listingStatus } from '../utils/listingStatus'
 const CATALOG_SKU_DISPLAY = 1160
 
 /**
+ * Pure fallback heuristic for SKUs that aren't in the eFleet authoritative
+ * map. Looks at description size pattern + LR field. Used by
+ * {@link selectCategoryForTire} when the map is missing or doesn't cover
+ * the tire (typically the ~243 portal-only off-program Michelin SKUs).
+ *
+ * @param {object | null | undefined} tire
+ * @returns {'passenger' | 'lightTruck' | 'truck'}
+ */
+export function fallbackHeuristic(tire) {
+  const desc = String(tire?.desc || '').toUpperCase().trim()
+  const lr = String(tire?.lr || '').toUpperCase().trim()
+  const m = desc.match(/R([0-9]+(?:\.[0-9]+)?)/)
+  const wheel = m ? parseFloat(m[1]) : null
+
+  if ((wheel !== null && wheel >= 22.5) || ['H', 'J', 'L', 'M'].includes(lr)) {
+    return 'truck'
+  }
+  if (desc.startsWith('LT') || ['C', 'D', 'E', 'F', 'G'].includes(lr)) {
+    return 'lightTruck'
+  }
+  return 'passenger'
+}
+
+/**
+ * Resolve the category for a tire in priority order:
+ *   1. tire.categoryOverride (admin manual correction)
+ *   2. categoryMap.mspns[tire.mspn] (Michelin eFleet authoritative)
+ *   3. fallbackHeuristic(tire) (size+LR rule for off-program SKUs)
+ *
+ * @param {object | null | undefined} tire
+ * @param {{ mspns?: Record<string, 'passenger' | 'lightTruck' | 'truck'> } | null | undefined} categoryMap
+ * @returns {'passenger' | 'lightTruck' | 'truck'}
+ */
+export function selectCategoryForTire(tire, categoryMap) {
+  if (tire?.categoryOverride) {
+    const v = String(tire.categoryOverride)
+    if (v === 'passenger' || v === 'lightTruck' || v === 'truck') return v
+  }
+  const mspn = String(tire?.mspn ?? '').trim()
+  const mapped = categoryMap?.mspns?.[mspn]
+  if (mapped === 'passenger' || mapped === 'lightTruck' || mapped === 'truck') {
+    return mapped
+  }
+  return fallbackHeuristic(tire)
+}
+
+/**
  * Selector: tires that are margin-confirmed but live on fewer than two
  * active platform listings. Returns a list of "hidden gem" rows ready
  * for the Hidden Gems surface on the dashboard.
@@ -390,6 +437,9 @@ export function useDashboardSignals() {
   const [revenueStatsDoc, setRevenueStatsDoc] = useState(
     /** @type {null | Record<string, unknown>} */ (null),
   )
+  const [categoryMap, setCategoryMap] = useState(
+    /** @type {null | Record<string, unknown>} */ (null),
+  )
 
   const [recentActivity, setRecentActivity] = useState({
     orders: /** @type {Array<{ id: string, data: Record<string, unknown> }>} */ ([]),
@@ -541,6 +591,16 @@ export function useDashboardSignals() {
           console.error('dashboard revenueStats read', e)
         }
         if (!cancelled) setRevenueStatsDoc(revenueDocData)
+        let categoryMapDocData = null
+        try {
+          const catMapSnap = await getDoc(doc(db, 'meta', 'categoryMap'))
+          if (catMapSnap.exists()) {
+            categoryMapDocData = catMapSnap.data() || null
+          }
+        } catch (e) {
+          console.error('dashboard categoryMap read', e)
+        }
+        if (!cancelled) setCategoryMap(categoryMapDocData)
         if (cancelled) return
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
@@ -659,6 +719,7 @@ export function useDashboardSignals() {
     myQueueCount,
     hiddenGems,
     topSellers,
+    categoryMap,
     allTimeMargin,
     rollingAverageRevenue,
     lastSale,
