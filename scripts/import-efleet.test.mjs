@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseEfleetCatalog } from './import-efleet.mjs'
+import { parseEfleetCatalog, planTirePhases } from './import-efleet.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixture = readFileSync(resolve(here, '__fixtures__/efleet-sample.html'), 'utf8')
@@ -125,5 +125,153 @@ describe('parseEfleetCatalog tireRecords', () => {
     const minimalHtml = fixture.replace(/77777[\s\S]*?<\/tr>/, '').replace(/99999[\s\S]*?<\/tr>/, '')
     const result = parseEfleetCatalog(minimalHtml)
     expect(Array.isArray(result.warnings)).toBe(true)
+  })
+})
+
+describe('planTirePhases', () => {
+  function makeRecord(overrides = {}) {
+    return {
+      mspn: '12345',
+      brand: 'MICHELIN',
+      tread: 'XZE2',
+      description: '11R22.5 XZE2 LRG',
+      lr: 'G',
+      fet: 25.23,
+      price: 613.60,
+      category: 'truck',
+      ...overrides,
+    }
+  }
+  function makeDoc(overrides = {}) {
+    return {
+      id: '12345',
+      mspn: '12345',
+      brand: 'MICHELIN',
+      tread: 'XZE2',
+      description: '11R22.5 XZE2 LRG',
+      lr: 'G',
+      fet: 25.23,
+      price: 613.60,
+      ...overrides,
+    }
+  }
+
+  it('inserts new MSPNs that have no Firestore doc', () => {
+    const plan = planTirePhases([], [makeRecord({ mspn: 'NEW-1' })])
+    expect(plan.inserts).toHaveLength(1)
+    expect(plan.inserts[0].mspn).toBe('NEW-1')
+    expect(plan.inserts[0].firstSeenInEfleetAt).toBe('SERVER_TIMESTAMP_SENTINEL')
+    expect(plan.offProgramSets).toEqual([])
+    expect(plan.offProgramClears).toEqual([])
+    expect(plan.fieldDiffs).toEqual([])
+  })
+
+  it('flags existing docs whose MSPN is absent from records as offProgramSets', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'GONE-1' })],
+      [makeRecord({ mspn: 'OTHER-1' })],
+    )
+    expect(plan.offProgramSets).toEqual([{ id: 'GONE-1' }])
+  })
+
+  it('does not re-set offProgramAt when the doc already has it', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'GONE-1', offProgramAt: { _seconds: 1 } })],
+      [makeRecord({ mspn: 'OTHER-1' })],
+    )
+    expect(plan.offProgramSets).toEqual([])
+  })
+
+  it('clears offProgramAt when an off-program MSPN reappears in the HTML', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'BACK-1', offProgramAt: { _seconds: 1 } })],
+      [makeRecord({ mspn: 'BACK-1' })],
+    )
+    expect(plan.offProgramClears).toEqual([{ id: 'BACK-1' }])
+    expect(plan.offProgramSets).toEqual([])
+  })
+
+  it('detects field drift between existing doc and record', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'DRIFT-1', price: 600.00, fet: 24.00 })],
+      [makeRecord({ mspn: 'DRIFT-1', price: 613.60, fet: 25.23 })],
+    )
+    expect(plan.fieldDiffs).toHaveLength(1)
+    expect(plan.fieldDiffs[0].id).toBe('DRIFT-1')
+    expect(plan.fieldDiffs[0].changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'price', from: 600.00, to: 613.60 }),
+        expect.objectContaining({ field: 'fet', from: 24.00, to: 25.23 }),
+      ]),
+    )
+  })
+
+  it('does not include fields where doc and record agree', () => {
+    const plan = planTirePhases([makeDoc({ id: 'SAME-1' })], [makeRecord({ mspn: 'SAME-1' })])
+    expect(plan.fieldDiffs).toEqual([])
+  })
+
+  it('skips docs with archivedAt regardless of HTML state', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'ARCH-1', archivedAt: { _seconds: 1 } })],
+      [makeRecord({ mspn: 'ARCH-1', price: 999 })],
+    )
+    expect(plan.skipped).toEqual([{ id: 'ARCH-1', reason: 'archivedAt' }])
+    expect(plan.fieldDiffs).toEqual([])
+    expect(plan.offProgramSets).toEqual([])
+  })
+
+  it('flags brand conflicts (existing brand differs from HTML brand)', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'BRAND-1', brand: 'BFGOODRICH' })],
+      [makeRecord({ mspn: 'BRAND-1', brand: 'MICHELIN' })],
+    )
+    expect(plan.brandConflicts).toEqual([
+      { mspn: 'BRAND-1', existingBrand: 'BFGOODRICH', htmlBrand: 'MICHELIN' },
+    ])
+  })
+
+  it('does not include `firstSeenInEfleetAt` in field diffs for existing docs', () => {
+    const plan = planTirePhases(
+      [makeDoc({ id: 'FSE-1' })],
+      [makeRecord({ mspn: 'FSE-1', price: 999 })],
+    )
+    const fieldNames = plan.fieldDiffs[0]?.changes.map((c) => c.field) || []
+    expect(fieldNames).not.toContain('firstSeenInEfleetAt')
+  })
+
+  it('only diffs the eFleet-sourced fields (price, fet, description, lr, tread, brand)', () => {
+    const plan = planTirePhases(
+      [
+        makeDoc({
+          id: 'ALL-FIELDS-1',
+          price: 100,
+          fet: 5,
+          description: 'OLD',
+          lr: 'F',
+          tread: 'OLD-TREAD',
+          brand: 'BFGOODRICH',
+          // Fields that should NOT be diffed:
+          notes: 'DO NOT TOUCH',
+          tags: ['user-edit'],
+          priceIntel: { activeBuyPrice: 95 },
+        }),
+      ],
+      [
+        makeRecord({
+          mspn: 'ALL-FIELDS-1',
+          price: 200,
+          fet: 10,
+          description: 'NEW',
+          lr: 'G',
+          tread: 'NEW-TREAD',
+          brand: 'MICHELIN',
+        }),
+      ],
+    )
+    const fields = plan.fieldDiffs[0].changes.map((c) => c.field).sort()
+    expect(fields).toEqual(['description', 'fet', 'lr', 'price', 'tread'])
+    // Brand conflict reported separately, not in fieldDiffs
+    expect(plan.brandConflicts).toHaveLength(1)
   })
 })

@@ -183,6 +183,106 @@ export function parseEfleetCatalog(html) {
   }
 }
 
+export const SERVER_TIMESTAMP_SENTINEL = 'SERVER_TIMESTAMP_SENTINEL'
+
+const EFLEET_SOURCED_FIELDS = ['price', 'fet', 'description', 'lr', 'tread']
+
+/**
+ * Plan the four-phase Firestore writes for an import.
+ * Pure function — no I/O. Caller materializes the plan into actual writes.
+ *
+ * @param {Array<{ id: string, [key: string]: unknown }>} existingDocs
+ * @param {Array<{ mspn: string, brand: string, tread: string, description: string, lr: string, fet: number, price: number, category: string }>} tireRecords
+ * @returns {{
+ *   inserts: Array<object>,
+ *   offProgramSets: Array<{ id: string }>,
+ *   offProgramClears: Array<{ id: string }>,
+ *   fieldDiffs: Array<{ id: string, mspn: string, changes: Array<{ field: string, from: unknown, to: unknown }> }>,
+ *   brandConflicts: Array<{ mspn: string, existingBrand: string, htmlBrand: string }>,
+ *   skipped: Array<{ id: string, reason: string }>,
+ * }}
+ */
+export function planTirePhases(existingDocs, tireRecords) {
+  const inserts = []
+  const offProgramSets = []
+  const offProgramClears = []
+  const fieldDiffs = []
+  const brandConflicts = []
+  const skipped = []
+
+  const docsByMspn = new Map()
+  for (const doc of existingDocs) {
+    const key = String(doc?.id ?? doc?.mspn ?? '').trim()
+    if (key) docsByMspn.set(key, doc)
+  }
+  const recordsByMspn = new Map(tireRecords.map((r) => [String(r.mspn).trim(), r]))
+
+  for (const record of tireRecords) {
+    const mspn = String(record.mspn).trim()
+    const doc = docsByMspn.get(mspn)
+
+    if (!doc) {
+      // Phase 2: Insert.
+      inserts.push({
+        ...record,
+        firstSeenInEfleetAt: SERVER_TIMESTAMP_SENTINEL,
+      })
+      continue
+    }
+
+    if (doc.archivedAt) {
+      skipped.push({ id: doc.id, reason: 'archivedAt' })
+      continue
+    }
+
+    // Re-emergence: doc has offProgramAt but the MSPN is in this HTML now.
+    if (doc.offProgramAt) {
+      offProgramClears.push({ id: doc.id })
+    }
+
+    // Brand conflict (logged separately; brand is not auto-rebranded in field diff).
+    if (doc.brand && doc.brand !== record.brand) {
+      brandConflicts.push({
+        mspn,
+        existingBrand: doc.brand,
+        htmlBrand: record.brand,
+      })
+    }
+
+    // Field-level diff for the eFleet-sourced fields only.
+    const changes = []
+    for (const field of EFLEET_SOURCED_FIELDS) {
+      const before = doc[field]
+      const after = record[field]
+      if (before !== after) {
+        changes.push({ field, from: before, to: after })
+      }
+    }
+    if (changes.length > 0) {
+      fieldDiffs.push({ id: doc.id, mspn, changes })
+    }
+  }
+
+  // Phase 3 set: docs in Firestore whose MSPN is absent from this HTML.
+  for (const doc of existingDocs) {
+    const mspn = String(doc?.id ?? doc?.mspn ?? '').trim()
+    if (!mspn) continue
+    if (doc.archivedAt) continue
+    if (recordsByMspn.has(mspn)) continue
+    if (doc.offProgramAt) continue
+    offProgramSets.push({ id: doc.id })
+  }
+
+  return {
+    inserts,
+    offProgramSets,
+    offProgramClears,
+    fieldDiffs,
+    brandConflicts,
+    skipped,
+  }
+}
+
 function isExecutedDirectly() {
   const entry = process.argv[1]
   if (!entry) return false
