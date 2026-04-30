@@ -16,17 +16,6 @@ Within each tier, items are grouped by **surface** (Tires catalog, Dashboard, CR
 
 ## Now
 
-### 🛞 Add Uniroyal brand support to the catalog
-*Highest business-impact gap from the April 2026 eFleet comparison.* The Michelin eFleet catalog explicitly lists Uniroyal as one of the three brands available to the Loveland account (`1580951 SKEDADDLE INC LOVELAND`). Portal has zero Uniroyal SKUs today; eFleet has ~120+ Uniroyal items:
-- Laredo AT (34 SKUs, all-terrain LT)
-- Laredo HT (32 SKUs, highway LT)
-- Tiger Paw Touring A/S (~115 SKUs under TPTOURINAS — entry-level passenger volume play, $80–$99 band)
-- Power Paw A/S (35 SKUs)
-
-Uniroyal is Michelin's value-tier brand: lower-priced, higher-velocity SKUs. Brand color token already exists (`--color-brand-uniroyal: #2e7d4a` in `index.css`). The portal renders Uniroyal correctly — just needs the data import.
-
-🔗 **Bundle with:** *Brand stats card row*, *Brand-tier hero strip on Dashboard*, *Sidewall tag pills* — all of these reference brand counts and would benefit from Uniroyal's data being in by ship time. Doing the data import in isolation then touching Brand stats / hero strip in a separate PR means re-testing brand-mix logic twice.
-
 ### 🛞 Tires catalog visual polish bundle
 A single PR that touches `MarginTable.jsx` rendering once and ships four small, related upgrades:
 
@@ -42,19 +31,19 @@ All four touch the same render path. Shipping individually means four reviews of
 
 🔗 **Bundle with:** *Sidewall tag pills* (above) — the same regex powers both. If the regex moves to `src/utils/parseSidewallTags.js`, both the chip and the pill consume one source of truth.
 
+### 🛞 Brand stats card row above the catalog
+Horizontal strip of brand pill cards above MarginTable showing `MICHELIN - 627 SKUs · avg $328` + filter affordance. Click sets `brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual brand-mix summary without opening Filters. Uniroyal data is now in (1,628 tire docs across MICHELIN/BFGOODRICH/UNIROYAL), so the pill counts are meaningful out of the gate.
+
+🔗 **Bundle with:** *Brand-tier hero strip on Dashboard* (below). Same brand-aggregate selector powers both — build once in `useDashboardSignals.js`, render twice.
+
+### 📊 Brand-tier hero strip on Dashboard
+Brand portfolio at-a-glance widget on the Dashboard: `MICHELIN - 627 SKUs · 22.6% avg margin`, etc. Hooks into the same brand-aggregate selector as the catalog brand stats card row.
+
+🔗 **Bundle with:** *Brand stats card row* (above). Same selector, two render sites.
+
 ---
 
 ## Next
-
-### 🛞 Brand stats card row above the catalog
-Horizontal strip of brand pill cards above MarginTable showing `MICHELIN — 627 SKUs · avg $328` + filter affordance. Click sets `brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual brand-mix summary without opening Filters.
-
-🔗 **Bundle with:** *Add Uniroyal* (Now). The pills' data shape comes alive once Uniroyal lands.
-
-### 📊 Brand-tier hero strip on Dashboard
-Brand portfolio at-a-glance widget on the Dashboard: `MICHELIN — 627 SKUs · 22.6% avg margin`, etc. Surfaces missing brands as warnings (`UNIROYAL — 0 SKUs · NOT STOCKED ⚠` until Uniroyal ships).
-
-🔗 **Bundle with:** *Brand stats card row* (above). Same brand-aggregate selector can power both. Build the selector once in `useDashboardSignals.js`, render twice.
 
 ### 🛞 Product detail page with eFleet provenance
 Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retail/FET/Margin, **pricing source: Michelin eFleet ([date])** with the matched MSRP, active platform listings + posting history, margin trend over 90 days, and "other sizes in this tread family" recommendations.
@@ -69,7 +58,7 @@ Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retai
 ### 🛞 Side-by-side eFleet diff view
 Admin/audit page showing:
 - 🟡 SKUs in inventory but NOT in eFleet (potential aged stock)
-- 🔵 SKUs in eFleet but NOT in inventory (sales gap, e.g. all of Uniroyal pre-Now)
+- 🔵 SKUs in eFleet but NOT in inventory (sales gap)
 - 🟢 SKUs aligned with current pricing
 - Price-drift detection
 Bulk-deprecate or bulk-add with one click. Diff regenerates on each new eFleet HTML upload.
@@ -227,7 +216,7 @@ Both are pure documentation fixes — no code change needed.
 🔗 **Bundle with:** *Slim useCategoryMap hook* (above) — both touch the same surface.
 
 ### 🔧 Fix `Target Firestore project: (unknown)` echo in import-efleet CLI
-*From first production import.* `scripts/import-efleet-categories.mjs` reads `db.app?.options?.projectId` after init, but that field is undefined when `initializeApp` is called with `projectId` passed alongside `credential`. Write lands correctly, but the operator-safety echo is silenced. Fix: read from `sa.project_id` (already in scope), and print BEFORE the confirmation prompt.
+*From first production import.* `scripts/import-efleet.mjs` reads `db.app?.options?.projectId` after init, but that field is undefined when `initializeApp` is called with `projectId` passed alongside `credential`. Write lands correctly, but the operator-safety echo is silenced. Fix: read from `sa.project_id` (already in scope), and print BEFORE the confirmation prompt.
 
 🔗 **Bundle with:** *eFleet account-number admin view* (Next) — both touch the import path; shipping together cuts script-review overhead.
 
@@ -256,6 +245,9 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### Uniroyal brand support / eFleet importer extension (shipped 2026-04-29)
+Spec: `docs/superpowers/specs/2026-04-30-uniroyal-brand-support-design.md`. `scripts/import-efleet-categories.mjs` → `scripts/import-efleet.mjs`. 4-phase architecture: parser → planner → writer, with `set({merge:true})` inserts, off-program soft-tag (`offProgramAt`), diff-only-on-existing field updates (`--apply-updates`), and `--allow-mass-offprogram` safety override. First production run: 1,160 → 1,628 tire docs (MICHELIN + BFGOODRICH + UNIROYAL), 243 off-program tagged, 294 description updates applied, 2 vendor-side brand collisions caught (54802, 61309 — both appear under both BFG and Michelin sections of eFleet HTML; left as-is, source data error). Brand intentionally excluded from `EFLEET_SOURCED_FIELDS` — conflicts route to `brandConflicts[]` only, no auto-rebrand.
 
 ### Catalog category sub-tabs (shipped 2026-04-29)
 Spec: `docs/superpowers/specs/2026-04-29-tires-category-tabs-design.md`. `[All — N] [Passenger — N] [Light Truck — N] [Truck — N]` sub-tabs above the Tires toolbar. Categorization sourced from `meta/categoryMap` (parsed from Michelin eFleet HTML by `scripts/import-efleet-categories.mjs`) with size+LR fallback heuristic + `categoryOverride` field. Within-category filter scope; selection and search persist across tabs. URL state via `?cat=`. Includes banner/freshness chip when `meta/categoryMap` is missing or stale (>30 days).
