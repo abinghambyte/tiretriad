@@ -383,6 +383,16 @@ function splitRawDescription(raw) {
   return { primary: r, secondary: null }
 }
 
+/** Subset of derivedUseTags rendered as inline pills on the description cell.
+ * Wider tag set lives in the Filters chip row; pills surface only the two
+ * sidewall flags that drop into the catalog row glance. */
+const PILL_TAG_SET = new Set(['XL', 'MS'])
+
+function pillTagsFromRow(row) {
+  const tags = Array.isArray(row?.derivedUseTags) ? row.derivedUseTags : []
+  return tags.filter((t) => PILL_TAG_SET.has(t))
+}
+
 /** Sidewall pill style + label tables. Module-level to match the rest of the
  * file's lookup-table convention and avoid re-creating per render. */
 const SIDEWALL_PILL_STYLES = {
@@ -764,7 +774,10 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
             </div>
             <div className="flex w-[200px] shrink-0 items-center border-r border-zinc-800/60 px-2">
               <span className="inline-flex min-w-0 items-start gap-1.5">
-                <TireDescriptionCell description={row.description} />
+                <TireDescriptionCell
+                  description={row.description}
+                  pillTags={pillTagsFromRow(row)}
+                />
               </span>
             </div>
             <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
@@ -864,7 +877,10 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         {vis.description !== false ? (
           <div className="min-w-0 px-3">
             <span className="inline-flex min-w-0 items-start gap-1.5">
-              <TireDescriptionCell description={row.description} />
+              <TireDescriptionCell
+                description={row.description}
+                pillTags={pillTagsFromRow(row)}
+              />
             </span>
           </div>
         ) : null}

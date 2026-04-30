@@ -74,4 +74,14 @@ describe('TireDescriptionCell pills', () => {
     )
     expect(container.querySelector('[data-pill="XL"]')).not.toBeNull()
   })
+
+  it('XL primary string is dropped when pillTags=[XL] for an explicit-XL description', () => {
+    const { container } = render(wrap(
+      <TireDescriptionCell description="P255/55R18 109V XL" pillTags={['XL']} />
+    ))
+    const monoLine = container.querySelector('div.font-mono')
+    expect(monoLine).not.toBeNull()
+    expect(monoLine.textContent).not.toMatch(/\bXL\b/)
+    expect(container.querySelector('[data-pill="XL"]')).not.toBeNull()
+  })
 })
