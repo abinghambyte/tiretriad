@@ -13,6 +13,7 @@ import { httpsCallable } from 'firebase/functions'
 import { useEffect, useMemo, useState } from 'react'
 import { db, functions } from '../firebase/config'
 import { TIRE_CATEGORY_KEYS } from '../constants/tireCategory.js'
+import { useCategoryMap } from './useCategoryMap'
 import { useTires } from './useTires'
 import { useUserProfile } from './useUserProfile'
 import { useCrewPreview } from './useCrewPreview'
@@ -438,9 +439,7 @@ export function useDashboardSignals() {
   const [revenueStatsDoc, setRevenueStatsDoc] = useState(
     /** @type {null | Record<string, unknown>} */ (null),
   )
-  const [categoryMap, setCategoryMap] = useState(
-    /** @type {null | Record<string, unknown>} */ (null),
-  )
+  const { categoryMap } = useCategoryMap()
 
   const [recentActivity, setRecentActivity] = useState({
     orders: /** @type {Array<{ id: string, data: Record<string, unknown> }>} */ ([]),
@@ -592,16 +591,6 @@ export function useDashboardSignals() {
           console.error('dashboard revenueStats read', e)
         }
         if (!cancelled) setRevenueStatsDoc(revenueDocData)
-        let categoryMapDocData = null
-        try {
-          const catMapSnap = await getDoc(doc(db, 'meta', 'categoryMap'))
-          if (catMapSnap.exists()) {
-            categoryMapDocData = catMapSnap.data() || null
-          }
-        } catch (e) {
-          console.error('dashboard categoryMap read', e)
-        }
-        if (!cancelled) setCategoryMap(categoryMapDocData)
         if (cancelled) return
         setSignalBar({
           pendingOrders: pendingSnap.data().count,
