@@ -42,6 +42,7 @@ export function deriveTireTags(tire) {
   // Season tags.
   if (RE_WINTER.test(hay)) out.add('Winter')
   if (RE_ALL_SEASON.test(hay)) out.add('All-Season')
+  if (RE_MS.test(hay)) out.add('MS')
   if (RE_SUMMER.test(hay)) out.add('Summer')
 
   // Vehicle class / construction. Parse once so we can reuse for LT/flotation.
@@ -150,6 +151,7 @@ const RE_PASSENGER_TOURING = /\b(?:GrandTouring|GT|Passenger)\b/i
 const RE_WINTER =
   /(?:\bWinter\b|\bSnow\b|\bIce\b|3PMSF|\bXIce\b|Blizzak(?:X)?|Hakkapeliitta(?:X)?|Nokian[^,]*Hak|\bAlpin\b)/i
 const RE_ALL_SEASON = /(?:M\+S|M\/S|\bMS2\b|\bAS\b|AllSeason)/i
+const RE_MS = /(?:M\+S|M\/S|\bMS2\b)/i
 const RE_SUMMER = /\b(?:Summer)\b/i
 
 // --- Vehicle class / construction -----------------------------------------

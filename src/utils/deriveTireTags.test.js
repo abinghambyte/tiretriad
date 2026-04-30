@@ -147,4 +147,32 @@ describe('deriveTireTags', () => {
     deriveTireTags(tire)
     expect(JSON.stringify(tire)).toBe(before)
   })
+
+  it('emits both MS and All-Season for M/S-rated tires', () => {
+    const tire = { description: '265/70R17 115T M/S', brand: 'Michelin', tread: '' }
+    const tags = deriveTireTags(tire)
+    expect(tags).toContain('MS')
+    expect(tags).toContain('All-Season')
+  })
+
+  it('emits MS for M+S marking', () => {
+    const tags = deriveTireTags({ description: 'P225/60R17 99H M+S', brand: 'Uniroyal' })
+    expect(tags).toContain('MS')
+  })
+
+  it('emits MS for MS2 tread tag', () => {
+    const tags = deriveTireTags({ description: 'P225/65R17 102H MS2', brand: 'Michelin' })
+    expect(tags).toContain('MS')
+  })
+
+  it('does not emit MS when no M/S marking present', () => {
+    const tags = deriveTireTags({ description: '265/70R17 LTX A/T', brand: 'Michelin' })
+    expect(tags).not.toContain('MS')
+  })
+
+  it('emits both XL and MS when both present', () => {
+    const tags = deriveTireTags({ description: '225/45R17 91W XL M/S', brand: 'Michelin' })
+    expect(tags).toContain('XL')
+    expect(tags).toContain('MS')
+  })
 })
