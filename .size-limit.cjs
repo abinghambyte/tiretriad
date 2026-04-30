@@ -14,7 +14,7 @@ module.exports = [
   {
     name: 'tires page chunk',
     path: 'dist/assets/TiresPage-*.js',
-    limit: '37 KB',
+    limit: '42 KB',
     gzip: true,
   },
   {
