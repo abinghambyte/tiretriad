@@ -383,21 +383,28 @@ function splitRawDescription(raw) {
   return { primary: r, secondary: null }
 }
 
+/** Sidewall pill style + label tables. Module-level to match the rest of the
+ * file's lookup-table convention and avoid re-creating per render. */
+const SIDEWALL_PILL_STYLES = {
+  XL: 'bg-zinc-700 text-zinc-100',
+  MS: 'bg-cyan-900/60 text-cyan-200',
+}
+const SIDEWALL_PILL_LABELS = {
+  XL: 'Extra Load tire',
+  MS: 'Mud and Snow rated',
+}
+
 function SidewallPill({ tag }) {
-  const styles = {
-    XL: 'bg-zinc-700 text-zinc-100',
-    MS: 'bg-cyan-900/60 text-cyan-200',
-  }
-  const labels = {
-    XL: 'Extra Load tire',
-    MS: 'Mud and Snow rated',
-  }
   const display = tag === 'MS' ? 'M/S' : tag
+  // role="img" + aria-label gives a consistent screen-reader cue across NVDA,
+  // VoiceOver, and JAWS. Without role="img", some readers ignore aria-label
+  // on inline non-interactive elements and announce the visible text instead.
   return (
     <span
       data-pill={tag}
-      aria-label={labels[tag] ?? tag}
-      className={`ml-1 inline-block rounded px-1.5 py-px text-[9px] font-bold tracking-wide align-middle ${styles[tag] ?? 'bg-zinc-700 text-zinc-100'}`}
+      role="img"
+      aria-label={SIDEWALL_PILL_LABELS[tag] ?? tag}
+      className={`mr-1 inline-block rounded px-1.5 py-px text-[9px] font-bold tracking-wide align-middle ${SIDEWALL_PILL_STYLES[tag] ?? 'bg-zinc-700 text-zinc-100'}`}
     >
       {display}
     </span>
@@ -470,23 +477,14 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description, pil
   return (
     <div className="group/desc relative min-w-0 max-w-full overflow-hidden pr-6 text-sm leading-snug text-zinc-300">
       <div className="break-words font-mono font-semibold text-zinc-200 [overflow-wrap:anywhere]">{primary}</div>
-      {secondary ? (
+      {secondary || hasPills ? (
         <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs font-medium text-zinc-400 [overflow-wrap:anywhere]">
+          {/* Pills render BEFORE the tread text so the line-clamp truncates
+              tread text from the right, never the pills. With pills last, a
+              long tread name on a narrow column could hide the XL/MS signal
+              entirely. */}
+          {hasPills ? tags.map((t) => <SidewallPill key={t} tag={t} />) : null}
           {secondary}
-          {hasPills ? (
-            <>
-              {' · '}
-              {tags.map((t) => (
-                <SidewallPill key={t} tag={t} />
-              ))}
-            </>
-          ) : null}
-        </div>
-      ) : hasPills ? (
-        <div className="mt-0.5 line-clamp-1 max-w-full break-words text-xs">
-          {tags.map((t) => (
-            <SidewallPill key={t} tag={t} />
-          ))}
         </div>
       ) : null}
       <CopyDescriptionButton text={fullText} />
