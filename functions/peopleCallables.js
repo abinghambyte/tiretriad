@@ -121,22 +121,84 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
   const token = crypto.randomBytes(24).toString('hex')
   const tempPassword = crypto.randomBytes(24).toString('base64url').slice(0, 32)
 
-  let userRecord
-  try {
-    userRecord = await admin.auth().createUser({
+  async function createAuthUser() {
+    return admin.auth().createUser({
       email,
       password: tempPassword,
       displayName: `${firstName} ${lastName}`,
       emailVerified: false,
       disabled: true,
     })
+  }
+
+  let userRecord
+  try {
+    userRecord = await createAuthUser()
   } catch (e) {
     const code = e && e.errorInfo && e.errorInfo.code
-    if (code === 'auth/email-already-exists') {
+    if (code !== 'auth/email-already-exists') {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new HttpsError('internal', msg)
+    }
+    // Auth says the email is taken. Three possible states:
+    //   1. Genuinely in use by an active user with a Firestore doc -> reject
+    //      with a clearer error that names the conflict.
+    //   2. Auth user exists but has NO Firestore users/{uid} doc (zombie left
+    //      over from a partially-failed create, or legacy data) -> safe to
+    //      delete the Auth account and retry.
+    //   3. Firestore doc exists but is soft-archived (archivedAt set) -> the
+    //      operator already removed the user from the People table; the email
+    //      reservation is residual. Hard-delete the user doc + Auth account
+    //      and retry, so re-registration works.
+    let conflictUser
+    try {
+      conflictUser = await admin.auth().getUserByEmail(email)
+    } catch (lookupErr) {
+      // If we can't look up the conflict, surface the original error as-is.
       throw new HttpsError('already-exists', 'That email is already registered.')
     }
-    const msg = e instanceof Error ? e.message : String(e)
-    throw new HttpsError('internal', msg)
+    const conflictRef = db.collection('users').doc(conflictUser.uid)
+    const conflictSnap = await conflictRef.get()
+    const conflictData = conflictSnap.exists ? (conflictSnap.data() || {}) : null
+    const conflictArchived = !!(conflictData && conflictData.archivedAt)
+
+    if (!conflictSnap.exists || conflictArchived) {
+      // Self-heal: drop the residual Auth account (and the archived Firestore
+      // doc + its inviteTokens, if present) so the email can be reused.
+      try {
+        if (conflictSnap.exists) {
+          const tokensSnap = await db
+            .collection('inviteTokens')
+            .where('uid', '==', conflictUser.uid)
+            .get()
+          const cleanupBatch = db.batch()
+          tokensSnap.docs.forEach((d) => cleanupBatch.delete(d.ref))
+          cleanupBatch.delete(conflictRef)
+          await cleanupBatch.commit()
+        }
+        await admin.auth().deleteUser(conflictUser.uid)
+      } catch (healErr) {
+        const msg = healErr instanceof Error ? healErr.message : String(healErr)
+        throw new HttpsError('internal', `Failed to clear residual account: ${msg}`)
+      }
+      // Retry once; if it still fails, surface the underlying error.
+      try {
+        userRecord = await createAuthUser()
+      } catch (retryErr) {
+        const msg = retryErr instanceof Error ? retryErr.message : String(retryErr)
+        throw new HttpsError('internal', `Retry after self-heal failed: ${msg}`)
+      }
+    } else {
+      const conflictName = [conflictData.firstName, conflictData.lastName]
+        .filter((s) => typeof s === 'string' && s.trim().length > 0)
+        .join(' ')
+        .trim()
+      const detail = conflictName ? ` (currently assigned to ${conflictName})` : ''
+      throw new HttpsError(
+        'already-exists',
+        `That email is already registered${detail}.`,
+      )
+    }
   }
 
   const uid = userRecord.uid
