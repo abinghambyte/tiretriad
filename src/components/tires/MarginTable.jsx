@@ -1160,10 +1160,7 @@ export function MarginTable({
               </div>
             ) : null}
             {vis.photos !== false ? (
-              <div
-                className="whitespace-nowrap px-1 text-center"
-                role="columnheader"
-              >
+              <div className="whitespace-nowrap px-1 text-center">
                 <SortButton
                   label="Photos"
                   columnKey="photos"
