@@ -421,7 +421,7 @@ function SidewallPill({ tag }) {
   )
 }
 
-const TireDescriptionCell = memo(function TireDescriptionCell({ description, pillTags }) {
+export const TireDescriptionCell = memo(function TireDescriptionCell({ description, pillTags }) {
   const d = String(description ?? '').trim()
   const parsed = useMemo(() => parseDescription(d), [d])
   const tags = Array.isArray(pillTags) ? pillTags : []
@@ -501,10 +501,6 @@ const TireDescriptionCell = memo(function TireDescriptionCell({ description, pil
     </div>
   )
 })
-
-// Test-only export. Tests import this aliased name; production code uses the
-// memoized version above through the existing call sites.
-export const TireDescriptionCellForTest = TireDescriptionCell
 
 function CopyDescriptionButton({ text }) {
   const { toast } = useToast()

@@ -3,7 +3,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { TireDescriptionCellForTest as TireDescriptionCell } from './MarginTable.jsx'
+import { TireDescriptionCell } from './MarginTable.jsx'
 import { ToastProvider } from '../providers/ToastProvider.jsx'
 
 afterEach(() => cleanup())
