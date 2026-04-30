@@ -290,15 +290,26 @@ function isExecutedDirectly() {
 }
 
 function parseArgs(argv) {
-  const out = { dryRun: false, yes: false, allowMassOffProgram: false, htmlPath: null }
+  const out = {
+    dryRun: false,
+    yes: false,
+    allowMassOffProgram: false,
+    applyUpdates: false,
+    quiet: false,
+    verbose: false,
+    htmlPath: null,
+  }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--dry-run' || a === '-n') out.dryRun = true
     else if (a === '--yes') out.yes = true
     else if (a === '--allow-mass-offprogram') out.allowMassOffProgram = true
+    else if (a === '--apply-updates') out.applyUpdates = true
+    else if (a === '--quiet') out.quiet = true
+    else if (a === '--verbose') out.verbose = true
     else if (a.startsWith('-')) {
       console.error(`Unknown flag: ${a}`)
-      console.error('Usage: npm run import:efleet -- path/to/efleet.html [--dry-run] [--yes] [--allow-mass-offprogram]')
+      console.error('Usage: npm run import:efleet -- path/to/efleet.html [--dry-run|-n] [--yes] [--allow-mass-offprogram] [--apply-updates] [--quiet] [--verbose]')
       process.exit(1)
     }
     else out.htmlPath = a
@@ -420,6 +431,47 @@ function printPlanSummary(plan, label) {
   console.log(`  Skipped:           ${plan.skipped.length}`)
 }
 
+function printFieldDiffs(plan, args) {
+  if (args.quiet) return
+  if (plan.fieldDiffs.length === 0) {
+    console.log('  (no field drift detected)')
+    return
+  }
+  const cap = args.verbose ? plan.fieldDiffs.length : 30
+  const shown = plan.fieldDiffs.slice(0, cap)
+  for (const entry of shown) {
+    console.log(`  ~ tires/${entry.id} (${entry.mspn})`)
+    for (const change of entry.changes) {
+      console.log(`      ${change.field}: ${change.from} → ${change.to}`)
+    }
+  }
+  if (plan.fieldDiffs.length > shown.length) {
+    const more = plan.fieldDiffs.length - shown.length
+    console.log(`  … and ${more} more existing docs differ. Use --verbose to see all, or --apply-updates to commit.`)
+  }
+}
+
+async function writeFieldUpdates(db, fieldDiffs) {
+  if (fieldDiffs.length === 0) return 0
+  const BATCH_SIZE = 400
+  let written = 0
+  for (let i = 0; i < fieldDiffs.length; i += BATCH_SIZE) {
+    const slice = fieldDiffs.slice(i, i + BATCH_SIZE)
+    const batch = db.batch()
+    for (const entry of slice) {
+      const ref = db.collection('tires').doc(entry.id)
+      const payload = {}
+      for (const change of entry.changes) {
+        payload[change.field] = change.to
+      }
+      batch.set(ref, payload, { merge: true })
+    }
+    await batch.commit()
+    written += slice.length
+  }
+  return written
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (!args.htmlPath) {
@@ -530,6 +582,26 @@ async function main() {
   const offProgSet = await writeOffProgramSets(db, plan.offProgramSets)
   const offProgCleared = await writeOffProgramClears(db, plan.offProgramClears)
   console.log(`✓ Phase 3: tagged ${offProgSet} off-program; cleared ${offProgCleared} re-emergence`)
+
+  console.log(`\nField-drift diff (${plan.fieldDiffs.length} docs):`)
+  printFieldDiffs(plan, args)
+  if (args.applyUpdates) {
+    const updated = await writeFieldUpdates(db, plan.fieldDiffs)
+    console.log(`✓ Phase 4: applied field updates to ${updated} tire docs.`)
+  } else if (plan.fieldDiffs.length > 0) {
+    console.log('(Phase 4 skipped - pass --apply-updates to commit field-drift updates)')
+  }
+
+  if (plan.brandConflicts.length > 0) {
+    console.log(`\nBrand conflicts (${plan.brandConflicts.length}):`)
+    const shown = plan.brandConflicts.slice(0, 10)
+    for (const c of shown) {
+      console.log(`  - ${c.mspn}: existing=${c.existingBrand} html=${c.htmlBrand}`)
+    }
+    if (plan.brandConflicts.length > shown.length) {
+      console.log(`  … and ${plan.brandConflicts.length - shown.length} more`)
+    }
+  }
 
   console.log('\nDone.')
 }
