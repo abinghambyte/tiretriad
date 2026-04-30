@@ -45,7 +45,7 @@ export function BrandTierStrip({ aggregates, navigate }) {
             {!stocked ? (
               <span
                 data-not-stocked
-                className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700"
+                className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700 dark:bg-red-950/40 dark:text-red-300"
               >
                 NOT STOCKED
               </span>

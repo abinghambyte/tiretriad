@@ -14,7 +14,6 @@ function normalizeBrand(raw) {
   const s = String(raw ?? '').trim().toUpperCase()
   if (!s) return '(unknown)'
   if (s === 'BFG') return 'BFGOODRICH'
-  if (s === 'BFGOODRICH') return 'BFGOODRICH'
   return s
 }
 

@@ -82,4 +82,47 @@ describe('BrandStatsRow', () => {
     )
     expect(container.querySelector('[role="tablist"]')).not.toBeNull()
   })
+
+  it('ArrowRight on the All pill moves focus to the first brand pill', () => {
+    const { container } = render(
+      <BrandStatsRow brands={sample.brands} total={sample.total} selectedBrand={null} onBrandChange={() => {}} />
+    )
+    const pills = container.querySelectorAll('[role="tab"]')
+    pills[0].focus()
+    fireEvent.keyDown(pills[0], { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(pills[1])
+  })
+
+  it('ArrowLeft on the first brand pill moves focus back to the All pill', () => {
+    const { container } = render(
+      <BrandStatsRow brands={sample.brands} total={sample.total} selectedBrand="MICHELIN" onBrandChange={() => {}} />
+    )
+    const pills = container.querySelectorAll('[role="tab"]')
+    pills[1].focus()
+    fireEvent.keyDown(pills[1], { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(pills[0])
+  })
+
+  it('ArrowRight on the last pill wraps to the first', () => {
+    const { container } = render(
+      <BrandStatsRow brands={sample.brands} total={sample.total} selectedBrand={null} onBrandChange={() => {}} />
+    )
+    const pills = container.querySelectorAll('[role="tab"]')
+    const last = pills[pills.length - 1]
+    last.focus()
+    fireEvent.keyDown(last, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(pills[0])
+  })
+
+  it('Home / End move focus to the first / last pill', () => {
+    const { container } = render(
+      <BrandStatsRow brands={sample.brands} total={sample.total} selectedBrand={null} onBrandChange={() => {}} />
+    )
+    const pills = container.querySelectorAll('[role="tab"]')
+    pills[1].focus()
+    fireEvent.keyDown(pills[1], { key: 'End' })
+    expect(document.activeElement).toBe(pills[pills.length - 1])
+    fireEvent.keyDown(pills[pills.length - 1], { key: 'Home' })
+    expect(document.activeElement).toBe(pills[0])
+  })
 })
