@@ -215,6 +215,25 @@ Both are pure documentation fixes — no code change needed.
 
 🔗 **Bundle with:** *Slim useCategoryMap hook* (above) — both touch the same surface.
 
+### 🔧 eFleet importer: skip ALL field updates when brand conflicts, not just brand
+*From production import 2026-04-29 (run 5).* The planner currently routes brand
+mismatches to `brandConflicts[]` and refuses to auto-rebrand, but
+`description`, `price`, `fet`, `lr`, and `tread` are still updated for the same
+row in Phase 4. Result: when an MSPN is duplicated across two brand sections in
+the eFleet HTML (Michelin's report has at least two such collisions — 54802 and
+61309), the existing tire keeps its original brand but gets its description,
+buy price, and FET overwritten by the *other* brand's product. The catalog row
+becomes a frankenstein — old retail (researched against the original product)
+divided into the new buy price produces a junk margin %.
+
+Fix in `scripts/import-efleet.mjs` planner: build a `brandConflictMspns` set
+during planning, then exclude those MSPNs from `fieldDiffs` entirely (not just
+from `EFLEET_SOURCED_FIELDS` minus brand). Operator still sees the conflict in
+the summary; nothing on those rows changes until the operator manually
+reconciles.
+
+🔗 **Bundle with:** *Fix `Target Firestore project: (unknown)` echo* (below) — both touch the import script.
+
 ### 🔧 Fix `Target Firestore project: (unknown)` echo in import-efleet CLI
 *From first production import.* `scripts/import-efleet.mjs` reads `db.app?.options?.projectId` after init, but that field is undefined when `initializeApp` is called with `projectId` passed alongside `credential`. Write lands correctly, but the operator-safety echo is silenced. Fix: read from `sa.project_id` (already in scope), and print BEFORE the confirmation prompt.
 
