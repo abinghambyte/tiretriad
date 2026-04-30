@@ -573,12 +573,14 @@ function SortButton({ label, columnKey, sortKey, sortDir, onClick, disabled, tou
             : `Sort ${label} ascending`
           : `Sort by ${label}`
       }
-      className={`group inline-flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 font-medium transition-colors hover:bg-zinc-700/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${
-        active ? 'text-white' : 'text-zinc-100 hover:text-white'
+      className={`group inline-flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 font-medium transition-colors hover:bg-zinc-200/60 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-zinc-700/50 ${
+        active
+          ? 'text-zinc-900 dark:text-white'
+          : 'text-zinc-700 hover:text-zinc-900 dark:text-zinc-100 dark:hover:text-white'
       } ${touchWide ? 'min-h-[44px] min-w-[44px] justify-center sm:min-h-0 sm:min-w-0' : ''}`}
     >
       {label}
-      <span className="inline-block w-2.5 text-center text-zinc-300 group-hover:text-white">
+      <span className="inline-block w-2.5 text-center text-zinc-500 group-hover:text-zinc-900 dark:text-zinc-300 dark:group-hover:text-white">
         {active ? (dir === 'asc' ? '↑' : '↓') : '⇅'}
       </span>
     </button>
@@ -1159,7 +1161,7 @@ export function MarginTable({
               sort glyph in the same horizontal scan as the controls
               that change them. */}
           <div
-            className="sticky top-0 z-[14] box-border hidden border-b-2 border-slate-600 bg-slate-800 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-100 md:grid"
+            className="sticky top-0 z-[14] box-border hidden border-b border-zinc-200 bg-zinc-50 py-3.5 text-xs font-semibold uppercase tracking-wide text-zinc-700 shadow-sm md:grid dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             style={gridStyle}
           >
             {/* Empty cell to preserve grid alignment with per-row select checkbox column. */}
@@ -1338,7 +1340,7 @@ export function MarginTable({
             ) : null}
           </div>
           {isMobileTable && !loading && rows.length > 0 ? (
-            <div className="sticky top-0 z-[14] flex w-max min-w-full border-b-2 border-slate-600 bg-slate-800 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-100 md:hidden">
+            <div className="sticky top-0 z-[14] flex w-max min-w-full border-b border-zinc-200 bg-zinc-50 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-700 shadow-sm md:hidden dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
               <div className="sticky left-0 z-[16] flex shrink-0 items-stretch border-r border-zinc-800/80 bg-zinc-900/95 shadow-[8px_0_16px_-6px_rgba(0,0,0,0.45)]">
                 {/* Empty spacer to preserve alignment with per-row pick column. */}
                 <div className="w-11 shrink-0 px-0.5 py-0.5" aria-hidden="true" />
