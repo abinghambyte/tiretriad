@@ -51,14 +51,43 @@ describe('useBrandAggregates', () => {
     expect(buckets.BFGOODRICH).toBe(2)
   })
 
-  it('avg listing margin uses researched-only retails', () => {
+  it('avg listing margin uses authoritative-research retails only (excludes estimates)', () => {
+    // Estimated retail is recognized via priceIntel.sources tail equal to
+    // 'estimated_from_catalog_median' (matches tireRetailIsEstimated). The
+    // synthetic 'retailSource' field used in earlier drafts of this test was
+    // never the real production gate -- this fixture mirrors what the eFleet
+    // / Gemini pipeline actually writes.
     const tires = [
       // Researched retail $200, buy $100 -> listing margin 50%
-      mkTire({ id: '1', brand: 'MICHELIN', price: 100, priceIntel: { retailPrice: 200, retailSource: 'gemini' } }),
-      // Estimated retail -- excluded from margin avg
-      mkTire({ id: '2', brand: 'MICHELIN', price: 100, priceIntel: { retailPrice: 150, retailSource: 'estimate' } }),
+      mkTire({
+        id: '1',
+        brand: 'MICHELIN',
+        price: 100,
+        priceIntel: {
+          retailPrice: 200,
+          sources: [{ source: 'gemini_retail_search' }],
+        },
+      }),
+      // Estimated retail -- excluded from margin avg, not counted as missing
+      mkTire({
+        id: '2',
+        brand: 'MICHELIN',
+        price: 100,
+        priceIntel: {
+          retailPrice: 150,
+          sources: [{ source: 'estimated_from_catalog_median' }],
+        },
+      }),
       // Researched retail $300, buy $100 -> margin 66.67%
-      mkTire({ id: '3', brand: 'MICHELIN', price: 100, priceIntel: { retailPrice: 300, retailSource: 'gemini' } }),
+      mkTire({
+        id: '3',
+        brand: 'MICHELIN',
+        price: 100,
+        priceIntel: {
+          retailPrice: 300,
+          sources: [{ source: 'gemini_retail_search' }],
+        },
+      }),
     ]
     const { result } = renderHook(() => useBrandAggregates(tires, null))
     const m = result.current.brands[0]
@@ -66,6 +95,8 @@ describe('useBrandAggregates', () => {
     // (50 + 66.666...) / 2 ~= 58.33
     expect(m.avgListingMarginPct).toBeCloseTo(58.33, 1)
     expect(m.avgResearchedRetail).toBe(250)
+    // Estimated tire is neither authoritative nor strictly missing.
+    expect(m.missingRetailResearchCount).toBe(0)
   })
 
   it('reports null avgs when brand has zero researched retails', () => {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { EXPECTED_BRANDS } from '../constants/tireCategory.js'
-import { tireRetailIsResearched } from '../utils/tireCatalogRetail.js'
+import { tireRetailIsResearched, tireRetailIsEstimated } from '../utils/tireCatalogRetail.js'
 import { computeListingMargin } from '../utils/marginCalc.js'
 
 /**
@@ -19,20 +19,20 @@ function normalizeBrand(raw) {
 }
 
 /**
- * Returns true when the tire's retail price comes from a Gemini research pass
- * rather than a catalog-median estimate or other non-authoritative source.
- * Checks both that a valid retailPrice exists and that retailSource (if
- * present) is not the 'estimate' sentinel.
+ * Returns true when the tire's retail price came from a real Gemini research
+ * pass (not a catalog-median estimate). Estimated retails carry signal noise
+ * for brand-level averages and should be excluded.
+ *
+ * Three states for a tire:
+ *   - authoritative   -> researched + not-estimated -> contributes to retail/margin avgs
+ *   - estimated       -> researched + estimated     -> excluded from avgs, NOT counted as missing
+ *   - missing         -> not researched             -> incremented in missingRetailResearchCount
  *
  * @param {Record<string, unknown> | null | undefined} t
  * @returns {boolean}
  */
 function retailIsAuthoritative(t) {
-  if (!tireRetailIsResearched(t)) return false
-  const pi = t?.priceIntel && typeof t.priceIntel === 'object' ? t.priceIntel : {}
-  const src = pi.retailSource
-  if (src != null && src === 'estimate') return false
-  return true
+  return tireRetailIsResearched(t) && !tireRetailIsEstimated(t)
 }
 
 /**
@@ -92,7 +92,9 @@ export function useBrandAggregates(tires, category) {
           bucket.marginSum += margin
           bucket.marginN += 1
         }
-      } else {
+      } else if (!tireRetailIsResearched(tire)) {
+        // Strictly missing -- estimated retails are NOT counted as missing,
+        // they just don't contribute to averages.
         bucket.missingRetailResearchCount += 1
       }
     }
