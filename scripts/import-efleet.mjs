@@ -240,13 +240,21 @@ export function planTirePhases(existingDocs, tireRecords) {
       offProgramClears.push({ id: doc.id })
     }
 
-    // Brand conflict (logged separately; brand is not auto-rebranded in field diff).
+    // Brand conflict (logged separately; brand is not auto-rebranded).
+    // When the existing brand differs from the HTML brand, the eFleet line
+    // is almost certainly a different physical SKU sharing the same MSPN
+    // (vendor-side data error -- Michelin's eFleet duplicated MSPNs across
+    // BFGoodrich and Michelin sections in the April 2026 export). Skip ALL
+    // field updates for that row so its description / price / fet / lr /
+    // tread don't get overwritten by the wrong product. Operator sees the
+    // conflict in the run summary and can reconcile manually.
     if (doc.brand && doc.brand !== record.brand) {
       brandConflicts.push({
         mspn,
         existingBrand: doc.brand,
         htmlBrand: record.brand,
       })
+      continue
     }
 
     // Field-level diff for the eFleet-sourced fields only.

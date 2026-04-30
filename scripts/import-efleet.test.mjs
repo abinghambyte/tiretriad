@@ -240,7 +240,7 @@ describe('planTirePhases', () => {
     expect(fieldNames).not.toContain('firstSeenInEfleetAt')
   })
 
-  it('only diffs the eFleet-sourced fields (price, fet, description, lr, tread, brand)', () => {
+  it('only diffs the eFleet-sourced fields (price, fet, description, lr, tread) on brand-matched rows', () => {
     const plan = planTirePhases(
       [
         makeDoc({
@@ -250,7 +250,7 @@ describe('planTirePhases', () => {
           description: 'OLD',
           lr: 'F',
           tread: 'OLD-TREAD',
-          brand: 'BFGOODRICH',
+          brand: 'MICHELIN',
           // Fields that should NOT be diffed:
           notes: 'DO NOT TOUCH',
           tags: ['user-edit'],
@@ -271,7 +271,43 @@ describe('planTirePhases', () => {
     )
     const fields = plan.fieldDiffs[0].changes.map((c) => c.field).sort()
     expect(fields).toEqual(['description', 'fet', 'lr', 'price', 'tread'])
-    // Brand conflict reported separately, not in fieldDiffs
-    expect(plan.brandConflicts).toHaveLength(1)
+    expect(plan.brandConflicts).toEqual([])
+  })
+
+  it('skips ALL field diffs when brand conflicts (vendor-side MSPN duplication guard)', () => {
+    // Regression for the 2026-04-29 production import: MSPNs 54802 and 61309
+    // appeared under both BFGoodrich and Michelin sections of the eFleet HTML.
+    // The importer correctly refused to auto-rebrand, but the description /
+    // price / fet still got overwritten by the wrong-brand product, producing
+    // junk rows. Now the entire field-diff for a brand-mismatched row is
+    // suppressed so nothing changes until the operator manually reconciles.
+    const plan = planTirePhases(
+      [
+        makeDoc({
+          id: '54802',
+          brand: 'BFGOODRICH',
+          description: '42X14.50R17LT 128Q MDTRTA KM3 D',
+          price: 686.4,
+          fet: 4.44,
+          lr: 'E',
+          tread: 'MDTRTA KM3',
+        }),
+      ],
+      [
+        makeRecord({
+          mspn: '54802',
+          brand: 'MICHELIN',
+          description: '275/65R18 116T PRIMACY XC',
+          price: 237.9,
+          fet: 0,
+          lr: '',
+          tread: 'PRIMACY XC',
+        }),
+      ],
+    )
+    expect(plan.brandConflicts).toEqual([
+      { mspn: '54802', existingBrand: 'BFGOODRICH', htmlBrand: 'MICHELIN' },
+    ])
+    expect(plan.fieldDiffs).toEqual([])
   })
 })

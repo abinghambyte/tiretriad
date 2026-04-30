@@ -16,13 +16,6 @@ Within each tier, items are grouped by **surface** (Tires catalog, Dashboard, CR
 
 ## Now
 
-### 🛞 eFleet importer: skip ALL field updates when brand conflicts (promoted from Tech debt)
-*From production import 2026-04-29 + the 2026-04-30 collateral hotfix.* The planner currently routes brand mismatches to `brandConflicts[]` and refuses to auto-rebrand, but `description`, `price`, `fet`, `lr`, and `tread` are still updated for the same row in Phase 4. Result: when an MSPN appears under two brand sections in the eFleet HTML (54802, 61309 in the April export), the existing tire keeps its brand but gets its description/buy/FET overwritten by the *other* brand's product. The catalog row becomes a frankenstein and the (stale) retail produces a junk margin.
-
-Fix in `scripts/import-efleet.mjs` planner: build a `brandConflictMspns` set during planning, then exclude those MSPNs from `fieldDiffs` entirely. Operator still sees the conflict in the summary; nothing on those rows changes until manual reconciliation. Promoted to Now because the next eFleet run will hit it again without the guard.
-
-🔗 **Bundle with:** *Fix `Target Firestore project: (unknown)` echo* — both touch `scripts/import-efleet.mjs`.
-
 ### 🛞 Brand stats card row above the catalog
 Horizontal strip of brand pill cards above MarginTable showing `MICHELIN - 627 SKUs · avg $328` + filter affordance. Click sets `brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual brand-mix summary without opening Filters. Uniroyal data is now in (1,628 tire docs across MICHELIN/BFGOODRICH/UNIROYAL), so the pill counts are meaningful out of the gate.
 
@@ -256,6 +249,9 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### eFleet importer: skip ALL field updates when brand conflicts (shipped 2026-04-30)
+`scripts/import-efleet.mjs` `planTirePhases` now `continue`s past the field-diff loop after pushing a `brandConflicts[]` entry, so when an MSPN appears under two brand sections in the eFleet HTML the existing tire's `description`/`price`/`fet`/`lr`/`tread` are not overwritten by the wrong-brand product. Operator still sees the conflict in the run summary and reconciles manually. Test `import-efleet.test.mjs` adds a 54802-shaped regression case (BFG row vs Michelin HTML duplicate) asserting `fieldDiffs === []` while `brandConflicts` carries the warning.
 
 ### eFleet description parser: slash-prefixed sidewall codes + spaced LT/P (shipped 2026-04-30)
 `src/utils/parseTireDescription.js` now strips slash-attached sidewall codes (`/F`, `/BSW`, `/OWL`, `/RWL`, `/ORWL`, `/WSW`, `/RBL`, `/MS`) and collapses leading `LT `/`P ` (with space) into the no-space form before the metric size regex runs. MSPN 13906 (`LT 325/60R20 /F 128S AT T/A KO3 F`) and similar BFG/Michelin lines now parse cleanly — primary shows the size + load + speed, secondary shows the tread family. Test file `parseTireDescription.test.js` adds 11 cases covering both regression and the new format quirks.
