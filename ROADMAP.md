@@ -35,6 +35,41 @@ but unused.
 
 ## Active queue
 
+### DJ "I delivered / met customer" share-bump on orders *(brainstorm further)*
+DJ should be able to mark an order as one he personally had to deliver or
+meet the customer for, and the system auto-adjusts his share percentage
+to compensate for the extra logistical effort. Currently a flat default
+share applies whether DJ shows up or not — this surfaces the real cost
+of personal involvement in the payout.
+
+Seed shape (NOT designed yet — needs full brainstorm):
+- Toggle/checkbox on the order detail page or sale logger: "Required DJ
+  in person" with sub-flags for "delivered" and/or "met customer"
+- When toggled, the share split automatically applies a configurable
+  bump to DJ's percentage (the bump amount lives in `meta/payoutConfig`
+  alongside the existing margin floor)
+- Audit trail: who set the flag, when, before/after percentages
+- Reporting: surfaces in payout/share reports as a distinct line item
+  so the bump is visible (not silently rolled into the base share)
+
+Open questions to resolve in brainstorm:
+- Is "DJ" a specific user account, a role, or any user with a flag?
+- Fixed bump amount or per-event configurable (different bump for
+  delivery vs. meet-customer)?
+- Retroactive marking allowed, or only at sale-logging time? If
+  retroactive, who can mark and how far back?
+- Effect on other share recipients — does DJ's bump come out of the
+  pool (zero-sum) or is it additive (reduces house share)?
+- Mobile flow — should this be markable from a mechanic-mode mobile
+  surface so DJ can flag it on the road?
+- Notification — does the system notify the customer-facing account
+  manager / sourcer / owner that the bump was applied?
+- Edge case: multiple DJ events on one order (e.g., met customer to
+  finalize, then also delivered) — stack the bump or single-trigger?
+
+Trigger this brainstorm via `/superpowers:brainstorming` before any
+spec/plan work.
+
 ### Fix `Target Firestore project: (unknown)` echo in import-efleet CLI
 *Discovered during first production import.* `scripts/import-efleet-categories.mjs`
 reads `db.app?.options?.projectId` after init, but that field is undefined
