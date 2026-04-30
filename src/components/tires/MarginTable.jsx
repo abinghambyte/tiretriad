@@ -236,7 +236,7 @@ function RetailPriceCell({ row }) {
     <span className="inline-flex items-center gap-1">
       <span className={className} title={title}>
         {formatCurrency(n)}
-        {estimated ? <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-amber-400/80">est</span> : null}
+        {estimated ? <span className="ml-1 text-[9px] font-normal text-zinc-500/60" aria-label="estimated retail">est</span> : null}
       </span>
       {showDot ? (
         <span
