@@ -153,7 +153,7 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
     let conflictUser
     try {
       conflictUser = await admin.auth().getUserByEmail(email)
-    } catch (lookupErr) {
+    } catch {
       // If we can't look up the conflict, surface the original error as-is.
       throw new HttpsError('already-exists', 'That email is already registered.')
     }

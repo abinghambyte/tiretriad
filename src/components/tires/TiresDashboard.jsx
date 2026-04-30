@@ -407,10 +407,6 @@ export function TiresDashboard() {
     )
   }
 
-  const brands = useMemo(
-    () => uniqueSorted(tires.map((t) => t.brand)),
-    [tires],
-  )
   const lrs = useMemo(() => uniqueSorted(tires.map((t) => t.lr)), [tires])
   const enriched = useMemo(() => {
     return tires.map((t) => {
