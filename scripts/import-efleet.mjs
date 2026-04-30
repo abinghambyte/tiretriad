@@ -290,14 +290,15 @@ function isExecutedDirectly() {
 }
 
 function parseArgs(argv) {
-  const out = { dryRun: false, yes: false, htmlPath: null }
+  const out = { dryRun: false, yes: false, allowMassOffProgram: false, htmlPath: null }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--dry-run' || a === '-n') out.dryRun = true
     else if (a === '--yes') out.yes = true
+    else if (a === '--allow-mass-offprogram') out.allowMassOffProgram = true
     else if (a.startsWith('-')) {
       console.error(`Unknown flag: ${a}`)
-      console.error('Usage: npm run import:efleet -- path/to/efleet.html [--dry-run] [--yes]')
+      console.error('Usage: npm run import:efleet -- path/to/efleet.html [--dry-run] [--yes] [--allow-mass-offprogram]')
       process.exit(1)
     }
     else out.htmlPath = a
@@ -368,6 +369,40 @@ async function writeTireInserts(db, inserts) {
         firstSeenInEfleetAt: FieldValue.serverTimestamp(),
       }
       batch.set(ref, payload, { merge: true })
+    }
+    await batch.commit()
+    written += slice.length
+  }
+  return written
+}
+
+async function writeOffProgramSets(db, sets) {
+  if (sets.length === 0) return 0
+  const BATCH_SIZE = 400
+  let written = 0
+  for (let i = 0; i < sets.length; i += BATCH_SIZE) {
+    const slice = sets.slice(i, i + BATCH_SIZE)
+    const batch = db.batch()
+    for (const { id } of slice) {
+      const ref = db.collection('tires').doc(id)
+      batch.set(ref, { offProgramAt: FieldValue.serverTimestamp() }, { merge: true })
+    }
+    await batch.commit()
+    written += slice.length
+  }
+  return written
+}
+
+async function writeOffProgramClears(db, clears) {
+  if (clears.length === 0) return 0
+  const BATCH_SIZE = 400
+  let written = 0
+  for (let i = 0; i < clears.length; i += BATCH_SIZE) {
+    const slice = clears.slice(i, i + BATCH_SIZE)
+    const batch = db.batch()
+    for (const { id } of slice) {
+      const ref = db.collection('tires').doc(id)
+      batch.update(ref, { offProgramAt: FieldValue.delete() })
     }
     await batch.commit()
     written += slice.length
@@ -478,7 +513,25 @@ async function main() {
   const insertedCount = await writeTireInserts(db, plan.inserts)
   console.log(`✓ Inserted ${insertedCount} tire docs.`)
 
-  console.log('Done.')
+  // Mass-off-program safety: abort if Phase 3 would tag >10% of tire docs.
+  const offProgPct =
+    existingDocs.length > 0
+      ? (plan.offProgramSets.length / existingDocs.length) * 100
+      : 0
+  if (offProgPct > 10 && !args.allowMassOffProgram) {
+    console.error(
+      `\n✗ Aborting: Phase 3 would tag ${plan.offProgramSets.length} of ${existingDocs.length} tire docs ` +
+        `(${offProgPct.toFixed(1)}%) as off-program. This usually means a partial HTML export.`,
+    )
+    console.error('Pass --allow-mass-offprogram to override.')
+    process.exit(1)
+  }
+
+  const offProgSet = await writeOffProgramSets(db, plan.offProgramSets)
+  const offProgCleared = await writeOffProgramClears(db, plan.offProgramClears)
+  console.log(`✓ Phase 3: tagged ${offProgSet} off-program; cleared ${offProgCleared} re-emergence`)
+
+  console.log('\nDone.')
 }
 
 // Only run main when invoked directly via the CLI, not when imported by tests.
