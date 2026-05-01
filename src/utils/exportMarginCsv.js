@@ -1,6 +1,7 @@
 import { computeCts } from './ctsCalc'
 import { computeMargin } from './marginCalc'
 import { tireCatalogBuyNumber } from './tireCatalogBuy'
+import { tireLandedBuyNumber } from './tireLandedBuy.js'
 
 function csvEscape(value) {
   const s = String(value ?? '')
@@ -23,8 +24,11 @@ function fmtPosted(ts) {
 
 /**
  * @param {Array<Record<string, unknown>>} rows Filtered / visible tire rows (enriched ok)
+ * @param {Record<string, unknown> | null | undefined} [taxes] meta/payoutConfig.taxes
+ *   shape; passed into tireLandedBuyNumber so the Margin % column reflects the
+ *   predictive landed cost. When omitted, falls back to catalog buy.
  */
-export function exportMarginCsv(rows) {
+export function exportMarginCsv(rows, taxes) {
   const headers = [
     'Brand',
     'Description',
@@ -44,7 +48,8 @@ export function exportMarginCsv(rows) {
   const lines = [headers.join(',')]
 
   for (const row of rows) {
-    const m = computeMargin(row)
+    const landed = tireLandedBuyNumber(row, taxes)
+    const m = computeMargin(row, { landedBuy: landed })
     const marginStr = m != null && !Number.isNaN(m) ? m.toFixed(2) : ''
     const buyPrice = tireCatalogBuyNumber(row)
     const mountCost = Number(row.mountCost) || 0
