@@ -22,6 +22,19 @@ _(Now bucket cleared — Brand stats card row + Brand-tier hero strip shipped to
 
 ## Next
 
+### 🤖 AI Listing Coach (extends salesAdvisor)
+A second persona on top of the existing `salesAdvisor` Cloud Function. Takes a tire SKU (or a stock-on-hand size) and produces a complete listing kit: realistic FB Marketplace / CL price recommendation against landed cost, target margin, audience-tailored copy (consumer vs commercial vs B2B), fitment notes (which trucks / SUVs / sedans this size sells to), seasonal demand context (Memorial Day = AT tires for camping, fall = winter set prep, etc.), photo guidance (tread close-up first, sidewall stamp, fitment shot, qty proof; consumer = "clean garage" vibe vs commercial = "working seller" pile shot), and a draft listing in the right tone.
+
+**Tools the model needs (Anthropic tool use):**
+- `getTireBySize(size)` / `getTireByMspn(mspn)` from the catalog
+- `computeLandedCost(tire)` server-side via `tireLandedBuyNumber`
+- `searchExternalPrices(brand, size)` web search (TireRack / SimpleTire / Discount Tire / Costco) for retail comps
+- `getRecentSalesForSize(size)` from completed orders for internal velocity signal
+
+**Trigger surface:** new tab on the existing salesAdvisor drawer ("Listing Coach"), OR a button on `TireDetailPage` ("Draft a listing for this tire"). Reuses the rate limiter, role gating, and Anthropic Haiku/Sonnet fallback already in place.
+
+Anchor example to feed into the system prompt for tone/depth: see the LT285/70R17 KO3 NOCO Memorial Day analysis we walked through manually on 2026-05-01 (catalog lookup → landed math → market comps → fitment → seasonal context → listing copy → photo strategy). That conversation IS the spec for what the model should produce.
+
 ### 📊 Catalog export view (printable report)
 "Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
 
@@ -200,6 +213,9 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### 💸 Per-order ad cost (shipped 2026-05-01)
+`order.adCost` field (separate from `actualLandedCost` for clean analytics). Set at completion via the OrdersList "Mark complete" modal, or edited post-completion via EditAdCostButton (admin OR the user who closed the order, 7-day window from completedMs). Setting / editing fires `applyOrderAdCostChange` shared helper - atomic Firestore transaction recomputing `pool = pay - landed - adCost`, distributed via the bump-adjusted splits, with adjustment entries on `meta/crewEarnings.members.{k}.adjustments[]` and a Slack DM via existing `postAdjustmentDm`. `completedOrderMarginPool` subtracts adCost from every cost-source branch. `order.completedBy` field added to record the closer (this was missing today). 981 tests on land.
 
 ### 💵 Landed-cost rollup v1 (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-05-01-landed-cost-design.md`. Three layers of cost truth: catalog (unchanged) + predictive landed (`tireLandedBuyNumber(tire, taxes)` computed on read = price + FET + wholesale tax + tire fee; client + server mirror) + realized landed (snapshotted on the order at completion as `estimatedLandedCostAtCompletion`, optional `actualLandedCost` from the eFleet invoice importer). `runCompletionTransaction` pool basis matches the snapshot so completion + reconcile math agree. New `/admin/efleet/invoices` admin route: drop an eFleet invoice HTML, parser previews lines + DR + totals, importer auto-attaches by DR + MSPN + qty match, manual review queue handles the rest. `applyOrderCostChange` shared atomic recompute helper writes adjustments to `meta/crewEarnings.members.{k}.adjustments[]` with stable `adjustmentId` and fires Slack DM (`SLACK_BOT_TOKEN`) to affected crew. `/people/earnings` page lets crew (or admin) ack their pending adjustments. `/owed` Slack adds a per-member callout when adjustments are pending. 944/944 tests passing on land.
