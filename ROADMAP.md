@@ -117,6 +117,15 @@ Contractor-facing chat from job detail page. Low volume, not worth building unti
 
 Surfaced during recent reviews. Each is small enough to bundle into the first PR that touches the relevant file.
 
+### 🔧 Catalog-buy-to-landed sweep (post landed-cost v1)
+After landed-cost v1 shipped, several `tireCatalogBuyNumber` consumers were intentionally NOT migrated and still display margins / opportunity / cost off catalog price (without FET / wholesale tax / tire fee): `useDashboardSignals`, `useAdvisorSignals`, `SaleMessenger`, `ListingGenerator`, `TireRelatedSizes`, `exportMarginCsv`, `useEFleetDiff`, hidden gems, brand aggregates, server-side `tirePriceResearch`. Spec called for "across the board" replacement. Bundle this sweep into the first PR that touches any of these files, or do it as a single dedicated branch — straightforward mechanical change (each consumer pulls `taxes` from `usePayoutConfig` / `loadPayoutConfig` and swaps the helper).
+
+### 🔧 Crew key seeding for `acknowledgeAdjustment`
+The `acknowledgeAdjustment` callable falls back to displayName substring matching when `users/{uid}.crewKey` isn't set. A user with displayName like "Alexandra" who isn't crew Alex would falsely resolve to `alex`. Mitigation: seed an explicit `users/{uid}.crewKey` field for the three real crew members (Alex, DJ, Kyle) and tighten the fallback to refuse anything without an explicit field. Operational task.
+
+### 🔧 Nav entry for `/people/earnings`
+Route shipped login-only but no nav entry yet — discovery is via direct URL or `/admin` card (admin only). Add a top-nav or sidebar entry visible to all signed-in users so non-admin crew can find their balance + pending adjustments without the URL.
+
 ### 🔧 Uniroyal-import spec doc cleanups
 *Two doc-gaps surfaced in the final cross-branch review of the
 uniroyal-import branch:*
@@ -200,6 +209,11 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### 💵 Landed-cost rollup v1 (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-landed-cost-design.md`. Three layers of cost truth: catalog (unchanged) + predictive landed (`tireLandedBuyNumber(tire, taxes)` computed on read = price + FET + wholesale tax + tire fee; client + server mirror) + realized landed (snapshotted on the order at completion as `estimatedLandedCostAtCompletion`, optional `actualLandedCost` from the eFleet invoice importer). `runCompletionTransaction` pool basis matches the snapshot so completion + reconcile math agree. New `/admin/efleet/invoices` admin route: drop an eFleet invoice HTML, parser previews lines + DR + totals, importer auto-attaches by DR + MSPN + qty match, manual review queue handles the rest. `applyOrderCostChange` shared atomic recompute helper writes adjustments to `meta/crewEarnings.members.{k}.adjustments[]` with stable `adjustmentId` and fires Slack DM (`SLACK_BOT_TOKEN`) to affected crew. `/people/earnings` page lets crew (or admin) ack their pending adjustments. `/owed` Slack adds a per-member callout when adjustments are pending. 944/944 tests passing on land.
+
+**Out of scope (deferred):** per-jurisdiction tax rates, auto-import from email/Drive, vendors other than Michelin, backfill of historical orders, admin toggle for the DM, multi-DR-per-invoice. Sweep of remaining `tireCatalogBuyNumber` consumers (`useDashboardSignals`, `useAdvisorSignals`, `SaleMessenger`, `ListingGenerator`, `TireRelatedSizes`, `exportMarginCsv`, `useEFleetDiff`, hidden gems, brand aggregates, `tirePriceResearch`) is queued as Catalog-buy-to-landed sweep below.
 
 ### 💰 DJ delivery share-bump v1 (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-05-01-dj-delivery-bump-design.md`. Crew member who delivered an order gets a configurable bump (default 5pp) on their share for that order; today's bundled-split model with zero-sum redistribution (others scale proportionally so splits stay sum-to-1). Captured at close-out via Slack 3-button interactivity AND web Mark-complete radio when `fulfillment === 'delivery'`. Snapshotted `deliveryBumpAtCompletion` on the order so live config changes never rewrite history. Admin-only `editOrderDeliveredBy` callable with 7-day window for after-the-fact fixes; atomic recompute writes to `meta/crewEarnings` + a `bumpAudit` subcollection entry per change. `/owed` Slack output appends `(incl. $X from N delivered orders)` when a member's `deliveryBumpCount > 0`. PayoutConfigPanel admin form gains a `deliveryBump` field (0-50% range). 845/845 tests passing on land.
