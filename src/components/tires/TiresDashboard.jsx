@@ -441,17 +441,23 @@ export function TiresDashboard() {
 
   const advisor = useSalesAdvisorChat({ buildContext: advisorBuildContext })
 
+  // toggle is memoized inside useSalesAdvisorChat with no dependencies, so
+  // its identity is stable for the component lifetime — depending on the
+  // whole `advisor` object would tear down and re-attach this listener on
+  // every render where any advisor state changed (open/close, every
+  // message append, every pending tick).
+  const advisorToggle = advisor.toggle
   useEffect(() => {
     function onKey(e) {
       if (e.key !== '?') return
       const tag = String(document.activeElement?.tagName || '').toLowerCase()
       if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return
       e.preventDefault()
-      advisor.toggle()
+      advisorToggle()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [advisor])
+  }, [advisorToggle])
 
   const categorizedRows = useMemo(() => {
     const buckets = { all: [], passenger: [], lightTruck: [], truck: [] }

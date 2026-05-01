@@ -42,6 +42,7 @@ export function SalesAdvisorDrawer({ isOpen, messages, pending, onClose, onSend 
   return (
     <aside
       role="dialog"
+      aria-modal="true"
       aria-label="Sales advisor"
       className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[480px] flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl sm:w-[480px]"
     >
