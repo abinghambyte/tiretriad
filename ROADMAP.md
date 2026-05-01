@@ -38,14 +38,6 @@ Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retai
 ### 📊 Catalog export view (printable report)
 "Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
 
-### 🤖 AI sales advisor drawer
-Context-aware advisor that reads the full tire catalog + completed orders and surfaces suggestions inline on the Tires page (right-side drawer). Answers:
-- Which slow-moving tires should I push next?
-- Which customers bought 4x recently and might repeat?
-- What's my best quote for this fleet size + location?
-
-Implementation: Anthropic via existing `ANTHROPIC_API_KEY` secret. New Cloud Function `salesAdvisorChat` hydrates context (catalog summary + completed-order stats + optional selected-tire detail) and calls the model. Drawer reachable via `?` key or fixed button. Streaming if available.
-
 ### 💰 DJ "I delivered / met customer" share-bump *(brainstorm pending)*
 DJ marks an order as one he personally delivered or met the customer for, system auto-bumps his share %. Configurable bump in `meta/payoutConfig`, audit trail, distinct line item in payout reports.
 
@@ -226,6 +218,13 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### Sales advisor drawer v1 (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-sales-advisor-drawer-design.md`. Right-side chat drawer on the Tires page with sales-coach persona (objection handling, pitch craft, follow-up coaching, high-margin moves). New Cloud Function `salesAdvisorChat`: admin-gated, 30 msg/hour rate limit per UID via in-memory Map, Anthropic Haiku → Sonnet fallback, 1500 max tokens at temp 0.4. System prompt parameterized by `surface` field so future Dashboard / CRM / Analytics drawers swap their own persona without re-architecting. Single conversation, session-only, buffered (no streaming) for v1. Triggered via floating button or `?` keyboard. Empty state lists 4 sales-expert suggestion prompts. Tires page bundle cap bumped 42 → 47 KB (currently 42.03 KB; drop back when any surface gets meaningfully trimmed).
+
+**Operational note:** Cloud Function needs `firebase deploy --only functions:salesAdvisorChat` to activate; drawer renders fine without deploy (returns 'Advisor failed' bubbles until function is live).
+
+Future v2: streaming responses, Firestore message-history persistence, multi-thread, tool use, markdown rendering, drawer on non-Tires surfaces.
 
 ### Listing metadata export (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-05-01-listing-metadata-export-design.md`. New `<ListingGenerator>` "Export structured metadata" section with Copy JSON + Download CSV buttons. Pure utility `buildListingMetadata({tires, qty, pricePer}[])` returns platform-agnostic `ListingEntry[]` with universal tire fields (sku, brand, mpn, condition, qty, price, category, sizeSpec, treadFamily, sidewallTags, photos) plus a per-platform copy map. Same data the operator sees in the script grid is what flows out — eBay sell-side publisher (Later) consumes this without retyping. RFC-4180 CSV serializer for sheet workflows.
