@@ -17,7 +17,11 @@ export function BrandStatsRow({
   onBrandChange,
 }) {
   const items = [
-    { brand: null, label: 'All', count: total, color: 'var(--color-zinc-300)' },
+    // zinc-700 keeps the "All" pill legible on both light page chrome
+    // (~10:1 contrast on white) and the dark dashboard (~7:1 on zinc-950).
+    // The brand pills below use their own brand-color tokens. zinc-300 here
+    // failed the axe color-contrast rule on light mode (1.47:1).
+    { brand: null, label: 'All', count: total, color: 'var(--color-zinc-700)' },
     ...brands.map((b) => ({
       brand: b.brand,
       label: b.brand,
