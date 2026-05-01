@@ -12,6 +12,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const { FieldValue } = require('firebase-admin/firestore')
+const { SLACK_SECRETS } = require('./slackSecrets')
 const { applyOrderCostChange } = require('./applyOrderCostChange')
 const { lineShareIncremental } = require('./invoiceLineCost')
 
@@ -123,7 +124,7 @@ function handle({ firestore }) {
   }
 }
 
-exports.importInvoice = onCall(async (req) => {
+exports.importInvoice = onCall({ secrets: SLACK_SECRETS }, async (req) => {
   return handle({ firestore: admin.firestore() })({
     data: req.data,
     auth: req.auth,
