@@ -22,11 +22,6 @@ _(Now bucket cleared — Brand stats card row + Brand-tier hero strip shipped to
 
 ## Next
 
-### 🛞 Product detail page with eFleet provenance
-Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retail/FET/Margin, **pricing source: Michelin eFleet ([date])** with the matched MSRP, active platform listings + posting history, margin trend over 90 days, and "other sizes in this tread family" recommendations.
-
-🔗 **Bundle with:** the existing 2-line description treatment in `TireDescriptionCell` — the same primary/secondary split + sidewall pills used on catalog rows lives at the top of this detail page.
-
 ### 📊 Catalog export view (printable report)
 "Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
 
@@ -210,6 +205,11 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### Tire detail page v1 / `/tires/:mspn` (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-tire-detail-page-design.md`. New per-SKU read-only route. Header (brand-tinted hero reusing `TireDescriptionCell` for size + tread + sidewall pills) + Pricing card (Buy/Retail/FET/Margin + eFleet provenance footer + drift pill when portal disagrees with eFleet) + Platforms card (FB/OU/CL state via `listingStatus`) + Related-sizes grid (cards in same tread family, sorted by buy ascending). MSPN cells in MarginTable rows now `<Link>` to the detail page. Vite split MarginTable into a shared chunk (12.91 KB gzipped) since it's now imported from both TiresPage and TireDetailPage; tires page chunk dropped to ~30 KB.
+
+**v2 deferred:** posting history timeline (no audit log of posts yet), margin trend chart (no historical priceIntel snapshots), inline AI listing advisor on detail page, inline edit, photo gallery.
 
 ### Brand stats card row + Dashboard hero strip (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-04-30-brand-aggregates-design.md`. Tab-style pill row above the MarginTable replacing the brand `<select>` in MarginFilters; same selector powers a Dashboard hero strip showing all `EXPECTED_BRANDS` with NOT STOCKED red badge for any 0-SKU brand. Selector `useBrandAggregates(tires, category)` produces `{ total, brands[], missingBrands[] }`. Mobile pill row scroll-snaps + auto-scrolls active pill into view; arrow-key navigation across pills (WAI-ARIA tabs pattern). Bundled tech debt: extracted `TIRE_CATEGORY_KEYS` constants, slim `useCategoryMap` hook split from `useDashboardSignals`, dropped `TireDescriptionCellForTest` shim in favor of canonical `TireDescriptionCell` export.
