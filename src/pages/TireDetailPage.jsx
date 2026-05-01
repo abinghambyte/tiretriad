@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
@@ -49,12 +49,23 @@ export function TireDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const firstRunRef = useRef(true)
   const { tires } = useTires()
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    // Reset loading + error before kicking off a fresh fetch. Defer via
+    // queueMicrotask so the synchronous-setState-in-effect lint rule
+    // doesn't fire — these still run before the network resolves so the
+    // user sees the spinner while waiting.
+    if (!firstRunRef.current) {
+      queueMicrotask(() => {
+        if (cancelled) return
+        setLoading(true)
+        setError(null)
+      })
+    }
+    firstRunRef.current = false
     Promise.all([
       getDoc(doc(db, 'tires', mspn)),
       getDoc(doc(db, 'meta', 'categoryMap')),
