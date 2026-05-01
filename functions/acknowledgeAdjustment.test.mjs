@@ -68,8 +68,8 @@ function makeFirestore({ docs: initial = {} } = {}) {
 function seed() {
   return {
     'users/admin1': { exists: true, data: () => ({ role: 'admin', displayName: 'Admin' }) },
-    'users/alex1': { exists: true, data: () => ({ role: 'crew', displayName: 'Alex Bingham' }) },
-    'users/dj1': { exists: true, data: () => ({ role: 'crew', displayName: 'DJ' }) },
+    'users/alex1': { exists: true, data: () => ({ role: 'crew', displayName: 'Alex Bingham', crewKey: 'alex' }) },
+    'users/dj1': { exists: true, data: () => ({ role: 'crew', displayName: 'DJ', crewKey: 'dj' }) },
     'meta/crewEarnings': {
       exists: true,
       data: () => ({

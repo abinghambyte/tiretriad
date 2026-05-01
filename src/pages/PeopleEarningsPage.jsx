@@ -8,10 +8,8 @@ const NAME_BY_KEY = { alex: 'Alex', dj: 'DJ', kyle: 'Kyle' }
 function profileToCrewKey(profile) {
   const ck = profile?.crewKey
   if (typeof ck === 'string' && SPLIT_KEYS.includes(ck)) return ck
-  const dn = String(profile?.displayName || profile?.name || '').toLowerCase()
-  if (dn.includes('alex')) return 'alex'
-  if (dn.includes('dj')) return 'dj'
-  if (dn.includes('kyle')) return 'kyle'
+  // Refuse displayName fallback - server-side acknowledgeAdjustment rejects
+  // anything without an explicit crewKey, so the page must match.
   return null
 }
 
