@@ -14,7 +14,7 @@ Object.assign(exports, require('./payoutConfig'))
 
 exports.advisorNarrate = require('./advisorNarrate').advisorNarrate
 exports.salesAdvisorChat = require('./salesAdvisor').salesAdvisorChat
-exports.listingAdvisor = require('./listingAdvisor').listingAdvisor
+exports.listingCoach = require('./listingCoach').listingCoach
 exports.backfillTireCreatedAt = require('./backfillTireCreatedAt').backfillTireCreatedAt
 
 exports.getDashboardStats = require('./dashboardStats').getDashboardStats

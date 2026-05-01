@@ -276,7 +276,7 @@ function handle({ firestore, callAnthropic, nowFn }) {
   }
 }
 
-exports.listingAdvisor = onCall(
+exports.listingCoach = onCall(
   { region: 'us-central1', secrets: [ANTHROPIC_API_KEY], cors: true, timeoutSeconds: 120 },
   async (req) => handle({
     firestore: admin.firestore(),

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { _testonly } from './listingAdvisor.js'
+import { _testonly } from './listingCoach.js'
 
 const { handle } = _testonly
 
