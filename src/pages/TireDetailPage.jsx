@@ -54,13 +54,17 @@ export function TireDetailPage() {
 
   useEffect(() => {
     let cancelled = false
-    // Reset loading + error before kicking off a fresh fetch. Defer via
-    // queueMicrotask so the synchronous-setState-in-effect lint rule
-    // doesn't fire — these still run before the network resolves so the
-    // user sees the spinner while waiting.
+    // On re-run (mspn navigation, retry), clear the previous tire's data so
+    // the stale-data flash doesn't show while the new fetch is in flight.
+    // Deferred via queueMicrotask so react-hooks 7's set-state-in-effect
+    // rule doesn't fire — runs before the network resolves either way, so
+    // the user sees the spinner during the wait. First run skips the reset
+    // because initial useState already gives loading=true / null tire.
     if (!firstRunRef.current) {
       queueMicrotask(() => {
         if (cancelled) return
+        setTire(null)
+        setCategoryMap(null)
         setLoading(true)
         setError(null)
       })

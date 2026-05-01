@@ -3,8 +3,17 @@ import { tireCatalogRetailNumber, tireRetailIsResearched, tireRetailIsEstimated 
 import { computeListingMargin } from '../../../utils/marginCalc.js'
 import { formatCurrency } from '../../../utils/format.js'
 
+// Used for Buy and Retail: '--' when missing or zero (a zero buy/retail
+// is effectively "not set" for catalog purposes).
 function fmtNum(n) {
   return Number.isFinite(n) && n > 0 ? formatCurrency(n) : '--'
+}
+
+// Used for FET: $0.00 is a meaningful answer ("this tire has no FET")
+// distinct from '--' ("FET unknown / not stored"). Matches the catalog
+// row's formatCurrencyOrDash treatment.
+function fmtFet(n) {
+  return Number.isFinite(n) ? formatCurrency(n) : '--'
 }
 
 function fmtPct(n) {
@@ -44,7 +53,7 @@ export function TirePricingCard({ tire, efleetRecord, efleetDate }) {
       <dl>
         {row('Buy', fmtNum(buy))}
         {row('Retail', fmtNum(retail), retailClass)}
-        {row('FET', fmtNum(fet))}
+        {row('FET', fmtFet(fet))}
         {row('Margin', fmtPct(margin))}
       </dl>
       <div className="mt-4 border-t border-zinc-800 pt-3 text-xs">
