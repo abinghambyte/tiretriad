@@ -38,6 +38,7 @@ import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
 import { useUserProfile } from '../../hooks/useUserProfile'
 import { EditDeliveredByButton } from '../admin/payout/EditDeliveredByButton.jsx'
+import { EditAdCostButton } from '../admin/payout/EditAdCostButton.jsx'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -285,6 +286,7 @@ export function OrdersList({ highlightId }) {
   const [paymentAmount, setPaymentAmount] = useState('')
   const [deliveredBy, setDeliveredBy] = useState(null)
   const [dr, setDr] = useState('')
+  const [adCost, setAdCost] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const [notifyModalOrder, setNotifyModalOrder] = useState(null)
@@ -470,6 +472,7 @@ export function OrdersList({ highlightId }) {
     setPaymentAmount(String(order.totalPrice ?? ''))
     setDeliveredBy(null)
     setDr(order?.dr || '')
+    setAdCost('')
     setCompleteFor(order.id)
   }
 
@@ -489,12 +492,14 @@ export function OrdersList({ highlightId }) {
     }
     setSubmitting(true)
     try {
+      const adCostParsed = adCost === '' ? 0 : Number.parseFloat(adCost)
       await completeOrder({
         orderId: completeFor,
         paymentReceived,
         paymentAmount: amt,
         deliveredBy: completeIsDelivery ? deliveredBy : null,
         dr: dr.trim() || null,
+        adCost: Number.isFinite(adCostParsed) && adCostParsed > 0 ? adCostParsed : 0,
       })
       setCompleteFor(null)
     } catch (err) {
@@ -788,6 +793,13 @@ export function OrdersList({ highlightId }) {
                 {o.status === 'completed' ? (
                   <EditDeliveredByButton order={o} currentUserRole={currentUserRole} />
                 ) : null}
+                {o.status === 'completed' ? (
+                  <EditAdCostButton
+                    order={o}
+                    currentUserRole={currentUserRole}
+                    currentUserUid={profile?.uid}
+                  />
+                ) : null}
               </div>
               <OrderDebriefPrompt key={`debrief-${o.id}`} order={o} />
             </li>
@@ -965,6 +977,18 @@ export function OrdersList({ highlightId }) {
                 onChange={(e) => setDr(e.target.value)}
                 maxLength={64}
                 placeholder="DR3611350"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              />
+            </label>
+            <label className="mt-3 block text-xs font-medium text-zinc-400">
+              Ad cost (optional)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={adCost}
+                onChange={(e) => setAdCost(e.target.value)}
+                placeholder="$ spent on FB ads / boosts for this listing"
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               />
             </label>
