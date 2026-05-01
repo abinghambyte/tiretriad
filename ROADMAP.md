@@ -22,18 +22,7 @@ _(Now bucket cleared — Brand stats card row + Brand-tier hero strip shipped to
 
 ## Next
 
-### 🤖 AI Listing Coach (extends salesAdvisor)
-A second persona on top of the existing `salesAdvisor` Cloud Function. Takes a tire SKU (or a stock-on-hand size) and produces a complete listing kit: realistic FB Marketplace / CL price recommendation against landed cost, target margin, audience-tailored copy (consumer vs commercial vs B2B), fitment notes (which trucks / SUVs / sedans this size sells to), seasonal demand context (Memorial Day = AT tires for camping, fall = winter set prep, etc.), photo guidance (tread close-up first, sidewall stamp, fitment shot, qty proof; consumer = "clean garage" vibe vs commercial = "working seller" pile shot), and a draft listing in the right tone.
-
-**Tools the model needs (Anthropic tool use):**
-- `getTireBySize(size)` / `getTireByMspn(mspn)` from the catalog
-- `computeLandedCost(tire)` server-side via `tireLandedBuyNumber`
-- `searchExternalPrices(brand, size)` web search (TireRack / SimpleTire / Discount Tire / Costco) for retail comps
-- `getRecentSalesForSize(size)` from completed orders for internal velocity signal
-
-**Trigger surface:** new tab on the existing salesAdvisor drawer ("Listing Coach"), OR a button on `TireDetailPage` ("Draft a listing for this tire"). Reuses the rate limiter, role gating, and Anthropic Haiku/Sonnet fallback already in place.
-
-Anchor example to feed into the system prompt for tone/depth: see the LT285/70R17 KO3 NOCO Memorial Day analysis we walked through manually on 2026-05-01 (catalog lookup → landed math → market comps → fitment → seasonal context → listing copy → photo strategy). That conversation IS the spec for what the model should produce.
+_(Next bucket cleared - AI Listing Coach shipped. See Resolved.)_
 
 ---
 
@@ -213,6 +202,9 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### 🤖 AI Listing Coach v1 (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-listing-coach-design.md`. Second persona on top of the salesAdvisor drawer (new "Listing Coach" tab). Takes a tire SKU + qty + audience, produces a complete listing kit: SKU summary, landed-cost math, audience suggestion + override, fenced listing copy with one-click Copy button, photo guidance. Anthropic tool-use loop with six tools (getTireByMspn / getTireBySize / computeLandedCost / getRecentSalesForSize / addStyleRule / listStyleRules), Haiku to Sonnet fallback, 30/hr rate limit, 8-iteration tool-loop cap. Reads existing `priceIntel.retailPrice` from `tirePriceResearch.js` for market comps; no new external pricing infra. User corrections persist as crew-shared style rules at `meta/listingCoachStyleGuide.rules[]` (audience-tagged: consumer / commercial / all); model surfaces additions inline so user can veto. Admin rules-management page at `/admin/listing-coach-rules`. The eFleet account is explicitly off-limits in the persona. Few-shot anchor in the system prompt is the literal 2026-05-01 LT285/70R17 KO2 NOCO walk-through. Renamed pre-existing `listingAdvisor` (Gemini listing-copy generator) module file to `listingAdvisorGenerator.js`; the public callable name `listingAdvisor` still backs that legacy generator so `ListingGenerator.jsx` keeps working. 1035 tests on land.
 
 ### 💸 Per-order ad cost (shipped 2026-05-01)
 `order.adCost` field (separate from `actualLandedCost` for clean analytics). Set at completion via the OrdersList "Mark complete" modal, or edited post-completion via EditAdCostButton (admin OR the user who closed the order, 7-day window from completedMs). Setting / editing fires `applyOrderAdCostChange` shared helper - atomic Firestore transaction recomputing `pool = pay - landed - adCost`, distributed via the bump-adjusted splits, with adjustment entries on `meta/crewEarnings.members.{k}.adjustments[]` and a Slack DM via existing `postAdjustmentDm`. `completedOrderMarginPool` subtracts adCost from every cost-source branch. `order.completedBy` field added to record the closer (this was missing today). 981 tests on land.
