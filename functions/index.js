@@ -25,6 +25,7 @@ exports.verifyVipLink = verifyVipLink
 exports.updatePresence = require('./presence').updatePresence
 
 exports.editOrderDeliveredBy = require('./orderDeliveredByEdit').editOrderDeliveredBy
+exports.setOrderAdCost = require('./setOrderAdCost').setOrderAdCost
 
 exports.importInvoice = require('./importInvoice').importInvoice
 exports.attachInvoiceLine = require('./attachInvoiceLine').attachInvoiceLine

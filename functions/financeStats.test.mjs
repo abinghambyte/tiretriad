@@ -143,6 +143,45 @@ describe('completedOrderMarginPool - cost source priority', () => {
   })
 })
 
+describe('completedOrderMarginPool - adCost subtraction', () => {
+  it('subtracts adCost from the actualLandedCost branch', () => {
+    const order = { actualLandedCost: 800, adCost: 25 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(175)
+  })
+
+  it('subtracts adCost from the estimated branch', () => {
+    const order = { estimatedLandedCostAtCompletion: 850, adCost: 50 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(100)
+  })
+
+  it('subtracts adCost from the legacy taxesApplied branch', () => {
+    const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
+    const order = {
+      quantity: 4,
+      taxesApplied: { salesTax: 10, tireFee: 5, total: 15 },
+      adCost: 20,
+    }
+    expect(completedOrderMarginPool(3800, order, tire)).toBe(425)
+  })
+
+  it('subtracts adCost from the legacy fallback path (no taxesApplied)', () => {
+    const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
+    const order = { quantity: 1, adCost: 10 }
+    const base = computePoolDollars(950, order, tire)
+    expect(completedOrderMarginPool(950, order, tire)).toBe(round2(base - 10))
+  })
+
+  it('treats missing / non-finite adCost as 0', () => {
+    expect(completedOrderMarginPool(1000, { actualLandedCost: 800 }, {})).toBe(200)
+    expect(completedOrderMarginPool(1000, { actualLandedCost: 800, adCost: null }, {})).toBe(200)
+    expect(completedOrderMarginPool(1000, { actualLandedCost: 800, adCost: 'oops' }, {})).toBe(200)
+  })
+
+  it('clamps to 0 when adCost would push pool negative', () => {
+    expect(completedOrderMarginPool(900, { actualLandedCost: 850, adCost: 100 }, {})).toBe(0)
+  })
+})
+
 describe('computePoolDollars', () => {
   const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
 
