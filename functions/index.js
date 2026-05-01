@@ -28,6 +28,7 @@ exports.editOrderDeliveredBy = require('./orderDeliveredByEdit').editOrderDelive
 
 exports.importInvoice = require('./importInvoice').importInvoice
 exports.attachInvoiceLine = require('./attachInvoiceLine').attachInvoiceLine
+exports.acknowledgeAdjustment = require('./acknowledgeAdjustment').acknowledgeAdjustment
 
 const {
   enqueueBelowMarginFloor,

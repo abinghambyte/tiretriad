@@ -13,6 +13,7 @@
  * - realizedCost), distributed via applyDeliveryBump using the order's
  * snapshotted deliveryBumpAtCompletion.
  */
+const { randomUUID } = require('node:crypto')
 const { FieldValue } = require('firebase-admin/firestore')
 const { applyDeliveryBump, round2 } = require('./payoutConfig')
 
@@ -114,6 +115,7 @@ async function applyOrderCostChange({
         : []
       if (delta !== 0) {
         adjustments.push({
+          adjustmentId: randomUUID(),
           orderId,
           oldBalance: prevBalance,
           newBalance,

@@ -142,6 +142,8 @@ describe('applyOrderCostChange', () => {
       invoiceLineRef: 'invoices/DA0065549567#0',
       acknowledgedBy: null,
     })
+    expect(typeof crew.members.dj.adjustments[0].adjustmentId).toBe('string')
+    expect(crew.members.dj.adjustments[0].adjustmentId.length).toBeGreaterThan(0)
 
     expect(auditSets).toHaveLength(1)
     expect(auditSets[0].value).toMatchObject({
@@ -285,6 +287,10 @@ describe('applyOrderCostChange', () => {
     expect(crew.members.alex.balance).toBe(-35)
     expect(crew.members.dj.balance).toBe(-35)
     expect(crew.members.kyle.balance).toBe(-30)
+    for (const k of ['alex', 'dj', 'kyle']) {
+      expect(typeof crew.members[k].adjustments[0].adjustmentId).toBe('string')
+      expect(crew.members[k].adjustments[0].adjustmentId.length).toBeGreaterThan(0)
+    }
   })
 
   it('throws when order is missing', async () => {
