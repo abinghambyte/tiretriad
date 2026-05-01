@@ -27,6 +27,9 @@ const HandshakePage = lazy(() =>
 const OrdersPage = lazy(() => import('./pages/OrdersPage').then((m) => ({ default: m.OrdersPage })))
 const OpsPage = lazy(() => import('./pages/OpsPage').then((m) => ({ default: m.OpsPage })))
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })))
+const AdminEFleetPage = lazy(() =>
+  import('./pages/AdminEFleetPage').then((m) => ({ default: m.AdminEFleetPage })),
+)
 const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
 const TiresPage = lazy(() => import('./pages/TiresPage').then((m) => ({ default: m.TiresPage })))
 const MyQueuePage = lazy(() =>
@@ -143,6 +146,16 @@ export default function App() {
             <ProtectedRoute requireAdmin>
               <Suspense fallback={<RouteFallback />}>
                 <AdminPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/efleet"
+          element={
+            <ProtectedRoute requireAdmin>
+              <Suspense fallback={<RouteFallback />}>
+                <AdminEFleetPage />
               </Suspense>
             </ProtectedRoute>
           }
