@@ -17,10 +17,10 @@ function uidToCrewKey(userData) {
   if (typeof data.crewKey === 'string' && SPLIT_KEYS.includes(data.crewKey)) {
     return data.crewKey
   }
-  const dn = String(data.displayName || data.name || '').toLowerCase()
-  if (dn.includes('alex')) return 'alex'
-  if (dn.includes('dj')) return 'dj'
-  if (dn.includes('kyle')) return 'kyle'
+  // Defensive: refuse displayName-fallback resolution. A user with a name
+  // like "Alexandra" who isn't crew Alex would falsely resolve, granting
+  // ack rights over Alex's adjustments. Require explicit crewKey on the
+  // user doc. Admins can ack any crewKey regardless.
   return null
 }
 

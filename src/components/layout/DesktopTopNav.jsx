@@ -18,6 +18,9 @@ export function DesktopTopNav() {
   const canPeople = permissionMeets(permissionFor('people'), 'manage')
   const canAnalytics = permissionMeets(permissionFor('analytics'), 'view')
   const canOps = profile?.role === 'admin'
+  const canEarnings =
+    profile?.role === 'admin'
+    || (typeof profile?.crewKey === 'string' && ['alex', 'dj', 'kyle'].includes(profile.crewKey))
 
   // Patch-628: My Queue moved to a header bell + dashboard widget.
   // /my-queue route still works as a deep-link fallback; not in nav.
@@ -26,6 +29,7 @@ export function DesktopTopNav() {
     { to: '/tires', label: 'Tires', show: canTires },
     { to: '/crm', label: 'CRM', show: canCrm },
     { to: '/people', label: 'People', show: canPeople },
+    { to: '/people/earnings', label: 'Earnings', show: canEarnings },
     { to: '/analytics', label: 'Analytics', show: canAnalytics },
     { to: '/ops', label: 'Ops', show: canOps },
     { to: '/admin', label: 'Admin', show: canOps },
