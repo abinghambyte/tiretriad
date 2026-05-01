@@ -33,6 +33,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
   const [customerName, setCustomerName] = useState('')
   const [customerContact, setCustomerContact] = useState('')
   const [fulfillment, setFulfillment] = useState('Pickup')
+  const [deliveredBy, setDeliveredBy] = useState(null)
   const [fulfillmentNotes, setFulfillmentNotes] = useState('')
   const [completedAtLocal, setCompletedAtLocal] = useState('')
   const [additionalNotes, setAdditionalNotes] = useState('')
@@ -72,6 +73,13 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
       setQuantity(Number(initialQuantity))
     }
   }, [initialQuantity])
+
+  // Reset deliveredBy whenever fulfillment moves away from Delivery.
+  useEffect(() => {
+    if (fulfillment !== 'Delivery' && deliveredBy !== null) {
+      setDeliveredBy(null)
+    }
+  }, [fulfillment, deliveredBy])
 
   useEffect(() => {
     const id = phoneDocIdFromContact(customerContact.trim())
@@ -176,6 +184,7 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
         fulfillment,
         fulfillmentNotes: fulfillmentNotes.trim(),
         additionalNotes: additionalNotes.trim(),
+        deliveredBy: fulfillment === 'Delivery' ? deliveredBy : null,
       }
       if (Number.isFinite(completedAtMs)) {
         payload.completedAtMs = completedAtMs
@@ -376,6 +385,41 @@ export function SaleMessenger({ onClose, tires, initialMspn, initialQuantity, in
               Delivery
             </label>
           </fieldset>
+
+          {fulfillment === 'Delivery' ? (
+            <fieldset className="space-y-2" data-testid="delivered-by-fieldset">
+              <legend className="text-xs font-medium text-zinc-400">
+                Who delivered?
+              </legend>
+              {[
+                { value: 'alex', label: 'Alex' },
+                { value: 'dj', label: 'DJ' },
+                { value: 'kyle', label: 'Kyle' },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className="mr-4 inline-flex items-center gap-2 text-sm text-zinc-300"
+                >
+                  <input
+                    type="radio"
+                    name="deliveredBy"
+                    checked={deliveredBy === opt.value}
+                    onChange={() => setDeliveredBy(opt.value)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+              <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="radio"
+                  name="deliveredBy"
+                  checked={deliveredBy === null}
+                  onChange={() => setDeliveredBy(null)}
+                />
+                Mark later
+              </label>
+            </fieldset>
+          ) : null}
 
           <div>
             <label className="text-xs font-medium text-zinc-400">
