@@ -26,6 +26,8 @@ exports.updatePresence = require('./presence').updatePresence
 
 exports.editOrderDeliveredBy = require('./orderDeliveredByEdit').editOrderDeliveredBy
 
+exports.importInvoice = require('./importInvoice').importInvoice
+
 const {
   enqueueBelowMarginFloor,
   enqueueToResearch,
