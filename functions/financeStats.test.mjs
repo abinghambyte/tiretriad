@@ -178,6 +178,53 @@ describe('bumpCrewEarned', () => {
     expect(next.members.dj.totalEarned).toBe(11.67)
     expect(next.members.kyle.totalEarned).toBe(10)
   })
+
+  it('default crew doc seeds bump tracking fields at zero', () => {
+    const doc = defaultCrewDoc()
+    for (const k of CREW_KEYS) {
+      expect(doc.members[k].totalDeliveryBumps).toBe(0)
+      expect(doc.members[k].deliveryBumpCount).toBe(0)
+    }
+  })
+
+  it('without deliveredBy: standard splits, no bump tracking applied', () => {
+    const next = bumpCrewEarned(defaultCrewDoc(), 100, DEFAULT_CONFIG.splits)
+    expect(next.members.alex.totalEarned).toBe(35)
+    expect(next.members.dj.totalEarned).toBe(35)
+    expect(next.members.kyle.totalEarned).toBe(30)
+    expect(next.members.dj.totalDeliveryBumps).toBe(0)
+    expect(next.members.dj.deliveryBumpCount).toBe(0)
+    expect(next.members.alex.totalDeliveryBumps).toBe(0)
+    expect(next.members.kyle.totalDeliveryBumps).toBe(0)
+  })
+
+  it('with deliveredBy=dj + bump=0.05: distributes adjusted splits and tracks dj bump', () => {
+    const next = bumpCrewEarned(defaultCrewDoc(), 100, DEFAULT_CONFIG.splits, {
+      deliveredBy: 'dj',
+      deliveryBump: 0.05,
+    })
+    expect(next.members.dj.totalEarned).toBe(40)
+    expect(next.members.alex.totalEarned).toBe(32.31)
+    expect(next.members.kyle.totalEarned).toBe(27.69)
+    expect(next.members.dj.totalDeliveryBumps).toBe(5)
+    expect(next.members.dj.deliveryBumpCount).toBe(1)
+    expect(next.members.alex.totalDeliveryBumps).toBe(0)
+    expect(next.members.alex.deliveryBumpCount).toBe(0)
+    expect(next.members.kyle.totalDeliveryBumps).toBe(0)
+    expect(next.members.kyle.deliveryBumpCount).toBe(0)
+  })
+
+  it('with deliveredBy + bump=0: adjusted splits == base, no bump count', () => {
+    const next = bumpCrewEarned(defaultCrewDoc(), 100, DEFAULT_CONFIG.splits, {
+      deliveredBy: 'dj',
+      deliveryBump: 0,
+    })
+    expect(next.members.alex.totalEarned).toBe(35)
+    expect(next.members.dj.totalEarned).toBe(35)
+    expect(next.members.kyle.totalEarned).toBe(30)
+    expect(next.members.dj.totalDeliveryBumps).toBe(0)
+    expect(next.members.dj.deliveryBumpCount).toBe(0)
+  })
 })
 
 describe('completion cost with buy-side taxes', () => {
