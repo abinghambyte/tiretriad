@@ -32,6 +32,9 @@ const AdminEFleetPage = lazy(() =>
 )
 const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
 const TiresPage = lazy(() => import('./pages/TiresPage').then((m) => ({ default: m.TiresPage })))
+const TireDetailPage = lazy(() =>
+  import('./pages/TireDetailPage').then((m) => ({ default: m.TireDetailPage })),
+)
 const MyQueuePage = lazy(() =>
   import('./pages/MyQueuePage').then((m) => ({ default: m.MyQueuePage })),
 )
@@ -94,6 +97,16 @@ export default function App() {
             <ProtectedRoute module="tires" level="view">
               <Suspense fallback={<RouteFallback />}>
                 <TiresPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tires/:mspn"
+          element={
+            <ProtectedRoute module="tires" level="view">
+              <Suspense fallback={<RouteFallback />}>
+                <TireDetailPage />
               </Suspense>
             </ProtectedRoute>
           }
