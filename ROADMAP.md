@@ -117,12 +117,6 @@ Contractor-facing chat from job detail page. Low volume, not worth building unti
 
 Surfaced during recent reviews. Each is small enough to bundle into the first PR that touches the relevant file.
 
-### 🔧 Crew key seeding for `acknowledgeAdjustment`
-The `acknowledgeAdjustment` callable falls back to displayName substring matching when `users/{uid}.crewKey` isn't set. A user with displayName like "Alexandra" who isn't crew Alex would falsely resolve to `alex`. Mitigation: seed an explicit `users/{uid}.crewKey` field for the three real crew members (Alex, DJ, Kyle) and tighten the fallback to refuse anything without an explicit field. Operational task.
-
-### 🔧 Nav entry for `/people/earnings`
-Route shipped login-only but no nav entry yet — discovery is via direct URL or `/admin` card (admin only). Add a top-nav or sidebar entry visible to all signed-in users so non-admin crew can find their balance + pending adjustments without the URL.
-
 ### 🔧 Uniroyal-import spec doc cleanups
 *Two doc-gaps surfaced in the final cross-branch review of the
 uniroyal-import branch:*
