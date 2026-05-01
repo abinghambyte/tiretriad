@@ -25,11 +25,6 @@ _(Now bucket cleared — Brand stats card row + Brand-tier hero strip shipped to
 ### 📊 Catalog export view (printable report)
 "Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
 
-### 💰 DJ "I delivered / met customer" share-bump *(brainstorm pending)*
-DJ marks an order as one he personally delivered or met the customer for, system auto-bumps his share %. Configurable bump in `meta/payoutConfig`, audit trail, distinct line item in payout reports.
-
-8 open questions logged (DJ = user vs role, fixed vs configurable bump, retroactive markings, zero-sum vs additive, mobile flow, notification, multi-event stacking, reporting). Trigger via `/superpowers:brainstorming` before spec/plan.
-
 ---
 
 ## Later
@@ -205,6 +200,11 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### 💰 DJ delivery share-bump v1 (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-dj-delivery-bump-design.md`. Crew member who delivered an order gets a configurable bump (default 5pp) on their share for that order; today's bundled-split model with zero-sum redistribution (others scale proportionally so splits stay sum-to-1). Captured at close-out via Slack 3-button interactivity AND web Mark-complete radio when `fulfillment === 'delivery'`. Snapshotted `deliveryBumpAtCompletion` on the order so live config changes never rewrite history. Admin-only `editOrderDeliveredBy` callable with 7-day window for after-the-fact fixes; atomic recompute writes to `meta/crewEarnings` + a `bumpAudit` subcollection entry per change. `/owed` Slack output appends `(incl. $X from N delivered orders)` when a member's `deliveryBumpCount > 0`. PayoutConfigPanel admin form gains a `deliveryBump` field (0-50% range). 845/845 tests passing on land.
+
+**Out of scope (deferred):** house cost-recovery refactor, multi-event stacking, DM notifications, pre-existing order backfill.
 
 ### Tire detail page v1 / `/tires/:mspn` (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-05-01-tire-detail-page-design.md`. New per-SKU read-only route. Header (brand-tinted hero reusing `TireDescriptionCell` for size + tread + sidewall pills) + Pricing card (Buy/Retail/FET/Margin + eFleet provenance footer + drift pill when portal disagrees with eFleet) + Platforms card (FB/OU/CL state via `listingStatus`) + Related-sizes grid (cards in same tread family, sorted by buy ascending). MSPN cells in MarginTable rows now `<Link>` to the detail page. Vite split MarginTable into a shared chunk (12.91 KB gzipped) since it's now imported from both TiresPage and TireDetailPage; tires page chunk dropped to ~30 KB.
