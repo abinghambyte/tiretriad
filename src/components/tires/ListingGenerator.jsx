@@ -4,6 +4,7 @@ import { doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../../firebase/config'
 import { buildListingScript } from '../../utils/listingGenerator'
+import { buildListingMetadata, toCsv } from '../../utils/listingMetadata.js'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { parseDescription } from '../../utils/parseTireDescription'
@@ -400,6 +401,67 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
     }
   }
 
+  function buildExportEntries() {
+    return tires.map((t) => {
+      const line = lines[t.id] || { qty: 1, price: 0 }
+      return {
+        tire: t,
+        qty: Math.max(1, Number(line.qty) || 1),
+        pricePer: Math.max(0, Number(line.price) || 0),
+      }
+    })
+  }
+
+  async function copyJson() {
+    const data = buildListingMetadata(buildExportEntries())
+    const ok = await copyToClipboard(JSON.stringify(data, null, 2))
+    if (ok) {
+      toast(`Copied ${data.length} tire metadata entr${data.length === 1 ? 'y' : 'ies'} as JSON`, 'success')
+    } else {
+      toast('Copy failed. Check clipboard permissions.', 'error')
+    }
+  }
+
+  function downloadCsv() {
+    const data = buildListingMetadata(buildExportEntries())
+    const rows = data.map((e) => ({
+      sku: e.sku,
+      brand: e.brand,
+      mpn: e.mpn,
+      condition: e.condition,
+      qty: e.qty,
+      price: e.price,
+      category: e.category ?? '',
+      sizeSpec: e.sizeSpec ?? '',
+      treadFamily: e.treadFamily,
+      sidewallTags: e.sidewallTags.join(';'),
+      photos: e.photos.join(';'),
+      fb_title: e.copy.facebook.title,
+      fb_description: e.copy.facebook.description,
+      ou_title: e.copy.offerup.title,
+      ou_description: e.copy.offerup.description,
+      cl_title: e.copy.craigslist.title,
+      cl_description: e.copy.craigslist.description,
+    }))
+    const csv = toCsv(rows, [
+      'sku', 'brand', 'mpn', 'condition', 'qty', 'price', 'category',
+      'sizeSpec', 'treadFamily', 'sidewallTags', 'photos',
+      'fb_title', 'fb_description',
+      'ou_title', 'ou_description',
+      'cl_title', 'cl_description',
+    ])
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `listings-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast(`Downloaded ${data.length} tire metadata entr${data.length === 1 ? 'y' : 'ies'} as CSV`, 'success')
+  }
+
   return (
     <div
       className={MODAL_CENTER_BACKDROP}
@@ -704,6 +766,33 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
                 )
               })}
             </div>
+          ) : null}
+
+          {generated.length > 0 ? (
+            <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+              <h3 className="text-sm font-semibold text-zinc-100">Export structured metadata</h3>
+              <p className="mt-1 text-xs text-zinc-400">
+                JSON for API consumers (eBay publisher, custom scripts). CSV for
+                sheet-based workflows. Edits to qty or price after exporting require
+                a fresh export.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void copyJson()}
+                  className="inline-flex min-h-[40px] items-center rounded-lg border border-zinc-600 px-3 py-1.5 text-sm font-medium text-zinc-100 hover:border-amber-600/40 hover:bg-zinc-800/80"
+                >
+                  Copy JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCsv}
+                  className="inline-flex min-h-[40px] items-center rounded-lg border border-zinc-600 px-3 py-1.5 text-sm font-medium text-zinc-100 hover:border-amber-600/40 hover:bg-zinc-800/80"
+                >
+                  Download CSV
+                </button>
+              </div>
+            </section>
           ) : null}
         </div>
       </div>
