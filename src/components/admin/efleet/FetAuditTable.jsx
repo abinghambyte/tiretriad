@@ -4,15 +4,20 @@ function fmtCurrency(n) {
 }
 
 /**
- * Tab 2 of /admin/efleet: tax-compliance focus on FET deltas.
+ * Tab 2 of /admin/efleet: tax-compliance focus on FET amounts.
  *
- * Filters diff.mismatched to entries with a FET delta. Sorts by absolute
- * delta descending so the biggest tax-compliance risks float to the top.
- * Read-only — operator follows up by editing the tire doc directly or
- * running a one-off script.
+ * Two passes:
+ *   1. diff.mismatched entries with a FET delta — portal disagrees with
+ *      eFleet on the FET amount.
+ *   2. diff.invOnly entries where the tire carries fet > 0 but eFleet has no
+ *      record for the MSPN — surfaces the over-applied-FET shape from the
+ *      spec (`$3.00 overhead-as-FET typo` on aged stock).
+ *
+ * Sorts by absolute FET amount descending so biggest tax-compliance risks
+ * float to the top. Read-only.
  */
 export function FetAuditTable({ diff }) {
-  const rows = (diff.mismatched || [])
+  const mismatchedRows = (diff.mismatched || [])
     .map((m) => {
       const fetDelta = m.deltas.find((d) => d.field === 'fet')
       if (!fetDelta) return null
@@ -23,10 +28,28 @@ export function FetAuditTable({ diff }) {
         portalFet: before,
         eFleetFet: after,
         absDelta: Math.abs(after - before),
+        kind: 'mismatch',
       }
     })
     .filter(Boolean)
-    .sort((a, b) => b.absDelta - a.absDelta)
+
+  const overAppliedRows = (diff.invOnly || [])
+    .map((iv) => {
+      const fet = Number(iv.tireFet) || 0
+      if (fet <= 0) return null
+      return {
+        ...iv,
+        portalFet: fet,
+        eFleetFet: 0,
+        absDelta: fet,
+        kind: 'over-applied',
+      }
+    })
+    .filter(Boolean)
+
+  const rows = [...mismatchedRows, ...overAppliedRows].sort(
+    (a, b) => b.absDelta - a.absDelta,
+  )
 
   if (rows.length === 0) {
     return (
@@ -51,8 +74,18 @@ export function FetAuditTable({ diff }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.mspn} className="border-t border-zinc-800/60">
-              <td className="px-3 py-2 font-mono text-zinc-300">{r.mspn}</td>
+            <tr key={`${r.kind}-${r.mspn}`} className="border-t border-zinc-800/60">
+              <td className="px-3 py-2 font-mono text-zinc-300">
+                {r.mspn}
+                {r.kind === 'over-applied' ? (
+                  <span
+                    className="ml-2 rounded bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300"
+                    title="Tire carries FET but eFleet has no record for this MSPN"
+                  >
+                    OVER-APPLIED
+                  </span>
+                ) : null}
+              </td>
               <td className="px-3 py-2 text-zinc-300">{r.brand}</td>
               <td className="px-3 py-2 text-zinc-400">{r.description}</td>
               <td className="px-3 py-2 text-right font-mono text-zinc-300">{fmtCurrency(r.portalFet)}</td>

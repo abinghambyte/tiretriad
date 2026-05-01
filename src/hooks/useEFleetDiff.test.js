@@ -68,6 +68,30 @@ describe('useEFleetDiff', () => {
     const { result } = renderHook(() => useEFleetDiff(tires, records))
     const entry = result.current.mismatched[0]
     expect(entry.isBrandConflict).toBe(true)
+    // Synthetic 'brand' delta is stripped from the public list — pill covers
+    // it. A brand-only conflict (otherwise-aligned fields) lands in
+    // mismatched with deltas: [].
+    expect(entry.deltas).toEqual([])
+  })
+
+  it('carries tireFet/tirePrice on invOnly entries', () => {
+    const tires = [mkTire({ id: '1', mspn: '1', fet: 3, price: 100 })]
+    const { result } = renderHook(() => useEFleetDiff(tires, {}))
+    const entry = result.current.invOnly[0]
+    expect(entry.tireFet).toBe(3)
+    expect(entry.tirePrice).toBe(100)
+    expect(entry.recordFet).toBeNull()
+    expect(entry.recordPrice).toBeNull()
+  })
+
+  it('carries recordFet/recordPrice on eFleetOnly entries', () => {
+    const records = { '1': mkRecord({ fet: 5, price: 200 }) }
+    const { result } = renderHook(() => useEFleetDiff([], records))
+    const entry = result.current.eFleetOnly[0]
+    expect(entry.recordFet).toBe(5)
+    expect(entry.recordPrice).toBe(200)
+    expect(entry.tireFet).toBeNull()
+    expect(entry.tirePrice).toBeNull()
   })
 
   it('inv-only when tire exists but no record', () => {

@@ -36,4 +36,50 @@ describe('FetAuditTable', () => {
     const { container } = render(<FetAuditTable diff={empty} />)
     expect(container.textContent).toContain('No FET mismatches')
   })
+
+  it('surfaces over-applied FET on inventory-only rows (tireFet > 0, no eFleet record)', () => {
+    const diff = {
+      mismatched: [],
+      invOnly: [
+        { mspn: 'OA1', brand: 'MICHELIN', description: 'over-applied fet row', deltas: [], tireFet: 3, tirePrice: 100, recordFet: null, recordPrice: null, isOffProgram: false, isBrandConflict: false },
+      ],
+      eFleetOnly: [],
+      aligned: [],
+    }
+    const { container } = render(<FetAuditTable diff={diff} />)
+    expect(container.textContent).toContain('OA1')
+    expect(container.textContent).toContain('OVER-APPLIED')
+  })
+
+  it('does NOT flag inv-only rows where tireFet is 0', () => {
+    const diff = {
+      mismatched: [],
+      invOnly: [
+        { mspn: 'NO_FET', brand: 'M', description: 'no fet on inv-only', deltas: [], tireFet: 0, tirePrice: 50, recordFet: null, recordPrice: null, isOffProgram: false, isBrandConflict: false },
+      ],
+      eFleetOnly: [],
+      aligned: [],
+    }
+    const { container } = render(<FetAuditTable diff={diff} />)
+    expect(container.textContent).toContain('No FET mismatches')
+  })
+
+  it('combined sort: mismatched and over-applied rows interleave by abs fet amount', () => {
+    const diff = {
+      mismatched: [
+        { mspn: 'M5', brand: 'M', description: 'mismatch 5', deltas: [{ field: 'fet', before: 0, after: 5 }] },
+      ],
+      invOnly: [
+        { mspn: 'OA10', brand: 'M', description: 'over-applied 10', deltas: [], tireFet: 10, tirePrice: 100, recordFet: null, recordPrice: null, isOffProgram: false, isBrandConflict: false },
+        { mspn: 'OA2', brand: 'M', description: 'over-applied 2', deltas: [], tireFet: 2, tirePrice: 100, recordFet: null, recordPrice: null, isOffProgram: false, isBrandConflict: false },
+      ],
+      eFleetOnly: [],
+      aligned: [],
+    }
+    const { container } = render(<FetAuditTable diff={diff} />)
+    const rows = container.querySelectorAll('tbody tr')
+    expect(rows[0].textContent).toContain('OA10')   // 10 (largest)
+    expect(rows[1].textContent).toContain('M5')     // 5
+    expect(rows[2].textContent).toContain('OA2')    // 2
+  })
 })

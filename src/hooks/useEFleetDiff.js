@@ -20,6 +20,10 @@ const EFLEET_SOURCED_FIELDS = ['price', 'fet', 'description', 'lr', 'tread']
  * @property {boolean} isOffProgram
  * @property {boolean} isBrandConflict
  * @property {Array<{ field: string, before: unknown, after: unknown }>} deltas
+ * @property {number | null} tireFet     — present when a tire row exists
+ * @property {number | null} tirePrice   — present when a tire row exists
+ * @property {number | null} recordFet   — present when an eFleet record exists
+ * @property {number | null} recordPrice — present when an eFleet record exists
  */
 
 /**
@@ -65,6 +69,10 @@ export function useEFleetDiff(tires, records) {
           isOffProgram: !!tire.offProgramAt,
           isBrandConflict: false,
           deltas: [],
+          tireFet: Number.isFinite(Number(tire.fet)) ? Number(tire.fet) : null,
+          tirePrice: Number.isFinite(Number(tire.price)) ? Number(tire.price) : null,
+          recordFet: null,
+          recordPrice: null,
         })
         continue
       }
@@ -87,6 +95,10 @@ export function useEFleetDiff(tires, records) {
         // conflict has its own pill; deltas should only carry eFleet-sourced
         // fields the importer would normally update.
         deltas: deltas.filter((d) => d.field !== 'brand'),
+        tireFet: Number.isFinite(Number(tire.fet)) ? Number(tire.fet) : null,
+        tirePrice: Number.isFinite(Number(tire.price)) ? Number(tire.price) : null,
+        recordFet: Number.isFinite(Number(record.fet)) ? Number(record.fet) : null,
+        recordPrice: Number.isFinite(Number(record.price)) ? Number(record.price) : null,
       }
       if (deltas.length > 0) {
         out.mismatched.push(entry)
@@ -105,6 +117,10 @@ export function useEFleetDiff(tires, records) {
         isOffProgram: false,
         isBrandConflict: false,
         deltas: [],
+        tireFet: null,
+        tirePrice: null,
+        recordFet: Number.isFinite(Number(record.fet)) ? Number(record.fet) : null,
+        recordPrice: Number.isFinite(Number(record.price)) ? Number(record.price) : null,
       })
     }
 

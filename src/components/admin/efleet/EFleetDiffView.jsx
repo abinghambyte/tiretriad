@@ -95,6 +95,8 @@ function EFleetOnlyTable({ rows }) {
           <th className="px-3 py-2">MSPN</th>
           <th className="px-3 py-2">Brand</th>
           <th className="px-3 py-2">Description</th>
+          <th className="px-3 py-2 text-right">eFleet Price</th>
+          <th className="px-3 py-2 text-right">eFleet FET</th>
         </tr>
       </thead>
       <tbody>
@@ -103,6 +105,12 @@ function EFleetOnlyTable({ rows }) {
             <td className="px-3 py-2 font-mono text-zinc-300">{r.mspn}</td>
             <td className="px-3 py-2 text-zinc-300">{r.brand}</td>
             <td className="px-3 py-2 text-zinc-400">{r.description}</td>
+            <td className="px-3 py-2 text-right font-mono text-zinc-300">
+              {r.recordPrice != null ? fmtCurrency(r.recordPrice) : '--'}
+            </td>
+            <td className="px-3 py-2 text-right font-mono text-zinc-300">
+              {r.recordFet != null ? fmtCurrency(r.recordFet) : '--'}
+            </td>
           </tr>
         ))}
       </tbody>
