@@ -350,6 +350,88 @@ describe('runCompletionTransaction', () => {
     //   = 4 * (100 + 100*0.0723 + 2) = 4 * 109.23 = 436.92
     expect(orderPatch.estimatedLandedCostAtCompletion).toBe(436.92)
   })
+
+  it('pool basis matches estimatedLandedCostAtCompletion snapshot', async () => {
+    // Build the scenario so the landed snapshot has a known value.
+    //   qty * tireLandedBuyNumber(tire, taxes)
+    //     = 4 * (100 + 100*0.0723 + 2)
+    //     = 4 * 109.23 = 436.92
+    // The revenue rollup's *Cost field MUST equal that snapshot, otherwise
+    // applyOrderCostChange will reverse against a mismatched baseline.
+    const refSnapshots = {
+      'meta/payoutConfig': { exists: false },
+      'orders/o2': {
+        exists: true,
+        data: () => ({
+          status: 'in_transit',
+          quantity: 4,
+          mspn: 'M1',
+        }),
+      },
+      'tires/M1': {
+        exists: true,
+        data: () => ({
+          price: 100,
+          mountCost: 5,
+          deliveryCost: 7,
+          otherCost: 3,
+          weeklyVelocityWeek: '',
+          weeklyVelocity: 0,
+        }),
+      },
+      'meta/revenueStats': { exists: false },
+      'meta/crewEarnings': { exists: false },
+    }
+    let orderPatch
+    let revPatch
+    const db = {
+      collection: (name) => ({
+        doc: (id) => {
+          const path = `${name}/${id}`
+          return {
+            path,
+            get: async () => refSnapshots[path] || { exists: false },
+          }
+        },
+      }),
+      runTransaction: async (fn) => {
+        const tx = {
+          get: async (ref) => {
+            const snap = refSnapshots[ref.path]
+            if (!snap) return { exists: false, data: () => ({}) }
+            return {
+              exists: snap.exists,
+              data: () => (typeof snap.data === 'function' ? snap.data() : {}),
+            }
+          },
+          update: (ref, patch) => {
+            if (ref.path === 'orders/o2') orderPatch = patch
+          },
+          set: (ref, patch) => {
+            if (ref.path === 'meta/revenueStats') revPatch = patch
+          },
+        }
+        await fn(tx)
+      },
+    }
+
+    await runCompletionTransaction(db, {
+      orderRef: { path: 'orders/o2' },
+      completionPatch: { status: 'completed' },
+      paymentAmount: 800,
+      completedMs: Date.UTC(2026, 3, 15, 19),
+    })
+
+    expect(orderPatch.estimatedLandedCostAtCompletion).toBe(436.92)
+    // The cost accumulated into revenueStats must equal the landed snapshot:
+    // CTS (mountCost+deliveryCost+otherCost = 15/tire) is intentionally NOT
+    // part of the landed basis, and the legacy taxesBundle.total is rolled
+    // into tireLandedBuyNumber's per-tire math (FET + wholesale tax + tire
+    // fee). Same value must be used at completion and at invoice reversal.
+    expect(revPatch.allTimeCost).toBe(436.92)
+    expect(revPatch.dailyCost).toBe(436.92)
+    expect(revPatch.allTimeMargin).toBe(round2(800 - 436.92))
+  })
 })
 
 describe('bumpRevenueFields', () => {

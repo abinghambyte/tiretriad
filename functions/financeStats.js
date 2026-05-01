@@ -404,22 +404,21 @@ async function runCompletionTransaction(db, params) {
 
     const qty = Number(orderData.quantity) || 0
     const buy = buyPerTireFromOrderAndTire(orderData, tireData)
-    const cts = ctsPerTire(tireData)
     const taxesBundle = computeOrderTaxes(buy, qty, payoutCfg.taxes)
-    const costTotal = round2((buy + cts) * qty + taxesBundle.total)
     const pay = round2(Number(paymentAmount) || 0)
-    const marginTotal = round2(pay - costTotal)
-    const pool = marginTotal
 
-    // Snapshot of predicted landed cost at completion (qty * tireLandedBuyNumber).
-    // Computed against the live payoutConfig.taxes so post-completion tax-rate
-    // edits do not retroactively rewrite this margin baseline. The crew /
-    // revenue rollups still use the legacy buy+CTS+taxBundle math; the
-    // snapshot is read by reporting helpers (completedOrderMarginPool) and
-    // by the eFleet invoice reconciliation flow.
+    // Landed cost basis: catalog buy + FET + wholesale tax + tire fee, per tire,
+    // times qty. Matches what completedOrderMarginPool reads + what
+    // applyOrderCostChange uses as oldRealized when the invoice reconciles.
+    // CTS (cost-to-sell overhead) is intentionally not included in the landed
+    // pool basis; it is a separate operational cost layer.
+    // taxesApplied is still written to the order doc below for reporting parity.
     const estimatedLandedCostAtCompletion = round2(
       qty * tireLandedBuyNumber(tireData, payoutCfg.taxes),
     )
+    const costTotal = estimatedLandedCostAtCompletion
+    const marginTotal = round2(pay - costTotal)
+    const pool = Math.max(0, marginTotal)
 
     const orderPatch = {
       ...completionPatch,
