@@ -4,7 +4,14 @@
  */
 const { FieldValue } = require('firebase-admin/firestore')
 const { tireCatalogBuyNumber } = require('./tireCatalogBuy')
-const { loadPayoutConfig, computeOrderTaxes, DEFAULT_CONFIG } = require('./payoutConfig')
+const {
+  loadPayoutConfig,
+  computeOrderTaxes,
+  applyDeliveryBump,
+  DEFAULT_CONFIG,
+} = require('./payoutConfig')
+
+const SPLIT_KEYS = ['alex', 'dj', 'kyle']
 
 const REVENUE_REF = (db) => db.collection('meta').doc('revenueStats')
 const CREW_REF = (db) => db.collection('meta').doc('crewEarnings')
@@ -172,6 +179,8 @@ function defaultCrewDoc() {
       totalEarned: 0,
       totalPaid: 0,
       balance: 0,
+      totalDeliveryBumps: 0,
+      deliveryBumpCount: 0,
       lastUpdatedAt: null,
     }
   }
@@ -250,19 +259,44 @@ function bumpRevenueFields(prev, paymentAmount, costTotal, marginTotal, complete
   return next
 }
 
-function bumpCrewEarned(prev, pool, splits = DEFAULT_CONFIG.splits) {
+function bumpCrewEarned(prev, pool, splits = DEFAULT_CONFIG.splits, opts = {}) {
   const base = prev && typeof prev === 'object' ? prev : {}
   const members = { ...(base.members || {}) }
-  const shareKeys = splits && typeof splits === 'object' ? Object.keys(splits) : []
+  const baseSplits = splits && typeof splits === 'object' ? splits : {}
+  const { deliveredBy = null, deliveryBump = 0 } = opts && typeof opts === 'object' ? opts : {}
+  const adjusted = applyDeliveryBump(baseSplits, deliveryBump, deliveredBy)
+  const shareKeys = Object.keys(adjusted)
+
+  let dollarDelta = 0
+  if (
+    deliveredBy
+    && SPLIT_KEYS.includes(deliveredBy)
+    && Object.prototype.hasOwnProperty.call(adjusted, deliveredBy)
+    && Object.prototype.hasOwnProperty.call(baseSplits, deliveredBy)
+  ) {
+    const before = Number(baseSplits[deliveredBy]) || 0
+    const after = Number(adjusted[deliveredBy]) || 0
+    dollarDelta = round2((after - before) * (Number(pool) || 0))
+  }
+
   for (const k of shareKeys) {
     const cur = members[k] && typeof members[k] === 'object' ? members[k] : {}
-    const add = round2(pool * (Number(splits[k]) || 0))
+    const add = round2(pool * (Number(adjusted[k]) || 0))
     const earned = round2((Number(cur.totalEarned) || 0) + add)
     const paid = Number(cur.totalPaid) || 0
+    let totalDeliveryBumps = Number(cur.totalDeliveryBumps) || 0
+    let deliveryBumpCount = Number(cur.deliveryBumpCount) || 0
+    if (k === deliveredBy && dollarDelta > 0) {
+      totalDeliveryBumps = round2(totalDeliveryBumps + dollarDelta)
+      deliveryBumpCount += 1
+    }
     members[k] = {
+      ...cur,
       totalEarned: earned,
       totalPaid: paid,
       balance: round2(earned - paid),
+      totalDeliveryBumps,
+      deliveryBumpCount,
       lastUpdatedAt: FieldValue.serverTimestamp(),
     }
   }
@@ -321,7 +355,14 @@ async function refreshTopSellers(db) {
  * Order completion + tire sales fields + revenue + crew in one transaction.
  */
 async function runCompletionTransaction(db, params) {
-  const { orderRef, completionPatch, paymentAmount, completedMs } = params
+  const {
+    orderRef,
+    completionPatch,
+    paymentAmount,
+    completedMs,
+    deliveredBy = null,
+    deliveryBump = null,
+  } = params
   const payoutCfg = await loadPayoutConfig(db)
   await db.runTransaction(async (tx) => {
     const orderSnap = await tx.get(orderRef)
@@ -379,7 +420,13 @@ async function runCompletionTransaction(db, params) {
     const crewRef = CREW_REF(db)
     const crewSnap = await tx.get(crewRef)
     const cPrev = crewSnap.exists ? crewSnap.data() || {} : defaultCrewDoc()
-    const nextCrew = bumpCrewEarned(cPrev, pool, payoutCfg.splits)
+    const effectiveBump = Number.isFinite(Number(deliveryBump))
+      ? Number(deliveryBump)
+      : payoutCfg.deliveryBump
+    const nextCrew = bumpCrewEarned(cPrev, pool, payoutCfg.splits, {
+      deliveredBy,
+      deliveryBump: effectiveBump,
+    })
     tx.set(crewRef, nextCrew, { merge: true })
   })
 

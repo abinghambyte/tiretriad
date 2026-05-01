@@ -34,6 +34,7 @@ export function PayoutConfigPanel() {
     stateTaxPct: '3.02',
     tireFeePerTire: '2.00',
   })
+  const [deliveryBumpPct, setDeliveryBumpPct] = useState('5.0')
   const [preview, setPreview] = useState({
     buy: '100.00',
     qty: '4',
@@ -59,6 +60,10 @@ export function PayoutConfigPanel() {
         stateTaxPct: String((Number(cfg.taxes.stateTaxPct) * 100).toFixed(2)),
         tireFeePerTire: String(Number(cfg.taxes.tireFeePerTire).toFixed(2)),
       })
+      const bumpRaw = Number(cfg.deliveryBump)
+      const bumpFrac =
+        Number.isFinite(bumpRaw) && bumpRaw >= 0 ? bumpRaw : 0.05
+      setDeliveryBumpPct(String((bumpFrac * 100).toFixed(1)))
     } catch (e) {
       const msg = e?.message || String(e)
       setServerError(msg)
@@ -79,6 +84,9 @@ export function PayoutConfigPanel() {
   }, [splits])
 
   const splitOk = Math.abs(splitFrac.sum - 1) <= 0.0001
+
+  const deliveryBumpFrac = useMemo(() => pctToFraction(deliveryBumpPct), [deliveryBumpPct])
+  const deliveryBumpOk = deliveryBumpFrac >= 0 && deliveryBumpFrac <= 0.5
 
   const taxRatesFrac = useMemo(() => {
     const countyTaxPct = pctToFraction(taxes.countyTaxPct)
@@ -149,6 +157,7 @@ export function PayoutConfigPanel() {
           stateTaxPct: pctToFraction(taxes.stateTaxPct),
           tireFeePerTire: Number(taxes.tireFeePerTire),
         },
+        deliveryBump: deliveryBumpFrac,
       }
       await updatePayoutConfig(payload)
       toast('Payout config saved.')
@@ -249,6 +258,30 @@ export function PayoutConfigPanel() {
                 />
               </label>
             </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-zinc-300">Delivery bump</h3>
+            <p className="mt-1 text-xs text-zinc-400">
+              Extra share added to the deliverer&apos;s cut on delivery orders. Range 0-50%.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="block text-xs font-medium text-zinc-400">
+                Delivery bump (%)
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={deliveryBumpPct}
+                  onChange={(ev) => setDeliveryBumpPct(ev.target.value)}
+                  className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+            </div>
+            {!deliveryBumpOk ? (
+              <p className="mt-2 text-xs text-amber-300">
+                Delivery bump must be between 0% and 50%.
+              </p>
+            ) : null}
           </div>
 
           <div>
@@ -370,7 +403,7 @@ export function PayoutConfigPanel() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                disabled={!splitOk || saving}
+                disabled={!splitOk || !deliveryBumpOk || saving}
                 onClick={() => void submit()}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               >

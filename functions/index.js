@@ -24,6 +24,8 @@ exports.verifyVipLink = verifyVipLink
 
 exports.updatePresence = require('./presence').updatePresence
 
+exports.editOrderDeliveredBy = require('./orderDeliveredByEdit').editOrderDeliveredBy
+
 const {
   enqueueBelowMarginFloor,
   enqueueToResearch,

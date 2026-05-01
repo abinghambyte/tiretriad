@@ -15,6 +15,7 @@ const DEFAULT_CONFIG = Object.freeze({
     stateTaxPct: 0.0302,
     tireFeePerTire: 2.0,
   }),
+  deliveryBump: 0.05,
 })
 
 const SPLIT_KEYS = ['alex', 'dj', 'kyle']
@@ -54,6 +55,38 @@ function splitPool(pool, splits) {
     }
   }
   return out
+}
+
+function applyDeliveryBump(splits, deliveryBump, deliveredBy) {
+  const base = splits && typeof splits === 'object' ? splits : {}
+  const out = { ...base }
+  const bump = Number(deliveryBump)
+  if (!Number.isFinite(bump) || bump <= 0) return out
+  if (!deliveredBy || !SPLIT_KEYS.includes(deliveredBy)) return out
+  if (!Object.prototype.hasOwnProperty.call(out, deliveredBy)) return out
+
+  const currentDeliverer = Number(out[deliveredBy]) || 0
+  let newDeliverer = currentDeliverer + bump
+  if (newDeliverer > 0.95) newDeliverer = 0.95
+
+  const otherKeys = SPLIT_KEYS.filter((k) => k !== deliveredBy)
+  let oldOthersTotal = 0
+  for (const k of otherKeys) oldOthersTotal += Number(out[k]) || 0
+
+  const newOthersTotal = 1 - newDeliverer
+  const result = { ...out, [deliveredBy]: newDeliverer }
+
+  if (oldOthersTotal === 0) {
+    for (const k of otherKeys) result[k] = 0
+    result[deliveredBy] = 1
+    return result
+  }
+
+  const scale = newOthersTotal / oldOthersTotal
+  for (const k of otherKeys) {
+    result[k] = (Number(out[k]) || 0) * scale
+  }
+  return result
 }
 
 function validatePayoutConfig(input) {
@@ -98,6 +131,18 @@ function validatePayoutConfig(input) {
   if (!Number.isFinite(tireFee)) errors.push('taxes.tireFeePerTire must be a finite number')
   else if (tireFee < 0 || tireFee > 25) errors.push('taxes.tireFeePerTire must be in [0, 25]')
 
+  let deliveryBumpNormalized = DEFAULT_CONFIG.deliveryBump
+  if (src.deliveryBump !== undefined && src.deliveryBump !== null) {
+    const db = Number(src.deliveryBump)
+    if (!Number.isFinite(db)) {
+      errors.push('deliveryBump must be a finite number')
+    } else if (db < 0 || db > 0.5) {
+      errors.push('deliveryBump must be in [0, 0.5]')
+    } else {
+      deliveryBumpNormalized = db
+    }
+  }
+
   if (errors.length) return { ok: false, errors, normalized: null }
 
   const normalized = {
@@ -112,6 +157,7 @@ function validatePayoutConfig(input) {
       stateTaxPct: Number(taxesIn.stateTaxPct),
       tireFeePerTire: Number(taxesIn.tireFeePerTire),
     },
+    deliveryBump: deliveryBumpNormalized,
   }
   return { ok: true, errors: [], normalized }
 }
@@ -122,12 +168,18 @@ async function loadPayoutConfig(db) {
     return {
       splits: { ...DEFAULT_CONFIG.splits },
       taxes: { ...DEFAULT_CONFIG.taxes },
+      deliveryBump: DEFAULT_CONFIG.deliveryBump,
     }
   }
   const d = snap.data() || {}
+  const bumpRaw = Number(d.deliveryBump)
+  const deliveryBump = Number.isFinite(bumpRaw) && bumpRaw >= 0 && bumpRaw <= 0.5
+    ? bumpRaw
+    : DEFAULT_CONFIG.deliveryBump
   return {
     splits: { ...DEFAULT_CONFIG.splits, ...(d.splits && typeof d.splits === 'object' ? d.splits : {}) },
     taxes: { ...DEFAULT_CONFIG.taxes, ...(d.taxes && typeof d.taxes === 'object' ? d.taxes : {}) },
+    deliveryBump,
   }
 }
 
@@ -166,7 +218,16 @@ const updatePayoutConfig = onCall(async (request) => {
   )
   const snap = await ref.get()
   const saved = snap.exists ? snap.data() || {} : v.normalized
-  return { ok: true, config: { splits: saved.splits, taxes: saved.taxes } }
+  return {
+    ok: true,
+    config: {
+      splits: saved.splits,
+      taxes: saved.taxes,
+      deliveryBump: Number.isFinite(Number(saved.deliveryBump))
+        ? Number(saved.deliveryBump)
+        : DEFAULT_CONFIG.deliveryBump,
+    },
+  }
 })
 
 module.exports = {
@@ -176,6 +237,7 @@ module.exports = {
   validatePayoutConfig,
   computeOrderTaxes,
   splitPool,
+  applyDeliveryBump,
   round2,
   getPayoutConfig,
   updatePayoutConfig,

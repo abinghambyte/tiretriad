@@ -36,6 +36,8 @@ import { StatusPill } from '../ui/StatusPill.jsx'
 import { statusPillTone } from '../ui/statusPillTone.js'
 import { formatCurrency, formatPercent, formatQty } from '../../utils/format'
 import { EmptyState, EmptyStateIcons } from '../shared/EmptyState.jsx'
+import { useUserProfile } from '../../hooks/useUserProfile'
+import { EditDeliveredByButton } from '../admin/payout/EditDeliveredByButton.jsx'
 
 const completeOrder = httpsCallable(functions, 'completeOrder')
 const cancelOrderFromPortal = httpsCallable(functions, 'cancelOrderFromPortal')
@@ -272,6 +274,8 @@ function OrderDebriefPrompt({ order }) {
  */
 export function OrdersList({ highlightId }) {
   const { toast } = useToast()
+  const { profile } = useUserProfile()
+  const currentUserRole = String(profile?.role || '').toLowerCase()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -279,6 +283,7 @@ export function OrdersList({ highlightId }) {
   const [completeFor, setCompleteFor] = useState(null)
   const [paymentReceived, setPaymentReceived] = useState(true)
   const [paymentAmount, setPaymentAmount] = useState('')
+  const [deliveredBy, setDeliveredBy] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   const [notifyModalOrder, setNotifyModalOrder] = useState(null)
@@ -462,8 +467,16 @@ export function OrdersList({ highlightId }) {
   const openComplete = (order) => {
     setPaymentReceived(true)
     setPaymentAmount(String(order.totalPrice ?? ''))
+    setDeliveredBy(null)
     setCompleteFor(order.id)
   }
+
+  const completeForOrder = useMemo(
+    () => orders.find((o) => o.id === completeFor) || null,
+    [orders, completeFor],
+  )
+  const completeIsDelivery =
+    String(completeForOrder?.fulfillment || '').toLowerCase() === 'delivery'
 
   const submitComplete = async () => {
     if (!completeFor) return
@@ -478,6 +491,7 @@ export function OrdersList({ highlightId }) {
         orderId: completeFor,
         paymentReceived,
         paymentAmount: amt,
+        deliveredBy: completeIsDelivery ? deliveredBy : null,
       })
       setCompleteFor(null)
     } catch (err) {
@@ -768,6 +782,9 @@ export function OrdersList({ highlightId }) {
                     Cancel order
                   </button>
                 ) : null}
+                {o.status === 'completed' ? (
+                  <EditDeliveredByButton order={o} currentUserRole={currentUserRole} />
+                ) : null}
               </div>
               <OrderDebriefPrompt key={`debrief-${o.id}`} order={o} />
             </li>
@@ -937,6 +954,35 @@ export function OrdersList({ highlightId }) {
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               />
             </label>
+            {completeIsDelivery ? (
+              <fieldset className="mt-3">
+                <legend className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Who delivered?
+                </legend>
+                <div className="mt-1 flex flex-wrap gap-3 text-sm text-zinc-200">
+                  {['alex', 'dj', 'kyle'].map((k) => (
+                    <label key={k} className="inline-flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="completeDeliveredBy"
+                        checked={deliveredBy === k}
+                        onChange={() => setDeliveredBy(k)}
+                      />
+                      {k === 'alex' ? 'Alex' : k === 'dj' ? 'DJ' : 'Kyle'}
+                    </label>
+                  ))}
+                  <label className="inline-flex items-center gap-1.5 text-zinc-400">
+                    <input
+                      type="radio"
+                      name="completeDeliveredBy"
+                      checked={deliveredBy === null}
+                      onChange={() => setDeliveredBy(null)}
+                    />
+                    Mark later
+                  </label>
+                </div>
+              </fieldset>
+            ) : null}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"

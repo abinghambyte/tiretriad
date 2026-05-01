@@ -27,6 +27,23 @@ function escapeSlackMrkdwn(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+/**
+ * Delivery-bump parenthetical for a crew member's earnings line.
+ * Returns '' when the member has no delivered orders so the calling
+ * line stays unchanged. Pluralizes "order" based on count.
+ *
+ * @param {{ totalDeliveryBumps?: number, deliveryBumpCount?: number }} member
+ * @returns {string}
+ */
+function crewMemberDeliveryBumpSubline(member) {
+  const m = member && typeof member === 'object' ? member : {}
+  const bumpCount = Number(m.deliveryBumpCount) || 0
+  if (bumpCount <= 0) return ''
+  const bumpDollars = Number(m.totalDeliveryBumps) || 0
+  const noun = bumpCount === 1 ? 'order' : 'orders'
+  return ` (incl. ${formatCurrency(bumpDollars)} from ${bumpCount} delivered ${noun})`
+}
+
 async function slackApiPost(token, method, body) {
   const res = await fetch(`https://slack.com/api/${method}`, {
     method: 'POST',
@@ -179,7 +196,7 @@ async function handleSlashOwed(db, token, channel) {
     .sort()
     .map((k) => {
       const m = members[k] || {}
-      return `*${escapeSlackMrkdwn(crewEarningsMetaDisplayName(k))}* — earned ${formatCurrency(Number(m.totalEarned) || 0)} · paid ${formatCurrency(Number(m.totalPaid) || 0)} · balance ${formatCurrency(Number(m.balance) || 0)}`
+      return `*${escapeSlackMrkdwn(crewEarningsMetaDisplayName(k))}* — earned ${formatCurrency(Number(m.totalEarned) || 0)}${crewMemberDeliveryBumpSubline(m)} · paid ${formatCurrency(Number(m.totalPaid) || 0)} · balance ${formatCurrency(Number(m.balance) || 0)}`
     })
   const blocks = [
     {
@@ -445,4 +462,5 @@ module.exports = {
   tryHandleFinanceViewSubmission,
   MODAL_PAYOUT_SUBMIT,
   executePayoutFromModal,
+  crewMemberDeliveryBumpSubline,
 }
