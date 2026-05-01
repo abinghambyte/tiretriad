@@ -13,32 +13,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const { FieldValue } = require('firebase-admin/firestore')
 const { applyOrderCostChange } = require('./applyOrderCostChange')
-const { round2 } = require('./payoutConfig')
-
-/**
- * Compute a single line's contribution to the order's actual landed cost.
- * - `line.extended` already bakes in per-line FET.
- * - Aggregate taxes are pro-rated by the line's net dollars.
- * - Tire fee is pro-rated by the line's tire count.
- *
- * @param {{ netUnitPrice?: number, qty?: number, extended?: number }} line
- * @param {{ countyTax?: number, localTax?: number, stateTax?: number,
- *   tireFee?: number, bonusTotal?: number, totalTires?: number }} totals
- * @returns {number}
- */
-function lineShareIncremental(line, totals) {
-  const lineNet = (Number(line.netUnitPrice) || 0) * (Number(line.qty) || 0)
-  const totalNet = Number(totals.bonusTotal) || 0
-  const aggregateTax = (Number(totals.countyTax) || 0)
-    + (Number(totals.localTax) || 0)
-    + (Number(totals.stateTax) || 0)
-  const lineShareOfTax = totalNet > 0 ? aggregateTax * (lineNet / totalNet) : 0
-  const totalTires = Number(totals.totalTires) || 0
-  const lineTireFee = totalTires > 0
-    ? (Number(totals.tireFee) || 0) * ((Number(line.qty) || 0) / totalTires)
-    : 0
-  return round2((Number(line.extended) || 0) + lineShareOfTax + lineTireFee)
-}
+const { lineShareIncremental } = require('./invoiceLineCost')
 
 /**
  * Find a completed portal order whose DR + (mspn, qty) match the invoice line.
