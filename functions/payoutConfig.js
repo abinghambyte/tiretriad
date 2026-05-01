@@ -38,6 +38,30 @@ function computeOrderTaxes(buyPerTire, qty, taxes) {
   return { salesTax, tireFee, total }
 }
 
+/**
+ * Server-side mirror of src/utils/tireLandedBuy. Resolves buy from
+ * priceIntel.activeBuyPrice -> price -> cost (matches client).
+ *
+ * @param {Record<string, unknown>} tire
+ * @param {Record<string, unknown>} taxes
+ * @returns {number}
+ */
+function tireLandedBuyNumber(tire, taxes) {
+  const t = tire && typeof tire === 'object' ? tire : {}
+  const pi = t.priceIntel && typeof t.priceIntel === 'object' ? t.priceIntel : {}
+  let buy = Number(pi.activeBuyPrice)
+  if (!Number.isFinite(buy) || buy <= 0) buy = Number(t.price)
+  if (!Number.isFinite(buy) || buy <= 0) buy = Number(t.cost)
+  if (!Number.isFinite(buy) || buy <= 0) return 0
+  const fet = Number(t.fet) || 0
+  const tx = taxes && typeof taxes === 'object' ? taxes : {}
+  const rate = (Number(tx.countyTaxPct) || 0)
+    + (Number(tx.localTaxPct) || 0)
+    + (Number(tx.stateTaxPct) || 0)
+  const fee = Number(tx.tireFeePerTire) || 0
+  return buy + fet + buy * rate + fee
+}
+
 function splitPool(pool, splits) {
   const p = Number(pool) || 0
   const s = splits && typeof splits === 'object' ? splits : DEFAULT_CONFIG.splits
@@ -236,6 +260,7 @@ module.exports = {
   loadPayoutConfig,
   validatePayoutConfig,
   computeOrderTaxes,
+  tireLandedBuyNumber,
   splitPool,
   applyDeliveryBump,
   round2,
