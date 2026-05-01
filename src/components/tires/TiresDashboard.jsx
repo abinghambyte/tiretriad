@@ -12,6 +12,7 @@ import { selectCategoryForTire, useDashboardSignals } from '../../hooks/useDashb
 import { usePayoutConfig } from '../../hooks/usePayoutConfig.js'
 import { computeMargin, computeListingMargin } from '../../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { tireLandedBuyNumber } from '../../utils/tireLandedBuy.js'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { deriveTireTags } from '../../utils/deriveTireTags'
 import { listingStatus } from '../../utils/listingStatus'
@@ -213,7 +214,8 @@ export function TiresDashboard() {
   const { permissionFor } = useUserProfile()
   const { tires, loading, error } = useTires()
   const { categoryMap } = useDashboardSignals()
-  const { marginFloorPct: floorPct } = usePayoutConfig()
+  const { config: payoutCfg, marginFloorPct: floorPct } = usePayoutConfig()
+  const taxes = payoutCfg && typeof payoutCfg === 'object' ? payoutCfg.taxes : null
 
   const tab = searchParams.get('tab') === 'orders' ? 'orders' : 'catalog'
   const highlightParam = searchParams.get('highlight') || ''
@@ -419,12 +421,12 @@ export function TiresDashboard() {
         ...t,
         photos: mergeTirePhotos(t.photos, pendingPhotoAdds[key], pendingPhotoDeletes[key]),
         margin: computeMargin(t),
-        listingMargin: computeListingMargin(t),
+        listingMargin: computeListingMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) }),
         derivedUseTags: deriveTireTags(t),
-        opportunity: computeOpportunityScore(t, { haggleDiscount }),
+        opportunity: computeOpportunityScore(t, { haggleDiscount, taxes }),
       }
     })
-  }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes])
+  }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes, taxes])
 
   const brandAggregates = useBrandAggregates(enriched, selectedCategory === 'all' ? null : selectedCategory)
 

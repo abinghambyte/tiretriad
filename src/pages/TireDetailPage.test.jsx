@@ -6,6 +6,10 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(() => ({})),
   getDoc: vi.fn(),
+  // TirePricingCard subscribes to meta/payoutConfig via usePayoutConfig.
+  // Returning a no-op unsubscribe lets the hook mount cleanly without
+  // touching real Firestore.
+  onSnapshot: vi.fn(() => () => {}),
 }))
 vi.mock('../firebase/config', () => ({ db: {} }))
 vi.mock('../hooks/useTires', () => ({ useTires: () => ({ tires: [], loading: false }) }))

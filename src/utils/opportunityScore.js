@@ -1,5 +1,5 @@
 import { effectiveCts } from './ctsCalc'
-import { tireCatalogBuyNumber } from './tireCatalogBuy'
+import { tireLandedBuyNumber } from './tireLandedBuy.js'
 import {
   tireCatalogRetailNumber,
   tireRetailIsEstimated,
@@ -68,41 +68,43 @@ function clampHaggle(v) {
 }
 
 /**
- * All-in per-tire floor: buy + overhead + FET. Answers "what do I have to
- * clear to break even on this tire?" Returns null when buy is missing
- * because a floor without a cost basis is meaningless.
+ * All-in per-tire floor: landed buy + overhead. Answers "what do I have to
+ * clear to break even on this tire?" `landed` already folds in FET,
+ * wholesale sales tax, and the CO tire fee — see `tireLandedBuyNumber`.
+ * Returns null when landed buy is missing because a floor without a cost
+ * basis is meaningless.
  *
  * @param {Record<string, unknown> | null | undefined} tire
+ * @param {Record<string, unknown> | null | undefined} [taxes]  meta/payoutConfig.taxes
  * @returns {number | null}
  */
-export function computeFloor(tire) {
-  const buy = tireCatalogBuyNumber(tire)
-  if (!(Number.isFinite(buy) && buy > 0)) return null
+export function computeFloor(tire, taxes) {
+  const landed = tireLandedBuyNumber(tire, taxes)
+  if (!(Number.isFinite(landed) && landed > 0)) return null
   const overhead = effectiveCts(tire)
-  const fet = fetNumber(tire)
-  return buy + overhead + fet
+  return landed + overhead
 }
 
 /**
  * Projected per-tire net profit at a given haggle discount off researched
  * retail. `haggleDiscount` is a fraction clamped to [0, 0.30]; defaults to
- * 0.10 when not finite. Returns null when retail or buy is missing.
+ * 0.10 when not finite. Returns null when retail or landed buy is missing.
  *
- * net = retail * (1 - haggle) - buy - overhead - fet
+ * net = retail * (1 - haggle) - landed - overhead
  *
  * @param {Record<string, unknown> | null | undefined} tire
  * @param {number} [haggleDiscount=0.1]
+ * @param {Record<string, unknown> | null | undefined} [taxes]
  * @returns {number | null}
  */
-export function computeNetPerTire(tire, haggleDiscount = DEFAULT_HAGGLE_DISCOUNT) {
+export function computeNetPerTire(tire, haggleDiscount = DEFAULT_HAGGLE_DISCOUNT, taxes) {
   const retail = tireCatalogRetailNumber(tire)
   if (!(Number.isFinite(retail) && retail > 0)) return null
-  const buy = tireCatalogBuyNumber(tire)
-  if (!(Number.isFinite(buy) && buy > 0)) return null
+  const landed = tireLandedBuyNumber(tire, taxes)
+  if (!(Number.isFinite(landed) && landed > 0)) return null
   const overhead = effectiveCts(tire)
-  const fet = fetNumber(tire)
   const h = clampHaggle(haggleDiscount)
-  return retail * (1 - h) - buy - overhead - fet
+  return retail * (1 - h) - landed - overhead
 }
 
 /**
@@ -113,14 +115,20 @@ export function computeNetPerTire(tire, haggleDiscount = DEFAULT_HAGGLE_DISCOUNT
  * on a Gemini-researched retail ($50 × 1.0). That keeps unresearched
  * guesses from beating real data on the ranking.
  *
+ * Cost basis is the predictive landed cost from `tireLandedBuyNumber`:
+ * catalog buy + FET + wholesale sales tax (rate from `taxes`) + CO tire fee.
+ * `r.buy` reports landed (so callers see the all-in cost), `r.fet` stays as
+ * the per-tire FET for breakdown rendering. Floor and net subtract landed
+ * directly; FET is NOT subtracted again on top of landed.
+ *
  * Missing-data behaviour:
  *   - no retail → `walkawayPrice`, `netPerTire`, `opportunity` all null,
- *                 but `floor` is still returned when buy is present so the
+ *                 but `floor` is still returned when landed > 0 so the
  *                 operator still has a break-even number to quote.
  *   - no buy   → `floor`, `netPerTire`, `opportunity` all null.
  *
  * @param {Record<string, unknown> | null | undefined} tire
- * @param {{ haggleDiscount?: number }} [opts]
+ * @param {{ haggleDiscount?: number, taxes?: Record<string, unknown> | null }} [opts]
  * @returns {{
  *   retail: number | null,
  *   buy: number | null,
@@ -136,11 +144,12 @@ export function computeNetPerTire(tire, haggleDiscount = DEFAULT_HAGGLE_DISCOUNT
  */
 export function computeOpportunityScore(tire, opts) {
   const haggle = clampHaggle(opts && typeof opts === 'object' ? opts.haggleDiscount : undefined)
+  const taxes = opts && typeof opts === 'object' ? opts.taxes : undefined
   const overhead = effectiveCts(tire)
   const fet = fetNumber(tire)
 
-  const rawBuy = tireCatalogBuyNumber(tire)
-  const buy = Number.isFinite(rawBuy) && rawBuy > 0 ? rawBuy : null
+  const rawLanded = tireLandedBuyNumber(tire, taxes)
+  const landed = Number.isFinite(rawLanded) && rawLanded > 0 ? rawLanded : null
 
   const rawRetail = tireCatalogRetailNumber(tire)
   const retail = Number.isFinite(rawRetail) && rawRetail > 0 ? rawRetail : null
@@ -148,22 +157,22 @@ export function computeOpportunityScore(tire, opts) {
   const confidence = retailConfidenceTier(tire)
   const weight = confidenceWeight(confidence)
 
-  const floor = buy != null ? buy + overhead + fet : null
+  const floor = landed != null ? landed + overhead : null
 
   let walkawayPrice = null
   let netPerTire = null
   let opportunity = null
   if (retail != null) {
     walkawayPrice = retail * (1 - haggle)
-    if (buy != null) {
-      netPerTire = walkawayPrice - buy - overhead - fet
+    if (landed != null) {
+      netPerTire = walkawayPrice - landed - overhead
       opportunity = netPerTire * weight
     }
   }
 
   return {
     retail,
-    buy,
+    buy: landed,
     overhead,
     fet,
     walkawayPrice,

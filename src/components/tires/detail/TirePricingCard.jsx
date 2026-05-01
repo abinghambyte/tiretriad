@@ -1,7 +1,9 @@
 import { tireCatalogBuyNumber } from '../../../utils/tireCatalogBuy.js'
+import { tireLandedBuyNumber } from '../../../utils/tireLandedBuy.js'
 import { tireCatalogRetailNumber, tireRetailIsResearched, tireRetailIsEstimated } from '../../../utils/tireCatalogRetail.js'
 import { computeListingMargin } from '../../../utils/marginCalc.js'
 import { formatCurrency } from '../../../utils/format.js'
+import { usePayoutConfig } from '../../../hooks/usePayoutConfig.js'
 
 // Used for Buy and Retail: '--' when missing or zero (a zero buy/retail
 // is effectively "not set" for catalog purposes).
@@ -30,11 +32,20 @@ function row(label, value, valueClass = 'font-mono text-zinc-200') {
 }
 
 export function TirePricingCard({ tire, efleetRecord, efleetDate }) {
+  const { config: payoutCfg } = usePayoutConfig()
+  const taxes = payoutCfg && typeof payoutCfg === 'object' ? payoutCfg.taxes : null
   const buy = tireCatalogBuyNumber(tire)
+  const landed = tireLandedBuyNumber(tire, taxes)
+  const taxRate =
+    (Number(taxes?.countyTaxPct) || 0)
+    + (Number(taxes?.localTaxPct) || 0)
+    + (Number(taxes?.stateTaxPct) || 0)
+  const wholesaleTax = buy * taxRate
+  const tireFee = Number(taxes?.tireFeePerTire) || 0
   const retail = tireCatalogRetailNumber(tire)
   const researched = tireRetailIsResearched(tire)
   const estimated = tireRetailIsEstimated(tire)
-  const margin = computeListingMargin(tire)
+  const margin = computeListingMargin(tire, { landedBuy: landed })
   const fet = Number(tire?.fet) || 0
 
   const retailClass = estimated
@@ -51,7 +62,10 @@ export function TirePricingCard({ tire, efleetRecord, efleetDate }) {
     <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
       <h2 className="mb-3 text-sm font-semibold text-zinc-100">Pricing</h2>
       <dl>
-        {row('Buy', fmtNum(buy))}
+        {row('Buy (landed)', fmtNum(landed))}
+        {row('Catalog', fmtNum(buy), 'font-mono text-xs text-zinc-500')}
+        {row('Wholesale tax', fmtFet(wholesaleTax), 'font-mono text-xs text-zinc-500')}
+        {row('CO tire fee', fmtFet(tireFee), 'font-mono text-xs text-zinc-500')}
         {row('Retail', fmtNum(retail), retailClass)}
         {row('FET', fmtFet(fet))}
         {row('Margin', fmtPct(margin))}
