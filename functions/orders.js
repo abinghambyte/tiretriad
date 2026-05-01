@@ -34,11 +34,75 @@ const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
 const { buildTaxPrepCsv } = require('./taxPrepExport')
 const { runCompletionTransaction } = require('./financeStats')
+const { loadPayoutConfig } = require('./payoutConfig')
 
 const THIRTY_DAYS_MS = 30 * 86_400_000
 const FUTURE_SKEW_MS = 60_000
 /** Omit `completedAtSource` when the chosen time is within this many ms of `now` ("same-now"). */
 const SAME_NOW_MAX_MS = 120_000
+
+/** Crew keys eligible for `deliveredBy`. Mirrors splits keys in payoutConfig. */
+const DELIVERED_BY_KEYS = ['alex', 'dj', 'kyle']
+
+/**
+ * Validate + normalize a `deliveredBy` value supplied to `completeOrder`.
+ *
+ * Rules:
+ *   - Empty (`null`/`undefined`/blank string) returns `null` for any fulfillment.
+ *   - Non-empty values must be one of `DELIVERED_BY_KEYS` (case-insensitive, trimmed).
+ *   - Non-empty values are only allowed when `fulfillmentLc === 'delivery'`.
+ *
+ * @internal Exported for unit tests (non-enumerable so it does not pollute the
+ * deployed Cloud Functions surface).
+ * @param {unknown} raw
+ * @param {string} fulfillmentLc
+ * @returns {'alex'|'dj'|'kyle'|null}
+ */
+function validateDeliveredByForCompletion(raw, fulfillmentLc) {
+  if (raw === undefined || raw === null) return null
+  const s = String(raw).trim().toLowerCase()
+  if (!s) return null
+  if (!DELIVERED_BY_KEYS.includes(s)) {
+    throw new HttpsError(
+      'invalid-argument',
+      `deliveredBy must be one of ${DELIVERED_BY_KEYS.join(', ')}.`,
+    )
+  }
+  if (fulfillmentLc !== 'delivery') {
+    throw new HttpsError(
+      'invalid-argument',
+      'deliveredBy is only valid on delivery orders.',
+    )
+  }
+  return s
+}
+
+/**
+ * Resolve the `source` field for a bumpAudit entry from request data.
+ * @internal Exported for unit tests.
+ * @param {{ source?: unknown }|undefined|null} data
+ * @returns {'slack-completion'|'web-completion'}
+ */
+function resolveBumpAuditSource(data) {
+  if (data && data.source === 'slack-completion') return 'slack-completion'
+  return 'web-completion'
+}
+
+/**
+ * Build the initial `orders/{id}/bumpAudit` entry for a deliveredBy that was
+ * just set on completion (so `oldValue` is always `null`).
+ * @internal Exported for unit tests.
+ */
+function buildBumpAuditEntry({ newValue, setBy, setAt, source }) {
+  return {
+    oldValue: null,
+    newValue,
+    setBy: setBy || null,
+    setAt,
+    source,
+    reason: null,
+  }
+}
 
 /**
  * Pure completion timestamp resolution for `completeOrder` / `sendTireSaleSms`.
@@ -409,6 +473,16 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     )
   }
 
+  const fulfillmentLc =
+    String(before.fulfillment || '').toLowerCase() === 'pickup'
+      ? 'pickup'
+      : 'delivery'
+  const deliveredByNormalized = validateDeliveredByForCompletion(
+    data.deliveredBy,
+    fulfillmentLc,
+  )
+  const payoutCfg = await loadPayoutConfig(db)
+
   const nowMs = Date.now()
   const tsInput = {}
   if (
@@ -484,6 +558,12 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     createdAfterHours,
     frictionScore,
     handledBy: { supplier: 'Kyle', mechanic: 'DJ' },
+    deliveredBy: deliveredByNormalized,
+    deliveredBySetAt: deliveredByNormalized
+      ? FieldValue.serverTimestamp()
+      : null,
+    deliveredBySetBy: deliveredByNormalized ? request.auth.uid : null,
+    deliveryBumpAtCompletion: payoutCfg.deliveryBump,
     updatedAt: FieldValue.serverTimestamp(),
   }
   if (resolvedTs.completedAtSource === 'backdated') {
@@ -498,6 +578,8 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
       completionPatch,
       paymentAmount,
       completedMs,
+      deliveredBy: deliveredByNormalized,
+      deliveryBump: payoutCfg.deliveryBump,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -509,6 +591,20 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     }
     console.error('completeOrder transaction', e)
     throw new HttpsError('internal', `Completion failed: ${msg}`)
+  }
+
+  if (deliveredByNormalized) {
+    try {
+      const auditEntry = buildBumpAuditEntry({
+        newValue: deliveredByNormalized,
+        setBy: request.auth.uid,
+        setAt: FieldValue.serverTimestamp(),
+        source: resolveBumpAuditSource(data),
+      })
+      await ref.collection('bumpAudit').add(auditEntry)
+    } catch (e) {
+      console.error('completeOrder bumpAudit write', e)
+    }
   }
 
   if (phoneKey) {
@@ -695,4 +791,22 @@ Object.defineProperty(module.exports, 'resolveCompletionTimestamp', {
   configurable: false,
   writable: false,
   value: resolveCompletionTimestamp,
+})
+Object.defineProperty(module.exports, 'validateDeliveredByForCompletion', {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: validateDeliveredByForCompletion,
+})
+Object.defineProperty(module.exports, 'resolveBumpAuditSource', {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: resolveBumpAuditSource,
+})
+Object.defineProperty(module.exports, 'buildBumpAuditEntry', {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: buildBumpAuditEntry,
 })
