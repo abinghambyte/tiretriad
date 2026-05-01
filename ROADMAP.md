@@ -35,12 +35,12 @@ A second persona on top of the existing `salesAdvisor` Cloud Function. Takes a t
 
 Anchor example to feed into the system prompt for tone/depth: see the LT285/70R17 KO3 NOCO Memorial Day analysis we walked through manually on 2026-05-01 (catalog lookup → landed math → market comps → fitment → seasonal context → listing copy → photo strategy). That conversation IS the spec for what the model should produce.
 
-### 📊 Catalog export view (printable report)
-"Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
-
 ---
 
 ## Later
+
+### 📊 Catalog export view (printable report)
+"Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
 
 ### 🛞 Catalog-first navigation (drill-down)
 Land on category → brand → tread breadcrumb instead of a 1,628-row table. Power users still get the existing flat catalog via "Show all SKUs." Casual users (and customer-facing modes) don't get vertigo from a flat view on first contact. Sort by margin% throughout so highest-money tires surface fastest.
