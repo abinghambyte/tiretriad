@@ -35,9 +35,6 @@ Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retai
 
 🔗 **Bundle with:** the existing 2-line description treatment in `TireDescriptionCell` — the same primary/secondary split + sidewall pills used on catalog rows lives at the top of this detail page.
 
-### 🛞 Listing generator (replaces sticker idea)
-Bulk action that generates listing copy + structured metadata for selected tires, ready to post to platforms. Uses eFleet metadata (tread family, size, retail, MSPN) to draft listings consistently.
-
 ### 📊 Catalog export view (printable report)
 "Share / Print" button that opens a printable view of the current filtered catalog formatted like the Michelin eFleet PDF — Skedaddle-branded cover page with account/date metadata, section breaks per brand, sticky table headers, A4 page geometry. The eFleet HTML's `@media print` block is a direct reference.
 
@@ -229,6 +226,9 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### Listing metadata export (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-listing-metadata-export-design.md`. New `<ListingGenerator>` "Export structured metadata" section with Copy JSON + Download CSV buttons. Pure utility `buildListingMetadata({tires, qty, pricePer}[])` returns platform-agnostic `ListingEntry[]` with universal tire fields (sku, brand, mpn, condition, qty, price, category, sizeSpec, treadFamily, sidewallTags, photos) plus a per-platform copy map. Same data the operator sees in the script grid is what flows out — eBay sell-side publisher (Later) consumes this without retyping. RFC-4180 CSV serializer for sheet workflows.
 
 ### eFleet admin tools: /admin/efleet (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-05-01-efleet-admin-tools-design.md`. New admin sub-route `/admin/efleet` with three tabs:
