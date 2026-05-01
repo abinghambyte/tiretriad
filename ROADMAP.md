@@ -16,15 +16,7 @@ Within each tier, items are grouped by **surface** (Tires catalog, Dashboard, CR
 
 ## Now
 
-### 🛞 Brand stats card row above the catalog
-Horizontal strip of brand pill cards above MarginTable showing `MICHELIN - 627 SKUs · avg $328` + filter affordance. Click sets `brand=` filter. Uses existing `--color-brand-*` tokens. Quick visual brand-mix summary without opening Filters. Uniroyal data is now in (1,628 tire docs across MICHELIN/BFGOODRICH/UNIROYAL), so the pill counts are meaningful out of the gate.
-
-🔗 **Bundle with:** *Brand-tier hero strip on Dashboard* (below). Same brand-aggregate selector powers both — build once in `useDashboardSignals.js`, render twice.
-
-### 📊 Brand-tier hero strip on Dashboard
-Brand portfolio at-a-glance widget on the Dashboard: `MICHELIN - 627 SKUs · 22.6% avg margin`, etc. Hooks into the same brand-aggregate selector as the catalog brand stats card row.
-
-🔗 **Bundle with:** *Brand stats card row* (above). Same selector, two render sites.
+_(Now bucket cleared — Brand stats card row + Brand-tier hero strip shipped today as part of the `brand-aggregates` branch. See Resolved.)_
 
 ---
 
@@ -218,6 +210,9 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### Brand stats card row + Dashboard hero strip (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-04-30-brand-aggregates-design.md`. Tab-style pill row above the MarginTable replacing the brand `<select>` in MarginFilters; same selector powers a Dashboard hero strip showing all `EXPECTED_BRANDS` with NOT STOCKED red badge for any 0-SKU brand. Selector `useBrandAggregates(tires, category)` produces `{ total, brands[], missingBrands[] }`. Mobile pill row scroll-snaps + auto-scrolls active pill into view; arrow-key navigation across pills (WAI-ARIA tabs pattern). Bundled tech debt: extracted `TIRE_CATEGORY_KEYS` constants, slim `useCategoryMap` hook split from `useDashboardSignals`, dropped `TireDescriptionCellForTest` shim in favor of canonical `TireDescriptionCell` export.
 
 ### Sales advisor drawer v1 (shipped 2026-05-01)
 Spec: `docs/superpowers/specs/2026-05-01-sales-advisor-drawer-design.md`. Right-side chat drawer on the Tires page with sales-coach persona (objection handling, pitch craft, follow-up coaching, high-margin moves). New Cloud Function `salesAdvisorChat`: admin-gated, 30 msg/hour rate limit per UID via in-memory Map, Anthropic Haiku → Sonnet fallback, 1500 max tokens at temp 0.4. System prompt parameterized by `surface` field so future Dashboard / CRM / Analytics drawers swap their own persona without re-architecting. Single conversation, session-only, buffered (no streaming) for v1. Triggered via floating button or `?` keyboard. Empty state lists 4 sales-expert suggestion prompts. Tires page bundle cap bumped 42 → 47 KB (currently 42.03 KB; drop back when any surface gets meaningfully trimmed).
