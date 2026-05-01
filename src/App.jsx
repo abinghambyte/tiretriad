@@ -35,6 +35,7 @@ const AdminEFleetInvoicesPage = lazy(() =>
     default: m.AdminEFleetInvoicesPage,
   })),
 )
+const AdminListingCoachRulesPage = lazy(() => import('./pages/AdminListingCoachRulesPage'))
 const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
 const PeopleEarningsPage = lazy(() =>
   import('./pages/PeopleEarningsPage').then((m) => ({ default: m.PeopleEarningsPage })),
@@ -197,6 +198,16 @@ export default function App() {
             <ProtectedRoute requireAdmin>
               <Suspense fallback={<RouteFallback />}>
                 <AdminEFleetInvoicesPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/listing-coach-rules"
+          element={
+            <ProtectedRoute requireAdmin>
+              <Suspense fallback={<RouteFallback />}>
+                <AdminListingCoachRulesPage />
               </Suspense>
             </ProtectedRoute>
           }

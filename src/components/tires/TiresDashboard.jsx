@@ -28,6 +28,7 @@ import { CategoryTabs } from './CategoryTabs.jsx'
 import { categoryMapAgeStatus } from './categoryMapAgeStatus.js'
 import { useBrandAggregates } from '../../hooks/useBrandAggregates.js'
 import { useSalesAdvisorChat } from '../../hooks/useSalesAdvisorChat.js'
+import { useListingCoach } from '../../hooks/useListingCoach.js'
 import { buildAdvisorContext } from '../../utils/buildAdvisorContext.js'
 import { SalesAdvisorDrawer } from './SalesAdvisorDrawer.jsx'
 import { SalesAdvisorTrigger } from './SalesAdvisorTrigger.jsx'
@@ -442,6 +443,7 @@ export function TiresDashboard() {
   }, [brandAggregates, selectedIds, enriched])
 
   const advisor = useSalesAdvisorChat({ buildContext: advisorBuildContext })
+  const listingCoach = useListingCoach()
 
   // toggle is memoized inside useSalesAdvisorChat with no dependencies, so
   // its identity is stable for the component lifetime — depending on the
@@ -948,6 +950,11 @@ export function TiresDashboard() {
         pending={advisor.pending}
         onClose={advisor.close}
         onSend={advisor.send}
+        listingMessages={listingCoach.messages}
+        listingPending={listingCoach.pending}
+        listingAudience={listingCoach.audience}
+        onListingAudienceChange={listingCoach.setAudience}
+        onListingSend={listingCoach.send}
       />
 
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-8">
