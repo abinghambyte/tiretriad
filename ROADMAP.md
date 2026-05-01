@@ -35,26 +35,6 @@ Click a SKU → detail page showing title/size/MSPN/tread/sidewall/LR, Buy/Retai
 
 🔗 **Bundle with:** the existing 2-line description treatment in `TireDescriptionCell` — the same primary/secondary split + sidewall pills used on catalog rows lives at the top of this detail page.
 
-### 🛞 FET audit endpoint
-*267 eFleet items have FET > $0.* Some portal screenshots show `$3.00` FET on items where Michelin-quoted FET is `$0.00` (passenger) or `$30+` (commercial) — `$3.00` may be an overhead default mistakenly typed as FET. Build an admin/audit page listing SKUs where portal FET disagrees with eFleet-quoted FET. Surfaces tax-compliance issues on heavy-truck quotes/invoices.
-
-🔗 **Bundle with:** *Side-by-side eFleet diff view* (below) — both compare portal data against `meta/categoryMap`/eFleet metadata. Same data shape, same admin route, share the page wrapper.
-
-### 🛞 Side-by-side eFleet diff view
-Admin/audit page showing:
-- 🟡 SKUs in inventory but NOT in eFleet (potential aged stock)
-- 🔵 SKUs in eFleet but NOT in inventory (sales gap)
-- 🟢 SKUs aligned with current pricing
-- Price-drift detection
-Bulk-deprecate or bulk-add with one click. Diff regenerates on each new eFleet HTML upload.
-
-🔗 **Bundle with:** *FET audit endpoint* + *eFleet account-number admin view*. All three live on the same admin/eFleet-tools page.
-
-### 🛞 Surface eFleet account number in admin / `meta/eFleetAccount`
-The eFleet HTML reports include a Ship-To string (`1580951 SKEDADDLE INC LOVELAND`). Captured by the import script, stored on `meta/categoryMap`, but never shown anywhere in the UI. Add a small admin/ops view: account, last import date, total parsed, diff size on last import. Useful for sanity-checking imports against the right account when Michelin reorganizes the program.
-
-🔗 **Bundle with:** *eFleet diff view* + *FET audit*. Single eFleet-tools admin page.
-
 ### 🛞 Listing generator (replaces sticker idea)
 Bulk action that generates listing copy + structured metadata for selected tires, ready to post to platforms. Uses eFleet metadata (tread family, size, retail, MSPN) to draft listings consistently.
 
@@ -249,6 +229,21 @@ After a mount location is picked and `<SinchChatMount />` is imported, populate 
 ## Resolved (recent ships, kept for context)
 
 Trim periodically.
+
+### eFleet admin tools: /admin/efleet (shipped 2026-05-01)
+Spec: `docs/superpowers/specs/2026-05-01-efleet-admin-tools-design.md`. New admin sub-route `/admin/efleet` with three tabs:
+
+- **Account** — categoryMap metadata (ship-to, last imported, source report date, source file, total parsed) + the four diff counts.
+- **FET audit** — tax-compliance focus. Two passes: (1) `diff.mismatched` entries with a FET delta, (2) `diff.invOnly` entries where `tireFet > 0` but eFleet has no record (catches the `$3.00` overhead-as-FET typo on aged stock). Sorted by absolute FET amount; over-applied rows carry an `OVER-APPLIED` amber pill.
+- **Diff** — sub-tab strip with state-keyed colored headers: Mismatched (red) / Inv only (amber) / eFleet only (blue) / Aligned (emerald). URL state via `?tab=diff&state=<key>`.
+
+Importer extension: `meta/categoryMap` now carries a `records: { mspn → { fet, price, brand, description, lr, tread } }` field alongside the existing `mspns` mapping. Bumped `version` 1 → 2. Soft-warn at 800 KB payload (current catalog ~325 KB; 1 MB Firestore doc ceiling).
+
+Selector: `useEFleetDiff(tires, records)` returns four buckets + counts. Soft-archived tires excluded. Brand-mismatched rows land in Mismatched with `isBrandConflict: true` (the synthetic `brand` delta is stripped from the public deltas list since the pill covers it). Each entry carries `tireFet`/`tirePrice` when a tire row exists and `recordFet`/`recordPrice` when an eFleet record exists.
+
+Read-only diagnostic. Inline fix actions intentionally out of scope for v1; operator reconciles via Firestore Console or one-off scripts.
+
+Bundles three roadmap entries: *FET audit endpoint*, *Side-by-side eFleet diff view*, *Surface eFleet account number admin*.
 
 ### eFleet importer: skip ALL field updates when brand conflicts (shipped 2026-04-30)
 `scripts/import-efleet.mjs` `planTirePhases` now `continue`s past the field-diff loop after pushing a `brandConflicts[]` entry, so when an MSPN appears under two brand sections in the eFleet HTML the existing tire's `description`/`price`/`fet`/`lr`/`tread` are not overwritten by the wrong-brand product. Operator still sees the conflict in the run summary and reconciles manually. Test `import-efleet.test.mjs` adds a 54802-shaped regression case (BFG row vs Michelin HTML duplicate) asserting `fieldDiffs === []` while `brandConflicts` carries the warning.
