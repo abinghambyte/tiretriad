@@ -24,6 +24,7 @@ const {
   tryHandleSmsReplyBlockActions,
   tryHandleSmsReplyViewSubmission,
 } = require('./smsReplySlack')
+const { applyDeliveredByChange } = require('./orderDeliveredByEdit')
 
 const MODAL_REJECT = 'order_modal_reject'
 const MODAL_SCHEDULE = 'order_modal_schedule'
@@ -904,6 +905,23 @@ async function handleBlockActions(db, token, envChannel, payload) {
     return { kind: 'json', body: { response_action: 'update', view } }
   }
 
+  // "Delivered by ..." buttons on the close-out completion message. Value is
+  // JSON (`{ orderId }`); the action_id encodes the crew key. Click sets the
+  // order's deliveredBy post-hoc, recomputes splits via the shared helper, and
+  // updates the Slack message inline so nobody can click again.
+  const dbKey = deliveredByKeyFromActionId(actionId)
+  if (dbKey) {
+    let parsed
+    try {
+      parsed = JSON.parse(String(action.value || '{}'))
+    } catch {
+      return { kind: 'empty' }
+    }
+    const orderId = String(parsed.orderId || '').trim()
+    if (!orderId) return { kind: 'empty' }
+    return handleDeliveredByButton(db, token, payload, orderId, dbKey)
+  }
+
   const orderId = String(action.value || '').trim()
   if (!orderId) return { kind: 'empty' }
 
@@ -1002,16 +1020,68 @@ async function handleBlockActions(db, token, envChannel, payload) {
   }
 }
 
-async function postOrderCompletionSummary(token, envChannel, order, portalBaseUrl) {
-  const ch = channelForOrder(order, envChannel)
-  if (!ch) return
+/**
+ * Crew names the "Delivered by ..." buttons surface on the close-out message.
+ * Mirrors `DELIVERED_BY_KEYS` in orders.js / `SPLIT_KEYS` in orderDeliveredByEdit.js.
+ */
+const DELIVERED_BY_LABELS = { alex: 'Alex', dj: 'DJ', kyle: 'Kyle' }
 
+/**
+ * Returns true when the close-out message should carry the "Delivered by ..."
+ * buttons: delivery fulfillment AND no `deliveredBy` is recorded yet.
+ */
+function shouldOfferDeliveredByButtons(order) {
+  if (!order) return false
+  const f = String(order.fulfillment || '').toLowerCase()
+  if (f !== 'delivery') return false
+  const set = String(order.deliveredBy || '').trim().toLowerCase()
+  if (set === 'alex' || set === 'dj' || set === 'kyle') return false
+  return true
+}
+
+/**
+ * Build the actions block with three "Delivered by ..." buttons. Each button's
+ * `value` carries the order id JSON-encoded so the interactivity handler can
+ * round-trip extra context if we ever need it.
+ */
+function buildDeliveredByButtons(orderId) {
+  const mk = (key) => ({
+    type: 'button',
+    text: {
+      type: 'plain_text',
+      text: `Delivered by ${DELIVERED_BY_LABELS[key]}`,
+      emoji: true,
+    },
+    action_id: `delivered_by_${key}`,
+    value: JSON.stringify({ orderId }),
+  })
+  return {
+    type: 'actions',
+    block_id: 'delivered_by_actions',
+    elements: [mk('alex'), mk('dj'), mk('kyle')],
+  }
+}
+
+/**
+ * Map a `delivered_by_*` action_id to the crew key the order should be tagged
+ * with. Returns null for anything outside the allowlist.
+ * @param {string} actionId
+ * @returns {'alex'|'dj'|'kyle'|null}
+ */
+function deliveredByKeyFromActionId(actionId) {
+  if (actionId === 'delivered_by_alex') return 'alex'
+  if (actionId === 'delivered_by_dj') return 'dj'
+  if (actionId === 'delivered_by_kyle') return 'kyle'
+  return null
+}
+
+function buildCompletionSummaryBlocks(order, portalBaseUrl) {
   const pay = Number(order.paymentAmount)
   const mins = Number(order.totalFulfillmentMinutes ?? order.fulfillmentTimeMinutes)
   const timeStr = Number.isFinite(mins) ? formatFulfillmentMinutes(mins) : '—'
   const logistics = logisticsLabel(order.logisticsMethod)
   const custFul = fulfillmentCustomerLabel(order.fulfillment)
-  const link = `${portalBaseUrl.replace(/\/$/, '')}/tires?tab=orders&highlight=${encodeURIComponent(order.id)}`
+  const link = `${String(portalBaseUrl || '').replace(/\/$/, '')}/tires?tab=orders&highlight=${encodeURIComponent(order.id)}`
   const hat = order.hatTrickDay ? '\n🎩 *Hat trick day*' : ''
 
   const text = [
@@ -1028,11 +1098,137 @@ async function postOrderCompletionSummary(token, envChannel, order, portalBaseUr
     `<${link}|View in portal>`,
   ].join('\n')
 
-  await slackApiPost(token, 'chat.postMessage', {
+  const blocks = [{ type: 'section', text: { type: 'mrkdwn', text } }]
+  if (shouldOfferDeliveredByButtons(order)) {
+    blocks.push(buildDeliveredByButtons(order.id))
+  }
+  return blocks
+}
+
+async function postEphemeralViaResponseUrl(responseUrl, text) {
+  if (!responseUrl) return
+  try {
+    await fetch(responseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ response_type: 'ephemeral', text }),
+    })
+  } catch (e) {
+    console.error('postEphemeralViaResponseUrl', e)
+  }
+}
+
+/**
+ * Slack interactivity handler for the three "Delivered by ..." buttons posted
+ * on the close-out completion message. Skips the admin role check (Slack
+ * signature already authenticated the request, and crew members marking their
+ * own deliveries is the intended flow). Updates the source message in place
+ * with a context block summarising the bump.
+ */
+async function handleDeliveredByButton(db, token, payload, orderId, deliveredBy) {
+  const responseUrl = payload && payload.response_url
+  const slackUserId =
+    (payload && payload.user && (payload.user.id || payload.user.username)) || ''
+  const message = payload && payload.message ? payload.message : null
+  const channelId = (payload && payload.channel && payload.channel.id) || ''
+  const ts = (message && message.ts) || ''
+
+  let result
+  try {
+    result = await applyDeliveredByChange({
+      firestore: db,
+      orderId,
+      newValue: deliveredBy,
+      actorId: slackUserId || 'slack',
+      source: 'slack-completion',
+      reason: null,
+      skipAdminCheck: true,
+      nowFn: () => Date.now(),
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await postEphemeralViaResponseUrl(
+      responseUrl,
+      `Could not set delivered by: ${msg}`,
+    )
+    return { kind: 'empty' }
+  }
+
+  if (result.noChange) {
+    await postEphemeralViaResponseUrl(
+      responseUrl,
+      `Already marked as delivered by ${DELIVERED_BY_LABELS[deliveredBy] || deliveredBy}.`,
+    )
+    return { kind: 'empty' }
+  }
+
+  // Update the original message: drop the buttons, add a context line.
+  if (token && channelId && ts && message) {
+    try {
+      const baseBlocks = Array.isArray(message.blocks)
+        ? message.blocks.filter((b) => b && b.block_id !== 'delivered_by_actions')
+        : []
+      const bumpDollars = Number(result.bumpDollars) || 0
+      const ctx = {
+        type: 'context',
+        block_id: 'delivered_by_context',
+        elements: [
+          {
+            type: 'mrkdwn',
+            text:
+              bumpDollars > 0
+                ? `:truck: Bumped: *${DELIVERED_BY_LABELS[deliveredBy]}* +${formatCurrency(bumpDollars)} (delivered)`
+                : `:truck: Delivered by *${DELIVERED_BY_LABELS[deliveredBy]}*`,
+          },
+        ],
+      }
+      baseBlocks.push(ctx)
+      await slackUpdateMessage(
+        token,
+        channelId,
+        ts,
+        message.text || `Order complete · ${orderId}`,
+        baseBlocks,
+      )
+    } catch (e) {
+      console.error('handleDeliveredByButton: chat.update failed', e)
+    }
+  }
+  return { kind: 'empty' }
+}
+
+async function postOrderCompletionSummary(
+  token,
+  envChannel,
+  order,
+  portalBaseUrl,
+  db,
+) {
+  const ch = channelForOrder(order, envChannel)
+  if (!ch) return
+
+  const blocks = buildCompletionSummaryBlocks(order, portalBaseUrl)
+  const res = await slackApiPost(token, 'chat.postMessage', {
     channel: ch,
     text: `Order complete · ${order.mspn}`,
-    blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }],
+    blocks,
   })
+
+  // Stash channel + ts when buttons are present so the interactivity handler
+  // can update the message in place after a click. Only writes when we have a
+  // db handle and the buttons actually rendered.
+  if (db && res && res.ts && shouldOfferDeliveredByButtons(order)) {
+    try {
+      await db.collection('orders').doc(order.id).update({
+        slackCompletionChannel: ch,
+        slackCompletionTs: res.ts,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    } catch (e) {
+      console.error('postOrderCompletionSummary: stash ts failed', e)
+    }
+  }
+  return res
 }
 
 function formatFulfillmentMinutes(m) {
@@ -1053,4 +1249,10 @@ module.exports = {
   orderFromSnap,
   formatFulfillmentMinutes,
   cancelOrderFromPortal,
+  // Exported for unit tests + reuse:
+  buildCompletionSummaryBlocks,
+  buildDeliveredByButtons,
+  shouldOfferDeliveredByButtons,
+  deliveredByKeyFromActionId,
+  DELIVERED_BY_LABELS,
 }

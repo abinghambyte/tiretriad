@@ -664,6 +664,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
       slackChannelWithSecretFallback(),
       order,
       portalBase,
+      db,
     )
   } catch (e) {
     console.error('completeOrder: Slack summary failed', e)

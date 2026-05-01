@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
 const { _testonly } = require('./orderDeliveredByEdit.js')
-const { handle, SEVEN_DAYS_MS } = _testonly
+const { handle, applyDeliveredByChange, SEVEN_DAYS_MS } = _testonly
 
 const NOW = Date.UTC(2026, 4, 1, 12) // 2026-05-01 12:00 UTC
 const FRESH_COMPLETED = NOW - 60 * 60 * 1000 // 1h ago
@@ -349,6 +349,48 @@ describe('editOrderDeliveredBy handle()', () => {
     expect(orderUpdates).toHaveLength(0)
     expect(crewSets).toHaveLength(0)
     expect(auditSets).toHaveLength(0)
+  })
+
+  it('skipAdminCheck path (Slack) sets deliveredBy without an admin user lookup, tags audit slack-completion', async () => {
+    const { firestore, orderUpdates, crewSets, auditSets } = makeFirestore({
+      docs: {
+        // Notably no users/u1 doc — skipAdminCheck means we never look it up.
+        'orders/o1': {
+          exists: true,
+          data: () => ({
+            fulfillment: 'delivery',
+            completedMs: FRESH_COMPLETED,
+            paymentAmount: 100,
+            deliveryBumpAtCompletion: 0.05,
+          }),
+        },
+      },
+    })
+    const res = await applyDeliveredByChange({
+      firestore,
+      orderId: 'o1',
+      newValue: 'kyle',
+      actorId: 'U-SLACK-123',
+      source: 'slack-completion',
+      reason: null,
+      skipAdminCheck: true,
+      nowFn: () => NOW,
+    })
+    expect(res.ok).toBe(true)
+    expect(res.oldValue).toBe(null)
+    expect(res.newValue).toBe('kyle')
+    expect(res.bumpDollars).toBe(5)
+    expect(orderUpdates).toHaveLength(1)
+    expect(orderUpdates[0].patch.deliveredBy).toBe('kyle')
+    expect(orderUpdates[0].patch.deliveredBySetBy).toBe('U-SLACK-123')
+    expect(auditSets).toHaveLength(1)
+    expect(auditSets[0].value).toMatchObject({
+      setBy: 'U-SLACK-123',
+      oldValue: null,
+      newValue: 'kyle',
+      source: 'slack-completion',
+    })
+    expect(crewSets).toHaveLength(1)
   })
 
   it('uses deliveryBumpAtCompletion from the order, not live config', async () => {
