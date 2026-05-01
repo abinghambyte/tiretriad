@@ -21,12 +21,18 @@ Lean into:
 
 Avoid generic small talk. Always tie advice to a number the operator can act on (margin %, SKU count, retail vs buy gap, etc).`
 
-function personaForSurface(surface) {
+// Placeholder for future per-surface persona dispatch. v1 only ships
+// 'tires'. When dashboard / crm / analytics surfaces land, switch on the
+// surface argument here and return their persona blocks.
+function personaForSurface() {
   return TIRES_PERSONA
 }
 
 function buildSystemPrompt({ surface, context }) {
-  const persona = personaForSurface(surface)
+  // surface is reserved for future routing; kept on the signature so the
+  // input contract documented in the spec stays stable.
+  void surface
+  const persona = personaForSurface()
   const ctx = context || {}
   const brandJson = JSON.stringify(ctx.brandAggregates || {}, null, 2)
   const revenueText = ctx.revenueStats

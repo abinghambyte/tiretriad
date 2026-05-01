@@ -14,7 +14,10 @@ module.exports = [
   {
     name: 'tires page chunk',
     path: 'dist/assets/TiresPage-*.js',
-    limit: '42 KB',
+    // 47 KB makes room for SalesAdvisorDrawer + Trigger + chat hook +
+    // context builder added in 2026-05-01. Drop back toward 42 once any
+    // surface gets meaningfully trimmed.
+    limit: '47 KB',
     gzip: true,
   },
   {
