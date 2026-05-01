@@ -36,6 +36,9 @@ const AdminEFleetInvoicesPage = lazy(() =>
   })),
 )
 const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
+const PeopleEarningsPage = lazy(() =>
+  import('./pages/PeopleEarningsPage').then((m) => ({ default: m.PeopleEarningsPage })),
+)
 const TiresPage = lazy(() => import('./pages/TiresPage').then((m) => ({ default: m.TiresPage })))
 const TireDetailPage = lazy(() =>
   import('./pages/TireDetailPage').then((m) => ({ default: m.TireDetailPage })),
@@ -144,6 +147,16 @@ export default function App() {
             <ProtectedRoute module="people" level="manage">
               <Suspense fallback={<RouteFallback />}>
                 <PeoplePage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/people/earnings"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<RouteFallback />}>
+                <PeopleEarningsPage />
               </Suspense>
             </ProtectedRoute>
           }
