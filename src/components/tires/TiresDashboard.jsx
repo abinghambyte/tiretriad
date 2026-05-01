@@ -420,7 +420,7 @@ export function TiresDashboard() {
       return {
         ...t,
         photos: mergeTirePhotos(t.photos, pendingPhotoAdds[key], pendingPhotoDeletes[key]),
-        margin: computeMargin(t),
+        margin: computeMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) }),
         listingMargin: computeListingMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) }),
         derivedUseTags: deriveTireTags(t),
         opportunity: computeOpportunityScore(t, { haggleDiscount, taxes }),
