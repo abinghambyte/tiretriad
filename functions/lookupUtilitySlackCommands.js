@@ -15,7 +15,7 @@ const {
   slackAdminUserIdsRawFromEnv,
 } = require('./slackSecrets')
 const { e164DocIdFromContact } = require('./orderMetrics')
-const { loadPayoutConfig } = require('./payoutConfig')
+const { loadPayoutConfig, tireLandedBuyNumber } = require('./payoutConfig')
 const { ctsPerTire, round2 } = require('./financeStats')
 const { slackViewsOpen, viewInputValue, viewStaticSelectValue, viewSubmissionErrorsBody } = require('./slackModalShared')
 
@@ -398,6 +398,7 @@ async function handleSlashStock(db, token, fleetChannel, text) {
   const brand = String(tire.brand || tire.make || '—').trim() || '—'
   const description = String(tire.description || tire.tread || '—').trim() || '—'
   const buy = tireCatalogBuyNumber(tire)
+  const landed = tireLandedBuyNumber(tire, payoutCfg.taxes)
   const fet = Number(tire.fet) || 0
   const cts = ctsPerTire(tire)
   const mount = Number(tire.mountCost) || 0
@@ -420,8 +421,8 @@ async function handleSlashStock(db, token, fleetChannel, text) {
   ]
 
   if (salePrice != null && salePrice > 0) {
-    const marginPct = ((salePrice - buy - mount - delivery - other) / salePrice) * 100
-    const pool = round2(salePrice - buy - mount - delivery - other)
+    const marginPct = ((salePrice - landed - mount - delivery - other) / salePrice) * 100
+    const pool = round2(salePrice - landed - mount - delivery - other)
     const splitKeys = Object.keys(payoutCfg.splits).sort()
     const splitLines = splitKeys.map(
       (k) =>
@@ -461,7 +462,7 @@ async function handleSlashMargins(db, token, fleetChannel, text) {
     return { response_type: 'ephemeral', text: `No tire found for MSPN \`${escapeSlackMrkdwn(mspn)}\`.` }
   }
   const tire = snap.data() || {}
-  const buy = tireCatalogBuyNumber(tire)
+  const buy = tireLandedBuyNumber(tire, payoutCfg.taxes)
   const mount = Number(tire.mountCost) || 0
   const delivery = Number(tire.deliveryCost) || 0
   const other = Number(tire.otherCost) || 0
@@ -475,7 +476,7 @@ async function handleSlashMargins(db, token, fleetChannel, text) {
   )
   const lines = [
     `*📐 Margins ·* \`${escapeSlackMrkdwn(mspn)}\` @ ${formatCurrency(salePrice)} (qty ${formatQty(qty)})`,
-    `_Profit = (paymentAmount − buy − mount − delivery − other) × qty_`,
+    `_Profit = (paymentAmount − landed − mount − delivery − other) × qty_`,
     `*Profit (pool):* ${formatCurrency(profit)}`,
     '',
     '*Crew split:*',
@@ -488,8 +489,8 @@ async function handleSlashMargins(db, token, fleetChannel, text) {
 }
 
 /** Same CTS basis as /pricecheck: sale where gross margin fraction ≈ `targetMargin`. */
-function saleForTargetMarginFraction(tire, targetMargin) {
-  const buy = tireCatalogBuyNumber(tire)
+function saleForTargetMarginFraction(tire, targetMargin, taxes) {
+  const buy = tireLandedBuyNumber(tire, taxes)
   const mount = Number(tire.mountCost) || 0
   const delivery = Number(tire.deliveryCost) || 0
   const other = Number(tire.otherCost) || 0
@@ -503,13 +504,14 @@ function saleForTargetMarginFraction(tire, targetMargin) {
 }
 
 async function handleSlashMarginsCatalogTop(db, token, fleetChannel) {
+  const payoutCfg = await loadPayoutConfig(db)
   const snap = await db.collection('tires').limit(500).get()
   const rows = []
   for (const d of snap.docs) {
     const tire = d.data() || {}
-    const buy = tireCatalogBuyNumber(tire)
+    const buy = tireLandedBuyNumber(tire, payoutCfg.taxes)
     if (!Number.isFinite(buy) || buy <= 0) continue
-    const sp = saleForTargetMarginFraction(tire, 0.25)
+    const sp = saleForTargetMarginFraction(tire, 0.25, payoutCfg.taxes)
     if (!sp) continue
     const mount = Number(tire.mountCost) || 0
     const delivery = Number(tire.deliveryCost) || 0
@@ -541,6 +543,7 @@ async function handleSlashMarginsCatalogTop(db, token, fleetChannel) {
 }
 
 async function handleSlashPricecheck(db, token, fleetChannel, text) {
+  const payoutCfg = await loadPayoutConfig(db)
   const parts = String(text || '')
     .trim()
     .split(/\s+/)
@@ -555,12 +558,13 @@ async function handleSlashPricecheck(db, token, fleetChannel, text) {
   }
   const tire = snap.data() || {}
   const buy = tireCatalogBuyNumber(tire)
+  const landed = tireLandedBuyNumber(tire, payoutCfg.taxes)
   const fet = Number(tire.fet) || 0
   const cts = ctsPerTire(tire)
   const mount = Number(tire.mountCost) || 0
   const delivery = Number(tire.deliveryCost) || 0
   const other = Number(tire.otherCost) || 0
-  const costBasis = round2(buy + mount + delivery + other)
+  const costBasis = round2(landed + mount + delivery + other)
   const targets = [0.3, 0.4, 0.5]
   const priceLines = targets.map((m) => {
     const denom = 1 - m
@@ -575,7 +579,7 @@ async function handleSlashPricecheck(db, token, fleetChannel, text) {
     `*Buy (catalog):* ${formatCurrency(buy)}`,
     `*FET:* ${formatCurrency(fet)}`,
     `*CTS:* ${formatCurrency(cts)}`,
-    `_Sale price = (buy + mount + delivery + other) ÷ (1 − target margin)_`,
+    `_Sale price = (landed + mount + delivery + other) ÷ (1 − target margin)_`,
     '',
     ...priceLines,
   ]
@@ -1052,7 +1056,8 @@ async function tryHandleLookupUtilityViewSubmission(db, token, envChannel, paylo
           },
         }
       }
-      const sale = saleForTargetMarginFraction(tireSnap.data() || {}, 0.25)
+      const payoutCfg = await loadPayoutConfig(db)
+      const sale = saleForTargetMarginFraction(tireSnap.data() || {}, 0.25, payoutCfg.taxes)
       if (!sale) {
         return {
           handled: true,
