@@ -8,6 +8,7 @@ const {
   validatePayoutConfig,
   computeOrderTaxes,
   splitPool,
+  applyDeliveryBump,
 } = require('./payoutConfig')
 
 describe('loadPayoutConfig', () => {
@@ -123,5 +124,78 @@ describe('splitPool', () => {
     const parts = splitPool(100, DEFAULT_CONFIG.splits)
     expect(parts.alex + parts.dj + parts.kyle).toBe(100)
     expect(parts).toEqual({ alex: 35, dj: 35, kyle: 30 })
+  })
+})
+
+describe('applyDeliveryBump', () => {
+  const splits = { alex: 0.35, dj: 0.35, kyle: 0.3 }
+
+  it('returns splits unchanged when deliveredBy is null', () => {
+    expect(applyDeliveryBump(splits, 0.05, null)).toEqual(splits)
+  })
+
+  it('returns splits unchanged when bump is 0', () => {
+    expect(applyDeliveryBump(splits, 0, 'dj')).toEqual(splits)
+  })
+
+  it('returns splits unchanged when deliveredBy is unknown', () => {
+    expect(applyDeliveryBump(splits, 0.05, 'mallory')).toEqual(splits)
+  })
+
+  it('zero-sum redistributes a 5% bump on dj', () => {
+    const out = applyDeliveryBump(splits, 0.05, 'dj')
+    expect(out.dj).toBeCloseTo(0.4, 6)
+    expect(out.alex + out.dj + out.kyle).toBeCloseTo(1.0, 6)
+    expect(out.alex).toBeCloseTo(0.35 * (0.6 / 0.65), 4)
+    expect(out.kyle).toBeCloseTo(0.3 * (0.6 / 0.65), 4)
+  })
+
+  it('clamps deliverer share to 0.95 when bump would exceed 1.0', () => {
+    const out = applyDeliveryBump(splits, 0.99, 'dj')
+    expect(out.dj).toBe(0.95)
+    expect(out.alex + out.dj + out.kyle).toBeCloseTo(1.0, 6)
+  })
+
+  it('preserves sum-to-1 with negative bump (defensive; clamps to 0)', () => {
+    const out = applyDeliveryBump(splits, -0.1, 'dj')
+    expect(out).toEqual(splits)
+  })
+})
+
+describe('validatePayoutConfig deliveryBump', () => {
+  const baseTaxes = {
+    countyTaxPct: 0.01,
+    localTaxPct: 0.03,
+    stateTaxPct: 0.03,
+    tireFeePerTire: 2,
+  }
+  const baseSplits = { alex: 0.35, dj: 0.35, kyle: 0.3 }
+
+  it('accepts deliveryBump in valid range', () => {
+    const r = validatePayoutConfig({ splits: baseSplits, taxes: baseTaxes, deliveryBump: 0.05 })
+    expect(r.ok).toBe(true)
+    expect(r.normalized.deliveryBump).toBe(0.05)
+  })
+
+  it('defaults deliveryBump to 0.05 when missing', () => {
+    const r = validatePayoutConfig({ splits: baseSplits, taxes: baseTaxes })
+    expect(r.ok).toBe(true)
+    expect(r.normalized.deliveryBump).toBe(0.05)
+  })
+
+  it('rejects deliveryBump below 0', () => {
+    const r = validatePayoutConfig({ splits: baseSplits, taxes: baseTaxes, deliveryBump: -0.05 })
+    expect(r.ok).toBe(false)
+  })
+
+  it('rejects deliveryBump above 0.5', () => {
+    const r = validatePayoutConfig({ splits: baseSplits, taxes: baseTaxes, deliveryBump: 0.6 })
+    expect(r.ok).toBe(false)
+  })
+})
+
+describe('DEFAULT_CONFIG', () => {
+  it('exposes deliveryBump default', () => {
+    expect(DEFAULT_CONFIG.deliveryBump).toBe(0.05)
   })
 })
