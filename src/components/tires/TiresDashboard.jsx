@@ -26,6 +26,10 @@ import { ListingGenerator } from './ListingGenerator'
 import { CategoryTabs } from './CategoryTabs.jsx'
 import { categoryMapAgeStatus } from './categoryMapAgeStatus.js'
 import { useBrandAggregates } from '../../hooks/useBrandAggregates.js'
+import { useSalesAdvisorChat } from '../../hooks/useSalesAdvisorChat.js'
+import { buildAdvisorContext } from '../../utils/buildAdvisorContext.js'
+import { SalesAdvisorDrawer } from './SalesAdvisorDrawer.jsx'
+import { SalesAdvisorTrigger } from './SalesAdvisorTrigger.jsx'
 import { BrandStatsRow } from './BrandStatsRow.jsx'
 import { MarginFilters } from './MarginFilters'
 import { MarginTable } from './MarginTable'
@@ -423,6 +427,31 @@ export function TiresDashboard() {
   }, [tires, haggleDiscount, pendingPhotoAdds, pendingPhotoDeletes])
 
   const brandAggregates = useBrandAggregates(enriched, selectedCategory === 'all' ? null : selectedCategory)
+
+  const advisorBuildContext = useCallback(() => {
+    const selectedTire = selectedIds.size === 1
+      ? enriched.find((t) => t.id === [...selectedIds][0]) || null
+      : null
+    return buildAdvisorContext({
+      brandAggregates,
+      revenueStats: null,
+      selectedTire,
+    })
+  }, [brandAggregates, selectedIds, enriched])
+
+  const advisor = useSalesAdvisorChat({ buildContext: advisorBuildContext })
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== '?') return
+      const tag = String(document.activeElement?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return
+      e.preventDefault()
+      advisor.toggle()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [advisor])
 
   const categorizedRows = useMemo(() => {
     const buckets = { all: [], passenger: [], lightTruck: [], truck: [] }
@@ -902,6 +931,15 @@ export function TiresDashboard() {
             active: tab === 'orders',
           },
         ]}
+      />
+
+      {!advisor.isOpen ? <SalesAdvisorTrigger onClick={advisor.open} /> : null}
+      <SalesAdvisorDrawer
+        isOpen={advisor.isOpen}
+        messages={advisor.messages}
+        pending={advisor.pending}
+        onClose={advisor.close}
+        onSend={advisor.send}
       />
 
       <main className="mx-auto max-w-6xl space-y-8 px-6 py-8">
