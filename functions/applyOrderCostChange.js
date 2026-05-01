@@ -16,6 +16,7 @@
 const { randomUUID } = require('node:crypto')
 const { FieldValue } = require('firebase-admin/firestore')
 const { applyDeliveryBump, round2 } = require('./payoutConfig')
+const { postAdjustmentDm } = require('./slackAdjustmentDm')
 
 const SPLIT_KEYS = ['alex', 'dj', 'kyle']
 const DEFAULT_SPLITS = { alex: 0.35, dj: 0.35, kyle: 0.30 }
@@ -29,7 +30,7 @@ const DEFAULT_SPLITS = { alex: 0.35, dj: 0.35, kyle: 0.30 }
  * @param {string} args.actorId                 uid firing the attach
  * @param {string} args.source                  'invoice-reconcile' | 'admin-edit'
  * @param {string | null} args.notes
- * @returns {Promise<{ ok: true, noChange?: true, oldRealized?: number, newRealized?: number, poolDelta?: number, memberDeltas?: Record<string, number> }>}
+ * @returns {Promise<{ ok: true, noChange?: true, oldRealized?: number, newRealized?: number, poolDelta?: number, memberDeltas?: Record<string, { delta: number, newBalance: number }> }>}
  */
 async function applyOrderCostChange({
   firestore,
@@ -56,7 +57,7 @@ async function applyOrderCostChange({
     ? cfg.splits
     : DEFAULT_SPLITS
 
-  return await firestore.runTransaction(async (tx) => {
+  const txResult = await firestore.runTransaction(async (tx) => {
     const orderSnap = await tx.get(orderRef)
     if (!orderSnap.exists) throw new Error('Order not found')
     const order = orderSnap.data() || {}
@@ -96,7 +97,6 @@ async function applyOrderCostChange({
     for (const k of SPLIT_KEYS) {
       const share = Number(adjusted[k]) || 0
       const delta = round2(poolDelta * share)
-      memberDeltas[k] = delta
 
       const cur = members[k] && typeof members[k] === 'object'
         ? members[k]
@@ -110,6 +110,7 @@ async function applyOrderCostChange({
       const prevBalance = Number(cur.balance) || 0
       const newTotalEarned = round2((Number(cur.totalEarned) || 0) + delta)
       const newBalance = round2(prevBalance + delta)
+      memberDeltas[k] = { delta, newBalance }
       const adjustments = Array.isArray(cur.adjustments)
         ? cur.adjustments.slice()
         : []
@@ -161,6 +162,36 @@ async function applyOrderCostChange({
 
     return { ok: true, oldRealized, newRealized, poolDelta, memberDeltas }
   })
+
+  // Fire-and-forget DM dispatch on invoice-reconcile sources only.
+  // Each member's adjustment was just persisted; DM them with their delta
+  // and new balance so they can ack it in /people/earnings. Failures are
+  // swallowed so a Slack outage does not fail the cost-change flow.
+  if (txResult && !txResult.noChange && txResult.memberDeltas && source === 'invoice-reconcile') {
+    const invoiceDocNumber = invoiceLineRef
+      ? String(invoiceLineRef).split('/')[1]?.split('#')[0] || null
+      : null
+    const tasks = []
+    for (const k of SPLIT_KEYS) {
+      const entry = txResult.memberDeltas[k]
+      if (!entry || !entry.delta || entry.delta === 0) continue
+      tasks.push(
+        postAdjustmentDm({
+          firestore,
+          crewKey: k,
+          delta: entry.delta,
+          newBalance: entry.newBalance,
+          orderId,
+          invoiceDocNumber,
+        }).catch(() => {}),
+      )
+    }
+    if (tasks.length > 0) {
+      await Promise.allSettled(tasks)
+    }
+  }
+
+  return txResult
 }
 
 module.exports = { applyOrderCostChange }

@@ -1,9 +1,24 @@
 import { createRequire } from 'node:module'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const require = createRequire(import.meta.url)
 const { _testonly } = require('./applyOrderCostChange.js')
 const { applyOrderCostChange } = _testonly
+
+// Capture fetch calls so DM dispatch is observable. The Slack DM helper
+// short-circuits when SLACK_BOT_TOKEN is unset, so most tests below run
+// with no token and expect zero fetches.
+const fetchMock = vi.fn().mockResolvedValue({ status: 200, json: async () => ({ ok: true }) })
+const originalFetch = global.fetch
+beforeEach(() => {
+  fetchMock.mockClear()
+  global.fetch = fetchMock
+  delete process.env.SLACK_BOT_TOKEN
+})
+afterEach(() => {
+  global.fetch = originalFetch
+  delete process.env.SLACK_BOT_TOKEN
+})
 
 /**
  * In-memory firestore mock: collection().doc().get/set/update,
@@ -12,7 +27,7 @@ const { applyOrderCostChange } = _testonly
  * supports tx writes that mutate the backing docs map so subsequent calls
  * within the same test see updated state.
  */
-function makeFirestore({ docs: initial = {} } = {}) {
+function makeFirestore({ docs: initial = {}, users = [] } = {}) {
   const docs = { ...initial }
   const orderUpdates = []
   const crewSets = []
@@ -56,6 +71,13 @@ function makeFirestore({ docs: initial = {} } = {}) {
   const firestore = {
     collection: (name) => ({
       doc: (id) => makeRef(`${name}/${id}`),
+      where: (field, _op, value) => ({
+        get: async () => ({
+          docs: name === 'users'
+            ? users.filter((u) => u[field] === value).map((u) => ({ data: () => u }))
+            : [],
+        }),
+      }),
     }),
     runTransaction: async (fn) => {
       const tx = {
@@ -124,7 +146,8 @@ describe('applyOrderCostChange', () => {
     // poolDelta = (1164 - 953.13) - (1164 - 881.40) = 210.87 - 282.60 = -71.73
     expect(res.poolDelta).toBe(-71.73)
     // dj is bumped (+5pp -> 0.40); -71.73 * 0.40 = -28.692 -> -28.69
-    expect(res.memberDeltas.dj).toBe(-28.69)
+    expect(res.memberDeltas.dj.delta).toBe(-28.69)
+    expect(res.memberDeltas.dj.newBalance).toBe(-28.69)
 
     expect(orderUpdates).toHaveLength(1)
     expect(orderUpdates[0].patch.actualLandedCost).toBe(953.13)
@@ -280,9 +303,12 @@ describe('applyOrderCostChange', () => {
       notes: null,
     })
     expect(res.poolDelta).toBe(-100)
-    expect(res.memberDeltas.alex).toBe(-35)
-    expect(res.memberDeltas.dj).toBe(-35)
-    expect(res.memberDeltas.kyle).toBe(-30)
+    expect(res.memberDeltas.alex.delta).toBe(-35)
+    expect(res.memberDeltas.dj.delta).toBe(-35)
+    expect(res.memberDeltas.kyle.delta).toBe(-30)
+    expect(res.memberDeltas.alex.newBalance).toBe(-35)
+    expect(res.memberDeltas.dj.newBalance).toBe(-35)
+    expect(res.memberDeltas.kyle.newBalance).toBe(-30)
     const crew = crewSets[0].value
     expect(crew.members.alex.balance).toBe(-35)
     expect(crew.members.dj.balance).toBe(-35)
@@ -327,6 +353,102 @@ describe('applyOrderCostChange', () => {
       source: 'invoice-reconcile',
       notes: null,
     })).rejects.toThrow(/finite/i)
+  })
+
+  it('dispatches a DM per affected member on invoice-reconcile when token is set', async () => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test'
+    const { firestore } = makeFirestore({
+      docs: {
+        'meta/payoutConfig': PAYOUT_CFG_DOC,
+        'orders/o1': {
+          exists: true,
+          data: () => ({
+            paymentAmount: 1000,
+            estimatedLandedCostAtCompletion: 800,
+            deliveredBy: null,
+            deliveryBumpAtCompletion: 0.05,
+          }),
+        },
+      },
+      users: [
+        { crewKey: 'alex', slackUserId: 'U_ALEX' },
+        { crewKey: 'dj', slackUserId: 'U_DJ' },
+        { crewKey: 'kyle', slackUserId: 'U_KYLE' },
+      ],
+    })
+    await applyOrderCostChange({
+      firestore,
+      orderId: 'o1',
+      incrementalActualCost: 900,
+      invoiceLineRef: 'invoices/DA0065549567#0',
+      actorId: 'u1',
+      source: 'invoice-reconcile',
+      notes: null,
+    })
+    // 3 members each with non-zero delta -> 3 DMs
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const channels = fetchMock.mock.calls.map(([, o]) => JSON.parse(o.body).channel).sort()
+    expect(channels).toEqual(['U_ALEX', 'U_DJ', 'U_KYLE'])
+    const sample = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(sample.text).toContain('o1')
+    expect(sample.text).toContain('DA0065549567')
+  })
+
+  it('skips DM dispatch on admin-edit source even when token is set', async () => {
+    process.env.SLACK_BOT_TOKEN = 'xoxb-test'
+    const { firestore } = makeFirestore({
+      docs: {
+        'meta/payoutConfig': PAYOUT_CFG_DOC,
+        'orders/o1': {
+          exists: true,
+          data: () => ({
+            paymentAmount: 1000,
+            estimatedLandedCostAtCompletion: 800,
+            deliveredBy: null,
+            deliveryBumpAtCompletion: 0.05,
+          }),
+        },
+      },
+      users: [{ crewKey: 'dj', slackUserId: 'U_DJ' }],
+    })
+    await applyOrderCostChange({
+      firestore,
+      orderId: 'o1',
+      incrementalActualCost: 900,
+      invoiceLineRef: 'invoices/DA0065549567#0',
+      actorId: 'u1',
+      source: 'admin-edit',
+      notes: null,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('does not dispatch DMs when there is no token (silent skip)', async () => {
+    const { firestore } = makeFirestore({
+      docs: {
+        'meta/payoutConfig': PAYOUT_CFG_DOC,
+        'orders/o1': {
+          exists: true,
+          data: () => ({
+            paymentAmount: 1000,
+            estimatedLandedCostAtCompletion: 800,
+            deliveredBy: null,
+            deliveryBumpAtCompletion: 0.05,
+          }),
+        },
+      },
+      users: [{ crewKey: 'dj', slackUserId: 'U_DJ' }],
+    })
+    await applyOrderCostChange({
+      firestore,
+      orderId: 'o1',
+      incrementalActualCost: 900,
+      invoiceLineRef: 'invoices/DA0065549567#0',
+      actorId: 'u1',
+      source: 'invoice-reconcile',
+      notes: null,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('throws when orderId is missing', async () => {

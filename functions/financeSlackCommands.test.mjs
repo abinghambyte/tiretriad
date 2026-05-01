@@ -2,7 +2,7 @@ import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { crewMemberDeliveryBumpSubline } = require('./financeSlackCommands')
+const { crewMemberDeliveryBumpSubline, crewMemberPendingAdjustmentsCallout } = require('./financeSlackCommands')
 
 describe('crewMemberDeliveryBumpSubline', () => {
   it('returns empty string when deliveryBumpCount is 0', () => {
@@ -43,5 +43,42 @@ describe('crewMemberDeliveryBumpSubline', () => {
       deliveryBumpCount: '2',
     })
     expect(out).toBe(' (incl. $15.00 from 2 delivered orders)')
+  })
+})
+
+describe('crewMemberPendingAdjustmentsCallout', () => {
+  it('returns empty string when no adjustments', () => {
+    expect(crewMemberPendingAdjustmentsCallout({ adjustments: [] })).toBe('')
+    expect(crewMemberPendingAdjustmentsCallout({})).toBe('')
+    expect(crewMemberPendingAdjustmentsCallout(null)).toBe('')
+  })
+
+  it('returns empty string when all adjustments are acknowledged', () => {
+    const m = { adjustments: [{ delta: -10, acknowledgedBy: 'u1' }] }
+    expect(crewMemberPendingAdjustmentsCallout(m)).toBe('')
+  })
+
+  it('counts unacknowledged + sums net for a single pending entry', () => {
+    const m = { adjustments: [{ delta: -12.45, acknowledgedBy: null }] }
+    const out = crewMemberPendingAdjustmentsCallout(m)
+    expect(out).toContain('1 reconcile adjustment pending')
+    expect(out).toContain('-$12.45')
+  })
+
+  it('pluralizes and ignores acked entries when summing', () => {
+    const m = { adjustments: [
+      { delta: -12.45, acknowledgedBy: null },
+      { delta: -10.00, acknowledgedBy: 'someone' },
+      { delta: -16.95, acknowledgedBy: null },
+    ] }
+    const out = crewMemberPendingAdjustmentsCallout(m)
+    expect(out).toContain('2 reconcile adjustments pending')
+    expect(out).toContain('-$29.40')
+  })
+
+  it('handles positive net (refunds)', () => {
+    const m = { adjustments: [{ delta: 5.00, acknowledgedBy: null }] }
+    const out = crewMemberPendingAdjustmentsCallout(m)
+    expect(out).toContain('+$5.00')
   })
 })
