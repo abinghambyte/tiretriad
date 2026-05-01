@@ -8,11 +8,19 @@ import { tireCatalogRetailNumber } from './tireCatalogRetail'
  * useful for catalog-health checks where retail research has not run yet.
  * For the "what margin do I get at market retail?" question, use
  * `computeListingMargin` instead.
+ *
+ * Pass `landedBuy` (from `tireLandedBuyNumber(tire, taxes)`) to fold the
+ * predictive landed cost - catalog buy + FET + wholesale tax + CO tire fee -
+ * into the headroom denominator. When omitted, falls back to the catalog buy
+ * for backward compatibility.
+ *
  * @param {Record<string, unknown>} tire
+ * @param {{ landedBuy?: number }} [opts]
  * @returns {number | null}
  */
-export function computeMargin(tire) {
-  const buyPrice = tireCatalogBuyNumber(tire)
+export function computeMargin(tire, opts) {
+  const override = opts && Number.isFinite(Number(opts.landedBuy)) ? Number(opts.landedBuy) : null
+  const buyPrice = override != null && override > 0 ? override : tireCatalogBuyNumber(tire)
   if (!buyPrice || buyPrice === 0) return null
   const overhead = effectiveCts(tire)
   return ((buyPrice - overhead) / buyPrice) * 100
