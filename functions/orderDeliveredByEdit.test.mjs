@@ -57,7 +57,7 @@ function makeFirestore({ docs = {} } = {}) {
           }
         },
         set: (ref, value, options) => {
-          if (ref.path === 'meta/djStats') {
+          if (ref.path === 'meta/crewEarnings') {
             crewSets.push({ value, options })
           } else if (ref.path.startsWith('orders/') && ref.path.includes('/bumpAudit/')) {
             auditSets.push({ path: ref.path, value })
@@ -251,7 +251,7 @@ describe('editOrderDeliveredBy handle()', () => {
             deliveredBy: 'kyle',
           }),
         },
-        'meta/djStats': {
+        'meta/crewEarnings': {
           exists: true,
           data: () => ({
             members: {
@@ -290,7 +290,7 @@ describe('editOrderDeliveredBy handle()', () => {
             deliveredBy: 'kyle',
           }),
         },
-        'meta/djStats': {
+        'meta/crewEarnings': {
           exists: true,
           data: () => ({
             members: {

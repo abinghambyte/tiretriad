@@ -3,7 +3,7 @@
  * completed delivery order. Allowed within 7 days of completion.
  *
  * Recomputes per-member earnings + delivery-bump tracking on
- * `meta/djStats` using the order's snapshotted `deliveryBumpAtCompletion`
+ * `meta/crewEarnings` using the order's snapshotted `deliveryBumpAtCompletion`
  * (so live config drift does not rewrite history). Order doc, crew doc,
  * and a `bumpAudit` subcollection entry all land in one transaction.
  */
@@ -22,7 +22,7 @@ const SPLIT_KEYS = ['alex', 'dj', 'kyle']
 
 /**
  * Shared core that mutates `deliveredBy` on a completed delivery order,
- * recomputes the per-member splits + bump tracking on `meta/djStats`, and
+ * recomputes the per-member splits + bump tracking on `meta/crewEarnings`, and
  * writes a `bumpAudit` entry. Used by both the admin-edit callable and the
  * Slack "Delivered by ..." button handler.
  *
@@ -152,7 +152,7 @@ async function applyDeliveredByChange({
   const bumpDollarsForNew = newBumpDollars
 
   await firestore.runTransaction(async (tx) => {
-    const crewRef = firestore.collection('meta').doc('djStats')
+    const crewRef = firestore.collection('meta').doc('crewEarnings')
     const crewSnap = await tx.get(crewRef)
     const crew = crewSnap.exists
       ? crewSnap.data() || {}
