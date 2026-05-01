@@ -168,12 +168,18 @@ async function loadPayoutConfig(db) {
     return {
       splits: { ...DEFAULT_CONFIG.splits },
       taxes: { ...DEFAULT_CONFIG.taxes },
+      deliveryBump: DEFAULT_CONFIG.deliveryBump,
     }
   }
   const d = snap.data() || {}
+  const bumpRaw = Number(d.deliveryBump)
+  const deliveryBump = Number.isFinite(bumpRaw) && bumpRaw >= 0 && bumpRaw <= 0.5
+    ? bumpRaw
+    : DEFAULT_CONFIG.deliveryBump
   return {
     splits: { ...DEFAULT_CONFIG.splits, ...(d.splits && typeof d.splits === 'object' ? d.splits : {}) },
     taxes: { ...DEFAULT_CONFIG.taxes, ...(d.taxes && typeof d.taxes === 'object' ? d.taxes : {}) },
+    deliveryBump,
   }
 }
 
@@ -212,7 +218,16 @@ const updatePayoutConfig = onCall(async (request) => {
   )
   const snap = await ref.get()
   const saved = snap.exists ? snap.data() || {} : v.normalized
-  return { ok: true, config: { splits: saved.splits, taxes: saved.taxes } }
+  return {
+    ok: true,
+    config: {
+      splits: saved.splits,
+      taxes: saved.taxes,
+      deliveryBump: Number.isFinite(Number(saved.deliveryBump))
+        ? Number(saved.deliveryBump)
+        : DEFAULT_CONFIG.deliveryBump,
+    },
+  }
 })
 
 module.exports = {
