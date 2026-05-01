@@ -89,7 +89,7 @@ describe('ctsPerTire', () => {
 describe('completedOrderMarginPool', () => {
   const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
 
-  it('subtracts taxesApplied.total when present on the order', () => {
+  it('subtracts taxesApplied.total when present on the order (legacy path)', () => {
     const order = {
       quantity: 4,
       taxesApplied: { salesTax: 10, tireFee: 5, total: 15 },
@@ -102,6 +102,44 @@ describe('completedOrderMarginPool', () => {
   it('matches computePoolDollars when taxesApplied is absent', () => {
     const order = { quantity: 1 }
     expect(completedOrderMarginPool(950, order, tire)).toBe(computePoolDollars(950, order, tire))
+  })
+})
+
+describe('completedOrderMarginPool - cost source priority', () => {
+  it('uses actualLandedCost when present and finite', () => {
+    expect(completedOrderMarginPool(1000, { actualLandedCost: 800 }, {})).toBe(200)
+  })
+
+  it('prefers actualLandedCost over estimatedLandedCostAtCompletion', () => {
+    const order = { actualLandedCost: 800, estimatedLandedCostAtCompletion: 850 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(200)
+  })
+
+  it('falls back to estimatedLandedCostAtCompletion when actual is null', () => {
+    const order = { actualLandedCost: null, estimatedLandedCostAtCompletion: 850 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(150)
+  })
+
+  it('falls back to legacy taxesApplied/cost path when neither landed cost is set', () => {
+    const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
+    const order = {
+      quantity: 4,
+      taxesApplied: { salesTax: 10, tireFee: 5, total: 15 },
+    }
+    expect(completedOrderMarginPool(3800, order, tire)).toBe(445)
+  })
+
+  it('clamps to >= 0 when actualLandedCost exceeds payment', () => {
+    expect(completedOrderMarginPool(500, { actualLandedCost: 700 }, {})).toBe(0)
+  })
+
+  it('clamps to >= 0 when estimated exceeds payment', () => {
+    expect(completedOrderMarginPool(500, { estimatedLandedCostAtCompletion: 700 }, {})).toBe(0)
+  })
+
+  it('treats negative actualLandedCost as not-set and falls through', () => {
+    const order = { actualLandedCost: -1, estimatedLandedCostAtCompletion: 850 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(150)
   })
 })
 
@@ -308,6 +346,9 @@ describe('runCompletionTransaction', () => {
       tireFee: 8,
       total: 36.92,
     })
+    // 4 * tireLandedBuyNumber({ price: 100 }, default taxes)
+    //   = 4 * (100 + 100*0.0723 + 2) = 4 * 109.23 = 436.92
+    expect(orderPatch.estimatedLandedCostAtCompletion).toBe(436.92)
   })
 })
 

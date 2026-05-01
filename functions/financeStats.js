@@ -8,6 +8,7 @@ const {
   loadPayoutConfig,
   computeOrderTaxes,
   applyDeliveryBump,
+  tireLandedBuyNumber,
   DEFAULT_CONFIG,
 } = require('./payoutConfig')
 
@@ -107,16 +108,39 @@ function computePoolDollars(paymentAmount, order, tire) {
 }
 
 /**
- * Margin pool for a completed order: matches completion when `taxesApplied` is present;
- * otherwise pay − (buy + CTS) × qty (pre–buy-side-tax orders).
+ * Margin pool for a completed order, with cost-source priority:
+ *
+ *   1. `actualLandedCost` (eFleet invoice reconciliation), when finite >= 0.
+ *   2. `estimatedLandedCostAtCompletion` (snapshotted at completion time).
+ *   3. Legacy: pay − (buy + CTS) × qty − taxesApplied.total.
+ *
+ * Always clamped to >= 0 so a loss-making order never pulls profit-share negative.
  */
 function completedOrderMarginPool(paymentAmount, order, tire) {
-  const base = computePoolDollars(paymentAmount, order, tire)
-  const ta = order && typeof order === 'object' ? order.taxesApplied : null
-  if (ta != null && typeof ta === 'object' && Number.isFinite(Number(ta.total))) {
-    return round2(base - Number(ta.total))
+  const pay = Number(paymentAmount) || 0
+  const o = order && typeof order === 'object' ? order : {}
+
+  if (o.actualLandedCost != null) {
+    const actual = Number(o.actualLandedCost)
+    if (Number.isFinite(actual) && actual >= 0) {
+      return Math.max(0, round2(pay - actual))
+    }
   }
-  return base
+
+  if (o.estimatedLandedCostAtCompletion != null) {
+    const estimated = Number(o.estimatedLandedCostAtCompletion)
+    if (Number.isFinite(estimated) && estimated >= 0) {
+      return Math.max(0, round2(pay - estimated))
+    }
+  }
+
+  // Legacy fallback for pre-feature orders without a landed-cost snapshot.
+  const base = computePoolDollars(paymentAmount, order, tire)
+  const ta = o.taxesApplied
+  if (ta != null && typeof ta === 'object' && Number.isFinite(Number(ta.total))) {
+    return Math.max(0, round2(base - Number(ta.total)))
+  }
+  return Math.max(0, base)
 }
 
 function round2(n) {
@@ -387,6 +411,16 @@ async function runCompletionTransaction(db, params) {
     const marginTotal = round2(pay - costTotal)
     const pool = marginTotal
 
+    // Snapshot of predicted landed cost at completion (qty * tireLandedBuyNumber).
+    // Computed against the live payoutConfig.taxes so post-completion tax-rate
+    // edits do not retroactively rewrite this margin baseline. The crew /
+    // revenue rollups still use the legacy buy+CTS+taxBundle math; the
+    // snapshot is read by reporting helpers (completedOrderMarginPool) and
+    // by the eFleet invoice reconciliation flow.
+    const estimatedLandedCostAtCompletion = round2(
+      qty * tireLandedBuyNumber(tireData, payoutCfg.taxes),
+    )
+
     const orderPatch = {
       ...completionPatch,
       taxesApplied: {
@@ -394,6 +428,7 @@ async function runCompletionTransaction(db, params) {
         tireFee: taxesBundle.tireFee,
         total: taxesBundle.total,
       },
+      estimatedLandedCostAtCompletion,
     }
     tx.update(orderRef, orderPatch)
 

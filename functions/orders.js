@@ -34,7 +34,7 @@ const { lastTireLabelForMspn } = require('./contactTireLabel')
 const { ensureRepeatCustomerVip } = require('./contactVip')
 const { buildTaxPrepCsv } = require('./taxPrepExport')
 const { runCompletionTransaction } = require('./financeStats')
-const { loadPayoutConfig } = require('./payoutConfig')
+const { loadPayoutConfig, tireLandedBuyNumber } = require('./payoutConfig')
 
 const THIRTY_DAYS_MS = 30 * 86_400_000
 const FUTURE_SKEW_MS = 60_000
@@ -75,6 +75,64 @@ function validateDeliveredByForCompletion(raw, fulfillmentLc) {
     )
   }
   return s
+}
+
+/**
+ * Validate + normalize an optional `dr` (eFleet invoice DR number) from a
+ * `completeOrder` payload.
+ *
+ * Rules:
+ *   - `undefined` / `null` → `{ ok: true, value: null }` (omitted is fine).
+ *   - Non-string → `{ ok: false, error }`.
+ *   - String → trimmed, capped at 64 chars; empty after trim returns `null`.
+ *
+ * @internal Exported for unit tests.
+ * @param {unknown} raw
+ * @returns {{ ok: true, value: string | null } | { ok: false, error: string }}
+ */
+function validateDr(raw) {
+  if (raw === undefined || raw === null) return { ok: true, value: null }
+  if (typeof raw !== 'string') {
+    return { ok: false, error: 'dr must be a string or null.' }
+  }
+  const trimmed = raw.trim().slice(0, 64)
+  return { ok: true, value: trimmed.length > 0 ? trimmed : null }
+}
+
+/**
+ * Sum `qty * tireLandedBuyNumber(tire, taxes)` across an order's tires,
+ * rounded to cents. Accepts both the legacy single-tire shape
+ * (`order.mspn` + `order.quantity`) and a future multi-line `order.tires`
+ * array of `{ mspn, qty }`.
+ *
+ * @internal Exported for unit tests.
+ * @param {Record<string, unknown>|null|undefined} order
+ * @param {Map<string, Record<string, unknown>>} tireDocsByMspn
+ * @param {Record<string, unknown>} taxes
+ * @returns {number}
+ */
+function computeEstimatedLandedCostAtCompletion(order, tireDocsByMspn, taxes) {
+  if (!order || typeof order !== 'object') return 0
+  const docs = tireDocsByMspn instanceof Map ? tireDocsByMspn : new Map()
+  let total = 0
+
+  /** @type {Array<{ mspn: unknown, qty: unknown }>} */
+  let lines = []
+  if (Array.isArray(order.tires) && order.tires.length > 0) {
+    lines = order.tires
+  } else if (order.mspn != null) {
+    lines = [{ mspn: order.mspn, qty: order.quantity }]
+  }
+
+  for (const line of lines) {
+    if (!line || typeof line !== 'object') continue
+    const tire = docs.get(String(line.mspn))
+    if (!tire) continue
+    const qty = Number(line.qty) || 0
+    if (qty <= 0) continue
+    total += qty * tireLandedBuyNumber(tire, taxes)
+  }
+  return Math.round(total * 100) / 100
 }
 
 /**
@@ -481,6 +539,11 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     data.deliveredBy,
     fulfillmentLc,
   )
+  const drCheck = validateDr(data?.dr)
+  if (!drCheck.ok) {
+    throw new HttpsError('invalid-argument', drCheck.error)
+  }
+  const drNormalized = drCheck.value
   const payoutCfg = await loadPayoutConfig(db)
 
   const nowMs = Date.now()
@@ -564,6 +627,9 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
       : null,
     deliveredBySetBy: deliveredByNormalized ? request.auth.uid : null,
     deliveryBumpAtCompletion: payoutCfg.deliveryBump,
+    dr: drNormalized,
+    actualLandedCost: null,
+    invoiceLineRef: null,
     updatedAt: FieldValue.serverTimestamp(),
   }
   if (resolvedTs.completedAtSource === 'backdated') {
@@ -810,4 +876,16 @@ Object.defineProperty(module.exports, 'buildBumpAuditEntry', {
   configurable: false,
   writable: false,
   value: buildBumpAuditEntry,
+})
+Object.defineProperty(module.exports, 'validateDr', {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: validateDr,
+})
+Object.defineProperty(module.exports, 'computeEstimatedLandedCostAtCompletion', {
+  enumerable: false,
+  configurable: false,
+  writable: false,
+  value: computeEstimatedLandedCostAtCompletion,
 })
