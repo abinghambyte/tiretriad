@@ -126,6 +126,48 @@ describe('parseEfleetCatalog tireRecords', () => {
     const result = parseEfleetCatalog(minimalHtml)
     expect(Array.isArray(result.warnings)).toBe(true)
   })
+
+  it('tireRecords carry every field the categoryMap.records map needs', () => {
+    const result = parseEfleetCatalog(fixture)
+    expect(result.tireRecords.length).toBeGreaterThan(0)
+    for (const r of result.tireRecords) {
+      // Required fields for meta/categoryMap.records:
+      expect(typeof r.mspn).toBe('string')
+      expect(r.mspn.length).toBeGreaterThan(0)
+      expect(typeof r.fet).toBe('number')
+      expect(typeof r.price).toBe('number')
+      expect(typeof r.brand).toBe('string')
+      expect(typeof r.description).toBe('string')
+      expect(typeof r.lr).toBe('string')
+      expect(typeof r.tread).toBe('string')
+    }
+  })
+
+  it('builds a records map keyed by MSPN with eFleet-sourced fields', () => {
+    // Mirror the inline build inside import-efleet.mjs — if both use
+    // tireRecords, this test serves as a contract pin.
+    const result = parseEfleetCatalog(fixture)
+    const records = {}
+    for (const r of result.tireRecords) {
+      records[r.mspn] = {
+        fet: r.fet,
+        price: r.price,
+        brand: r.brand,
+        description: r.description,
+        lr: r.lr,
+        tread: r.tread,
+      }
+    }
+    const sample = records[Object.keys(records)[0]]
+    expect(sample).toEqual(expect.objectContaining({
+      fet: expect.any(Number),
+      price: expect.any(Number),
+      brand: expect.any(String),
+      description: expect.any(String),
+      lr: expect.any(String),
+      tread: expect.any(String),
+    }))
+  })
 })
 
 describe('planTirePhases', () => {

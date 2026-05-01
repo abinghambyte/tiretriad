@@ -528,14 +528,42 @@ async function main() {
   const stagingRef = db.doc('meta/categoryMapStaging')
   const prior = (await ref.get()).data() || null
 
+  // Build records map for the /admin/efleet diff view. Each entry is the
+  // eFleet truth for that MSPN: fet, price, brand, description, lr, tread.
+  // Brand-conflict MSPNs are included verbatim; the planner refuses to
+  // overwrite the tire doc, but the diff view needs to see what eFleet says.
+  const records = {}
+  for (const r of parsed.tireRecords) {
+    records[r.mspn] = {
+      fet: r.fet,
+      price: r.price,
+      brand: r.brand,
+      description: r.description,
+      lr: r.lr,
+      tread: r.tread,
+    }
+  }
+
+  // Records-payload safety net: warn if approaching the 1MB Firestore doc
+  // ceiling. ~5KB of overhead + ~200B per record means ~5,000 records is the
+  // soft limit. Today's catalog is ~1,628 records (~325 KB).
+  const recordsBytes = JSON.stringify(records).length
+  if (recordsBytes > 800_000) {
+    console.warn(
+      `WARNING: meta/categoryMap.records payload is ${recordsBytes} bytes ` +
+      `(approaching Firestore's 1MB doc limit). Consider switching storage.`,
+    )
+  }
+
   const payload = {
-    version: 1,
+    version: 2,
     importedAt: FieldValue.serverTimestamp(),
     sourceFile: args.htmlPath,
     sourceReportDate: parsed.sourceReportDate,
     account: parsed.account,
     totalParsed: parsed.totalParsed,
     mspns: parsed.mspns,
+    records,
   }
 
   const diff = diffMaps(prior?.mspns, parsed.mspns)
