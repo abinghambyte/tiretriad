@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListRef } from 'react-window'
+import { Link } from 'react-router-dom'
 import { useToast } from '../../context/ToastContext.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -782,7 +783,17 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               </span>
             </div>
             <div className="flex w-[76px] shrink-0 items-center border-r border-zinc-800/60 px-1 font-mono text-sm font-semibold text-zinc-300 tabular-nums">
-              {row.mspn || '--'}
+              {row.mspn ? (
+                <Link
+                  to={`/tires/${encodeURIComponent(row.mspn)}`}
+                  className="hover:text-amber-300 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {row.mspn}
+                </Link>
+              ) : (
+                '--'
+              )}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
               <BuyPriceCell row={row} />
@@ -891,7 +902,17 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         ) : null}
         {vis.mspn !== false ? (
           <div className="truncate px-3 font-mono text-sm font-bold tabular-nums text-[color:var(--color-brand-michelin)]">
-            {row.mspn || '--'}
+            {row.mspn ? (
+              <Link
+                to={`/tires/${encodeURIComponent(row.mspn)}`}
+                className="hover:text-amber-300 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {row.mspn}
+              </Link>
+            ) : (
+              '--'
+            )}
           </div>
         ) : null}
         {vis.lr !== false ? (
