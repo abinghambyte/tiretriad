@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { _testonly } from './listingCoach.js'
 
-const { handle } = _testonly
+const { handle, addRuleHandler, toggleRuleHandler, removeRuleHandler } = _testonly
 
 function fakeFirestore({ tire = null, payoutCfg = null, rules = [] } = {}) {
   return {
@@ -126,5 +126,123 @@ describe('handle (listingAdvisor)', () => {
     await expect(
       fn({ data: { messages: [{ role: 'user', content: 'loop' }] }, auth: { uid: 'u1' } }),
     ).rejects.toThrow(/tool loop/i)
+  })
+})
+
+function statefulFirestore({ role = 'admin', initialRules = [] } = {}) {
+  const state = { rules: initialRules.slice(), exists: initialRules.length > 0 }
+  return {
+    state,
+    collection: (name) => ({
+      doc: (id) => ({
+        get: async () => {
+          if (name === 'users') {
+            if (role === null) return { exists: false, data: () => null }
+            return { exists: true, data: () => ({ role }) }
+          }
+          if (name === 'meta' && id === 'listingCoachStyleGuide') {
+            return { exists: state.exists, data: () => ({ rules: state.rules }) }
+          }
+          return { exists: false, data: () => null }
+        },
+        set: async (val) => {
+          if (name === 'meta' && id === 'listingCoachStyleGuide') {
+            state.rules = Array.isArray(val?.rules) ? val.rules : []
+            state.exists = true
+          }
+        },
+      }),
+    }),
+  }
+}
+
+describe('addListingCoachRule', () => {
+  it('rejects non-admin', async () => {
+    const fs = statefulFirestore({ role: 'viewer' })
+    const fn = addRuleHandler({ firestore: fs })
+    await expect(
+      fn({ data: { rule: 'x', audience: 'all' }, auth: { uid: 'u1' } }),
+    ).rejects.toThrow(/admin/i)
+  })
+
+  it('rejects empty rule with invalid-argument', async () => {
+    const fs = statefulFirestore()
+    const fn = addRuleHandler({ firestore: fs })
+    await expect(
+      fn({ data: { rule: '   ', audience: 'all' }, auth: { uid: 'u1' } }),
+    ).rejects.toThrow(/rule required/i)
+  })
+
+  it('persists a new rule and returns ok', async () => {
+    const fs = statefulFirestore()
+    const fn = addRuleHandler({ firestore: fs })
+    const out = await fn({
+      data: { rule: 'never mention eFleet', audience: 'all', reason: 'private' },
+      auth: { uid: 'u1' },
+    })
+    expect(out.ok).toBe(true)
+    expect(fs.state.rules).toHaveLength(1)
+    expect(fs.state.rules[0].rule).toBe('never mention eFleet')
+  })
+})
+
+describe('toggleListingCoachRule', () => {
+  it('rejects non-admin', async () => {
+    const fs = statefulFirestore({ role: 'viewer' })
+    const fn = toggleRuleHandler({ firestore: fs })
+    await expect(
+      fn({ data: { id: 'rule_1', enabled: false }, auth: { uid: 'u1' } }),
+    ).rejects.toThrow(/admin/i)
+  })
+
+  it('rejects missing id with invalid-argument', async () => {
+    const fs = statefulFirestore()
+    const fn = toggleRuleHandler({ firestore: fs })
+    await expect(
+      fn({ data: { id: '', enabled: true }, auth: { uid: 'u1' } }),
+    ).rejects.toThrow(/id required/i)
+  })
+
+  it('flips enabled flag on existing rule', async () => {
+    const fs = statefulFirestore({
+      initialRules: [{ id: 'rule_1', rule: 'foo', audience: 'all', enabled: true }],
+    })
+    const fn = toggleRuleHandler({ firestore: fs })
+    const out = await fn({ data: { id: 'rule_1', enabled: false }, auth: { uid: 'u1' } })
+    expect(out.ok).toBe(true)
+    expect(fs.state.rules[0].enabled).toBe(false)
+  })
+})
+
+describe('removeListingCoachRule', () => {
+  it('rejects non-admin', async () => {
+    const fs = statefulFirestore({ role: 'viewer' })
+    const fn = removeRuleHandler({ firestore: fs })
+    await expect(
+      fn({ data: { id: 'rule_1' }, auth: { uid: 'u1' } }),
+    ).rejects.toThrow(/admin/i)
+  })
+
+  it('rejects missing id with invalid-argument', async () => {
+    const fs = statefulFirestore()
+    const fn = removeRuleHandler({ firestore: fs })
+    await expect(
+      fn({ data: {}, auth: { uid: 'u1' } }),
+    ).rejects.toThrow(/id required/i)
+  })
+
+  it('removes the matching rule', async () => {
+    const fs = statefulFirestore({
+      initialRules: [
+        { id: 'rule_1', rule: 'foo', audience: 'all', enabled: true },
+        { id: 'rule_2', rule: 'bar', audience: 'all', enabled: true },
+      ],
+    })
+    const fn = removeRuleHandler({ firestore: fs })
+    const out = await fn({ data: { id: 'rule_1' }, auth: { uid: 'u1' } })
+    expect(out.ok).toBe(true)
+    expect(out.removed).toBe(1)
+    expect(fs.state.rules).toHaveLength(1)
+    expect(fs.state.rules[0].id).toBe('rule_2')
   })
 })

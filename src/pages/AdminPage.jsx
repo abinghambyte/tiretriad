@@ -93,6 +93,20 @@ export function AdminPage() {
         </section>
 
         <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-white">Listing Coach rules</h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Manage the persistent style rules fed into the AI Listing Coach system prompt. Add new
+            corrections, toggle existing rules on or off, or remove ones that no longer apply.
+          </p>
+          <Link
+            to="/admin/listing-coach-rules"
+            className="mt-4 inline-flex min-h-[44px] items-center rounded-lg border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-100 transition-colors hover:border-amber-600/40 hover:bg-zinc-800/80 sm:min-h-0"
+          >
+            Open Listing Coach rules →
+          </Link>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-white">Price research</h2>
           <p className="mt-2 text-sm text-zinc-400">
             Runs the wholesale-price check against up to 100 tires. Same job that runs nightly at 2 AM; use this to

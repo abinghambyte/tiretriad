@@ -14,7 +14,11 @@ Object.assign(exports, require('./payoutConfig'))
 
 exports.advisorNarrate = require('./advisorNarrate').advisorNarrate
 exports.salesAdvisorChat = require('./salesAdvisor').salesAdvisorChat
-exports.listingCoach = require('./listingCoach').listingCoach
+const lc = require('./listingCoach')
+exports.listingCoach = lc.listingCoach
+exports.addListingCoachRule = lc.addListingCoachRule
+exports.toggleListingCoachRule = lc.toggleListingCoachRule
+exports.removeListingCoachRule = lc.removeListingCoachRule
 exports.backfillTireCreatedAt = require('./backfillTireCreatedAt').backfillTireCreatedAt
 
 exports.getDashboardStats = require('./dashboardStats').getDashboardStats

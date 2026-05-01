@@ -285,6 +285,66 @@ exports.listingCoach = onCall(
   })({ data: req.data, auth: req.auth }),
 )
 
+async function requireAdmin(firestore, auth) {
+  if (!auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.')
+  const userSnap = await firestore.collection('users').doc(auth.uid).get()
+  const role = String((userSnap.exists ? userSnap.data() : {})?.role || '')
+  if (role !== 'admin') throw new HttpsError('permission-denied', 'Admin role required.')
+}
+
+function addRuleHandler({ firestore }) {
+  return async function handler({ data, auth }) {
+    await requireAdmin(firestore, auth)
+    const rule = String(data?.rule || '').trim()
+    const audience = String(data?.audience || '').trim()
+    const reason = data?.reason ? String(data.reason).trim() : null
+    if (!rule) throw new HttpsError('invalid-argument', 'rule required.')
+    try {
+      return await styleGuide.addStyleRule({ firestore, rule, audience, addedBy: auth.uid, reason })
+    } catch (err) {
+      throw new HttpsError('invalid-argument', String(err?.message || err))
+    }
+  }
+}
+
+function toggleRuleHandler({ firestore }) {
+  return async function handler({ data, auth }) {
+    await requireAdmin(firestore, auth)
+    const id = String(data?.id || '').trim()
+    const enabled = Boolean(data?.enabled)
+    if (!id) throw new HttpsError('invalid-argument', 'id required.')
+    try {
+      return await styleGuide.toggleStyleRule({ firestore, id, enabled })
+    } catch (err) {
+      throw new HttpsError('not-found', String(err?.message || err))
+    }
+  }
+}
+
+function removeRuleHandler({ firestore }) {
+  return async function handler({ data, auth }) {
+    await requireAdmin(firestore, auth)
+    const id = String(data?.id || '').trim()
+    if (!id) throw new HttpsError('invalid-argument', 'id required.')
+    return styleGuide.removeStyleRule({ firestore, id })
+  }
+}
+
+exports.addListingCoachRule = onCall(
+  { region: 'us-central1', cors: true },
+  async (req) => addRuleHandler({ firestore: admin.firestore() })({ data: req.data, auth: req.auth }),
+)
+
+exports.toggleListingCoachRule = onCall(
+  { region: 'us-central1', cors: true },
+  async (req) => toggleRuleHandler({ firestore: admin.firestore() })({ data: req.data, auth: req.auth }),
+)
+
+exports.removeListingCoachRule = onCall(
+  { region: 'us-central1', cors: true },
+  async (req) => removeRuleHandler({ firestore: admin.firestore() })({ data: req.data, auth: req.auth }),
+)
+
 exports._testonly = {
   handle,
   buildSystemPrompt,
@@ -293,4 +353,7 @@ exports._testonly = {
   dispatchTool,
   RATE_LIMIT_PER_HOUR,
   __resetRateBuckets: () => rateBuckets.clear(),
+  addRuleHandler,
+  toggleRuleHandler,
+  removeRuleHandler,
 }
