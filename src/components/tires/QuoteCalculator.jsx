@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { computeBundleQuote, marginBadgeClass, marginBadgeLabel } from '../../utils/marginCalc'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { tireLandedBuyNumber } from '../../utils/tireLandedBuy.js'
 import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import { MODAL_CENTER_BACKDROP, MODAL_CENTER_PANEL } from '../ui/modalChrome.js'
@@ -26,14 +27,22 @@ import { usePayoutConfig } from '../../hooks/usePayoutConfig'
  *   When omitted, the "Log sale" button is hidden.
  */
 export function QuoteCalculator({ tire, onClose, onLogSale }) {
-  const buyPerTire = tireCatalogBuyNumber(tire)
+  const catalogBuyPerTire = tireCatalogBuyNumber(tire)
   const overheadPerTire = effectiveCts(tire)
   const retailPerTire = tireCatalogRetailNumber(tire)
   const fetPerTire = Number(tire?.fet) || 0
   const { config: payoutConfig } = usePayoutConfig()
   const floorPct = Number(payoutConfig?.marginFloorPct) || 20
+  const taxes = payoutConfig && typeof payoutConfig === 'object' ? payoutConfig.taxes : null
+  const landedPerTire = tireLandedBuyNumber(tire, taxes)
+  const taxRate =
+    (Number(taxes?.countyTaxPct) || 0)
+    + (Number(taxes?.localTaxPct) || 0)
+    + (Number(taxes?.stateTaxPct) || 0)
+  const tireFeePerTire = Number(taxes?.tireFeePerTire) || 0
+  const wholesaleTaxPerTire = catalogBuyPerTire * taxRate
 
-  const defaultPrice = retailPerTire > 0 ? retailPerTire : buyPerTire
+  const defaultPrice = retailPerTire > 0 ? retailPerTire : landedPerTire
 
   const [quantity, setQuantity] = useState(4)
   const [salePrice, setSalePrice] = useState(() =>
@@ -53,20 +62,24 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
       computeBundleQuote({
         qty: Number(quantity) || 0,
         salePrice: Number(salePrice) || 0,
-        buyPerTire,
+        // Landed cost = catalog buy + FET + wholesale sales tax + CO tire fee.
+        // Passing landed (instead of catalog buy) folds every predictive
+        // adder into the bundle cost so margin reflects the post-tax reality.
+        // FET / tax / fee are surfaced on muted reference rows below for
+        // transparency, NOT added on top of landed.
+        buyPerTire: landedPerTire,
         overheadPerTire,
-        // FET is already folded into the catalog buy number. Pass 0 so the
-        // Quote modal shows the FET row for transparency without double-
-        // counting it in the cost total. `fetTotal` is still surfaced on
-        // its own line below for reference.
         fetPerTire: 0,
       }),
-    [quantity, salePrice, buyPerTire, overheadPerTire],
+    [quantity, salePrice, landedPerTire, overheadPerTire],
   )
 
-  // Separate reference calc so the FET line shows qty × FET without it
-  // affecting the bundle cost / margin totals.
+  // Reference totals for the breakdown rows. These do NOT affect the bundle
+  // cost / margin — they decompose what's already inside `landedPerTire`.
+  const catalogBuyReferenceTotal = quote.qty * catalogBuyPerTire
   const fetReferenceTotal = quote.qty * fetPerTire
+  const wholesaleTaxReferenceTotal = quote.qty * wholesaleTaxPerTire
+  const tireFeeReferenceTotal = quote.qty * tireFeePerTire
 
   const marginLabel = marginBadgeLabel(quote.marginPct)
   const marginClasses = marginBadgeClass(quote.marginPct)
@@ -202,11 +215,11 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
                     {formatCurrency(retailPerTire)}
                   </span>
                 </p>
-              ) : buyPerTire > 0 ? (
+              ) : landedPerTire > 0 ? (
                 <p className="mt-1 text-[11px] text-zinc-400">
-                  Default: catalog buy{' '}
+                  Default: landed cost{' '}
                   <span className="sk-figures text-zinc-300">
-                    {formatCurrency(buyPerTire)}
+                    {formatCurrency(landedPerTire)}
                   </span>{' '}
                   (no researched retail yet)
                 </p>
@@ -218,22 +231,40 @@ export function QuoteCalculator({ tire, onClose, onLogSale }) {
             <dl className="divide-y divide-zinc-800 text-sm">
               <QuoteRow
                 label="Buy cost total"
-                sub={`${quote.qty} × ${formatCurrencyOrDash(buyPerTire)}`}
+                sub={`${quote.qty} × ${formatCurrencyOrDash(landedPerTire)} (incl. FET / tax / fee)`}
                 value={formatCurrency(quote.buyTotal)}
+              />
+              <QuoteRow
+                label="Buy (catalog)"
+                sub={`${quote.qty} × ${formatCurrencyOrDash(catalogBuyPerTire)}`}
+                value={formatCurrency(catalogBuyReferenceTotal)}
+                muted
+              />
+              {fetPerTire > 0 ? (
+                <QuoteRow
+                  label="FET"
+                  sub={`${quote.qty} × ${formatCurrencyOrDash(fetPerTire)}`}
+                  value={formatCurrency(fetReferenceTotal)}
+                  muted
+                />
+              ) : null}
+              <QuoteRow
+                label="Wholesale tax"
+                sub={`${(taxRate * 100).toFixed(2)}% on catalog buy`}
+                value={formatCurrency(wholesaleTaxReferenceTotal)}
+                muted
+              />
+              <QuoteRow
+                label="CO tire fee"
+                sub={`${quote.qty} × ${formatCurrencyOrDash(tireFeePerTire)}`}
+                value={formatCurrency(tireFeeReferenceTotal)}
+                muted
               />
               <QuoteRow
                 label="Overhead total"
                 sub={`${quote.qty} × ${formatCurrencyOrDash(overheadPerTire)}`}
                 value={formatCurrency(quote.overheadTotal)}
               />
-              {fetPerTire > 0 ? (
-                <QuoteRow
-                  label="FET total"
-                  sub={`${quote.qty} × ${formatCurrencyOrDash(fetPerTire)} (already in buy)`}
-                  value={formatCurrency(fetReferenceTotal)}
-                  muted
-                />
-              ) : null}
               <QuoteRow
                 label="Revenue total"
                 sub={`${quote.qty} × ${formatCurrencyOrDash(quote.salePrice)}`}

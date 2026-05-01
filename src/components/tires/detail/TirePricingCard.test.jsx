@@ -60,4 +60,15 @@ describe('TirePricingCard', () => {
     const { container } = render(<TirePricingCard tire={tire} efleetRecord={null} efleetDate={null} />)
     expect(container.textContent).toMatch(/Margin.*--/s)
   })
+
+  it('renders the landed buy breakdown rows', () => {
+    // Without an injected payoutCfg the tax rate is 0 and landed == catalog
+    // buy + FET, so this just documents that the breakdown rows exist on
+    // the pricing card alongside the headline Buy (landed) row.
+    const { container } = render(<TirePricingCard tire={baseTire} efleetRecord={null} efleetDate={null} />)
+    expect(container.textContent).toContain('Buy (landed)')
+    expect(container.textContent).toContain('Catalog')
+    expect(container.textContent).toContain('Wholesale tax')
+    expect(container.textContent).toContain('CO tire fee')
+  })
 })

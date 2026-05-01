@@ -135,6 +135,24 @@ describe('computeBundleQuote (Quote modal math)', () => {
     expect(r.marginPct).toBe(-50)
   })
 
+  it('with landed buy reflects post-tax margin', () => {
+    // Documents the intended call shape after the landed-cost rollup:
+    // callers pass `tireLandedBuyNumber(tire, taxes)` as `buyPerTire` and
+    // 0 for `fetPerTire` (FET is already folded into landed). Numbers below
+    // are illustrative — 4 tires landed $238.28, sold at $291, $3 overhead.
+    const q = computeBundleQuote({
+      qty: 4,
+      salePrice: 291,
+      buyPerTire: 238.28,
+      overheadPerTire: 3,
+      fetPerTire: 0,
+    })
+    // revenue 1164, cost 4 * (238.28 + 3) = 965.12, margin = 198.88 / 1164 ≈ 17.09%
+    expect(q.revenueTotal).toBe(1164)
+    expect(q.costTotal).toBeCloseTo(965.12, 2)
+    expect(q.marginPct).toBeCloseTo(17.09, 1)
+  })
+
   it('coerces non-numeric / negative inputs to zero so totals stay finite', () => {
     const r = computeBundleQuote({
       qty: -2,

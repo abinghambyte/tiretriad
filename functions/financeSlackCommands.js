@@ -44,6 +44,25 @@ function crewMemberDeliveryBumpSubline(member) {
   return ` (incl. ${formatCurrency(bumpDollars)} from ${bumpCount} delivered ${noun})`
 }
 
+/**
+ * Pending-adjustments callout subline appended to a crew member's `/owed`
+ * line when unacknowledged invoice-reconcile adjustments exist. Returns
+ * '' when there are no pending entries so the line stays unchanged.
+ *
+ * @param {{ adjustments?: Array<{ delta?: number, acknowledgedBy?: string|null }> } | null} member
+ * @returns {string}
+ */
+function crewMemberPendingAdjustmentsCallout(member) {
+  const adjustments = Array.isArray(member?.adjustments) ? member.adjustments : []
+  const pending = adjustments.filter((a) => a && !a.acknowledgedBy)
+  if (pending.length === 0) return ''
+  const net = pending.reduce((acc, a) => acc + (Number(a.delta) || 0), 0)
+  const sign = net < 0 ? '-' : '+'
+  const abs = Math.abs(net).toFixed(2)
+  const noun = pending.length === 1 ? 'adjustment' : 'adjustments'
+  return `\n   :warning: ${pending.length} reconcile ${noun} pending (net ${sign}$${abs})`
+}
+
 async function slackApiPost(token, method, body) {
   const res = await fetch(`https://slack.com/api/${method}`, {
     method: 'POST',
@@ -196,7 +215,7 @@ async function handleSlashOwed(db, token, channel) {
     .sort()
     .map((k) => {
       const m = members[k] || {}
-      return `*${escapeSlackMrkdwn(crewEarningsMetaDisplayName(k))}* — earned ${formatCurrency(Number(m.totalEarned) || 0)}${crewMemberDeliveryBumpSubline(m)} · paid ${formatCurrency(Number(m.totalPaid) || 0)} · balance ${formatCurrency(Number(m.balance) || 0)}`
+      return `*${escapeSlackMrkdwn(crewEarningsMetaDisplayName(k))}* — earned ${formatCurrency(Number(m.totalEarned) || 0)}${crewMemberDeliveryBumpSubline(m)} · paid ${formatCurrency(Number(m.totalPaid) || 0)} · balance ${formatCurrency(Number(m.balance) || 0)}${crewMemberPendingAdjustmentsCallout(m)}`
     })
   const blocks = [
     {
@@ -463,4 +482,9 @@ module.exports = {
   MODAL_PAYOUT_SUBMIT,
   executePayoutFromModal,
   crewMemberDeliveryBumpSubline,
+  crewMemberPendingAdjustmentsCallout,
+}
+module.exports._testonly = {
+  crewMemberDeliveryBumpSubline,
+  crewMemberPendingAdjustmentsCallout,
 }

@@ -89,7 +89,7 @@ describe('ctsPerTire', () => {
 describe('completedOrderMarginPool', () => {
   const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
 
-  it('subtracts taxesApplied.total when present on the order', () => {
+  it('subtracts taxesApplied.total when present on the order (legacy path)', () => {
     const order = {
       quantity: 4,
       taxesApplied: { salesTax: 10, tireFee: 5, total: 15 },
@@ -102,6 +102,44 @@ describe('completedOrderMarginPool', () => {
   it('matches computePoolDollars when taxesApplied is absent', () => {
     const order = { quantity: 1 }
     expect(completedOrderMarginPool(950, order, tire)).toBe(computePoolDollars(950, order, tire))
+  })
+})
+
+describe('completedOrderMarginPool - cost source priority', () => {
+  it('uses actualLandedCost when present and finite', () => {
+    expect(completedOrderMarginPool(1000, { actualLandedCost: 800 }, {})).toBe(200)
+  })
+
+  it('prefers actualLandedCost over estimatedLandedCostAtCompletion', () => {
+    const order = { actualLandedCost: 800, estimatedLandedCostAtCompletion: 850 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(200)
+  })
+
+  it('falls back to estimatedLandedCostAtCompletion when actual is null', () => {
+    const order = { actualLandedCost: null, estimatedLandedCostAtCompletion: 850 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(150)
+  })
+
+  it('falls back to legacy taxesApplied/cost path when neither landed cost is set', () => {
+    const tire = { price: 800, mountCost: 10, deliveryCost: 20, otherCost: 5 }
+    const order = {
+      quantity: 4,
+      taxesApplied: { salesTax: 10, tireFee: 5, total: 15 },
+    }
+    expect(completedOrderMarginPool(3800, order, tire)).toBe(445)
+  })
+
+  it('clamps to >= 0 when actualLandedCost exceeds payment', () => {
+    expect(completedOrderMarginPool(500, { actualLandedCost: 700 }, {})).toBe(0)
+  })
+
+  it('clamps to >= 0 when estimated exceeds payment', () => {
+    expect(completedOrderMarginPool(500, { estimatedLandedCostAtCompletion: 700 }, {})).toBe(0)
+  })
+
+  it('treats negative actualLandedCost as not-set and falls through', () => {
+    const order = { actualLandedCost: -1, estimatedLandedCostAtCompletion: 850 }
+    expect(completedOrderMarginPool(1000, order, {})).toBe(150)
   })
 })
 
@@ -308,6 +346,91 @@ describe('runCompletionTransaction', () => {
       tireFee: 8,
       total: 36.92,
     })
+    // 4 * tireLandedBuyNumber({ price: 100 }, default taxes)
+    //   = 4 * (100 + 100*0.0723 + 2) = 4 * 109.23 = 436.92
+    expect(orderPatch.estimatedLandedCostAtCompletion).toBe(436.92)
+  })
+
+  it('pool basis matches estimatedLandedCostAtCompletion snapshot', async () => {
+    // Build the scenario so the landed snapshot has a known value.
+    //   qty * tireLandedBuyNumber(tire, taxes)
+    //     = 4 * (100 + 100*0.0723 + 2)
+    //     = 4 * 109.23 = 436.92
+    // The revenue rollup's *Cost field MUST equal that snapshot, otherwise
+    // applyOrderCostChange will reverse against a mismatched baseline.
+    const refSnapshots = {
+      'meta/payoutConfig': { exists: false },
+      'orders/o2': {
+        exists: true,
+        data: () => ({
+          status: 'in_transit',
+          quantity: 4,
+          mspn: 'M1',
+        }),
+      },
+      'tires/M1': {
+        exists: true,
+        data: () => ({
+          price: 100,
+          mountCost: 5,
+          deliveryCost: 7,
+          otherCost: 3,
+          weeklyVelocityWeek: '',
+          weeklyVelocity: 0,
+        }),
+      },
+      'meta/revenueStats': { exists: false },
+      'meta/crewEarnings': { exists: false },
+    }
+    let orderPatch
+    let revPatch
+    const db = {
+      collection: (name) => ({
+        doc: (id) => {
+          const path = `${name}/${id}`
+          return {
+            path,
+            get: async () => refSnapshots[path] || { exists: false },
+          }
+        },
+      }),
+      runTransaction: async (fn) => {
+        const tx = {
+          get: async (ref) => {
+            const snap = refSnapshots[ref.path]
+            if (!snap) return { exists: false, data: () => ({}) }
+            return {
+              exists: snap.exists,
+              data: () => (typeof snap.data === 'function' ? snap.data() : {}),
+            }
+          },
+          update: (ref, patch) => {
+            if (ref.path === 'orders/o2') orderPatch = patch
+          },
+          set: (ref, patch) => {
+            if (ref.path === 'meta/revenueStats') revPatch = patch
+          },
+        }
+        await fn(tx)
+      },
+    }
+
+    await runCompletionTransaction(db, {
+      orderRef: { path: 'orders/o2' },
+      completionPatch: { status: 'completed' },
+      paymentAmount: 800,
+      completedMs: Date.UTC(2026, 3, 15, 19),
+    })
+
+    expect(orderPatch.estimatedLandedCostAtCompletion).toBe(436.92)
+    // The cost accumulated into revenueStats must equal the landed snapshot:
+    // CTS (mountCost+deliveryCost+otherCost = 15/tire) is intentionally NOT
+    // part of the landed basis, and the legacy taxesBundle.total is rolled
+    // into tireLandedBuyNumber's per-tire math (FET + wholesale tax + tire
+    // fee). Same value must be used at completion and at invoice reversal.
+    expect(revPatch.allTimeCost).toBe(436.92)
+    expect(revPatch.dailyCost).toBe(436.92)
+    expect(revPatch.allTimeMargin).toBe(round2(800 - 436.92))
   })
 })
 

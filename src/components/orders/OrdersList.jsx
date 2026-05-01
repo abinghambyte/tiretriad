@@ -284,6 +284,7 @@ export function OrdersList({ highlightId }) {
   const [paymentReceived, setPaymentReceived] = useState(true)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [deliveredBy, setDeliveredBy] = useState(null)
+  const [dr, setDr] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const [notifyModalOrder, setNotifyModalOrder] = useState(null)
@@ -468,6 +469,7 @@ export function OrdersList({ highlightId }) {
     setPaymentReceived(true)
     setPaymentAmount(String(order.totalPrice ?? ''))
     setDeliveredBy(null)
+    setDr(order?.dr || '')
     setCompleteFor(order.id)
   }
 
@@ -492,6 +494,7 @@ export function OrdersList({ highlightId }) {
         paymentReceived,
         paymentAmount: amt,
         deliveredBy: completeIsDelivery ? deliveredBy : null,
+        dr: dr.trim() || null,
       })
       setCompleteFor(null)
     } catch (err) {
@@ -951,6 +954,17 @@ export function OrdersList({ highlightId }) {
                 step="0.01"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              />
+            </label>
+            <label className="mt-3 block text-xs font-medium text-zinc-400">
+              DR # (optional, from eFleet invoice)
+              <input
+                type="text"
+                value={dr}
+                onChange={(e) => setDr(e.target.value)}
+                maxLength={64}
+                placeholder="DR3611350"
                 className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               />
             </label>

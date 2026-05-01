@@ -24,13 +24,20 @@ export function computeMargin(tire) {
  * percentage of the sale is margin?". Matches how the Margin % column in the
  * catalog should be read. Returns null when no researched retail exists
  * (unresearched tires, genuine not-founds); the UI renders that as a dash.
+ *
+ * Pass `landedBuy` (from `tireLandedBuyNumber(tire, taxes)`) to fold the
+ * predictive landed cost — catalog buy + FET + wholesale tax + CO tire fee —
+ * into the margin denominator. When omitted, falls back to the catalog buy.
+ *
  * @param {Record<string, unknown>} tire
+ * @param {{ landedBuy?: number }} [opts]
  * @returns {number | null}
  */
-export function computeListingMargin(tire) {
+export function computeListingMargin(tire, opts) {
   const retail = tireCatalogRetailNumber(tire)
   if (!retail || retail <= 0) return null
-  const buy = tireCatalogBuyNumber(tire)
+  const override = opts && Number.isFinite(Number(opts.landedBuy)) ? Number(opts.landedBuy) : null
+  const buy = override != null && override > 0 ? override : tireCatalogBuyNumber(tire)
   if (!buy || buy <= 0) return null
   return ((retail - buy) / retail) * 100
 }
@@ -66,11 +73,15 @@ export function marginPercent(referencePrice, overheadTotal) {
  * @param {object} input
  * @param {number} input.qty               Quantity of tires in the bundle (>= 0).
  * @param {number} input.salePrice         Sale price per tire in USD (>= 0).
- * @param {number} input.buyPerTire        Kyle buy cost per tire in USD.
+ * @param {number} input.buyPerTire        Landed cost per tire in USD. Use
+ *   `tireLandedBuyNumber(tire, taxes)` so the figure includes FET, wholesale
+ *   sales tax, and the CO tire fee. Passing the raw `tireCatalogBuyNumber`
+ *   under-counts margin by the predictive landed adders.
  * @param {number} input.overheadPerTire   Mount + delivery + other per tire in USD.
  * @param {number} [input.fetPerTire=0]    FET per tire in USD. Already folded
- *   into catalog buy; included here so the modal can show it on its own row
- *   without double-counting, callers pass 0 if buy already includes FET.
+ *   into the landed buy; pass 0 when `buyPerTire` is `tireLandedBuyNumber`.
+ *   Reserved for legacy callers that still pass catalog buy and want FET on
+ *   its own line.
  * @returns {{ qty: number, salePrice: number, buyTotal: number, overheadTotal: number,
  *            fetTotal: number, costTotal: number, revenueTotal: number,
  *            profitTotal: number, marginPct: number | null }}

@@ -30,7 +30,15 @@ const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default:
 const AdminEFleetPage = lazy(() =>
   import('./pages/AdminEFleetPage').then((m) => ({ default: m.AdminEFleetPage })),
 )
+const AdminEFleetInvoicesPage = lazy(() =>
+  import('./pages/AdminEFleetInvoicesPage').then((m) => ({
+    default: m.AdminEFleetInvoicesPage,
+  })),
+)
 const PeoplePage = lazy(() => import('./pages/PeoplePage').then((m) => ({ default: m.PeoplePage })))
+const PeopleEarningsPage = lazy(() =>
+  import('./pages/PeopleEarningsPage').then((m) => ({ default: m.PeopleEarningsPage })),
+)
 const TiresPage = lazy(() => import('./pages/TiresPage').then((m) => ({ default: m.TiresPage })))
 const TireDetailPage = lazy(() =>
   import('./pages/TireDetailPage').then((m) => ({ default: m.TireDetailPage })),
@@ -144,6 +152,16 @@ export default function App() {
           }
         />
         <Route
+          path="/people/earnings"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<RouteFallback />}>
+                <PeopleEarningsPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/ops"
           element={
             <ProtectedRoute>
@@ -169,6 +187,16 @@ export default function App() {
             <ProtectedRoute requireAdmin>
               <Suspense fallback={<RouteFallback />}>
                 <AdminEFleetPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/efleet/invoices"
+          element={
+            <ProtectedRoute requireAdmin>
+              <Suspense fallback={<RouteFallback />}>
+                <AdminEFleetInvoicesPage />
               </Suspense>
             </ProtectedRoute>
           }

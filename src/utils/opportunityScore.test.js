@@ -207,4 +207,19 @@ describe('computeOpportunityScore', () => {
     expect(r.walkawayPrice).toBe(200)
     expect(r.netPerTire).toBe(100)
   })
+
+  it('drops opportunity when CO landed cost (tax + tire fee) is applied', () => {
+    const noTax = { countyTaxPct: 0, localTaxPct: 0, stateTaxPct: 0, tireFeePerTire: 0 }
+    const coTax = {
+      countyTaxPct: 0.0109,
+      localTaxPct: 0.0312,
+      stateTaxPct: 0.0302,
+      tireFeePerTire: 2,
+    }
+    const a = computeOpportunityScore(researchedTire, { haggleDiscount: 0.1, taxes: noTax })
+    const b = computeOpportunityScore(researchedTire, { haggleDiscount: 0.1, taxes: coTax })
+    expect(b.opportunity).toBeLessThan(a.opportunity)
+    // Sanity: the landed cost basis (`buy`) goes up by exactly the tax + fee adders.
+    expect(b.buy).toBeGreaterThan(a.buy)
+  })
 })

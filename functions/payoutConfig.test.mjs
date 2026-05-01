@@ -7,6 +7,7 @@ const {
   loadPayoutConfig,
   validatePayoutConfig,
   computeOrderTaxes,
+  tireLandedBuyNumber,
   splitPool,
   applyDeliveryBump,
 } = require('./payoutConfig')
@@ -197,5 +198,24 @@ describe('validatePayoutConfig deliveryBump', () => {
 describe('DEFAULT_CONFIG', () => {
   it('exposes deliveryBump default', () => {
     expect(DEFAULT_CONFIG.deliveryBump).toBe(0.05)
+  })
+})
+
+describe('tireLandedBuyNumber (server)', () => {
+  const taxes = {
+    countyTaxPct: 0.0109, localTaxPct: 0.0312, stateTaxPct: 0.0302, tireFeePerTire: 2,
+  }
+  it('matches the client helper case-for-case', () => {
+    expect(tireLandedBuyNumber({ price: 220.35, fet: 0 }, taxes)).toBeCloseTo(238.28, 2)
+    expect(tireLandedBuyNumber({ price: 499, fet: 25.23 }, taxes)).toBeCloseTo(562.31, 2)
+    expect(tireLandedBuyNumber({ price: 0 }, taxes)).toBe(0)
+    expect(tireLandedBuyNumber(null, taxes)).toBe(0)
+  })
+  it('priceIntel.activeBuyPrice takes precedence', () => {
+    const tire = { price: 200, fet: 0, priceIntel: { activeBuyPrice: 240 } }
+    expect(tireLandedBuyNumber(tire, taxes)).toBeCloseTo(259.35, 2)
+  })
+  it('treats missing taxes as zero', () => {
+    expect(tireLandedBuyNumber({ price: 100, fet: 5 }, null)).toBe(105)
   })
 })

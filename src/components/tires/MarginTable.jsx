@@ -12,6 +12,8 @@ import { isTireBeastMode } from '../../utils/tireBeastMode.js'
 import { formatCurrency, formatCurrencyOrDash, formatPercent } from '../../utils/format'
 import Spinner from '../ui/Spinner.jsx'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { tireLandedBuyNumber } from '../../utils/tireLandedBuy.js'
+import { usePayoutConfig } from '../../hooks/usePayoutConfig.js'
 import { tireCatalogRetailNumber, tireRetailIsEstimated, tireRetailIsResearched } from '../../utils/tireCatalogRetail'
 import { parseDescription } from '../../utils/parseTireDescription.js'
 import { copyToClipboard } from '../../utils/copyToClipboard.js'
@@ -190,16 +192,25 @@ function buildGridStyle(columnVisibility) {
   }
 }
 
-function buyPriceOf(row) {
-  const n = tireCatalogBuyNumber(row)
+function buyPriceOf(row, taxes) {
+  const n = tireLandedBuyNumber(row, taxes)
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
-function BuyPriceCell({ row }) {
-  const n = tireCatalogBuyNumber(row)
+function BuyPriceCell({ row, taxes }) {
+  const n = tireLandedBuyNumber(row, taxes)
   const text = n > 0 && Number.isFinite(n) ? formatCurrency(n) : '--'
+  // Tooltip surfaces the catalog buy alongside the landed total so the
+  // operator can see both numbers without leaving the row.
+  const catalog = tireCatalogBuyNumber(row)
+  const title = catalog > 0
+    ? `Landed: catalog ${formatCurrency(catalog)} + FET / wholesale tax / CO tire fee`
+    : 'Landed buy (catalog buy + FET + tax + tire fee)'
   return (
-    <span className="inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-zinc-200 max-sm:min-w-0">
+    <span
+      className="inline-flex max-w-full whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-zinc-200 max-sm:min-w-0"
+      title={title}
+    >
       {text}
     </span>
   )
@@ -288,8 +299,8 @@ function FloorCell({ row }) {
   )
 }
 
-function previewMarginWhileEditing(row, overheadDraft) {
-  const buy = buyPriceOf(row)
+function previewMarginWhileEditing(row, overheadDraft, taxes) {
+  const buy = buyPriceOf(row, taxes)
   if (!buy) return null
   const overhead = computeCts(overheadDraft)
   return ((buy - overhead) / buy) * 100
@@ -615,6 +626,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   columnVisibility,
   gridStyle,
   justJumpedToId,
+  taxes,
 }) {
   const row = rows[index]
   if (!row) return null
@@ -629,18 +641,22 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
   // IMPORTANT: the row's visible margin stays locked to this saved value
   // while the inline editor is open. Editing drafts must NOT mutate the
   // row value. The projected margin is exposed in the editor section only.
-  const m = computeListingMargin(row)
+  // Margin denominator is the predictive landed cost (catalog buy + FET +
+  // wholesale tax + CO tire fee) so the % matches what shows in the Quote
+  // modal and pricing card.
+  const landedForRow = tireLandedBuyNumber(row, taxes)
+  const m = computeListingMargin(row, { landedBuy: landedForRow })
   const showCostEditor = editingCostsId === row.id
-  const projectedMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft) : null
+  const projectedMargin = showCostEditor ? previewMarginWhileEditing(row, overheadDraft, taxes) : null
 
   const marginTitle = (() => {
     if (showCostEditor) {
-      return buyPriceOf(row) <= 0
+      return buyPriceOf(row, taxes) <= 0
         ? 'No buy price on this catalog row.'
         : marginBadgeLabel(projectedMargin)
     }
     if (m == null) {
-      return buyPriceOf(row) <= 0
+      return buyPriceOf(row, taxes) <= 0
         ? 'No buy price on this catalog row.'
         : 'Retail not researched yet. Runs hourly; check back.'
     }
@@ -796,7 +812,7 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
               )}
             </div>
             <div className="flex min-w-[6.25rem] shrink-0 items-center whitespace-nowrap border-r border-zinc-800/60 px-1 text-sm font-semibold tabular-nums text-zinc-200">
-              <BuyPriceCell row={row} />
+              <BuyPriceCell row={row} taxes={taxes} />
             </div>
             <div className="flex w-20 shrink-0 items-center px-1">{marginCell}</div>
           </div>
@@ -931,9 +947,9 @@ const TireMarginVirtualRow = memo(function TireMarginVirtualRow({
         {vis.buy !== false ? (
           <div
             className="min-w-0 whitespace-nowrap px-2 text-right font-mono text-sm font-semibold text-zinc-200 tabular-nums"
-            title="Buy price: catalog buy (includes FET component)"
+            title="Buy (landed): catalog buy + FET + wholesale tax + CO tire fee"
           >
-            <BuyPriceCell row={row} />
+            <BuyPriceCell row={row} taxes={taxes} />
           </div>
         ) : null}
         {vis.retail !== false ? (
@@ -1010,6 +1026,8 @@ export function MarginTable({
   const listRef = externalListRef || internalListRef
   const scrollRef = useRef(null)
   const isMobileTable = useMediaQuery('(max-width: 767px)')
+  const { config: payoutCfg } = usePayoutConfig()
+  const taxes = payoutCfg && typeof payoutCfg === 'object' ? payoutCfg.taxes : null
 
   // Sort cycle: inactive column → asc; active column → toggle asc/desc.
   // The "reset to default" affordance lives in the toolbar's
@@ -1110,6 +1128,7 @@ export function MarginTable({
       columnVisibility,
       gridStyle,
       justJumpedToId,
+      taxes,
     }),
     [
       rows,
@@ -1128,6 +1147,7 @@ export function MarginTable({
       columnVisibility,
       gridStyle,
       justJumpedToId,
+      taxes,
     ],
   )
 
@@ -1259,7 +1279,7 @@ export function MarginTable({
             {vis.buy !== false ? (
               <div className="min-w-0 whitespace-nowrap px-2 text-right">
                 <SortButton
-                  label="Buy Price"
+                  label="Buy (landed)"
                   columnKey="buy"
                   sortKey={sortKey}
                   sortDir={sortDir}
