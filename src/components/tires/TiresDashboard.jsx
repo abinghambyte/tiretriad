@@ -420,7 +420,7 @@ export function TiresDashboard() {
       return {
         ...t,
         photos: mergeTirePhotos(t.photos, pendingPhotoAdds[key], pendingPhotoDeletes[key]),
-        margin: computeMargin(t),
+        margin: computeMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) }),
         listingMargin: computeListingMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) }),
         derivedUseTags: deriveTireTags(t),
         opportunity: computeOpportunityScore(t, { haggleDiscount, taxes }),
@@ -1253,7 +1253,7 @@ export function TiresDashboard() {
                         <button
                           type="button"
                           disabled={loading || sortedRows.length === 0}
-                          onClick={() => exportMarginCsv(sortedRows)}
+                          onClick={() => exportMarginCsv(sortedRows, taxes)}
                           className="rounded-md border border-zinc-600 px-2 py-1 text-[11px] font-medium text-zinc-200 hover:border-zinc-500 hover:bg-zinc-800/70 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Export CSV

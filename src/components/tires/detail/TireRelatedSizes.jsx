@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { tireCatalogBuyNumber } from '../../../utils/tireCatalogBuy.js'
+import { tireLandedBuyNumber } from '../../../utils/tireLandedBuy.js'
 import { computeListingMargin } from '../../../utils/marginCalc.js'
 import { formatCurrency } from '../../../utils/format.js'
+import { usePayoutConfig } from '../../../hooks/usePayoutConfig.js'
 
 function fmtCurrency(n) {
   return Number.isFinite(n) && n > 0 ? formatCurrency(n) : '--'
@@ -12,6 +14,8 @@ function fmtPct(n) {
 }
 
 export function TireRelatedSizes({ currentTire, relatedTires }) {
+  const { config: payoutCfg } = usePayoutConfig()
+  const taxes = payoutCfg && typeof payoutCfg === 'object' ? payoutCfg.taxes : null
   const sorted = [...relatedTires].sort((a, b) => {
     const ab = tireCatalogBuyNumber(a) || 0
     const bb = tireCatalogBuyNumber(b) || 0
@@ -27,7 +31,7 @@ export function TireRelatedSizes({ currentTire, relatedTires }) {
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {sorted.map((t) => {
           const buy = tireCatalogBuyNumber(t)
-          const margin = computeListingMargin(t)
+          const margin = computeListingMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) })
           return (
             <li key={t.id}>
               <Link

@@ -5,9 +5,10 @@ import { db } from '../firebase/config'
 import { useTires } from './useTires.js'
 import { rankTires } from '../utils/listingAdvisor/ranker.js'
 import { DEFAULT_ADVISOR_MODE } from '../utils/listingAdvisor/modeWeights.js'
-import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
+import { tireLandedBuyNumber } from '../utils/tireLandedBuy.js'
 import { tireCatalogRetailNumber } from '../utils/tireCatalogRetail'
 import { effectiveCts } from '../utils/ctsCalc'
+import { usePayoutConfig } from './usePayoutConfig.js'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 // Match listingStatus.js: anything posted within 7 days counts as active.
@@ -96,10 +97,10 @@ export function computeAvgDaysToSell(orders, tires) {
   return out
 }
 
-function marginHeadroomPct(tire) {
+function marginHeadroomPct(tire, taxes) {
   const retail = tireCatalogRetailNumber(tire)
   if (retail <= 0) return 0
-  const buy = tireCatalogBuyNumber(tire)
+  const buy = tireLandedBuyNumber(tire, taxes)
   const cts = effectiveCts(tire)
   return (retail - buy - cts) / retail
 }
@@ -139,7 +140,7 @@ export function computeDaysSinceLastListed(tire, nowMs) {
   return diffDays < 0 ? 0 : diffDays
 }
 
-export function buildEnrichedTires(tires, velocityBySize, nowMs) {
+export function buildEnrichedTires(tires, velocityBySize, nowMs, taxes) {
   return (tires || []).map((t) => {
     const key = `${t?.size || ''}|${t?.lr || ''}`
     const v = velocityBySize[key] || { avgDaysToSell: null, sampleSize: 0 }
@@ -149,7 +150,7 @@ export function buildEnrichedTires(tires, velocityBySize, nowMs) {
       daysSincePriceChange: computeDaysSincePriceChange(t, nowMs),
       avgDaysToSell: v.avgDaysToSell,
       velocitySampleSize: v.sampleSize,
-      marginHeadroomPct: marginHeadroomPct(t),
+      marginHeadroomPct: marginHeadroomPct(t, taxes),
       missingPlatformCount: missingPlatforms(t, nowMs),
       doNotList: Boolean(t?.doNotList),
       kyleFrozen: Boolean(t?.kyleFrozen),
@@ -164,6 +165,8 @@ export function buildEnrichedTires(tires, velocityBySize, nowMs) {
  */
 export function useAdvisorSignals(mode = DEFAULT_ADVISOR_MODE) {
   const { tires, loading: tiresLoading } = useTires()
+  const { config: payoutCfg } = usePayoutConfig()
+  const taxes = payoutCfg && typeof payoutCfg === 'object' ? payoutCfg.taxes : null
   const [completedOrders, setCompletedOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   // Lazy init keeps "now" stable for the hook's lifetime without calling an
@@ -190,9 +193,9 @@ export function useAdvisorSignals(mode = DEFAULT_ADVISOR_MODE) {
   )
 
   const ranked = useMemo(() => {
-    const enriched = buildEnrichedTires(tires || [], velocityBySize, nowMs)
+    const enriched = buildEnrichedTires(tires || [], velocityBySize, nowMs, taxes)
     return rankTires(enriched, mode)
-  }, [tires, velocityBySize, mode, nowMs])
+  }, [tires, velocityBySize, mode, nowMs, taxes])
 
   return {
     ranked,

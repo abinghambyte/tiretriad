@@ -21,6 +21,8 @@ import { useAdvisorSignals } from './useAdvisorSignals.js'
 import { DEFAULT_ADVISOR_MODE } from '../utils/listingAdvisor/modeWeights.js'
 import { computeMargin } from '../utils/marginCalc'
 import { tireCatalogBuyNumber } from '../utils/tireCatalogBuy'
+import { tireLandedBuyNumber } from '../utils/tireLandedBuy.js'
+import { usePayoutConfig } from './usePayoutConfig.js'
 import { listingStatus } from '../utils/listingStatus'
 
 const CATALOG_SKU_DISPLAY = 1160
@@ -354,6 +356,8 @@ export function useDashboardSignals() {
   const { crewPreview, crewSignals: crewSignalsState } = useCrewPreview()
   const advisor = useAdvisorSignals(DEFAULT_ADVISOR_MODE)
   const { profile } = useUserProfile()
+  const { config: payoutCfg } = usePayoutConfig()
+  const taxes = payoutCfg && typeof payoutCfg === 'object' ? payoutCfg.taxes : null
 
   const needsRepostingCount = useMemo(() => {
     if (tiresLoading) return null
@@ -378,12 +382,12 @@ export function useDashboardSignals() {
     const priced = tires.filter((t) => tireCatalogBuyNumber(t) > 0)
     const pricedCount = priced.length
     const margins = priced
-      .map((t) => computeMargin(t))
+      .map((t) => computeMargin(t, { landedBuy: tireLandedBuyNumber(t, taxes) }))
       .filter((m) => m != null && !Number.isNaN(m))
     const avgMarginPriced =
       margins.length > 0 ? margins.reduce((a, b) => a + b, 0) / margins.length : null
     return { pricedCount, avgMarginPriced, loading: false }
-  }, [tires, tiresLoading])
+  }, [tires, tiresLoading, taxes])
 
   // Count of open research-queue entries. Feeds Kyle's crew-widget pill and
   // the `My Queue` nav badge, so it must match what `MyQueuePage` renders:
