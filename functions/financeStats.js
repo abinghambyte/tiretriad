@@ -114,23 +114,28 @@ function computePoolDollars(paymentAmount, order, tire) {
  *   2. `estimatedLandedCostAtCompletion` (snapshotted at completion time).
  *   3. Legacy: pay − (buy + CTS) × qty − taxesApplied.total.
  *
+ * `adCost` (per-order paid-ad cost, e.g. FB Marketplace boost spend) is
+ * subtracted from the pool basis in every branch when present.
+ *
  * Always clamped to >= 0 so a loss-making order never pulls profit-share negative.
  */
 function completedOrderMarginPool(paymentAmount, order, tire) {
   const pay = Number(paymentAmount) || 0
   const o = order && typeof order === 'object' ? order : {}
+  const adCostRaw = Number(o.adCost)
+  const adCost = Number.isFinite(adCostRaw) && adCostRaw > 0 ? adCostRaw : 0
 
   if (o.actualLandedCost != null) {
     const actual = Number(o.actualLandedCost)
     if (Number.isFinite(actual) && actual >= 0) {
-      return Math.max(0, round2(pay - actual))
+      return Math.max(0, round2(pay - actual - adCost))
     }
   }
 
   if (o.estimatedLandedCostAtCompletion != null) {
     const estimated = Number(o.estimatedLandedCostAtCompletion)
     if (Number.isFinite(estimated) && estimated >= 0) {
-      return Math.max(0, round2(pay - estimated))
+      return Math.max(0, round2(pay - estimated - adCost))
     }
   }
 
@@ -138,9 +143,9 @@ function completedOrderMarginPool(paymentAmount, order, tire) {
   const base = computePoolDollars(paymentAmount, order, tire)
   const ta = o.taxesApplied
   if (ta != null && typeof ta === 'object' && Number.isFinite(Number(ta.total))) {
-    return Math.max(0, round2(base - Number(ta.total)))
+    return Math.max(0, round2(base - Number(ta.total) - adCost))
   }
-  return Math.max(0, base)
+  return Math.max(0, round2(base - adCost))
 }
 
 function round2(n) {
@@ -416,8 +421,16 @@ async function runCompletionTransaction(db, params) {
     const estimatedLandedCostAtCompletion = round2(
       qty * tireLandedBuyNumber(tireData, payoutCfg.taxes),
     )
+    // Per-order paid-ad cost (e.g. FB Marketplace boost) - if supplied at
+    // completion, comes out of the margin pool (and thus the crew shares
+    // it via splits + delivery bump) rather than reducing the seller's
+    // earnings alone. Defaults to 0.
+    const adCostAtCompletion = (() => {
+      const raw = Number(completionPatch?.adCost)
+      return Number.isFinite(raw) && raw >= 0 ? raw : 0
+    })()
     const costTotal = estimatedLandedCostAtCompletion
-    const marginTotal = round2(pay - costTotal)
+    const marginTotal = round2(pay - costTotal - adCostAtCompletion)
     const pool = Math.max(0, marginTotal)
 
     const orderPatch = {

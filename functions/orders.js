@@ -544,6 +544,20 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     throw new HttpsError('invalid-argument', drCheck.error)
   }
   const drNormalized = drCheck.value
+  // Optional ad cost (FB Marketplace boost spend etc) supplied at close-out.
+  // Treated as $0 when absent. Folded into the margin pool basis via
+  // completedOrderMarginPool, alongside actualLandedCost / estimated.
+  let adCostNormalized = 0
+  if (data?.adCost != null && data.adCost !== '') {
+    const parsed = Number(data.adCost)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new HttpsError('invalid-argument', 'adCost must be a finite non-negative number.')
+    }
+    if (parsed > 10000) {
+      throw new HttpsError('invalid-argument', 'adCost may not exceed $10000.')
+    }
+    adCostNormalized = parsed
+  }
   const payoutCfg = await loadPayoutConfig(db)
 
   const nowMs = Date.now()
@@ -630,6 +644,10 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
     dr: drNormalized,
     actualLandedCost: null,
     invoiceLineRef: null,
+    completedBy: request.auth.uid,
+    adCost: adCostNormalized,
+    adCostSetAt: adCostNormalized > 0 ? FieldValue.serverTimestamp() : null,
+    adCostSetBy: adCostNormalized > 0 ? request.auth.uid : null,
     updatedAt: FieldValue.serverTimestamp(),
   }
   if (resolvedTs.completedAtSource === 'backdated') {
