@@ -11,6 +11,11 @@ const baseProps = {
   pending: false,
   onClose: () => {},
   onSend: () => {},
+  listingMessages: [],
+  listingPending: false,
+  listingAudience: null,
+  onListingAudienceChange: () => {},
+  onListingSend: () => {},
 }
 
 describe('SalesAdvisorDrawer', () => {
@@ -79,5 +84,26 @@ describe('SalesAdvisorDrawer', () => {
     const { container } = render(<SalesAdvisorDrawer {...baseProps} onClose={spy} />)
     fireEvent.click(container.querySelector('[aria-label="Close advisor"]'))
     expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders a tab strip with Sales Coach and Listing Coach', () => {
+    const { container } = render(<SalesAdvisorDrawer {...baseProps} />)
+    expect(container.querySelector('[data-testid="tab-sales"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="tab-listing"]')).not.toBeNull()
+  })
+
+  it('clicking the listing tab swaps the visible content', () => {
+    const listingMessages = [
+      { role: 'assistant', content: 'pre\n```\nlisting copy\n```\npost' },
+    ]
+    const { container } = render(
+      <SalesAdvisorDrawer {...baseProps} listingMessages={listingMessages} />,
+    )
+    // Sales tab active: no copy-listing button, suggestion buttons visible.
+    expect(container.querySelector('[data-testid="copy-listing"]')).toBeNull()
+    expect(container.querySelectorAll('[data-suggestion]').length).toBe(4)
+    fireEvent.click(container.querySelector('[data-testid="tab-listing"]'))
+    expect(container.querySelector('[data-testid="copy-listing"]')).not.toBeNull()
+    expect(container.querySelectorAll('[data-suggestion]').length).toBe(0)
   })
 })
