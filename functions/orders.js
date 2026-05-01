@@ -12,7 +12,7 @@ const {
   SLACK_SECRETS,
   LISTING_ADVISOR_SECRETS,
 } = require('./slackSecrets')
-const { listingAdvisorHandler } = require('./listingAdvisor')
+const { listingAdvisorHandler } = require('./listingAdvisorLegacy')
 const {
   buildStage1Blocks,
   postOrderCompletionSummary,
@@ -430,8 +430,10 @@ exports.sendTireSaleSms = onCall({ secrets: SLACK_SECRETS }, async (request) => 
 })
 
 /** Tire availability ping — Block Kit, no order doc (Phase 9). */
-/** AI listing copy + sell probability + recommended price (Gemini or Anthropic). */
-exports.listingAdvisor = onCall({ secrets: LISTING_ADVISOR_SECRETS }, async (request) => {
+/** Legacy AI listing copy + sell probability + recommended price (Gemini or Anthropic). */
+/* Replaced in index.js by the new tool-use coach. Handler kept exported for any */
+/* downstream that imports it directly. */
+exports.listingAdvisorLegacy = onCall({ secrets: LISTING_ADVISOR_SECRETS }, async (request) => {
   return listingAdvisorHandler(request)
 })
 

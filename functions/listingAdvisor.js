@@ -1,425 +1,296 @@
-/**
- * AI listing advisor — Gemini (1.5-pro → 1.0-pro fallback) or Anthropic Haiku for JSON listing suggestions.
- * @module
- */
-
-const { HttpsError } = require('firebase-functions/v2/https')
+// AI Listing Coach callable. Anthropic tool-use loop with six tools:
+// getTireByMspn, getTireBySize, computeLandedCost, getRecentSalesForSize,
+// addStyleRule, listStyleRules. Admin-only, 30/hr rate limit, Haiku ->
+// Sonnet fallback. System prompt = persona + active style rules (filtered
+// by audience) + few-shot anchor.
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
-const { GEMINI_API_KEY, ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./slackSecrets')
+const { readFileSync } = require('node:fs')
+const { join } = require('node:path')
+const { ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./slackSecrets')
+const tools = require('./listingCoachTools')
+const styleGuide = require('./listingCoachStyleGuide')
 
-const SYSTEM = `You are a wholesale tire resale copywriter for Skedaddle Tires in northern Colorado.
-Return ONLY valid JSON (no markdown fences, no commentary) with exactly these keys:
-- title: string, under 80 characters, specific and searchable for local resale
-- description: string, 3-4 sentences, highlight key specs, mention fitment for Fort Collins / Loveland / Greeley area (HVAC fleets, pickups, SUVs, mountain and highway driving) where natural
-- sellProbability: integer 0-100, estimated sell-through likelihood in that regional market for this SKU
-- recommendedPrice: number, suggested USD sale price PER TIRE (not set total), grounded in regional comps and healthy margin over buy price and overhead
-- platformNotes: short string naming which resale channel fits best among: Facebook Marketplace, OfferUp, Craigslist, fleet direct (pick one primary + optional secondary in one short phrase)`
+const ANTHROPIC_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6']
+const MAX_OUTPUT_TOKENS = 2000
+const TEMPERATURE = 0.5
+const RATE_LIMIT_PER_HOUR = 30
+const RATE_WINDOW_MS = 60 * 60 * 1000
+const MAX_TOOL_ITERATIONS = 8
 
-function pickSecretValue(secretValue) {
-  const s = String(secretValue || '').trim()
-  if (!s || s === '-' || /^none$/i.test(s)) return ''
-  return s
+const rateBuckets = new Map()
+
+const FEW_SHOT_PATH = join(__dirname, '__fixtures__', 'listingCoachFewShot.txt')
+let FEW_SHOT_CACHED = null
+function loadFewShot() {
+  if (FEW_SHOT_CACHED == null) {
+    try {
+      FEW_SHOT_CACHED = readFileSync(FEW_SHOT_PATH, 'utf8')
+    } catch {
+      FEW_SHOT_CACHED = ''
+    }
+  }
+  return FEW_SHOT_CACHED
 }
 
-function buildUserPayload(input) {
-  const mspn = String(input.mspn || '').trim()
-  const brand = String(input.brand || '').trim()
-  const description = String(input.description || '').trim()
-  const buyPrice = Number(input.buyPrice)
-  const ctsTotal = Number(input.ctsTotal)
-  const parsed = input.parsed && typeof input.parsed === 'object' ? input.parsed : {}
+const PERSONA = `You are Skedaddle's Listing Coach. Skedaddle resells brand-new tires sourced from a Michelin eFleet program. The eFleet account is private - never mention it, never mention "B2B" / "dealer pricing" / "fleet program" in any draft listing or reasoning the user might paste publicly.
 
-  return {
-    mspn,
-    brand,
-    catalogDescription: description,
-    buyPricePerTire: Number.isFinite(buyPrice) ? buyPrice : null,
-    ctsOverheadPerTire: Number.isFinite(ctsTotal) ? ctsTotal : null,
-    parsedTireFields: {
-      width: parsed.width ?? null,
-      aspectRatio: parsed.aspectRatio ?? null,
-      construction: parsed.construction ?? null,
-      rimDiameter: parsed.rimDiameter ?? null,
-      loadIndex: parsed.loadIndex ?? null,
-      speedRating: parsed.speedRating ?? null,
-      extraLoad: Boolean(parsed.extraLoad),
-      treadName: parsed.treadName ?? '',
+Your job: take a tire SKU + quantity + audience and produce a complete listing kit. Use tools to look up real catalog + landed numbers. Never invent prices or fitment data.
+
+Your reply MUST always include: (1) one-line SKU summary, (2) pricing analysis with explicit landed math, (3) audience suggestion if not already specified, (4) a fenced \`\`\`listing copy\`\`\` block ready to paste, (5) short photo-guidance bullets.
+
+When the user gives an explicit correction phrasing ("never mention X", "drop Y", "always anchor against Z"), call addStyleRule and surface the rule inline before continuing. The user can veto by replying "no".`
+
+const TOOL_SCHEMAS = [
+  {
+    name: 'getTireByMspn',
+    description: 'Look up a tire by its MSPN. Returns catalog price, FET, load range, priceIntel.retailPrice + sources, salesCount, weeklyVelocity.',
+    input_schema: {
+      type: 'object',
+      properties: { mspn: { type: 'string', description: 'Manufacturer SKU number' } },
+      required: ['mspn'],
     },
-    regionalContext:
-      'Northern Colorado: Fort Collins, Loveland, Greeley. Mix of commercial HVAC/service fleets, pickup trucks, SUVs, commuters, and mountain/highway driving toward the foothills.',
-  }
-}
-
-/** Primary Haiku, then Sonnet if the first model or response handling fails. */
-const ANTHROPIC_LISTING_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6']
-
-function parseModelJson(text) {
-  let s = String(text || '').trim()
-  const fence = /^```(?:json)?\s*([\s\S]*?)```$/im.exec(s)
-  if (fence) s = fence[1].trim()
-  let obj
-  try {
-    obj = JSON.parse(s)
-  } catch {
-    throw new Error('Assistant output was not valid JSON')
-  }
-  if (!obj || typeof obj !== 'object') throw new Error('Assistant JSON root was not an object')
-  return normalizeListingJson(obj)
-}
-
-/** Strip ``` / ```json fences (including embedded blocks) before JSON.parse. */
-function stripAssistantJsonFences(text) {
-  let s = String(text || '').trim()
-  const full = /^```(?:json)?\s*([\s\S]*?)```\s*$/im.exec(s)
-  if (full) return full[1].trim()
-  const inner = /```(?:json)?\s*([\s\S]*?)```/im.exec(s)
-  if (inner) return inner[1].trim()
-  return s
-    .replace(/^```(?:json)?\s*\n?/i, '')
-    .replace(/\n?```\s*$/i, '')
-    .trim()
-}
-
-function tryParseListingJsonObject(s) {
-  const trimmed = String(s || '').trim()
-  if (!trimmed) return { ok: false, error: 'Empty text after fence strip' }
-  try {
-    const obj = JSON.parse(trimmed)
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-      return { ok: false, error: 'JSON root was not an object' }
-    }
-    return { ok: true, listing: normalizeListingJson(obj) }
-  } catch {
-    const start = trimmed.indexOf('{')
-    const end = trimmed.lastIndexOf('}')
-    if (start >= 0 && end > start) {
-      try {
-        const obj = JSON.parse(trimmed.slice(start, end + 1))
-        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-          return { ok: false, error: 'Extracted JSON was not an object' }
-        }
-        return { ok: true, listing: normalizeListingJson(obj) }
-      } catch (e2) {
-        return {
-          ok: false,
-          error: e2 instanceof Error ? e2.message : 'JSON.parse failed on extracted object',
-        }
-      }
-    }
-    return { ok: false, error: 'Assistant output was not valid JSON' }
-  }
-}
-
-/** Concatenate all assistant `text` blocks (Anthropic returns `content` as an array). */
-function extractAnthropicAssistantText(body) {
-  const content = body?.content
-  if (typeof content === 'string') return content.trim()
-  if (!Array.isArray(content)) return ''
-  const chunks = []
-  for (const block of content) {
-    if (!block || typeof block !== 'object') continue
-    if (typeof block.text === 'string' && block.text) {
-      chunks.push(block.text)
-    }
-  }
-  return chunks.join('\n').trim()
-}
-
-/**
- * Single model attempt. Never throws.
- * @returns {Promise<
- *   | { success: true, model: string, listing: object }
- *   | { success: false, model: string, parseError: string, rawAssistantText?: string, contentSummary?: string }
- * >}
- */
-async function anthropicMessagesAttempt(apiKey, userJson, modelId, userText) {
-  let res
-  let body = {}
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+  },
+  {
+    name: 'getTireBySize',
+    description: 'Find tires by size (e.g. "LT285/70R17"). Returns up to 10 SKUs.',
+    input_schema: {
+      type: 'object',
+      properties: { size: { type: 'string' }, limit: { type: 'integer', default: 10 } },
+      required: ['size'],
+    },
+  },
+  {
+    name: 'computeLandedCost',
+    description: 'Compute landed cost per tire: catalog + FET + wholesale tax + CO tire fee. Returns landedPerTire and breakdown.',
+    input_schema: {
+      type: 'object',
+      properties: { tire: { type: 'object', description: 'Tire object with at least price + fet' } },
+      required: ['tire'],
+    },
+  },
+  {
+    name: 'getRecentSalesForSize',
+    description: 'Recent completed orders matching this size. Useful for velocity / typical sale price signal.',
+    input_schema: {
+      type: 'object',
+      properties: { size: { type: 'string' }, limit: { type: 'integer', default: 10 } },
+      required: ['size'],
+    },
+  },
+  {
+    name: 'addStyleRule',
+    description: 'Persist a user-correction style rule. Audience must be consumer / commercial / all. Surface the rule inline before calling so the user can veto.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        rule: { type: 'string' },
+        audience: { type: 'string', enum: ['consumer', 'commercial', 'all'] },
+        reason: { type: 'string' },
       },
-      body: JSON.stringify({
-        model: modelId,
-        max_tokens: 1200,
-        system: SYSTEM,
-        messages: [{ role: 'user', content: userText }],
-      }),
-    })
-    body = await res.json().catch(() => ({}))
-  } catch (net) {
-    const nm = net instanceof Error ? net.message : String(net)
-    return {
-      success: false,
-      model: modelId,
-      parseError: `Network error calling Anthropic (${modelId}): ${nm}`,
-    }
-  }
+      required: ['rule', 'audience'],
+    },
+  },
+  {
+    name: 'listStyleRules',
+    description: 'Read the active style rules. Optional audience filter.',
+    input_schema: {
+      type: 'object',
+      properties: { audience: { type: 'string', enum: ['consumer', 'commercial', 'all'] } },
+    },
+  },
+]
 
-  const logPayload = JSON.stringify(body, null, 2)
-  console.log(
-    `[listingAdvisor] Anthropic raw API response (pre-parse) model=${modelId}`,
-    logPayload.length > 20000 ? `${logPayload.slice(0, 20000)}\n…[truncated ${logPayload.length} chars]` : logPayload,
-  )
-
-  if (!res.ok) {
-    const detail = body?.error?.message || res.statusText || 'Anthropic request failed'
-    return {
-      success: false,
-      model: modelId,
-      parseError: `Anthropic HTTP ${res.status} (${modelId}): ${detail}`,
-      contentSummary: JSON.stringify(body?.error ?? body).slice(0, 4000),
-    }
-  }
-
-  try {
-    const assistantText = extractAnthropicAssistantText(body)
-    if (!assistantText) {
-      return {
-        success: false,
-        model: modelId,
-        parseError: `Empty assistant text for ${modelId} (check content[].text blocks in raw response above)`,
-        contentSummary: JSON.stringify(body?.content ?? []).slice(0, 4000),
-      }
-    }
-
-    const forJson = stripAssistantJsonFences(assistantText)
-    const parsed = tryParseListingJsonObject(forJson)
-    if (!parsed.ok) {
-      return {
-        success: false,
-        model: modelId,
-        parseError: parsed.error || `Parse failed (${modelId})`,
-        rawAssistantText: assistantText.slice(0, 8000),
-      }
-    }
-
-    return { success: true, model: modelId, listing: parsed.listing }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return {
-      success: false,
-      model: modelId,
-      parseError: `Unexpected error while parsing Anthropic response (${modelId}): ${msg}`,
-      contentSummary: JSON.stringify(body?.content ?? body).slice(0, 4000),
-    }
+async function dispatchTool({ firestore, name, input, actorId }) {
+  const args = input && typeof input === 'object' ? input : {}
+  switch (name) {
+    case 'getTireByMspn':
+      return tools.getTireByMspn({ firestore, ...args })
+    case 'getTireBySize':
+      return tools.getTireBySize({ firestore, ...args })
+    case 'computeLandedCost':
+      return tools.computeLandedCost({ firestore, ...args })
+    case 'getRecentSalesForSize':
+      return tools.getRecentSalesForSize({ firestore, ...args })
+    case 'addStyleRule':
+      return styleGuide.addStyleRule({ firestore, ...args, addedBy: actorId })
+    case 'listStyleRules':
+      return styleGuide.listStyleRules({ firestore, ...args })
+    default:
+      throw new Error(`unknown tool: ${name}`)
   }
 }
 
-/**
- * Try Haiku first, then Sonnet. Never throws.
- * @returns {Promise<
- *   | { success: true, model: string, listing: object }
- *   | { success: false, model: string, parseError: string, rawAssistantText?: string, contentSummary?: string }
- * >}
- */
-async function callAnthropic(apiKey, userJson) {
-  const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only (no markdown).`
-  let last = {
-    success: false,
-    model: 'unknown',
-    parseError: 'Anthropic listing model list is empty.',
-  }
-  for (const modelId of ANTHROPIC_LISTING_MODELS) {
-    last = await anthropicMessagesAttempt(apiKey, userJson, modelId, userText)
-    if (last.success) return last
-  }
-  return last
+async function buildSystemPrompt({ firestore, audience }) {
+  const rules = await styleGuide.listStyleRules({ firestore, audience })
+  const ruleBlock = rules.length === 0
+    ? 'No active style rules.'
+    : rules.map((r) => `- (${r.audience}) ${r.rule}`).join('\n')
+  const fewShot = loadFewShot()
+  return `${PERSONA}
+
+# ACTIVE STYLE RULES (treat as user-issued, non-negotiable instructions)
+${ruleBlock}
+
+# FEW-SHOT EXAMPLE
+${fewShot}`
 }
 
-function normalizeListingJson(raw) {
-  const title = String(raw.title || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80)
-  const description = String(raw.description || '').trim()
-  let sellProbability = Math.round(Number(raw.sellProbability))
-  if (!Number.isFinite(sellProbability)) sellProbability = 50
-  sellProbability = Math.max(0, Math.min(100, sellProbability))
-  let recommendedPrice = Number(raw.recommendedPrice)
-  if (!Number.isFinite(recommendedPrice) || recommendedPrice < 0) recommendedPrice = 0
-  const platformNotes = String(raw.platformNotes || '').trim().slice(0, 280)
-  return { title, description, sellProbability, recommendedPrice, platformNotes }
+function checkRateLimit(uid, nowFn) {
+  const now = nowFn()
+  const arr = rateBuckets.get(uid) || []
+  const fresh = arr.filter((t) => now - t < RATE_WINDOW_MS)
+  if (fresh.length >= RATE_LIMIT_PER_HOUR) {
+    const oldest = fresh[0]
+    const retryAfterMs = RATE_WINDOW_MS - (now - oldest)
+    throw new HttpsError('resource-exhausted', 'Listing coach rate limit reached.', { retryAfterMs })
+  }
+  fresh.push(now)
+  rateBuckets.set(uid, fresh)
 }
 
-async function callGeminiOnce(apiKey, userJson, model) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
-  const userText = `Use this tire context (JSON):\n${JSON.stringify(userJson, null, 2)}\n\nRespond with the required JSON object only.`
-  const res = await fetch(url, {
+async function defaultCallAnthropic({ apiKey, modelId, system, messages, tools: toolList }) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM }] },
-      contents: [{ role: 'user', parts: [{ text: userText }] }],
-      generationConfig: {
-        temperature: 0.35,
-        responseMimeType: 'application/json',
-      },
+      model: modelId,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      temperature: TEMPERATURE,
+      system,
+      messages,
+      tools: toolList,
     }),
   })
-  const body = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const msg = body?.error?.message || res.statusText || 'Gemini request failed'
-    throw new Error(msg)
+    const body = await res.json().catch(() => ({}))
+    const detail = body?.error?.message || res.statusText || 'Anthropic request failed'
+    throw new Error(`Anthropic HTTP ${res.status} (${modelId}): ${detail}`)
   }
-  const parts = body?.candidates?.[0]?.content?.parts
-  const text = Array.isArray(parts) ? parts.map((p) => p.text || '').join('') : ''
-  if (!text) throw new Error('Empty Gemini response')
-  return parseModelJson(text)
+  return res.json()
 }
 
-/**
- * @returns {Promise<{ ok: true, listing: object, model: string } | { ok: false, listing: null, model: null, error: string }>}
- */
-async function callGemini(apiKey, userJson) {
-  let err15 = ''
-  try {
-    const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.5-pro')
-    return { ok: true, listing, model: 'gemini-1.5-pro' }
-  } catch (e1) {
-    err15 = e1 instanceof Error ? e1.message : String(e1)
-  }
-  try {
-    const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.0-pro')
-    return { ok: true, listing, model: 'gemini-1.0-pro' }
-  } catch (e2) {
-    const err10 = e2 instanceof Error ? e2.message : String(e2)
-    return {
-      ok: false,
-      listing: null,
-      model: null,
-      error: `Gemini 1.5-pro: ${err15}; Gemini 1.0-pro: ${err10}`,
-    }
-  }
+function parseToolCalls(response) {
+  const blocks = Array.isArray(response?.content) ? response.content : []
+  return blocks.filter((b) => b && b.type === 'tool_use')
 }
 
-/**
- * Core listing advisor logic — returns plain objects only (no throws except programmer bugs).
- * @param {import('firebase-functions/v2/https').CallableRequest} request
- */
-async function runListingAdvisor(request) {
-  const db = admin.firestore()
-  const uSnap = await db.collection('users').doc(request.auth.uid).get()
-  const tiresPerm = uSnap.exists ? String(uSnap.data()?.permissions?.tires || 'none') : 'none'
-  if (!['view', 'edit'].includes(tiresPerm)) {
-    return {
-      ok: false,
-      listing: null,
-      model: 'unknown',
-      provider: 'error',
-      error: 'Tires catalog access required.',
-      errorCode: 'permission-denied',
+function extractText(response) {
+  const blocks = Array.isArray(response?.content) ? response.content : []
+  return blocks
+    .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text)
+    .join('\n')
+    .trim()
+}
+
+function handle({ firestore, callAnthropic, nowFn }) {
+  return async function handler({ data, auth }) {
+    if (!auth || !auth.uid) {
+      throw new HttpsError('unauthenticated', 'Sign in required.')
     }
-  }
-
-  const data = request.data || {}
-  const input = data.input && typeof data.input === 'object' ? data.input : null
-  if (!input) {
-    return {
-      ok: false,
-      listing: null,
-      model: 'unknown',
-      provider: 'error',
-      error: 'input object is required.',
-      errorCode: 'invalid-argument',
+    const userSnap = await firestore.collection('users').doc(auth.uid).get()
+    const role = String((userSnap.exists ? userSnap.data() : {})?.role || '')
+    if (role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Admin role required.')
     }
-  }
 
-  const mspn = String(input.mspn || '').trim()
-  if (!mspn) {
-    return {
-      ok: false,
-      listing: null,
-      model: 'unknown',
-      provider: 'error',
-      error: 'input.mspn is required.',
-      errorCode: 'invalid-argument',
+    checkRateLimit(auth.uid, nowFn)
+
+    const incoming = Array.isArray(data?.messages) ? data.messages : []
+    if (incoming.length === 0) {
+      throw new HttpsError('invalid-argument', 'messages required.')
     }
-  }
+    const audience = data?.audience || null
 
-  const userJson = buildUserPayload(input)
-
-  let geminiKey = ''
-  let anthropicKey = ''
-  try {
-    geminiKey = pickSecretValue(GEMINI_API_KEY.value())
-  } catch {
-    geminiKey = ''
-  }
-  try {
-    anthropicKey = anthropicKeyResolved(ANTHROPIC_API_KEY.value())
-  } catch {
-    anthropicKey = ''
-  }
-
-  if (geminiKey) {
-    const g = await callGemini(geminiKey, userJson)
-    if (g.ok) {
-      return { ok: true, provider: 'gemini', model: g.model, listing: g.listing }
+    let apiKey = ''
+    try {
+      apiKey = anthropicKeyResolved(ANTHROPIC_API_KEY.value())
+    } catch {
+      apiKey = ''
     }
-    if (!anthropicKey) {
-      return {
-        ok: false,
-        provider: 'gemini',
-        model: g.model || 'gemini',
-        listing: null,
-        error: g.error || 'Gemini failed and no Anthropic key is configured.',
+    // In tests the secret isn't bound; treat empty key as a soft signal but
+    // still let the injected callAnthropic fake run so unit tests work.
+    if (!apiKey) apiKey = 'test-key-unused'
+
+    const system = await buildSystemPrompt({ firestore, audience })
+    const conversation = incoming.map((m) => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content : (m.content || ''),
+    }))
+
+    let lastErr = null
+    for (const modelId of ANTHROPIC_MODELS) {
+      try {
+        let working = conversation.slice()
+        let finished = false
+        for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          const resp = await callAnthropic({
+            apiKey,
+            modelId,
+            system,
+            messages: working,
+            tools: TOOL_SCHEMAS,
+          })
+          const toolCalls = parseToolCalls(resp)
+          if (toolCalls.length === 0) {
+            const text = extractText(resp)
+            if (!text) throw new Error(`Empty assistant text from ${modelId}`)
+            return { reply: text, model: modelId }
+          }
+          working = [...working, { role: 'assistant', content: resp.content }]
+          const toolResults = []
+          for (const call of toolCalls) {
+            // eslint-disable-next-line no-await-in-loop
+            const out = await dispatchTool({
+              firestore,
+              name: call.name,
+              input: call.input,
+              actorId: auth.uid,
+            }).catch((err) => ({ error: String(err?.message || err) }))
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: call.id,
+              content: JSON.stringify(out),
+            })
+          }
+          working = [...working, { role: 'user', content: toolResults }]
+        }
+        if (!finished) {
+          throw new Error('tool loop exceeded max iterations')
+        }
+      } catch (err) {
+        lastErr = err
+        if (/tool loop/i.test(String(err?.message || ''))) {
+          throw new HttpsError('internal', 'Listing coach hit tool loop cap.')
+        }
+        // try next model
       }
     }
-  }
-
-  if (anthropicKey) {
-    const ar = await callAnthropic(anthropicKey, userJson)
-    const provider = geminiKey ? 'anthropic_fallback' : 'anthropic'
-    if (ar.success) {
-      return { ok: true, provider, model: ar.model, listing: ar.listing }
-    }
-    return {
-      ok: false,
-      provider,
-      model: ar.model,
-      listing: null,
-      parseError: ar.parseError,
-      rawAssistantText: ar.rawAssistantText ?? null,
-      contentSummary: ar.contentSummary ?? null,
-    }
-  }
-
-  return {
-    ok: false,
-    listing: null,
-    model: 'unknown',
-    provider: 'error',
-    error:
-      'Set GEMINI_API_KEY and ANTHROPIC_API_KEY in Secret Manager for listing advisor (use `-` to skip Gemini or Anthropic). For local only, ANTHROPIC may still be read from env if the secret is unset.',
-    errorCode: 'failed-precondition',
+    throw new HttpsError('internal', `Listing coach failed: ${lastErr?.message || 'unknown error'}`)
   }
 }
 
-/**
- * @param {import('firebase-functions/v2/https').CallableRequest} request
- */
-async function listingAdvisorHandler(request) {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.')
-  }
-  try {
-    return await runListingAdvisor(request)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[listingAdvisor] unhandled error (returning payload instead of throw)', err)
-    return {
-      ok: false,
-      listing: null,
-      error: msg,
-      model: 'unknown',
-      provider: 'error',
-    }
-  }
-}
+exports.listingAdvisor = onCall(
+  { region: 'us-central1', secrets: [ANTHROPIC_API_KEY], cors: true, timeoutSeconds: 120 },
+  async (req) => handle({
+    firestore: admin.firestore(),
+    callAnthropic: defaultCallAnthropic,
+    nowFn: () => Date.now(),
+  })({ data: req.data, auth: req.auth }),
+)
 
-module.exports = { listingAdvisorHandler }
+exports._testonly = {
+  handle,
+  buildSystemPrompt,
+  parseToolCalls,
+  extractText,
+  dispatchTool,
+  RATE_LIMIT_PER_HOUR,
+  __resetRateBuckets: () => rateBuckets.clear(),
+}
