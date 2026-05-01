@@ -41,6 +41,7 @@ src/components/tires/TiresDashboard.jsx    MODIFY mount drawer + keyboard listen
 ```js
 // Input
 {
+  surface: 'tires',  // future: 'dashboard' | 'crm' | 'analytics'. Selects the persona block. Defaults to 'tires' if omitted/unknown.
   messages: Array<{ role: 'user' | 'assistant', content: string }>,
   context: {
     brandAggregates: {
@@ -94,8 +95,14 @@ src/components/tires/TiresDashboard.jsx    MODIFY mount drawer + keyboard listen
 
 ### System prompt template (server-side)
 
+The advisor's persona is parameterized by a `surface` field on the input
+payload. v1 only ships the `'tires'` surface (sales-expert focus). Future
+mounts on Dashboard / CRM / Analytics swap the persona block without
+re-architecting the rest of the call. The default if `surface` is unknown
+is the catalog-aware sales-expert prompt below.
+
 ```
-You are a sales advisor for Skedaddle Inc, a tire reseller in Loveland, CO.
+{persona block, selected by surface}
 
 You have access to the operator's catalog and recent revenue snapshot.
 Your job is to give specific, numbers-backed advice. Always cite the
@@ -116,6 +123,28 @@ prices.
 {selectedTire as JSON, or "No tire is currently selected. Operator is asking a catalog-level question."}
 ```
 
+**`surface: 'tires'` persona block (v1):**
+
+```
+You are a sales coach and pricing advisor for Skedaddle Inc, a tire
+reseller in Loveland, Colorado. Your operator is on the Tires catalog
+page. Treat them as a working salesperson — your job is to make their
+next conversation, quote, listing, or follow-up better.
+
+Lean into:
+- Objection handling (price comparisons, brand familiarity, timing)
+- Quote framing and pitch language
+- Highest-margin moves given the catalog's current state
+- Specific SKU / size advice when the operator gives you a target
+
+Avoid generic small talk. Always tie advice to a number the operator
+can act on (margin %, SKU count, retail vs buy gap, etc).
+```
+
+Future surfaces (`'dashboard'`, `'crm'`, `'analytics'`) will swap this
+block with their own persona — e.g., on CRM the advisor becomes a
+"customer-relationship coach" focused on touchpoints and retention.
+
 ### Client-side flow
 
 1. Operator presses `?` or clicks the floating button on the Tires page → drawer opens.
@@ -133,6 +162,23 @@ Pure builder, no I/O.
   - Decision: `useSalesAdvisorChat` calls `useBrandAggregates(tires, null)` and passes the result into `buildAdvisorContext` as a pre-built field. Keeps `buildAdvisorContext` pure and selector-free.
 - `revenueStats`: pulled from `useDashboardSignals().revenueStats` if loaded; else `null`. The drawer's parent (TiresDashboard) doesn't currently load this — see "Data flow" below.
 - `selectedTire`: when `selectedIds.size === 1`, look up the tire and serialize. Else `null`.
+
+### Empty state (drawer body when messages.length === 0)
+
+The opener orients the operator: "Ask me about quotes, objection handling,
+high-margin moves, or follow-ups." Below that, four clickable suggestion
+cards. Clicking a card populates the textarea (operator can edit before
+sending). The four prompts ARE the working set for v1; iterate on them
+based on what operators actually click most:
+
+1. *"Help me handle 'I can get them cheaper online' — what's the strongest objection-handling line?"*
+2. *"Draft a pitch for our highest-margin Michelin sizes that a fleet customer would care about."*
+3. *"Customer wants 4 LR-E commercials for a moving fleet — what should I lead with and why?"*
+4. *"What's a good 7-day follow-up message after a quote went cold?"*
+
+These all match the `surface: 'tires'` persona — sales-coach, pitch-craft,
+objection-handling. When future surfaces ship (Dashboard / CRM /
+Analytics), each gets its own four-prompt set scoped to that role.
 
 ### Trigger affordances
 
@@ -207,7 +253,7 @@ Returns:
 
 - Closed → renders nothing; `<SalesAdvisorTrigger>` rendered separately when closed.
 - Open → renders header, message list, textarea, send button.
-- Empty state lists three example questions; clicking one populates the textarea.
+- Empty state lists four sales-expert example prompts; clicking one populates the textarea (see "Empty state" below for exact copy).
 - `?` keyboard toggles when focus is on `<body>`; ignored when focus is in textarea (avoids the user accidentally toggling while typing a question that contains `?`).
 - Send disabled when `pending`.
 - Error message bubbles render with red border.
