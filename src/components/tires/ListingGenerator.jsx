@@ -6,6 +6,9 @@ import { db, functions } from '../../firebase/config'
 import { buildListingScript } from '../../utils/listingGenerator'
 import { buildListingMetadata, toCsv } from '../../utils/listingMetadata.js'
 import { tireCatalogBuyNumber } from '../../utils/tireCatalogBuy'
+import { tireCatalogRetailNumber } from '../../utils/tireCatalogRetail'
+import { tireLandedBuyNumber } from '../../utils/tireLandedBuy'
+import { usePayoutConfig } from '../../hooks/usePayoutConfig'
 import { effectiveCts } from '../../utils/ctsCalc'
 import { parseDescription } from '../../utils/parseTireDescription'
 import { formatCurrency } from '../../utils/format'
@@ -213,12 +216,33 @@ async function copyText(text) {
   return copyToClipboard(text)
 }
 
-function initLines(tires) {
+/**
+ * Default sale price for each tire in the batch. Priority:
+ *   1. researched retail (priceIntel.retailPrice via tireCatalogRetailNumber)
+ *   2. landed buy x 1.30 (target ~23% margin floor)
+ *   3. catalog buy x 1.30 (last resort if landed helper is unavailable)
+ *
+ * Never defaults to the bare catalog buy: that is the cost basis, not a
+ * listable price, and rendering it as the editable Price/tire field
+ * silently produces below-cost listings when the user clicks Generate
+ * without overriding.
+ */
+function initialSalePrice(tire, taxes) {
+  const retail = tireCatalogRetailNumber(tire)
+  if (Number.isFinite(retail) && retail > 0) return Math.round(retail * 100) / 100
+  const landed = tireLandedBuyNumber(tire, taxes)
+  if (Number.isFinite(landed) && landed > 0) return Math.round(landed * 1.3 * 100) / 100
+  const buy = tireCatalogBuyNumber(tire)
+  if (Number.isFinite(buy) && buy > 0) return Math.round(buy * 1.3 * 100) / 100
+  return 0
+}
+
+function initLines(tires, taxes) {
   const init = {}
   for (const t of tires) {
     init[t.id] = {
       qty: 4,
-      price: tireCatalogBuyNumber(t),
+      price: initialSalePrice(t, taxes),
     }
   }
   return init
@@ -248,8 +272,10 @@ function SellProbabilityBadge({ value }) {
  */
 export function ListingGenerator({ tires, onClose, onUseRecommendedPrice, onRemoveTire }) {
   const { toast } = useToast()
+  const { config: payoutConfig } = usePayoutConfig()
+  const taxes = payoutConfig?.taxes
   const [platform, setPlatform] = useState(PLATFORMS[0])
-  const [lines, setLines] = useState(() => initLines(tires))
+  const [lines, setLines] = useState(() => initLines(tires, taxes))
   const [generated, setGenerated] = useState([])
   const [advisorById, setAdvisorById] = useState({})
   const [advisorRunning, setAdvisorRunning] = useState(false)
@@ -591,7 +617,7 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice, onRemo
                     </div>
                     <div>
                       <label className="text-xs text-zinc-400">
-                        Price / tire (USD)
+                        Sale price / tire (USD)
                       </label>
                       <input
                         type="number"
