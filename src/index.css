@@ -195,7 +195,12 @@
 
 .activity-ticker:hover .activity-ticker__track,
 .activity-ticker:focus-within .activity-ticker__track {
-  animation: none;
+  /* Pause the timeline in place rather than removing the animation. Removing
+     the animation snaps the element back to the `from` keyframe (translateX(0)),
+     which makes hovering feel like the chips reset to the beginning and
+     prevents clicking them. animation-play-state: paused keeps the chips
+     where they are until hover/focus releases. */
+  animation-play-state: paused;
 }
 
 @layer utilities {
