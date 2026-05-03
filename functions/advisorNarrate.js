@@ -38,23 +38,48 @@ function parseModelOutput(text) {
   return { narrative: raw, shadowFlag: '' }
 }
 
+// gemini-1.5-flash hit end-of-life in March 2026. Default chain mirrors
+// tirePriceResearch.js: 2.5-flash primary, 2.5-flash-lite fallback. If both
+// fail the call surfaces the last error and the UI shows "narrative
+// unavailable" with a Retry. Adding an Anthropic fallback the way
+// listingAdvisor / listingCoach have it is the next leverage point but is
+// deferred to keep this fix surgical.
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+
 async function defaultCallGemini(payload) {
   const key = String(GEMINI_API_KEY?.value?.() || GEMINI_API_KEY || '').trim()
   if (!key) throw new HttpsError('failed-precondition', 'GEMINI_API_KEY not configured')
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: JSON.stringify(payload) }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 300 },
-    }),
-  })
-  if (!res.ok) throw new HttpsError('internal', `Gemini HTTP ${res.status}`)
-  const body = await res.json()
-  const text = body?.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  return { text }
+  let lastErr = null
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: JSON.stringify(payload) }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 300 },
+        }),
+      })
+      if (!res.ok) {
+        lastErr = new Error(`Gemini HTTP ${res.status} (${model})`)
+        continue
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const body = await res.json()
+      const text = body?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      if (!text) {
+        lastErr = new Error(`Gemini empty text (${model})`)
+        continue
+      }
+      return { text }
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw new HttpsError('internal', `advisorNarrate failed: ${lastErr?.message || 'unknown'}`)
 }
 
 async function buildPayload(firestore, tireId, mode) {
