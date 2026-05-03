@@ -1491,6 +1491,7 @@ export function TiresDashboard() {
           key={selectedTires.map((t) => t.id).sort().join('-')}
           tires={selectedTires}
           onClose={() => setListingOpen(false)}
+          onRemoveTire={(id) => toggle(id)}
           onUseRecommendedPrice={({ mspn, quantity, pricePerTire }) => {
             setListingOpen(false)
             setSaleInitial({ mspn, quantity, pricePerTire })

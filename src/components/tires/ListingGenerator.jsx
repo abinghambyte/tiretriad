@@ -246,7 +246,7 @@ function SellProbabilityBadge({ value }) {
  * @param {() => void} props.onClose
  * @param {(p: { mspn: string, quantity: number, pricePerTire: number }) => void} [props.onUseRecommendedPrice]
  */
-export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
+export function ListingGenerator({ tires, onClose, onUseRecommendedPrice, onRemoveTire }) {
   const { toast } = useToast()
   const [platform, setPlatform] = useState(PLATFORMS[0])
   const [lines, setLines] = useState(() => initLines(tires))
@@ -540,12 +540,31 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice }) {
               return (
                 <div
                   key={t.id}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
+                  className="relative rounded-xl border border-zinc-800 bg-zinc-900/40 p-4"
                 >
+                  {typeof onRemoveTire === 'function' ? (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${t.mspn} from listing batch`}
+                      onClick={() => {
+                        if (tires.length <= 1) {
+                          onClose()
+                          return
+                        }
+                        onRemoveTire(t.id)
+                      }}
+                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+                      title="Remove from this batch"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                        <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  ) : null}
                   {flags.listingAdvisor && t.id ? (
                     <ListingAdvisorPanel tireId={t.id} ranked={advisorRanked} />
                   ) : null}
-                  <p className="text-sm font-medium text-zinc-200">
+                  <p className="pr-10 text-sm font-medium text-zinc-200">
                     {t.brand} · {t.description}
                   </p>
                   <p className="mt-0.5 font-mono text-xs text-zinc-400">
