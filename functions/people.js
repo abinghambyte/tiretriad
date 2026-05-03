@@ -14,6 +14,7 @@ const {
   scheduleElevationRevert,
   revokeInvite,
   reissueInvite,
+  resendInviteDelivery,
   deletePortalUser,
 } = require('./peopleCallables')
 
@@ -23,6 +24,7 @@ exports.updatePortalUser = updatePortalUser
 exports.scheduleElevationRevert = scheduleElevationRevert
 exports.revokeInvite = revokeInvite
 exports.reissueInvite = reissueInvite
+exports.resendInviteDelivery = resendInviteDelivery
 exports.deletePortalUser = deletePortalUser
 
 const inviteFlow = require('./inviteFlow')

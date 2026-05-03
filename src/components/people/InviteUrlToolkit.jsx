@@ -165,8 +165,44 @@ function Field({ label, value, onChange, type = 'text', required, inputMode, aut
   )
 }
 
+function formatDeliveryTimestamp(value) {
+  if (!value) return null
+  let ms = null
+  if (typeof value?.toMillis === 'function') ms = value.toMillis()
+  else if (typeof value?.seconds === 'number') ms = value.seconds * 1000
+  else if (typeof value === 'number') ms = value
+  if (!Number.isFinite(ms) || ms <= 0) return null
+  const d = new Date(ms)
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
+function LastDeliveryRow({ lastInviteDelivery }) {
+  if (!lastInviteDelivery || typeof lastInviteDelivery !== 'object') {
+    return (
+      <p className="mt-2 text-[11px] text-amber-300/90">
+        Email status unknown - no delivery has been recorded for this invite. Click Resend.
+      </p>
+    )
+  }
+  const sent = !!lastInviteDelivery.sent
+  const reason = String(lastInviteDelivery.reason || '')
+  const ts = formatDeliveryTimestamp(lastInviteDelivery.sentAt)
+  if (sent) {
+    return (
+      <p className="mt-2 text-[11px] text-emerald-300/90">
+        Email sent{ts ? ` ${ts}` : ''}.
+      </p>
+    )
+  }
+  return (
+    <p className="mt-2 text-[11px] text-red-300/90">
+      Email failed{ts ? ` at ${ts}` : ''}{reason ? ` (${reason})` : ''}. Click Resend.
+    </p>
+  )
+}
+
 /**
- * Invite column in the user editor: active link, revoke, reissue.
+ * Invite column in the user editor: active link, revoke, reissue, resend.
  */
 export function EditorInviteColumn({
   selected,
@@ -175,6 +211,7 @@ export function EditorInviteColumn({
   revokeConfirmPending,
   onRevokeInvite,
   onReissueInvite,
+  onResendInvite,
 }) {
   return (
     <div className="space-y-3">
@@ -185,21 +222,35 @@ export function EditorInviteColumn({
             <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
               Active link
             </p>
-            <button
-              type="button"
-              disabled={invokeBusy !== ''}
-              onClick={() => void onRevokeInvite()}
-              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
-            >
-              {invokeBusy === 'revoke' && <Spinner className="h-3 w-3 text-red-400/80" />}
-              {invokeBusy === 'revoke'
-                ? 'Revoking…'
-                : revokeConfirmPending
-                  ? 'Confirm revoke?'
-                  : 'Revoke'}
-            </button>
+            <div className="flex items-center gap-1">
+              {typeof onResendInvite === 'function' ? (
+                <button
+                  type="button"
+                  disabled={invokeBusy !== ''}
+                  onClick={() => void onResendInvite()}
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-900/50 transition-colors hover:bg-emerald-950/50 hover:text-emerald-200 disabled:opacity-40"
+                >
+                  {invokeBusy === 'resend' && <Spinner className="h-3 w-3 text-emerald-300" />}
+                  {invokeBusy === 'resend' ? 'Sending…' : 'Resend email'}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={invokeBusy !== ''}
+                onClick={() => void onRevokeInvite()}
+                className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-red-400/80 ring-1 ring-red-900/40 transition-colors hover:bg-red-950/40 hover:text-red-300 disabled:opacity-40"
+              >
+                {invokeBusy === 'revoke' && <Spinner className="h-3 w-3 text-red-400/80" />}
+                {invokeBusy === 'revoke'
+                  ? 'Revoking…'
+                  : revokeConfirmPending
+                    ? 'Confirm revoke?'
+                    : 'Revoke'}
+              </button>
+            </div>
           </div>
           <InviteUrlToolkit url={panelInviteUrl} />
+          <LastDeliveryRow lastInviteDelivery={selected?.lastInviteDelivery} />
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2.5">

@@ -625,6 +625,22 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
     delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
   }
 
+  // Persist last-delivery state on the user doc so the UI can show whether
+  // the email actually went out without depending on the audit log.
+  try {
+    await userRef.update({
+      lastInviteDelivery: {
+        attempted: delivery.attempted || inviteDelivery,
+        sent: !!delivery.sent,
+        reason: String(delivery.reason || ''),
+        sentAt: FieldValue.serverTimestamp(),
+        source: 'reissue',
+      },
+    })
+  } catch (e) {
+    console.error('reissueInvite: persisting lastInviteDelivery failed', e)
+  }
+
   await auditFromCallable(db, request, {
     action: 'user.invite.reissue',
     targetId: targetUid,
@@ -638,6 +654,115 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
 
   return { ok: true, token, inviteUrl, delivery }
 })
+
+/**
+ * Re-send the invite email/SMS for the user's existing active token. Does NOT
+ * rotate the token (so any QR codes / NFC cards / shared links still work).
+ * Useful when the original delivery failed (Resend API misconfigured, network
+ * blip, recipient never got the email) and the operator wants to retry without
+ * destroying the existing link.
+ */
+exports.resendInviteDelivery = onCall(
+  { secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required.')
+    }
+    const db = admin.firestore()
+    await assertCanManagePeople(db, request.auth.uid)
+
+    const data = request.data || {}
+    const targetUid = String(data.targetUid || '').trim()
+    if (!targetUid) {
+      throw new HttpsError('invalid-argument', 'targetUid is required.')
+    }
+
+    const userRef = db.collection('users').doc(targetUid)
+    const userSnap = await userRef.get()
+    if (!userSnap.exists) {
+      throw new HttpsError('not-found', 'User not found.')
+    }
+    const user = userSnap.data() || {}
+    if (user.inviteAccepted) {
+      throw new HttpsError('failed-precondition', 'User has already completed registration.')
+    }
+
+    // Find the user's active invite token. Prefer the one referenced on the
+    // user doc; fall back to a query if the user doc reference drifted.
+    let tokenStr = String(user.inviteToken || '').trim()
+    if (tokenStr) {
+      const tokenSnap = await db.collection('inviteTokens').doc(tokenStr).get()
+      if (!tokenSnap.exists || tokenSnap.get('status') !== 'active') {
+        tokenStr = ''
+      }
+    }
+    if (!tokenStr) {
+      const fallback = await db
+        .collection('inviteTokens')
+        .where('uid', '==', targetUid)
+        .where('status', '==', 'active')
+        .limit(1)
+        .get()
+      if (fallback.empty) {
+        throw new HttpsError('failed-precondition', 'No active invite to resend; use New invite to issue a fresh link.')
+      }
+      tokenStr = fallback.docs[0].id
+    }
+    const inviteUrl = `https://www.skedaddleinc.com/i/${tokenStr}`
+
+    const inviteDelivery = ['sms', 'nfc', 'email'].includes(data.inviteDelivery)
+      ? data.inviteDelivery
+      : (user.inviteDelivery || 'email')
+
+    const greeting = await generateInviteGreetingLine({
+      firstName: user.firstName || '',
+      role: user.role,
+      secretValue: ANTHROPIC_API_KEY.value(),
+    })
+
+    let delivery = { attempted: inviteDelivery, sent: false, reason: 'unknown' }
+    try {
+      const result = await deliverInvite({
+        firstName: user.firstName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        inviteUrl,
+        deliveryMethod: inviteDelivery,
+        greeting,
+      })
+      delivery = { attempted: inviteDelivery, ...result }
+    } catch (e) {
+      console.error('resendInviteDelivery: deliverInvite failed', e)
+      delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
+    }
+
+    try {
+      await userRef.update({
+        lastInviteDelivery: {
+          attempted: delivery.attempted || inviteDelivery,
+          sent: !!delivery.sent,
+          reason: String(delivery.reason || ''),
+          sentAt: FieldValue.serverTimestamp(),
+          source: 'resend',
+        },
+      })
+    } catch (e) {
+      console.error('resendInviteDelivery: persisting lastInviteDelivery failed', e)
+    }
+
+    await auditFromCallable(db, request, {
+      action: 'user.invite.resend',
+      targetId: targetUid,
+      payload: {
+        inviteDelivery,
+        deliverySent: !!delivery?.sent,
+        deliveryReason: String(delivery?.reason || ''),
+      },
+    })
+
+    return { ok: true, inviteUrl, delivery }
+  },
+)
 
 /**
  * Permanently delete a portal user.

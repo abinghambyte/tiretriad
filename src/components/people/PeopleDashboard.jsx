@@ -39,6 +39,7 @@ const scheduleElevationRevert = httpsCallable(functions, 'scheduleElevationRever
 const previewInviteGreeting = httpsCallable(functions, 'previewInviteGreeting')
 const revokeInviteFn = httpsCallable(functions, 'revokeInvite')
 const reissueInviteFn = httpsCallable(functions, 'reissueInvite')
+const resendInviteDeliveryFn = httpsCallable(functions, 'resendInviteDelivery')
 const deletePortalUserFn = httpsCallable(functions, 'deletePortalUser')
 export function PeopleDashboard({ omitPageChrome = false }) {
   const { toast } = useToast()
@@ -500,8 +501,31 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     try {
       const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: 'email' })
       setPanelInviteUrl(data.inviteUrl || '')
+      const sent = !!data?.delivery?.sent
+      const reason = String(data?.delivery?.reason || '')
+      if (sent) toast('Invite issued and email sent', 'success')
+      else toast(`Invite issued, email failed${reason ? `: ${reason}` : ''}`, 'error')
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
+    } finally {
+      setInvokeBusy('')
+    }
+  }
+
+  async function resendInvite() {
+    if (!selected) return
+    setInvokeBusy('resend')
+    try {
+      const { data } = await resendInviteDeliveryFn({
+        targetUid: selected.id,
+        inviteDelivery: 'email',
+      })
+      const sent = !!data?.delivery?.sent
+      const reason = String(data?.delivery?.reason || '')
+      if (sent) toast(`Email re-sent to ${selected.email || 'recipient'}`, 'success')
+      else toast(`Resend failed${reason ? `: ${reason}` : ''}`, 'error')
+    } catch (e) {
+      toast(e?.message || 'Resend failed.', 'error')
     } finally {
       setInvokeBusy('')
     }
@@ -657,6 +681,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           onApplyRoleDefaults={applyRoleDefaults}
           onRevokeInvite={revokeInvite}
           onReissueInvite={reissueInvite}
+          onResendInvite={resendInvite}
           onToggleGhost={toggleGhost}
           onLockUser={lockUser}
           onDeleteUser={deleteUser}

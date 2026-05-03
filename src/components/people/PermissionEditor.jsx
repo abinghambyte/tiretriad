@@ -47,6 +47,7 @@ export function UserEditorModal({
   onApplyRoleDefaults,
   onRevokeInvite,
   onReissueInvite,
+  onResendInvite,
   onToggleGhost,
   onLockUser,
   onDeleteUser,
@@ -118,6 +119,7 @@ export function UserEditorModal({
               revokeConfirmPending={revokeConfirmPending}
               onRevokeInvite={onRevokeInvite}
               onReissueInvite={onReissueInvite}
+              onResendInvite={onResendInvite}
             />
 
             <div className="space-y-3">
