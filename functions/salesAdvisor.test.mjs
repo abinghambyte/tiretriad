@@ -132,7 +132,8 @@ describe('buildSystemPrompt', () => {
   it('uses tires persona block by default', () => {
     const prompt = buildSystemPrompt({ surface: 'tires', context: mkCtx() })
     expect(prompt).toMatch(/sales coach/i)
-    expect(prompt).toMatch(/Skedaddle/i)
+    expect(prompt).toMatch(/Northern Colorado tire reseller/i)
+    expect(prompt).not.toMatch(/Skedaddle/i)
     expect(prompt).toMatch(/MICHELIN/)
   })
 
