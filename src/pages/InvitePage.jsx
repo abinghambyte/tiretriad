@@ -247,8 +247,8 @@ export function InvitePage() {
           className={`${MODAL_CENTER_PANEL_BASE} max-w-sm border-zinc-800 bg-black p-6 text-zinc-100 sm:p-8`}
         >
           <div className="mb-2 flex flex-col items-center gap-4">
-            <BrandBolt size={56} tone="glow" aria-label="Skedaddle" />
-            <p className="text-xs tracking-[0.3em] text-zinc-400">SKEDADDLE</p>
+            <BrandBolt size={56} tone="glow" aria-label="Tire Triad" />
+            <p className="text-xs tracking-[0.3em] text-zinc-400">TIRE TRIAD</p>
           </div>
           <p id="invite-reg-title" className="mb-8 text-sm text-zinc-400">
             Step {regStep + 1} of {regTitles.length}. {regTitles[regStep]}
@@ -480,14 +480,14 @@ export function InvitePage() {
                 transition={{ delay: 0.15, duration: 0.55 }}
               >
                 <div className="mb-10 flex flex-col items-center gap-4">
-                  <BrandBolt size={56} tone="glow" aria-label="Skedaddle" />
+                  <BrandBolt size={56} tone="glow" aria-label="Tire Triad" />
                   <Motion.h1
                     className="text-3xl font-extralight tracking-[0.45em] sm:text-4xl"
                     initial={{ opacity: 0, letterSpacing: '0.2em' }}
                     animate={{ opacity: 1, letterSpacing: '0.45em' }}
                     transition={{ duration: 0.7, ease: 'easeOut' }}
                   >
-                    SKEDADDLE
+                    TIRE TRIAD
                   </Motion.h1>
                 </div>
                 <p className="mb-12 min-h-[3rem] text-sm font-light leading-relaxed text-zinc-400">

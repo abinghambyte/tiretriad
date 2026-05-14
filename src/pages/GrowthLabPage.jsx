@@ -124,7 +124,7 @@ function GrowthLabRoutingForm() {
       <div className="rounded-2xl border border-zinc-800/90 bg-zinc-950/80 p-5 shadow-inner shadow-black/20 sm:p-6">
         <h2 className="text-base font-semibold text-zinc-100">Task dispatcher</h2>
         <p className="mt-1 text-sm text-zinc-400">
-          Routes portal work to Opus, Sonnet, Haiku, Gemini (market), or Antigravity (browser-heavy). Uses Skedaddle
+          Routes portal work to Opus, Sonnet, Haiku, Gemini (market), or Antigravity (browser-heavy). Uses Tire Triad
           context + a credit guardian (prefer Sonnet when it suffices).
         </p>
         <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-zinc-300">
