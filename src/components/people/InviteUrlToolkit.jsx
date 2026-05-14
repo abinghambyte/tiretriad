@@ -10,8 +10,7 @@ import {
   MODAL_CENTER_BACKDROP,
   MODAL_CENTER_PANEL,
 } from '../ui/modalChrome.js'
-
-export const INVITE_SITE = 'https://www.skedaddleinc.com'
+import { BRAND } from '../../config/brand.js'
 
 const NFC_TOOLS_WRITE_INTENT =
   'intent://write#Intent;scheme=nfctools;package=com.wakdev.wdnfc;end'
@@ -19,7 +18,7 @@ const NFC_TOOLS_WRITE_INTENT =
 export function inviteUrlFromToken(token) {
   const t = String(token || '').trim()
   if (!t) return ''
-  return `${INVITE_SITE}/i/${t}`
+  return `${BRAND.inviteUrlBase}/${t}`
 }
 
 function shouldShowAndroidInviteHardwareActions() {
