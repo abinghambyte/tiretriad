@@ -13,6 +13,25 @@ function firestore() {
   return admin.firestore()
 }
 
+/**
+ * Read a secret env var and strip junk that breaks HTTP headers.
+ *
+ * Specifically guards against U+FEFF (byte-order mark) at the start of the
+ * value. firebase functions:secrets:set reads stdin without normalising; a
+ * key pasted from a file saved as UTF-8-with-BOM or copied through certain
+ * clipboard paths picks up an invisible 0xFEFF at index 0, which fetch
+ * refuses to encode into an HTTP header and throws
+ * "Cannot convert argument to a ByteString". Strips BOM, then trims
+ * standard whitespace, then returns the result. Empty string if unset.
+ *
+ * Apply to every secret that ends up in an Authorization header, an
+ * x-api-key header, or any other ByteString-encoded HTTP slot.
+ */
+function cleanSecret(raw) {
+  if (raw == null) return ''
+  return String(raw).replace(/^\uFEFF/, '').trim()
+}
+
 function slackChannelEnv() {
   return (
     process.env.SLACK_CHANNEL_ID ||
@@ -22,7 +41,7 @@ function slackChannelEnv() {
 }
 
 async function slackFleetOps(text) {
-  const token = process.env.SLACK_BOT_TOKEN
+  const token = cleanSecret(process.env.SLACK_BOT_TOKEN)
   if (!token) return
   const channel = slackChannelEnv()
   const res = await fetch('https://slack.com/api/chat.postMessage', {
@@ -256,7 +275,7 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
     regCodeExpires: exp,
   })
 
-  const apiKey = process.env.RESEND_API_KEY
+  const apiKey = cleanSecret(process.env.RESEND_API_KEY)
   if (!apiKey) {
     console.warn('sendInviteRegistrationCode: RESEND_API_KEY not set; code not emailed')
     if (process.env.NODE_ENV !== 'production') {
@@ -265,7 +284,7 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
     return { ok: true, sent: false }
   }
 
-  const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+  const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
   const subjects = [
     'One moment',
     'Almost there',
@@ -479,10 +498,10 @@ async function deliverInvite(p) {
   }
 
   if (deliveryMethod === 'sms') {
-    const planId = String(process.env.SINCH_SERVICE_PLAN_ID || '').trim()
-    const apiToken = String(process.env.SINCH_API_TOKEN || '').trim()
-    const from = String(process.env.SINCH_FROM_NUMBER || '').trim()
-    const region = String(process.env.SINCH_REGION || 'us').trim().toLowerCase()
+    const planId = cleanSecret(process.env.SINCH_SERVICE_PLAN_ID)
+    const apiToken = cleanSecret(process.env.SINCH_API_TOKEN)
+    const from = cleanSecret(process.env.SINCH_FROM_NUMBER)
+    const region = cleanSecret(process.env.SINCH_REGION).toLowerCase() || 'us'
     const digits = String(phone || '').replace(/\D/g, '')
     if (!planId || !apiToken || !from || digits.length < 10) {
       console.warn('deliverInvite SMS: missing Sinch configuration or phone')
@@ -516,12 +535,12 @@ async function deliverInvite(p) {
   }
 
   if (deliveryMethod === 'email') {
-    const apiKey = process.env.RESEND_API_KEY
+    const apiKey = cleanSecret(process.env.RESEND_API_KEY)
     if (!apiKey) {
       console.warn('deliverInvite email: Resend configuration missing')
       return { sent: false, reason: 'missing-env' }
     }
-    const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+    const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
     const subjects = ['One step', 'This way', 'When you can', 'Quick link']
     const subject = subjects[Math.floor(Math.random() * subjects.length)]
     const body = `${emailFirstPara}\n\n${inviteUrl}\n`

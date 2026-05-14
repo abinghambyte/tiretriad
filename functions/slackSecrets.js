@@ -44,13 +44,28 @@ const SLACK_ACTIONS_SECRETS = [...SLACK_SECRETS, SLACK_KYLE_ID, ANTHROPIC_API_KE
 /** Scheduled `tirePriceResearch` — Slack fleet posts + Gemini wholesale lookup. */
 const TIRE_PRICE_INTEL_SECRETS = [...SLACK_SECRETS, GEMINI_API_KEY]
 
+/**
+ * Strip the byte-order mark (U+FEFF) + standard whitespace from a secret value.
+ *
+ * `firebase functions:secrets:set` reads stdin without normalising it; a
+ * value pasted from a UTF-8-with-BOM file picks up an invisible 0xFEFF at
+ * index 0. fetch refuses to encode that into an HTTP ByteString and throws
+ * "Cannot convert argument to a ByteString" at request time. Strip BOM
+ * first, then trim. Use this everywhere a secret is read from env or
+ * Secret Manager.
+ */
+function cleanSecret(raw) {
+  if (raw == null) return ''
+  return String(raw).replace(/^\uFEFF/, '').trim()
+}
+
 /** Optional `/hype` — not a Slack credential; set in `functions/.env` or Cloud Run env. */
 function anthropicApiKeyFromEnv() {
-  return String(process.env.ANTHROPIC_API_KEY || '').trim()
+  return cleanSecret(process.env.ANTHROPIC_API_KEY)
 }
 
 function pickSecretTrim(v) {
-  const s = String(v ?? '').trim()
+  const s = cleanSecret(v)
   if (!s || s === '-' || /^none$/i.test(s)) return ''
   return s
 }
@@ -92,4 +107,5 @@ module.exports = {
   anthropicKeyResolved,
   slackAdminUserIdsRawFromEnv,
   pickSecretTrim,
+  cleanSecret,
 }
