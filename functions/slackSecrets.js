@@ -20,9 +20,11 @@ const SINCH_SERVICE_PLAN_ID = defineSecret('SINCH_SERVICE_PLAN_ID')
 const SINCH_API_TOKEN = defineSecret('SINCH_API_TOKEN')
 const SINCH_FROM_NUMBER = defineSecret('SINCH_FROM_NUMBER')
 
-/** Resend email (invite delivery). API key + from address. */
+/** Resend email (invite delivery). API key + from address + optional reply-to. */
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
 const RESEND_FROM_EMAIL = defineSecret('RESEND_FROM_EMAIL')
+/** Optional. When set, every outbound invite email includes Reply-To: <address>. Recipients hitting Reply on Gmail / Outlook / etc go to this inbox instead of bouncing off the from-address subdomain. */
+const RESEND_REPLY_TO_EMAIL = defineSecret('RESEND_REPLY_TO_EMAIL')
 
 /** All invite-delivery secrets, bundled for Gen2 callables that send invites. */
 const INVITE_DELIVERY_SECRETS = [
@@ -31,6 +33,7 @@ const INVITE_DELIVERY_SECRETS = [
   SINCH_FROM_NUMBER,
   RESEND_API_KEY,
   RESEND_FROM_EMAIL,
+  RESEND_REPLY_TO_EMAIL,
 ]
 
 const SLACK_SECRETS = [SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_CHANNEL_ID]
@@ -102,6 +105,7 @@ module.exports = {
   SINCH_FROM_NUMBER,
   RESEND_API_KEY,
   RESEND_FROM_EMAIL,
+  RESEND_REPLY_TO_EMAIL,
   INVITE_DELIVERY_SECRETS,
   anthropicApiKeyFromEnv,
   anthropicKeyResolved,

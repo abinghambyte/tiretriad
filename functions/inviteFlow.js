@@ -285,6 +285,7 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
   }
 
   const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
+  const replyTo = cleanSecret(process.env.RESEND_REPLY_TO_EMAIL)
   const subjects = [
     'One moment',
     'Almost there',
@@ -295,18 +296,21 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
   const subject = subjects[Math.floor(Math.random() * subjects.length)]
   const body = `Your code is ${code}.\nIt expires in fifteen minutes.\n\nIf you did not request this, ignore this message.`
 
+  const payload = {
+    from,
+    to: [email],
+    subject,
+    text: body,
+  }
+  if (replyTo) payload.reply_to = replyTo
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from,
-      to: [email],
-      subject,
-      text: body,
-    }),
+    body: JSON.stringify(payload),
   })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
@@ -541,9 +545,17 @@ async function deliverInvite(p) {
       return { sent: false, reason: 'missing-env' }
     }
     const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
+    const replyTo = cleanSecret(process.env.RESEND_REPLY_TO_EMAIL)
     const subjects = ['One step', 'This way', 'When you can', 'Quick link']
     const subject = subjects[Math.floor(Math.random() * subjects.length)]
     const body = `${emailFirstPara}\n\n${inviteUrl}\n`
+    const payload = {
+      from,
+      to: [email],
+      subject,
+      text: body,
+    }
+    if (replyTo) payload.reply_to = replyTo
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -551,12 +563,7 @@ async function deliverInvite(p) {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          from,
-          to: [email],
-          subject,
-          text: body,
-        }),
+        body: JSON.stringify(payload),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
