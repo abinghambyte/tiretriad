@@ -286,14 +286,12 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
 
   const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
   const replyTo = cleanSecret(process.env.RESEND_REPLY_TO_EMAIL)
-  const subjects = [
-    'One moment',
-    'Almost there',
-    'Check this',
-    'Quick note',
-    'Your code',
-  ]
-  const subject = subjects[Math.floor(Math.random() * subjects.length)]
+  // Code-in-subject is the industry pattern (Stripe / Slack / GitHub do this).
+  // The recipient can read the code straight from their phone notification or
+  // the inbox preview pane without opening the message - massively faster than
+  // a generic "Your code" subject + open + scan + retype flow. The code is
+  // single-use and expires in 15 min so subject-line exposure is a non-issue.
+  const subject = `${code} is your Skedaddle sign-in code`
   const body = `Your code is ${code}.\nIt expires in fifteen minutes.\n\nIf you did not request this, ignore this message.`
 
   const payload = {
@@ -546,8 +544,12 @@ async function deliverInvite(p) {
     }
     const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
     const replyTo = cleanSecret(process.env.RESEND_REPLY_TO_EMAIL)
-    const subjects = ['One step', 'This way', 'When you can', 'Quick link']
-    const subject = subjects[Math.floor(Math.random() * subjects.length)]
+    // Brand + action in the subject. Personalised with first name when we
+    // have it (we always do for crew invites). Dropped the random rotation
+    // through "One step" / "This way" / "Quick link" - those reads as
+    // phishing both to spam filters and to humans.
+    const personalPrefix = firstName ? `${firstName}, your` : 'Your'
+    const subject = `${personalPrefix} Skedaddle portal invite`
     const body = `${emailFirstPara}\n\n${inviteUrl}\n`
     const payload = {
       from,
