@@ -2,6 +2,8 @@
 
 Strategic decisions from the 2026-05-02 brainstorm session. Captured here so they survive past chat history.
 
+**Updated 2026-05-03:** consumer-facing DBA renamed from Tire Syndicate to Tire Triad (`tiretriad.com` acquired via Cloudflare). "Triad" reads as alliance / trio (Alex+DJ+Kyle / Michelin+BFG+Uniroyal / drives+steers+trailer), avoids the organized-crime undertones of "syndicate", and pairs cleaner with the formal Front Range Rubber LLC.
+
 ## Trigger
 
 - Partnership exit from Travis / Skedaddle FedEx forces rebrand of the tire-resale side.
@@ -21,7 +23,7 @@ Strategic decisions from the 2026-05-02 brainstorm session. Captured here so the
 **Dual-brand, single operation:**
 
 - **Front Range Rubber LLC** — legal entity, commercial-fleet-facing. W9-issuing. Phone, email, web presence under this name. Boring-on-purpose vendor energy. Commercial outreach uses this brand exclusively.
-- **Tire Syndicate** (DBA) — consumer-facing FB Marketplace seller name. No domain (parked .com asks $2k; not justified for an unvalidated channel; revisit if TS earns its way in). Possible IG handle. Consumer FB listings sign under this name.
+- **Tire Triad** (DBA) — consumer-facing FB Marketplace seller name. No domain (parked .com asks $2k; not justified for an unvalidated channel; revisit if TS earns its way in). Possible IG handle. Consumer FB listings sign under this name.
 - Same operations, same eFleet account, same warehouse, same delivery, same Alex + DJ.
 
 ### Positioning constraint
@@ -36,7 +38,7 @@ Strategic decisions from the 2026-05-02 brainstorm session. Captured here so the
 
 Two prices for the same SKU, audience-segregated:
 
-- **Tire Syndicate consumer price** — market-clearing on FB Marketplace. Lowball pond, lowball floor.
+- **Tire Triad consumer price** — market-clearing on FB Marketplace. Lowball pond, lowball floor.
 - **Front Range Rubber commercial price** — wholesale-plus-honest-margin. Quoted per-fleet via cold-call follow-up. Fleet buyer never sees the consumer price.
 
 ### GTM motion (primary)
@@ -57,7 +59,7 @@ That NOCO has 50+ small fleets currently paying retail at Discount Tire who woul
 
 - [ ] Confirm `frontrangerubber.com` ownership
 - [ ] File Front Range Rubber LLC in Colorado (~$50)
-- [ ] File Tire Syndicate DBA in Colorado (~$20)
+- [ ] File Tire Triad DBA in Colorado (~$20)
 - [ ] Open business bank account against the LLC
 - [ ] Single-page static site at `frontrangerubber.com` (who, what, where, phone, email)
 - [ ] Wordmark concepts (FRR muted serif/condensed sans, TS bolder industrial — defer if no time)
@@ -76,7 +78,7 @@ That NOCO has 50+ small fleets currently paying retail at Discount Tire who woul
 
 ## Parked
 
-- Tire Syndicate domain — revisit if/when consumer-FB demonstrates revenue. Counter-offer at $250 first.
+- Tire Triad domain — revisit if/when consumer-FB demonstrates revenue. Counter-offer at $250 first.
 - TS branded site — only if there's a reason for one.
 - Full rebrand of existing FB listings — wait until LLC + bank account exist. Then transition listing-by-listing as they expire.
-- Skedaddle wind-down sequence — Travis owns the company, Alex owns the domain, no immediate action required. Existing tire-side listings under "Skedaddle" stay live until they sell or expire; new listings post under Tire Syndicate.
+- Skedaddle wind-down sequence — Travis owns the company, Alex owns the domain, no immediate action required. Existing tire-side listings under "Skedaddle" stay live until they sell or expire; new listings post under Tire Triad.
