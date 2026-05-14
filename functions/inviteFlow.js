@@ -152,10 +152,10 @@ async function fetchInviteGreetingLine(firstName, crewTag, apiKey) {
     process.env.ANTHROPIC_INVITE_MODEL ||
     'claude-sonnet-4-6'
 
-  const system = `You write a single short greeting line for someone joining a private operations platform called Skedaddle.
+  const system = `You write a single short greeting line for someone joining a private operations platform called Tire Triad.
 Tone: understated, slightly cryptic, never corporate, never exclamatory.
 Always include their first name. Imply they were expected, not recruited.
-Never explain what Skedaddle is. Never use punctuation beyond a period or comma.
+Never explain what Tire Triad is. Never use punctuation beyond a period or comma.
 Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door was already open, DJ."`
 
   try {

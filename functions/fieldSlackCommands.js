@@ -140,7 +140,7 @@ function splitCommandText(text) {
 
 function buildOnMyWaySmsBody(order) {
   const name = String(order.customerName || 'there').trim() || 'there'
-  return `Hey ${name}, we're on the way with your tires. See you soon. — Skedaddle`
+  return `Hey ${name}, we're on the way with your tires. See you soon. - Tire Triad`
 }
 
 function buildAppointmentConfirmBody(order) {
@@ -148,7 +148,7 @@ function buildAppointmentConfirmBody(order) {
   const when = String(
     order.scheduledWindow || order.fulfillmentScheduledTime || order.scheduledTime || 'your scheduled time',
   ).trim()
-  return `Hey ${name}, confirming your tire appointment for ${when}. Reply if you need to reschedule. — Skedaddle`
+  return `Hey ${name}, confirming your tire appointment for ${when}. Reply if you need to reschedule. - Tire Triad`
 }
 
 async function appendCommsLog(db, orderRef, entry) {

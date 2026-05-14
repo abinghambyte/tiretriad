@@ -33,7 +33,7 @@ async function crmStaleCheckRun() {
     return
   }
 
-  const portalBase = process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com'
+  const portalBase = process.env.PORTAL_BASE_URL || 'https://app.tiretriad.com'
 
   for (const doc of snap.docs) {
     const d = doc.data() || {}

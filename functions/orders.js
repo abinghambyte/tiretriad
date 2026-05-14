@@ -230,7 +230,7 @@ function formatSaleMessage(d) {
     `Fulfillment: ${d.fulfillment}`,
     `Notes: ${notes || '—'}`,
     '',
-    '— Skedaddle Portal',
+    '- Tire Triad Portal',
   ].join('\n')
 }
 
@@ -457,7 +457,7 @@ exports.notifyTeamQuick = onCall({ secrets: SLACK_SECRETS }, async (request) => 
     throw new HttpsError('failed-precondition', 'SLACK_BOT_TOKEN is not configured.')
   }
   const channel = slackChannelWithSecretFallback()
-  const portalBase = (process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com').replace(
+  const portalBase = (process.env.PORTAL_BASE_URL || 'https://app.tiretriad.com').replace(
     /\/$/,
     '',
   )
@@ -740,7 +740,7 @@ exports.completeOrder = onCall({ secrets: SLACK_SECRETS }, async (request) => {
   const afterSnap = await ref.get()
   const order = orderFromSnap(afterSnap)
   const portalBase =
-    process.env.PORTAL_BASE_URL || 'https://www.skedaddleinc.com'
+    process.env.PORTAL_BASE_URL || 'https://app.tiretriad.com'
 
   try {
     await postOrderCompletionSummary(
