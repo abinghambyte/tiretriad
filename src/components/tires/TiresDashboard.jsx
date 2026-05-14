@@ -925,7 +925,7 @@ export function TiresDashboard() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <ModuleSubheader
-        title="Skedaddle Tires"
+        title="Tire Triad Tires"
         subtitle="Margin catalog, orders, and listings"
         tabs={[
           {

@@ -62,7 +62,7 @@ export function LandingPage() {
             S
           </div>
           <h1 className="text-center text-3xl font-light tracking-[0.2em] text-zinc-100 sm:text-4xl">
-            SKEDADDLE
+            TIRE TRIAD
           </h1>
         </div>
         <LoginForm />

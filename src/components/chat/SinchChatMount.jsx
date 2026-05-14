@@ -31,7 +31,7 @@ const SDK_URL = 'https://cdn.sinch.com/sinch-chat/latest/sdk.js'
  * }} props
  */
 export function SinchChatMount({
-  brandText = 'Skedaddle Tires',
+  brandText = 'Tire Triad',
   brandColor = '#f59e0b',
   disabled = false,
   vipMode = false,
@@ -116,7 +116,7 @@ export function SinchChatMount({
         sdk.Chat.setTranslation?.({
           typeMessageHere: 'Type your message…',
           initialScreen: {
-            title: vipMode ? 'VIP concierge' : 'Talk to Skedaddle',
+            title: vipMode ? 'VIP concierge' : 'Talk to Tire Triad',
             description: vipMode
               ? 'We are here to help with priority support.'
               : 'Tell us what you need and we will come back fast.',
