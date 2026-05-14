@@ -663,7 +663,7 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
  * destroying the existing link.
  */
 exports.resendInviteDelivery = onCall(
-  { secrets: [ANTHROPIC_API_KEY] },
+  { secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY_SECRETS] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Sign in required.')
