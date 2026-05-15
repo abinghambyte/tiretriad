@@ -588,30 +588,74 @@ function fallbackBody(firstName, inviteUrl) {
 }
 
 /**
- * Build the SMS body from a greeting + invite URL, keeping the total under 280 chars
- * so it stays a single segment on most carriers. Truncates the greeting if required.
+ * Build the SMS body. Single-segment SMS budget is 160 GSM-7 / 70 UCS-2;
+ * the URL alone usually pushes past either, so carriers concatenate into
+ * 153-char segments. The 280 cap below keeps us inside two segments worst
+ * case while leaving room on the typical send (greeting + url ~ 110 chars)
+ * to stay a single segment. Multi-segment SMS doubles cost and the parts
+ * sometimes arrive out of order on older carriers.
+ *
+ * Priority order, dropped right-to-left until it fits:
+ *   1. greeting (or "{firstName}." fallback)        — always kept
+ *   2. inviter clause "Alex set you up..."          — dropped first
+ *   3. invite URL                                   — always kept
+ *   4. trust signal "Single-use link, expires."     — dropped second
+ * URL is never dropped; greeting truncates as a last resort.
+ *
  * @param {string} greeting
  * @param {string} firstName
  * @param {string} inviteUrl
+ * @param {string} [inviterFirstName]
  */
-function buildSmsBody(greeting, firstName, inviteUrl) {
+function buildSmsBody(greeting, firstName, inviteUrl, inviterFirstName) {
   const url = String(inviteUrl || '').trim()
   const rawGreeting = String(greeting || '').trim()
-  const fallback = `${firstName}.`
+  const inviter = String(inviterFirstName || '').trim()
+  const fallbackGreeting = `${firstName}.`
+  const baseGreeting = rawGreeting || fallbackGreeting
+  const inviterLine = inviter ? `${inviter} set you up with access to Tire Triad.` : ''
+  const trustLine = 'Single-use link, expires automatically.'
   const MAX = 280
-  // Reserve one char for the space between greeting and URL.
-  const maxGreetingLen = Math.max(0, MAX - url.length - 1)
-  if (rawGreeting && rawGreeting.length <= maxGreetingLen) {
-    return `${rawGreeting} ${url}`
+
+  function assemble(useInviter, useTrust) {
+    const parts = [baseGreeting]
+    if (useInviter && inviterLine) parts.push(inviterLine)
+    parts.push(url)
+    if (useTrust) parts.push(trustLine)
+    return parts.join(' ')
   }
-  if (rawGreeting && maxGreetingLen > 0) {
-    return `${rawGreeting.slice(0, maxGreetingLen).trimEnd()} ${url}`
+
+  for (const [ui, ut] of [[true, true], [true, false], [false, true], [false, false]]) {
+    const candidate = assemble(ui, ut)
+    if (candidate.length <= MAX) return candidate
   }
-  // No greeting, or not enough room: fall back to the first-name line.
-  if (fallback.length + 1 + url.length <= MAX) {
-    return `${fallback} ${url}`
+  // Greeting alone + URL is too long: truncate greeting, keep URL intact.
+  const room = Math.max(0, MAX - url.length - 1)
+  const truncated = baseGreeting.slice(0, room).trimEnd()
+  return truncated ? `${truncated} ${url}` : url
+}
+
+/**
+ * Map a Sinch batch POST failure into a stable reason code the UI can
+ * display ("invalid-number", "carrier-rejected", "rate-limited",
+ * "auth-error", "timeout", "provider-error"). Sinch returns a JSON body
+ * with `code` and `text` fields on most errors; we key off the HTTP
+ * status first because that is the most reliable signal across regions.
+ */
+function classifySinchFailure(status, body) {
+  if (status === 408 || status === 504) return 'timeout'
+  if (status === 401 || status === 403) return 'auth-error'
+  if (status === 429) return 'rate-limited'
+  if (status === 400) {
+    const code = String(body?.code || '').toLowerCase()
+    const text = String(body?.text || '').toLowerCase()
+    if (code.includes('msisdn') || text.includes('msisdn') || text.includes('phone') || text.includes('to ')) {
+      return 'invalid-number'
+    }
+    return 'carrier-rejected'
   }
-  return url
+  if (status >= 400 && status < 500) return 'carrier-rejected'
+  return 'provider-error'
 }
 
 /**
@@ -638,8 +682,15 @@ async function deliverInvite(p) {
       return { sent: false, reason: 'missing-env' }
     }
     const to = digits.length === 10 ? `1${digits}` : digits
-    const body = buildSmsBody(greetingLine, firstName, inviteUrl) || fallbackBody(firstName, inviteUrl)
+    const body =
+      buildSmsBody(greetingLine, firstName, inviteUrl, inviterFirstName) ||
+      fallbackBody(firstName, inviteUrl)
     const host = region === 'eu' ? 'eu.sms.api.sinch.com' : 'us.sms.api.sinch.com'
+    // 15s ceiling. Sinch normally responds in <500ms; anything past 15s is
+    // a network black hole and we'd rather surface a 'timeout' to the
+    // operator than let the callable hang against its own timeout.
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 15000)
     try {
       const res = await fetch(
         `https://${host}/xms/v1/${encodeURIComponent(planId)}/batches`,
@@ -650,17 +701,25 @@ async function deliverInvite(p) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ from, to: [to], body }),
+          signal: ctrl.signal,
         },
       )
       const txt = await res.text()
+      let parsed = null
+      try { parsed = txt ? JSON.parse(txt) : null } catch { parsed = null }
       if (!res.ok) {
-        console.error('Sinch SMS failed', res.status, txt)
-        return { sent: false, reason: 'provider-error' }
+        const reason = classifySinchFailure(res.status, parsed)
+        console.error('Sinch SMS failed', res.status, reason, txt)
+        return { sent: false, reason }
       }
-      return { sent: true }
+      const sinchBatchId = String(parsed?.id || '') || null
+      return { sent: true, sinchBatchId }
     } catch (e) {
-      console.error('Sinch SMS threw', e)
-      return { sent: false, reason: 'provider-error' }
+      const reason = e?.name === 'AbortError' ? 'timeout' : 'provider-error'
+      console.error('Sinch SMS threw', reason, e)
+      return { sent: false, reason }
+    } finally {
+      clearTimeout(timer)
     }
   }
 

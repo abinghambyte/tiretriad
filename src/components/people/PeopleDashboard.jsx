@@ -497,14 +497,18 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function reissueInvite() {
     if (!selected) return
+    const method = ['sms', 'nfc', 'email'].includes(selected.inviteDelivery)
+      ? selected.inviteDelivery
+      : 'email'
+    const channelLabel = method === 'sms' ? 'SMS' : method === 'nfc' ? 'NFC link' : 'email'
     setInvokeBusy('reissue')
     try {
-      const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: 'email' })
+      const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: method })
       setPanelInviteUrl(data.inviteUrl || '')
       const sent = !!data?.delivery?.sent
       const reason = String(data?.delivery?.reason || '')
-      if (sent) toast('Invite issued and email sent', 'success')
-      else toast(`Invite issued, email failed${reason ? `: ${reason}` : ''}`, 'error')
+      if (sent) toast(`Invite issued and ${channelLabel} sent`, 'success')
+      else toast(`Invite issued, ${channelLabel} failed${reason ? `: ${reason}` : ''}`, 'error')
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
     } finally {
@@ -514,15 +518,20 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function resendInvite() {
     if (!selected) return
+    const method = ['sms', 'nfc', 'email'].includes(selected.inviteDelivery)
+      ? selected.inviteDelivery
+      : 'email'
+    const channelLabel = method === 'sms' ? 'SMS' : method === 'nfc' ? 'NFC link' : 'Email'
+    const recipient = method === 'sms' ? (selected.phone || 'recipient') : (selected.email || 'recipient')
     setInvokeBusy('resend')
     try {
       const { data } = await resendInviteDeliveryFn({
         targetUid: selected.id,
-        inviteDelivery: 'email',
+        inviteDelivery: method,
       })
       const sent = !!data?.delivery?.sent
       const reason = String(data?.delivery?.reason || '')
-      if (sent) toast(`Email re-sent to ${selected.email || 'recipient'}`, 'success')
+      if (sent) toast(`${channelLabel} re-sent to ${recipient}`, 'success')
       else toast(`Resend failed${reason ? `: ${reason}` : ''}`, 'error')
     } catch (e) {
       toast(e?.message || 'Resend failed.', 'error')
