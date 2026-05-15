@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { LoginForm } from '../components/auth/LoginForm'
 import { useAuth } from '../hooks/useAuth'
 import { callRecordLogin } from '../utils/callRecordLogin'
+import { BrandBolt } from '../components/ui/BrandBolt.jsx'
 
 function postLoginPath(state) {
   const from = state?.from
@@ -58,8 +59,12 @@ export function LandingPage() {
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-16">
         <div className="sk-animate-fade-up mb-12">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/60 text-2xl font-semibold tracking-tight text-zinc-100 shadow-lg shadow-black/40">
-            S
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-lg shadow-black/40">
+            <BrandBolt
+              size={28}
+              tone="solid"
+              aria-label="Tire Triad"
+            />
           </div>
           <h1 className="text-center text-3xl font-light tracking-[0.2em] text-zinc-100 sm:text-4xl">
             TIRE TRIAD
