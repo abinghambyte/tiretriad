@@ -152,10 +152,10 @@ async function fetchInviteGreetingLine(firstName, crewTag, apiKey) {
     process.env.ANTHROPIC_INVITE_MODEL ||
     'claude-sonnet-4-6'
 
-  const system = `You write a single short greeting line for someone joining a private operations platform called Skedaddle.
+  const system = `You write a single short greeting line for someone joining a private operations platform called Tire Triad.
 Tone: understated, slightly cryptic, never corporate, never exclamatory.
 Always include their first name. Imply they were expected, not recruited.
-Never explain what Skedaddle is. Never use punctuation beyond a period or comma.
+Never explain what Tire Triad is. Never use punctuation beyond a period or comma.
 Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door was already open, DJ."`
 
   try {
@@ -291,7 +291,7 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
   // the inbox preview pane without opening the message - massively faster than
   // a generic "Your code" subject + open + scan + retype flow. The code is
   // single-use and expires in 15 min so subject-line exposure is a non-issue.
-  const subject = `${code} is your Skedaddle sign-in code`
+  const subject = `${code} is your Tire Triad sign-in code`
   const body = `Your code is ${code}.\nIt expires in fifteen minutes.\n\nIf you did not request this, ignore this message.`
 
   const payload = {
@@ -549,7 +549,7 @@ async function deliverInvite(p) {
     // through "One step" / "This way" / "Quick link" - those reads as
     // phishing both to spam filters and to humans.
     const personalPrefix = firstName ? `${firstName}, your` : 'Your'
-    const subject = `${personalPrefix} Skedaddle portal invite`
+    const subject = `${personalPrefix} Tire Triad portal invite`
     const body = `${emailFirstPara}\n\n${inviteUrl}\n`
     const payload = {
       from,

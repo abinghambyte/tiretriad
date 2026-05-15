@@ -92,8 +92,8 @@ export function HandshakePage() {
         className="max-w-md space-y-6"
       >
         <div className="flex flex-col items-center gap-4">
-          <BrandBolt size={56} tone="glow" aria-label="Skedaddle" />
-          <p className="text-xs tracking-[0.35em] text-zinc-400">SKEDADDLE</p>
+          <BrandBolt size={56} tone="glow" aria-label="Tire Triad" />
+          <p className="text-xs tracking-[0.35em] text-zinc-400">TIRE TRIAD</p>
         </div>
         <p className="text-lg font-light leading-relaxed text-zinc-200 md:text-xl">{line}</p>
         <p className="text-xs text-zinc-600">Tap anywhere to continue</p>

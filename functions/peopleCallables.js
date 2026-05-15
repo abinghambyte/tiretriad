@@ -16,6 +16,7 @@ const {
 const { deliverInvite, generateInviteGreetingLine } = require('./inviteFlow')
 const { ANTHROPIC_API_KEY, INVITE_DELIVERY_SECRETS } = require('./slackSecrets')
 const { auditFromCallable } = require('./adminAuditLog')
+const { BRAND } = require('./brand')
 
 /** E.164 — keep in sync with `normalizePhoneToE164` in `src/utils/formatPhone.js`. */
 function normalizePhoneToE164(raw) {
@@ -250,7 +251,7 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
   }
 
   // Production invite links always use the public site host (Phase 9).
-  const inviteUrl = `https://www.skedaddleinc.com/i/${token}`
+  const inviteUrl = `${BRAND.inviteUrlBase}/${token}`
 
   // Generate the greeting line first so both SMS and email bodies can include it.
   // Never throws; falls back to a safe default line on failure.
@@ -569,7 +570,7 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
 
   const token = crypto.randomBytes(24).toString('hex')
   const inviteExpiry = Timestamp.fromMillis(Date.now() + 48 * 3600000)
-  const inviteUrl = `https://www.skedaddleinc.com/i/${token}`
+  const inviteUrl = `${BRAND.inviteUrlBase}/${token}`
 
   const batch = db.batch()
 
@@ -708,7 +709,7 @@ exports.resendInviteDelivery = onCall(
       }
       tokenStr = fallback.docs[0].id
     }
-    const inviteUrl = `https://www.skedaddleinc.com/i/${tokenStr}`
+    const inviteUrl = `${BRAND.inviteUrlBase}/${tokenStr}`
 
     const inviteDelivery = ['sms', 'nfc', 'email'].includes(data.inviteDelivery)
       ? data.inviteDelivery

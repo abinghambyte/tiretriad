@@ -572,7 +572,7 @@ export function OrdersList({ highlightId }) {
             to="/tires"
             className="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400"
           >
-            Open Skedaddle Tires
+            Open Tire Triad Tires
           </Link>
         }
       />

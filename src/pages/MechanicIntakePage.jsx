@@ -302,7 +302,7 @@ export function MechanicIntakePage() {
       <div className="mx-auto max-w-lg px-4 pt-6 sm:px-6 sm:pt-10">
         {step === 0 ? (
           <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.35em] text-zinc-400">
-            Skedaddle
+            Tire Triad
           </p>
         ) : (
           <div className="mb-4 h-4" aria-hidden />

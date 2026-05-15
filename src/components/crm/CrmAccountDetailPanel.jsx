@@ -416,7 +416,7 @@ export function CrmAccountDetailPanel({ account, vehicles, canEdit, onClose, onR
                   value={String(draft.segment ?? '')}
                   onChange={(e) => setDraft((d) => ({ ...d, segment: e.target.value }))}
                   onBlur={() => void saveField({ segment: String(draft.segment || '').trim() })}
-                  placeholder="e.g. Skedaddle Inc · regional distributor"
+                  placeholder="e.g. Tire Triad · regional distributor"
                   className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-zinc-100 disabled:opacity-50"
                 />
                 {canEdit ? (

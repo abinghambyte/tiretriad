@@ -22,7 +22,7 @@ export function OrdersPage() {
             to="/tires?tab=orders"
             className="text-amber-300 underline-offset-2 hover:underline"
           >
-            Skedaddle Tires → Orders
+            Tire Triad Tires → Orders
           </Link>
           .
         </p>

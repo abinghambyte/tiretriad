@@ -146,7 +146,7 @@ async function kyleScorecardRun(slackOpts) {
     lines.push('', '_No buy overrides in this window — catalog pricing matched every line._')
   }
 
-  lines.push('────────────────────────────', '_Automated monthly summary · Skedaddle portal_')
+  lines.push('────────────────────────────', '_Automated monthly summary · Tire Triad portal_')
 
   await slackApiPost(token, channel, lines.join('\n'))
 }

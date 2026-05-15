@@ -5,7 +5,7 @@
 export function moduleTitleFromPath(pathname) {
   const p = String(pathname || '')
   if (p === '/dashboard' || p === '/handshake') return 'Dashboard'
-  if (p.startsWith('/tires')) return 'Skedaddle Tires'
+  if (p.startsWith('/tires')) return 'Tire Triad Tires'
   if (p.startsWith('/crm/dispatch')) return 'Field Dispatch'
   if (p.startsWith('/crm')) return 'Rubber CRM'
   if (p.startsWith('/people')) return 'People Systems'
@@ -14,7 +14,7 @@ export function moduleTitleFromPath(pathname) {
   if (p.startsWith('/orders')) return 'Orders'
   if (p.startsWith('/intake')) return 'Mechanic intake'
   if (p.startsWith('/i/')) return 'Invite'
-  return 'Skedaddle'
+  return 'Tire Triad'
 }
 
 /**
@@ -53,7 +53,7 @@ const TAB_LABELS = {
 /** Labels for first-segment module paths. */
 const MODULE_LABELS = {
   '/dashboard': 'Dashboard',
-  '/tires': 'Skedaddle Tires',
+  '/tires': 'Tire Triad Tires',
   '/crm': 'Rubber CRM',
   '/people': 'People Systems',
   '/analytics': 'Analytics',

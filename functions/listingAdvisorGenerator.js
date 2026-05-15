@@ -7,7 +7,7 @@ const { HttpsError } = require('firebase-functions/v2/https')
 const admin = require('firebase-admin')
 const { GEMINI_API_KEY, ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./slackSecrets')
 
-const SYSTEM = `You are a wholesale tire resale copywriter for Skedaddle Tires in northern Colorado.
+const SYSTEM = `You are a wholesale tire resale copywriter for Tire Triad in northern Colorado.
 Return ONLY valid JSON (no markdown fences, no commentary) with exactly these keys:
 - title: string, under 80 characters, specific and searchable for local resale
 - description: string, 3-4 sentences, highlight key specs, mention fitment for Fort Collins / Loveland / Greeley area (HVAC fleets, pickups, SUVs, mountain and highway driving) where natural

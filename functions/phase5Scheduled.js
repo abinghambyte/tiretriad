@@ -168,7 +168,7 @@ function openMeteoConditionLabel(code) {
 async function fetchFortCollinsWeatherLine() {
   try {
     const res = await fetch(OPEN_METEO_FORT_COLLINS, {
-      headers: { 'User-Agent': 'SkedaddlePortal/1.0' },
+      headers: { 'User-Agent': 'TireTriadPortal/1.0' },
     })
     if (!res.ok) {
       console.error('morningBrief weather http', res.status)

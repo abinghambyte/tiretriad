@@ -37,10 +37,10 @@ describe('BrandBolt', () => {
   })
 
   it('drops aria-hidden when given an aria-label', () => {
-    const { getByTestId } = render(<BrandBolt aria-label="Skedaddle" />)
+    const { getByTestId } = render(<BrandBolt aria-label="Tire Triad" />)
     const el = getByTestId('brand-bolt')
     expect(el.getAttribute('aria-hidden')).toBeNull()
-    expect(el.getAttribute('aria-label')).toBe('Skedaddle')
+    expect(el.getAttribute('aria-label')).toBe('Tire Triad')
   })
 
   it('forwards className', () => {
