@@ -1,8 +1,12 @@
 /**
- * Brand lightning-bolt glyph. Single source of truth for the Skedaddle
- * mark; consumers pick a size and tone. Path is a simplified flat-purple
- * version of public/favicon.svg (no gaussian blurs — those are expensive
- * in the DOM and would make every empty-state card more costly).
+ * Tire Triad brand mark. Three interlocking rings arranged in an
+ * equilateral triangle — one ring per "triad" leg (the three operators,
+ * the three tire-grade tiers, take your pick). Component name is kept as
+ * `BrandBolt` so consumers don't have to chase down imports across the
+ * portal; only the glyph itself changed.
+ *
+ * Renders cleanly from favicon-scale (16px) up to hero-scale (200px+) —
+ * single-color, no filters by default, no raster fallback.
  *
  * @param {object} props
  * @param {number} [props.size=20] Pixel size for both width and height.
@@ -19,18 +23,22 @@ export function BrandBolt({
   ...rest
 }) {
   const labelled = Boolean(ariaLabel)
-  const fill =
+  const stroke =
     tone === 'muted' ? 'rgba(134, 59, 255, 0.45)' : '#7e14ff'
   const filter =
     tone === 'glow' ? 'drop-shadow(0 0 8px rgba(126, 20, 255, 0.5))' : undefined
 
+  // Equilateral triangle of three rings. Centers chosen so the rings
+  // touch tangentially at the midpoints of each triangle edge: with
+  // ring radius r=10 the side length is 2r=20, giving vertex centers
+  // at (24,15), (14.34,31.73), (33.66,31.73) inside a 48x48 box.
   return (
     <svg
       data-testid="brand-bolt"
       data-tone={tone}
       width={size}
       height={size}
-      viewBox="0 0 48 46"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden={labelled ? undefined : 'true'}
@@ -40,10 +48,9 @@ export function BrandBolt({
       style={filter ? { filter } : undefined}
       {...rest}
     >
-      <path
-        d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"
-        fill={fill}
-      />
+      <circle cx="24" cy="15" r="9" stroke={stroke} strokeWidth="3" />
+      <circle cx="14.34" cy="31.73" r="9" stroke={stroke} strokeWidth="3" />
+      <circle cx="33.66" cy="31.73" r="9" stroke={stroke} strokeWidth="3" />
     </svg>
   )
 }
