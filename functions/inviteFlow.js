@@ -85,8 +85,8 @@ function renderInviteEmailHtml({
     ? `${safeInviter} set you up with access to <strong style="color:#fafafa;">Tire Triad</strong>`
     : `You have been given access to <strong style="color:#fafafa;">Tire Triad</strong>`
   const sentByLine = safeInviter
-    ? `Sent by ${safeInviter} via ${safeEntity}`
-    : `Sent by ${safeEntity}`
+    ? `Sent by ${safeInviter} ~ Tire Triad initiation`
+    : `Sent by ${safeEntity} ~ Tire Triad initiation`
   const expiryStr = expiryPhrase(inviteExpiryMillis)
   const expiryLine = expiryStr
     ? `This registration link is single-use and expires ${expiryStr}.`
@@ -129,7 +129,7 @@ function renderInviteEmailHtml({
 <p style="margin:0;word-break:break-all;"><a href="${safeUrl}" style="color:#c4b5fd;text-decoration:underline;">${safeUrl}</a></p>
 </td></tr>
 <tr><td style="padding:16px 32px 28px;border-top:1px solid #27272a;">
-<p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;">${sentByLine}. Authenticated by SPF, DKIM, and DMARC on the <code style="color:#a1a1aa;background:#27272a;padding:1px 4px;border-radius:4px;font-size:11px;">${escapeHtml(BRAND.emailDomain)}</code> domain. If you were not expecting this email, you can ignore it — the registration link will expire on its own and no account is created until you complete sign-in.</p>
+<p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;">${sentByLine}. Authenticated by SPF, DKIM, and DMARC on the <code style="color:#a1a1aa;background:#27272a;padding:1px 4px;border-radius:4px;font-size:11px;">${escapeHtml(BRAND.emailDomain)}</code> domain. If you were not expecting this email, you can ignore it; the registration link will expire on its own and no account is created until you complete sign-in.</p>
 </td></tr>
 </table>
 </td></tr>
@@ -710,8 +710,8 @@ async function deliverInvite(p) {
       expiryLineText,
       '',
       inviter
-        ? `Sent by ${inviter} via ${BRAND.legalEntity}. Authenticated by SPF, DKIM, and DMARC on ${BRAND.emailDomain}. If you were not expecting this email, you can ignore it — no account is created until you complete sign-in.`
-        : `Sent by ${BRAND.legalEntity}. Authenticated by SPF, DKIM, and DMARC on ${BRAND.emailDomain}. If you were not expecting this email, you can ignore it — no account is created until you complete sign-in.`,
+        ? `Sent by ${inviter} ~ Tire Triad initiation. Authenticated by SPF, DKIM, and DMARC on ${BRAND.emailDomain}. If you were not expecting this email, you can ignore it; no account is created until you complete sign-in.`
+        : `Sent by ${BRAND.legalEntity} ~ Tire Triad initiation. Authenticated by SPF, DKIM, and DMARC on ${BRAND.emailDomain}. If you were not expecting this email, you can ignore it; no account is created until you complete sign-in.`,
       '',
     ].join('\n')
     const htmlBody = renderInviteEmailHtml({
