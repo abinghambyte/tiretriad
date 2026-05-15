@@ -28,10 +28,12 @@ export function BrandBolt({
   const filter =
     tone === 'glow' ? 'drop-shadow(0 0 8px rgba(126, 20, 255, 0.5))' : undefined
 
-  // Equilateral triangle of three rings. Centers chosen so the rings
-  // touch tangentially at the midpoints of each triangle edge: with
-  // ring radius r=10 the side length is 2r=20, giving vertex centers
-  // at (24,15), (14.34,31.73), (33.66,31.73) inside a 48x48 box.
+  // Three rings on the vertices of an equilateral triangle, side 16,
+  // each with radius 9 — overlap of 2 units per pair so the rings
+  // genuinely interlock (Olympic-style) rather than just sit near each
+  // other. Triangle height = 16 * sqrt(3) / 2 ≈ 13.86; vertical centring
+  // in the 48x48 box puts the top vertex at y=16 and the base pair at
+  // y≈29.86.
   return (
     <svg
       data-testid="brand-bolt"
@@ -48,9 +50,9 @@ export function BrandBolt({
       style={filter ? { filter } : undefined}
       {...rest}
     >
-      <circle cx="24" cy="15" r="9" stroke={stroke} strokeWidth="3" />
-      <circle cx="14.34" cy="31.73" r="9" stroke={stroke} strokeWidth="3" />
-      <circle cx="33.66" cy="31.73" r="9" stroke={stroke} strokeWidth="3" />
+      <circle cx="24" cy="16" r="9" stroke={stroke} strokeWidth="3" />
+      <circle cx="16" cy="29.86" r="9" stroke={stroke} strokeWidth="3" />
+      <circle cx="32" cy="29.86" r="9" stroke={stroke} strokeWidth="3" />
     </svg>
   )
 }
