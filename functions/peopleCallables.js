@@ -28,6 +28,18 @@ function normalizePhoneToE164(raw) {
   return ''
 }
 
+/**
+ * Grab the inviter's first name from the callable's auth context so the
+ * invite email subject can read "Kyle, Alex set up your Tire Triad
+ * access" instead of generic boilerplate. Returns '' if the token has no
+ * `name` claim — the email subject then falls back to the generic form.
+ */
+function inviterFirstNameFrom(request) {
+  const raw = String(request?.auth?.token?.name || '').trim()
+  if (!raw) return ''
+  return raw.split(/\s+/)[0]
+}
+
 const LEVEL_RANK = { none: 0, view: 1, edit: 2, act: 2, manage: 3 }
 
 function levelRank(lev) {
@@ -270,6 +282,7 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
       inviteUrl,
       deliveryMethod: inviteDelivery,
       greeting,
+      inviterFirstName: inviterFirstNameFrom(request),
     })
     delivery = { attempted: inviteDelivery, ...result }
   } catch (e) {
@@ -619,6 +632,7 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
       inviteUrl,
       deliveryMethod: inviteDelivery,
       greeting,
+      inviterFirstName: inviterFirstNameFrom(request),
     })
     delivery = { attempted: inviteDelivery, ...result }
   } catch (e) {
@@ -730,6 +744,7 @@ exports.resendInviteDelivery = onCall(
         inviteUrl,
         deliveryMethod: inviteDelivery,
         greeting,
+        inviterFirstName: inviterFirstNameFrom(request),
       })
       delivery = { attempted: inviteDelivery, ...result }
     } catch (e) {

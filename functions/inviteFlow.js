@@ -487,11 +487,11 @@ function buildSmsBody(greeting, firstName, inviteUrl) {
 }
 
 /**
- * @param {{ firstName: string, email: string, phone: string, inviteUrl: string, deliveryMethod: string, greeting?: string }} p
+ * @param {{ firstName: string, email: string, phone: string, inviteUrl: string, deliveryMethod: string, greeting?: string, inviterFirstName?: string }} p
  * @returns {Promise<{ sent: boolean, reason?: string }>}
  */
 async function deliverInvite(p) {
-  const { firstName, email, phone, inviteUrl, deliveryMethod, greeting } = p
+  const { firstName, email, phone, inviteUrl, deliveryMethod, greeting, inviterFirstName } = p
   const greetingLine = String(greeting || '').trim()
   const emailFirstPara = greetingLine || `${firstName}.`
 
@@ -544,12 +544,22 @@ async function deliverInvite(p) {
     }
     const from = cleanSecret(process.env.RESEND_FROM_EMAIL) || 'onboarding@resend.dev'
     const replyTo = cleanSecret(process.env.RESEND_REPLY_TO_EMAIL)
-    // Brand + action in the subject. Personalised with first name when we
-    // have it (we always do for crew invites). Dropped the random rotation
-    // through "One step" / "This way" / "Quick link" - those reads as
-    // phishing both to spam filters and to humans.
-    const personalPrefix = firstName ? `${firstName}, your` : 'Your'
-    const subject = `${personalPrefix} Tire Triad portal invite`
+    // Subject names both parties when we have them: "Kyle, Alex set up
+    // your Tire Triad access". Names the sender so the recipient sees a
+    // trust signal in the notification line, and drops the "portal"
+    // jargon that reads as boilerplate. Falls back to the older
+    // recipient-only or fully generic forms when one name is missing.
+    // Dropped the random rotation through "One step" / "This way" /
+    // "Quick link" - those read as phishing to spam filters and humans.
+    const inviter = String(inviterFirstName || '').trim()
+    let subject
+    if (firstName && inviter) {
+      subject = `${firstName}, ${inviter} set up your Tire Triad access`
+    } else if (firstName) {
+      subject = `${firstName}, your Tire Triad access`
+    } else {
+      subject = 'Your Tire Triad access'
+    }
     const body = `${emailFirstPara}\n\n${inviteUrl}\n`
     const payload = {
       from,
