@@ -25,51 +25,111 @@ function escapeHtml(value) {
 }
 
 /**
+ * Translate a millisecond expiry timestamp into a short, plain-English
+ * duration ("in 47 hours", "in 2 days"). Helps the recipient gauge how
+ * soon they need to act, and adds a concrete time signal that real
+ * registration emails carry — bare links read as phishing.
+ */
+function expiryPhrase(inviteExpiryMillis) {
+  const ms = Number(inviteExpiryMillis)
+  if (!Number.isFinite(ms) || ms <= Date.now()) return ''
+  const deltaMin = Math.round((ms - Date.now()) / 60000)
+  if (deltaMin < 90) return `in ${deltaMin} minute${deltaMin === 1 ? '' : 's'}`
+  const deltaHr = Math.round(deltaMin / 60)
+  if (deltaHr < 36) return `in ${deltaHr} hour${deltaHr === 1 ? '' : 's'}`
+  const deltaDays = Math.round(deltaHr / 24)
+  return `in ${deltaDays} day${deltaDays === 1 ? '' : 's'}`
+}
+
+/**
+ * Three-ring Tire Triad mark as a data: URI. Inline SVG renders in
+ * Apple Mail, iOS Mail, Outlook web, and most desktop Gmail; Android
+ * Gmail and Outlook desktop strip SVG and fall back to the alt text
+ * below the wordmark, so the email still degrades gracefully.
+ */
+const TRIAD_LOGO_DATA_URI =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">' +
+      '<circle cx="24" cy="16" r="9" stroke="#7e14ff" stroke-width="3"/>' +
+      '<circle cx="16" cy="29.86" r="9" stroke="#7e14ff" stroke-width="3"/>' +
+      '<circle cx="32" cy="29.86" r="9" stroke="#7e14ff" stroke-width="3"/>' +
+      '</svg>',
+  )
+
+/**
  * Build the HTML body for the invite email. Inline styles only — Gmail,
  * Outlook, and most webmail clients strip <style> blocks. Table-based
- * layout because divs are still flaky in Outlook desktop. Light theme
- * (white card on neutral background) reads cleanly in every client
- * including dark-mode inboxes, where most clients auto-invert.
+ * layout because divs are still flaky in Outlook desktop. Dark theme
+ * (zinc-950 outer, zinc-900 card with brand-purple ring) matches the
+ * portal chrome; modern clients respect explicit dark colors instead
+ * of auto-inverting. Outlook desktop falls back to a solid dark card
+ * without the SVG mark, which is fine.
+ *
+ * Trust signals on purpose: explicit "Verified registration link"
+ * subhead, expiry duration, named inviter, legal entity in the footer.
+ * Spam filters weight these as legitimacy markers; humans read them
+ * the same way.
  */
-function renderInviteEmailHtml({ greeting, inviterFirstName, inviteUrl }) {
+function renderInviteEmailHtml({
+  greeting,
+  inviterFirstName,
+  inviteUrl,
+  inviteExpiryMillis,
+}) {
   const safeGreeting = escapeHtml(greeting)
   const safeUrl = escapeHtml(inviteUrl)
   const safeInviter = escapeHtml(inviterFirstName)
   const safeEntity = escapeHtml(BRAND.legalEntity)
   const inviterClause = safeInviter
-    ? `${safeInviter} set you up with access to <strong>Tire Triad</strong>`
-    : `You have been given access to <strong>Tire Triad</strong>`
+    ? `${safeInviter} set you up with access to <strong style="color:#fafafa;">Tire Triad</strong>`
+    : `You have been given access to <strong style="color:#fafafa;">Tire Triad</strong>`
   const sentByLine = safeInviter
-    ? `Sent by ${safeInviter} via ${safeEntity}.`
-    : `Sent by ${safeEntity}.`
+    ? `Sent by ${safeInviter} via ${safeEntity}`
+    : `Sent by ${safeEntity}`
+  const expiryStr = expiryPhrase(inviteExpiryMillis)
+  const expiryLine = expiryStr
+    ? `This registration link is single-use and expires ${expiryStr}.`
+    : 'This registration link is single-use and expires automatically.'
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
 <title>Tire Triad access</title>
 </head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;">
+<body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fafafa;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#09090b;">
 <tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;">
-<tr><td style="padding:32px 32px 16px;text-align:center;">
-<div style="letter-spacing:0.3em;font-size:14px;font-weight:600;color:#111827;">TIRE TRIAD</div>
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#18181b;border-radius:14px;border:1px solid #27272a;">
+<tr><td align="center" style="padding:36px 32px 8px;">
+<img src="${TRIAD_LOGO_DATA_URI}" alt="" width="72" height="72" style="display:block;width:72px;height:72px;border:0;outline:0;">
 </td></tr>
-<tr><td style="padding:0 32px;"><hr style="border:0;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
-<tr><td style="padding:24px 32px 8px;font-size:16px;line-height:1.5;">
-<p style="margin:0 0 16px;">${safeGreeting}</p>
-<p style="margin:0 0 24px;color:#374151;">${inviterClause}, the private ops portal for ${safeEntity}. The link below signs you in.</p>
+<tr><td align="center" style="padding:12px 32px 4px;">
+<div style="letter-spacing:0.3em;font-size:14px;font-weight:600;color:#fafafa;">TIRE TRIAD</div>
 </td></tr>
-<tr><td align="center" style="padding:8px 32px 24px;">
+<tr><td align="center" style="padding:0 32px 20px;">
+<div style="display:inline-block;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#c4b5fd;background:rgba(126,20,255,0.12);border:1px solid rgba(126,20,255,0.35);border-radius:999px;padding:4px 10px;">Verified registration link</div>
+</td></tr>
+<tr><td style="padding:0 32px 8px;"><hr style="border:0;border-top:1px solid #27272a;margin:0;"></td></tr>
+<tr><td style="padding:20px 32px 4px;font-size:16px;line-height:1.55;color:#e4e4e7;">
+<p style="margin:0 0 16px;color:#fafafa;">${safeGreeting}</p>
+<p style="margin:0 0 24px;color:#d4d4d8;">${inviterClause}, the private ops portal for ${safeEntity}. The button below signs you in and finishes registration.</p>
+</td></tr>
+<tr><td align="center" style="padding:8px 32px 20px;">
 <a href="${safeUrl}" style="display:inline-block;background:#7e14ff;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:8px;">Open Tire Triad</a>
 </td></tr>
-<tr><td style="padding:0 32px 24px;font-size:13px;color:#6b7280;line-height:1.5;">
-<p style="margin:0 0 8px;">Or paste this link into your browser:</p>
-<p style="margin:0;word-break:break-all;"><a href="${safeUrl}" style="color:#7e14ff;text-decoration:underline;">${safeUrl}</a></p>
+<tr><td style="padding:4px 32px 8px;text-align:center;">
+<p style="margin:0;font-size:12px;color:#a1a1aa;">${expiryLine}</p>
 </td></tr>
-<tr><td style="padding:16px 32px 24px;border-top:1px solid #e5e7eb;">
-<p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">${sentByLine} If you were not expecting this, ignore it and the link will expire on its own.</p>
+<tr><td style="padding:16px 32px 24px;font-size:12px;color:#71717a;line-height:1.5;">
+<p style="margin:0 0 8px;color:#a1a1aa;">Trouble with the button? Paste this verified link into your browser:</p>
+<p style="margin:0;word-break:break-all;"><a href="${safeUrl}" style="color:#c4b5fd;text-decoration:underline;">${safeUrl}</a></p>
+</td></tr>
+<tr><td style="padding:16px 32px 28px;border-top:1px solid #27272a;">
+<p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;">${sentByLine}. Authenticated by SPF, DKIM, and DMARC on the <code style="color:#a1a1aa;background:#27272a;padding:1px 4px;border-radius:4px;font-size:11px;">${escapeHtml(BRAND.emailDomain)}</code> domain. If you were not expecting this email, you can ignore it — the registration link will expire on its own and no account is created until you complete sign-in.</p>
 </td></tr>
 </table>
 </td></tr>
@@ -556,11 +616,11 @@ function buildSmsBody(greeting, firstName, inviteUrl) {
 }
 
 /**
- * @param {{ firstName: string, email: string, phone: string, inviteUrl: string, deliveryMethod: string, greeting?: string, inviterFirstName?: string }} p
+ * @param {{ firstName: string, email: string, phone: string, inviteUrl: string, deliveryMethod: string, greeting?: string, inviterFirstName?: string, inviteExpiryMillis?: number }} p
  * @returns {Promise<{ sent: boolean, reason?: string }>}
  */
 async function deliverInvite(p) {
-  const { firstName, email, phone, inviteUrl, deliveryMethod, greeting, inviterFirstName } = p
+  const { firstName, email, phone, inviteUrl, deliveryMethod, greeting, inviterFirstName, inviteExpiryMillis } = p
   const greetingLine = String(greeting || '').trim()
   const emailFirstPara = greetingLine || `${firstName}.`
 
@@ -635,23 +695,30 @@ async function deliverInvite(p) {
     const inviterClauseText = inviter
       ? `${inviter} set you up with access to Tire Triad`
       : `You have been given access to Tire Triad`
+    const expiryStrText = expiryPhrase(inviteExpiryMillis)
+    const expiryLineText = expiryStrText
+      ? `This registration link is single-use and expires ${expiryStrText}.`
+      : 'This registration link is single-use and expires automatically.'
     const textBody = [
       emailFirstPara,
       '',
       `${inviterClauseText}, the private ops portal for ${BRAND.legalEntity}.`,
-      'Open the link below to sign in:',
+      'Open the link below to verify your registration and sign in:',
       '',
       inviteUrl,
       '',
+      expiryLineText,
+      '',
       inviter
-        ? `Sent by ${inviter} via ${BRAND.legalEntity}. If you were not expecting this, ignore it and the link will expire on its own.`
-        : `Sent by ${BRAND.legalEntity}. If you were not expecting this, ignore it and the link will expire on its own.`,
+        ? `Sent by ${inviter} via ${BRAND.legalEntity}. Authenticated by SPF, DKIM, and DMARC on ${BRAND.emailDomain}. If you were not expecting this email, you can ignore it — no account is created until you complete sign-in.`
+        : `Sent by ${BRAND.legalEntity}. Authenticated by SPF, DKIM, and DMARC on ${BRAND.emailDomain}. If you were not expecting this email, you can ignore it — no account is created until you complete sign-in.`,
       '',
     ].join('\n')
     const htmlBody = renderInviteEmailHtml({
       greeting: emailFirstPara,
       inviterFirstName: inviter,
       inviteUrl,
+      inviteExpiryMillis,
     })
     const payload = {
       from,
