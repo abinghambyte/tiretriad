@@ -14,7 +14,9 @@ const { ACTION_SMS_REPLY } = require('./smsReplySlack')
  * 2. Bearer token in Authorization: Bearer <shared>  (or X-Inbound-Secret)
  * 3. Basic auth (Authorization: Basic base64(user:pass) — password is the secret)
  * 4. HMAC-SHA256 of the raw body, hex-encoded, sent in X-Signature
- *    (also X-Sinch-Signature / Signature for broader compatibility)
+ *    (also X-Sinch-Signature, X-Sinch-Webhook-Signature, or plain
+ *    Signature — Sinch confirmed `x-sinch-webhook-signature` as the
+ *    header for this Service Plan)
  *
  * 2-4 require the account manager to enable on your Service Plan per Sinch docs.
  * If no secret is configured, all requests are accepted (backward compatible).
@@ -36,7 +38,11 @@ function isAuthorizedInbound(req, rawBody, shared) {
   })()
   const headerSecret = String(req.get('X-Inbound-Secret') || '').trim()
   const sig = String(
-    req.get('X-Signature') || req.get('X-Sinch-Signature') || req.get('Signature') || '',
+    req.get('X-Sinch-Webhook-Signature') ||
+      req.get('X-Signature') ||
+      req.get('X-Sinch-Signature') ||
+      req.get('Signature') ||
+      '',
   )
     .trim()
     .toLowerCase()

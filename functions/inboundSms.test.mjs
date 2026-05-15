@@ -70,6 +70,18 @@ describe('isAuthorizedInbound', () => {
     ).toBe(true)
   })
 
+  it('accepts X-Sinch-Webhook-Signature as HMAC header name', () => {
+    const body = '{"id":"x"}'
+    const sig = crypto.createHmac('sha256', SHARED).update(body).digest('hex')
+    expect(
+      isAuthorizedInbound(
+        mkReq({ headers: { 'X-Sinch-Webhook-Signature': sig } }),
+        body,
+        SHARED,
+      ),
+    ).toBe(true)
+  })
+
   it('rejects HMAC with wrong body', () => {
     const sig = crypto.createHmac('sha256', SHARED).update('{"id":"a"}').digest('hex')
     expect(
