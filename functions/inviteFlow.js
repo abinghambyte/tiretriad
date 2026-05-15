@@ -8,6 +8,75 @@ const { SLACK_SECRETS, ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./sl
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { crewTagFromRole, assertCanManagePeople, normalizeRole } = require('./peopleSystem')
+const { BRAND } = require('./brand')
+
+/**
+ * Minimal HTML escape so AI-generated greetings, names, or URLs can be
+ * interpolated into the invite email HTML without breaking layout or
+ * opening an XSS hole (the recipient's own mail client renders this).
+ */
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Build the HTML body for the invite email. Inline styles only — Gmail,
+ * Outlook, and most webmail clients strip <style> blocks. Table-based
+ * layout because divs are still flaky in Outlook desktop. Light theme
+ * (white card on neutral background) reads cleanly in every client
+ * including dark-mode inboxes, where most clients auto-invert.
+ */
+function renderInviteEmailHtml({ greeting, inviterFirstName, inviteUrl }) {
+  const safeGreeting = escapeHtml(greeting)
+  const safeUrl = escapeHtml(inviteUrl)
+  const safeInviter = escapeHtml(inviterFirstName)
+  const safeEntity = escapeHtml(BRAND.legalEntity)
+  const inviterClause = safeInviter
+    ? `${safeInviter} set you up with access to <strong>Tire Triad</strong>`
+    : `You have been given access to <strong>Tire Triad</strong>`
+  const sentByLine = safeInviter
+    ? `Sent by ${safeInviter} via ${safeEntity}.`
+    : `Sent by ${safeEntity}.`
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tire Triad access</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;">
+<tr><td style="padding:32px 32px 16px;text-align:center;">
+<div style="letter-spacing:0.3em;font-size:14px;font-weight:600;color:#111827;">TIRE TRIAD</div>
+</td></tr>
+<tr><td style="padding:0 32px;"><hr style="border:0;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
+<tr><td style="padding:24px 32px 8px;font-size:16px;line-height:1.5;">
+<p style="margin:0 0 16px;">${safeGreeting}</p>
+<p style="margin:0 0 24px;color:#374151;">${inviterClause}, the private ops portal for ${safeEntity}. The link below signs you in.</p>
+</td></tr>
+<tr><td align="center" style="padding:8px 32px 24px;">
+<a href="${safeUrl}" style="display:inline-block;background:#7e14ff;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 28px;border-radius:8px;">Open Tire Triad</a>
+</td></tr>
+<tr><td style="padding:0 32px 24px;font-size:13px;color:#6b7280;line-height:1.5;">
+<p style="margin:0 0 8px;">Or paste this link into your browser:</p>
+<p style="margin:0;word-break:break-all;"><a href="${safeUrl}" style="color:#7e14ff;text-decoration:underline;">${safeUrl}</a></p>
+</td></tr>
+<tr><td style="padding:16px 32px 24px;border-top:1px solid #e5e7eb;">
+<p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">${sentByLine} If you were not expecting this, ignore it and the link will expire on its own.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`
+}
 
 function firestore() {
   return admin.firestore()
@@ -560,12 +629,36 @@ async function deliverInvite(p) {
     } else {
       subject = 'Your Tire Triad access'
     }
-    const body = `${emailFirstPara}\n\n${inviteUrl}\n`
+    // Both HTML and text. Most modern clients render HTML; the text body
+    // is the fallback for plain-text-only clients and also reduces the
+    // spam-filter weight against us (raw URL + nothing else looks bad).
+    const inviterClauseText = inviter
+      ? `${inviter} set you up with access to Tire Triad`
+      : `You have been given access to Tire Triad`
+    const textBody = [
+      emailFirstPara,
+      '',
+      `${inviterClauseText}, the private ops portal for ${BRAND.legalEntity}.`,
+      'Open the link below to sign in:',
+      '',
+      inviteUrl,
+      '',
+      inviter
+        ? `Sent by ${inviter} via ${BRAND.legalEntity}. If you were not expecting this, ignore it and the link will expire on its own.`
+        : `Sent by ${BRAND.legalEntity}. If you were not expecting this, ignore it and the link will expire on its own.`,
+      '',
+    ].join('\n')
+    const htmlBody = renderInviteEmailHtml({
+      greeting: emailFirstPara,
+      inviterFirstName: inviter,
+      inviteUrl,
+    })
     const payload = {
       from,
       to: [email],
       subject,
-      text: body,
+      text: textBody,
+      html: htmlBody,
     }
     if (replyTo) payload.reply_to = replyTo
     try {
