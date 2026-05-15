@@ -492,7 +492,7 @@ export function InvitePreviewModal({
             </div>
             <p className="mt-3 text-sm leading-relaxed text-zinc-400">
               <span className="font-medium text-zinc-300">Entrance:</span> Dark screen, bolt
-              animation, Skedaddle reveal. Then a short generative greeting, then registration.
+              animation, Tire Triad reveal. Then a short generative greeting, then registration.
             </p>
             <p className="mt-2 text-xs leading-relaxed text-zinc-400">
               {delivery === 'sms'
