@@ -1,11 +1,11 @@
 ---
-description: Skedaddle ops portal — stack, domain model, deploy, secrets, UI, and naming (always apply)
+description: Tire Triad ops portal — stack, domain model, deploy, secrets, UI, and naming (always apply)
 alwaysApply: true
 ---
 
-# Skedaddle Portal
+# Tire Triad Portal
 
-Private ops portal for a northern Colorado tire resale business. Live at skedaddleinc.com. Repo: abinghambyte/skedaddleinc.
+Private ops portal for a northern Colorado tire resale business operated under Front Range Rubber LLC (consumer brand: Tire Triad). Live at app.tiretriad.com; legacy apex skedaddleinc.com redirects during Phase 3 cutover. Repo: abinghambyte/skedaddleinc.
 
 Before making **recommendations** or architectural suggestions, read `docs/AI-CONTEXT.md` and `docs/ROADMAP.md`.
 

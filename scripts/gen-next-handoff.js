@@ -61,7 +61,7 @@ const response = await fetch('https://api.anthropic.com/v1/messages', {
   body: JSON.stringify({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: `You are writing a Cursor handoff file for the Skedaddle Portal — an internal ops tool for a mobile tire business. You have deep context on the codebase and roadmap.
+    system: `You are writing a Cursor handoff file for the Tire Triad portal — an internal ops tool for a mobile tire business operated under Front Range Rubber LLC. You have deep context on the codebase and roadmap.
 
 Given a completion summary of what was JUST DONE, generate the NEXT handoff in the roadmap sequence. Do NOT repeat the completed work — look at what comes next in CONTEXT.md.
 
