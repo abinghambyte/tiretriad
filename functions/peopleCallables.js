@@ -283,6 +283,7 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
       deliveryMethod: inviteDelivery,
       greeting,
       inviterFirstName: inviterFirstNameFrom(request),
+      inviteExpiryMillis: inviteExpiry.toMillis(),
     })
     delivery = { attempted: inviteDelivery, ...result }
   } catch (e) {
@@ -633,6 +634,7 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
       deliveryMethod: inviteDelivery,
       greeting,
       inviterFirstName: inviterFirstNameFrom(request),
+      inviteExpiryMillis: inviteExpiry.toMillis(),
     })
     delivery = { attempted: inviteDelivery, ...result }
   } catch (e) {
@@ -725,6 +727,22 @@ exports.resendInviteDelivery = onCall(
     }
     const inviteUrl = `${BRAND.inviteUrlBase}/${tokenStr}`
 
+    // Pull expiry off the active token doc so the email can render a
+    // concrete "expires in 47 hours" line. Falls back to the user doc's
+    // own copy, then to the +48h default if both are missing.
+    let inviteExpiryMillis = null
+    try {
+      const tokenSnap = await db.collection('inviteTokens').doc(tokenStr).get()
+      const expiry = tokenSnap.exists ? tokenSnap.get('expiry') : null
+      if (expiry && typeof expiry.toMillis === 'function') {
+        inviteExpiryMillis = expiry.toMillis()
+      } else if (user.inviteExpiry && typeof user.inviteExpiry.toMillis === 'function') {
+        inviteExpiryMillis = user.inviteExpiry.toMillis()
+      }
+    } catch {
+      // Best-effort; the email will fall back to the generic expiry copy.
+    }
+
     const inviteDelivery = ['sms', 'nfc', 'email'].includes(data.inviteDelivery)
       ? data.inviteDelivery
       : (user.inviteDelivery || 'email')
@@ -745,6 +763,7 @@ exports.resendInviteDelivery = onCall(
         deliveryMethod: inviteDelivery,
         greeting,
         inviterFirstName: inviterFirstNameFrom(request),
+        inviteExpiryMillis,
       })
       delivery = { attempted: inviteDelivery, ...result }
     } catch (e) {
