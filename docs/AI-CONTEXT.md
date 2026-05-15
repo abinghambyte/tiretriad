@@ -1,9 +1,9 @@
-# Skedaddle Portal — AI Session Context
+# Tire Triad Portal — AI Session Context
 **Read this first in every Claude or Antigravity session.**
 
 ## What this is
-Private operations portal for a northern Colorado tire resale business.
-Live at skedaddleinc.com | Repo: abinghambyte/skedaddleinc | Auto-deploys to Vercel on push to main.
+Private operations portal for a northern Colorado tire resale business operated under Front Range Rubber LLC (consumer brand: Tire Triad).
+Live at app.tiretriad.com | Legacy apex skedaddleinc.com redirects during Phase 3 cutover | Repo: abinghambyte/skedaddleinc | Auto-deploys to Vercel on push to main.
 
 ## Stack
 - Frontend: React 19 + Vite + Tailwind → Vercel
@@ -70,7 +70,7 @@ Cancellable statuses (orderWorkflow.js:41): pending, available, scheduled, in_tr
 ## Dashboard structure (module cards + header)
 Cards render in this order; **Growth Lab** and **Ops Command** are **admin (Overwatch) only** on the grid; **Credit Tracker** is a compact strip in the header for admins, not a grid card.
 
-1. Skedaddle Tires → `/tires` (Catalog, Orders, Listing Generator)
+1. Tires → `/tires` (Catalog, Orders, Listing Generator)
 2. Rubber CRM → `/crm` (Pipeline, Leads, DJ Dispatch) — NOT "Fleet CRM"
 3. People Systems → `/people` (Crew + Customers + Availability Blocker; mobile crew invite supports copy URL + Web NFC + NFC Tools fallback)
 4. Analytics → `/analytics` (Wall, Metrics, Revenue, Leaderboard)

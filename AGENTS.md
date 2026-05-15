@@ -1,4 +1,4 @@
-# Skedaddle Portal — Agent Rules
+# Tire Triad Portal — Agent Rules
 # These rules apply to every agent session in this repo (Cursor, Antigravity, Claude Code, etc.).
 # Do not override them. For Antigravity-specific overrides, see GEMINI.md.
 
@@ -6,8 +6,8 @@
 Always open `docs/AI-CONTEXT.md` at the start of substantive sessions — it is the canonical source for stack, crew, pricing, dashboard structure, slash commands, and module names. Also read `docs/ROADMAP.md` for phase plan before making recommendations that touch roadmap items.
 
 ## Project
-Private ops portal for a northern Colorado tire resale business.
-Live at skedaddleinc.com. Repo: abinghambyte/skedaddleinc.
+Private ops portal for a northern Colorado tire resale business operated under Front Range Rubber LLC (consumer brand: Tire Triad).
+Live at app.tiretriad.com (legacy apex skedaddleinc.com redirects during Phase 3 cutover). Repo: abinghambyte/skedaddleinc.
 
 ## Stack
 - React 19 + Vite + Tailwind CSS → Vercel (git push to deploy frontend)
