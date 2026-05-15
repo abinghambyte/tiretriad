@@ -42,18 +42,20 @@ function expiryPhrase(inviteExpiryMillis) {
 }
 
 /**
- * Three-ring Tire Triad mark as a data: URI. Inline SVG renders in
- * Apple Mail, iOS Mail, Outlook web, and most desktop Gmail; Android
- * Gmail and Outlook desktop strip SVG and fall back to the alt text
- * below the wordmark, so the email still degrades gracefully.
+ * Triad mark used as the hero-band background image. Inline SVG via
+ * data: URI renders in Apple Mail, iOS Mail, Outlook web, and most
+ * Gmail clients; Outlook desktop and Android Gmail strip background
+ * images, so the cell falls back to the solid bgcolor with the
+ * wordmark and verified badge still readable. Stroke opacity dropped
+ * to 0.55 so the wordmark layered on top stays high-contrast.
  */
-const TRIAD_LOGO_DATA_URI =
+const TRIAD_HERO_DATA_URI =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">' +
-      '<circle cx="24" cy="16" r="9" stroke="#7e14ff" stroke-width="3"/>' +
-      '<circle cx="16" cy="29.86" r="9" stroke="#7e14ff" stroke-width="3"/>' +
-      '<circle cx="32" cy="29.86" r="9" stroke="#7e14ff" stroke-width="3"/>' +
+      '<circle cx="24" cy="16" r="9" stroke="#7e14ff" stroke-opacity="0.55" stroke-width="2.5"/>' +
+      '<circle cx="16" cy="29.86" r="9" stroke="#7e14ff" stroke-opacity="0.55" stroke-width="2.5"/>' +
+      '<circle cx="32" cy="29.86" r="9" stroke="#7e14ff" stroke-opacity="0.55" stroke-width="2.5"/>' +
       '</svg>',
   )
 
@@ -104,14 +106,11 @@ function renderInviteEmailHtml({
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#09090b;">
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#18181b;border-radius:14px;border:1px solid #27272a;">
-<tr><td align="center" style="padding:36px 32px 8px;">
-<img src="${TRIAD_LOGO_DATA_URI}" alt="" width="72" height="72" style="display:block;width:72px;height:72px;border:0;outline:0;">
-</td></tr>
-<tr><td align="center" style="padding:12px 32px 4px;">
-<div style="letter-spacing:0.3em;font-size:14px;font-weight:600;color:#fafafa;">TIRE TRIAD</div>
-</td></tr>
-<tr><td align="center" style="padding:0 32px 20px;">
-<div style="display:inline-block;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#c4b5fd;background:rgba(126,20,255,0.12);border:1px solid rgba(126,20,255,0.35);border-radius:999px;padding:4px 10px;">Verified registration link</div>
+<tr><td align="center" valign="middle" background="${TRIAD_HERO_DATA_URI}" bgcolor="#18181b" height="220" style="height:220px;background-color:#18181b;background-image:url('${TRIAD_HERO_DATA_URI}');background-repeat:no-repeat;background-position:center;background-size:200px 200px;padding:32px 32px 24px;">
+<div style="letter-spacing:0.32em;font-size:18px;font-weight:600;color:#fafafa;text-shadow:0 1px 2px rgba(0,0,0,0.6);">TIRE TRIAD</div>
+<div style="margin-top:12px;">
+<span style="display:inline-block;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#e9d5ff;background:rgba(15,15,18,0.7);border:1px solid rgba(126,20,255,0.55);border-radius:999px;padding:5px 12px;">Verified registration link</span>
+</div>
 </td></tr>
 <tr><td style="padding:0 32px 8px;"><hr style="border:0;border-top:1px solid #27272a;margin:0;"></td></tr>
 <tr><td style="padding:20px 32px 4px;font-size:16px;line-height:1.55;color:#e4e4e7;">
