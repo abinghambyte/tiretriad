@@ -495,20 +495,27 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
   }
 
-  async function reissueInvite() {
-    if (!selected) return
-    const method = ['sms', 'nfc', 'email'].includes(selected.inviteDelivery)
+  function selectedDeliveryMethod() {
+    return ['sms', 'nfc', 'email'].includes(selected?.inviteDelivery)
       ? selected.inviteDelivery
       : 'email'
-    const channelLabel = method === 'sms' ? 'SMS' : method === 'nfc' ? 'NFC link' : 'email'
+  }
+
+  async function reissueInvite() {
+    if (!selected) return
+    const method = selectedDeliveryMethod()
     setInvokeBusy('reissue')
     try {
       const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: method })
-      setPanelInviteUrl(data.inviteUrl || '')
-      const sent = !!data?.delivery?.sent
-      const reason = String(data?.delivery?.reason || '')
-      if (sent) toast(`Invite issued and ${channelLabel} sent`, 'success')
-      else toast(`Invite issued, ${channelLabel} failed${reason ? `: ${reason}` : ''}`, 'error')
+      const newUrl = data.inviteUrl || ''
+      setPanelInviteUrl(newUrl)
+      handleDeliveryResult({
+        delivery: data.delivery,
+        inviteUrl: newUrl,
+        firstName: selected.firstName,
+        email: selected.email,
+        phone: selected.phone,
+      })
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
     } finally {
@@ -518,21 +525,20 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function resendInvite() {
     if (!selected) return
-    const method = ['sms', 'nfc', 'email'].includes(selected.inviteDelivery)
-      ? selected.inviteDelivery
-      : 'email'
-    const channelLabel = method === 'sms' ? 'SMS' : method === 'nfc' ? 'NFC link' : 'Email'
-    const recipient = method === 'sms' ? (selected.phone || 'recipient') : (selected.email || 'recipient')
+    const method = selectedDeliveryMethod()
     setInvokeBusy('resend')
     try {
       const { data } = await resendInviteDeliveryFn({
         targetUid: selected.id,
         inviteDelivery: method,
       })
-      const sent = !!data?.delivery?.sent
-      const reason = String(data?.delivery?.reason || '')
-      if (sent) toast(`${channelLabel} re-sent to ${recipient}`, 'success')
-      else toast(`Resend failed${reason ? `: ${reason}` : ''}`, 'error')
+      handleDeliveryResult({
+        delivery: data.delivery,
+        inviteUrl: data.inviteUrl || panelInviteUrl,
+        firstName: selected.firstName,
+        email: selected.email,
+        phone: selected.phone,
+      })
     } catch (e) {
       toast(e?.message || 'Resend failed.', 'error')
     } finally {

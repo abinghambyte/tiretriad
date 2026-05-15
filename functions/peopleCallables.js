@@ -40,6 +40,30 @@ function inviterFirstNameFrom(request) {
   return raw.split(/\s+/)[0]
 }
 
+/**
+ * Build the `lastInviteDelivery` payload from a `deliverInvite` result and
+ * write it to the user doc. Same shape across create/reissue/resend so the
+ * People modal renders consistently. `source` distinguishes which callable
+ * wrote the row for downstream debugging. Failures are swallowed — invite
+ * delivery already succeeded (or didn't) regardless of whether we can
+ * persist the breadcrumb.
+ */
+async function persistLastInviteDelivery(userRef, { delivery, attemptedFallback, source }) {
+  try {
+    const payload = {
+      attempted: delivery?.attempted || attemptedFallback,
+      sent: !!delivery?.sent,
+      reason: String(delivery?.reason || ''),
+      sentAt: FieldValue.serverTimestamp(),
+      source,
+    }
+    if (delivery?.sinchBatchId) payload.sinchBatchId = delivery.sinchBatchId
+    await userRef.update({ lastInviteDelivery: payload })
+  } catch (e) {
+    console.error(`${source}: persisting lastInviteDelivery failed`, e)
+  }
+}
+
 const LEVEL_RANK = { none: 0, view: 1, edit: 2, act: 2, manage: 3 }
 
 function levelRank(lev) {
@@ -291,22 +315,11 @@ exports.createPortalUser = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIV
     delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
   }
 
-  // Mirror reissue/resend: persist last-delivery state so the People
-  // modal can surface "Sent ..." / "Failed (carrier-rejected). Resend."
-  // for the very first invite without waiting for a retry.
-  try {
-    const lastInviteDelivery = {
-      attempted: delivery.attempted || inviteDelivery,
-      sent: !!delivery.sent,
-      reason: String(delivery.reason || ''),
-      sentAt: FieldValue.serverTimestamp(),
-      source: 'create',
-    }
-    if (delivery.sinchBatchId) lastInviteDelivery.sinchBatchId = delivery.sinchBatchId
-    await userRef.update({ lastInviteDelivery })
-  } catch (e) {
-    console.error('createPortalUser: persisting lastInviteDelivery failed', e)
-  }
+  await persistLastInviteDelivery(userRef, {
+    delivery,
+    attemptedFallback: inviteDelivery,
+    source: 'create',
+  })
 
   await auditFromCallable(db, request, {
     action: 'user.invite.create',
@@ -661,19 +674,11 @@ exports.reissueInvite = onCall({ secrets: [ANTHROPIC_API_KEY, ...INVITE_DELIVERY
 
   // Persist last-delivery state on the user doc so the UI can show whether
   // the email actually went out without depending on the audit log.
-  try {
-    const lastInviteDelivery = {
-      attempted: delivery.attempted || inviteDelivery,
-      sent: !!delivery.sent,
-      reason: String(delivery.reason || ''),
-      sentAt: FieldValue.serverTimestamp(),
-      source: 'reissue',
-    }
-    if (delivery.sinchBatchId) lastInviteDelivery.sinchBatchId = delivery.sinchBatchId
-    await userRef.update({ lastInviteDelivery })
-  } catch (e) {
-    console.error('reissueInvite: persisting lastInviteDelivery failed', e)
-  }
+  await persistLastInviteDelivery(userRef, {
+    delivery,
+    attemptedFallback: inviteDelivery,
+    source: 'reissue',
+  })
 
   await auditFromCallable(db, request, {
     action: 'user.invite.reissue',
@@ -788,19 +793,11 @@ exports.resendInviteDelivery = onCall(
       delivery = { attempted: inviteDelivery, sent: false, reason: 'provider-error' }
     }
 
-    try {
-      const lastInviteDelivery = {
-        attempted: delivery.attempted || inviteDelivery,
-        sent: !!delivery.sent,
-        reason: String(delivery.reason || ''),
-        sentAt: FieldValue.serverTimestamp(),
-        source: 'resend',
-      }
-      if (delivery.sinchBatchId) lastInviteDelivery.sinchBatchId = delivery.sinchBatchId
-      await userRef.update({ lastInviteDelivery })
-    } catch (e) {
-      console.error('resendInviteDelivery: persisting lastInviteDelivery failed', e)
-    }
+    await persistLastInviteDelivery(userRef, {
+      delivery,
+      attemptedFallback: inviteDelivery,
+      source: 'resend',
+    })
 
     await auditFromCallable(db, request, {
       action: 'user.invite.resend',

@@ -595,12 +595,14 @@ function fallbackBody(firstName, inviteUrl) {
  * to stay a single segment. Multi-segment SMS doubles cost and the parts
  * sometimes arrive out of order on older carriers.
  *
- * Priority order, dropped right-to-left until it fits:
+ * Pieces, left-to-right in the rendered body:
  *   1. greeting (or "{firstName}." fallback)        — always kept
- *   2. inviter clause "Alex set you up..."          — dropped first
+ *   2. inviter clause "Alex set you up..."          — optional
  *   3. invite URL                                   — always kept
- *   4. trust signal "Single-use link, expires."     — dropped second
- * URL is never dropped; greeting truncates as a last resort.
+ *   4. trust signal "Single-use link, expires."     — optional
+ * Drop order when over budget (right-to-left, URL is skipped):
+ *   trust signal first, then inviter clause. URL is never dropped;
+ *   greeting truncates as a last resort.
  *
  * @param {string} greeting
  * @param {string} firstName
