@@ -53,8 +53,12 @@ function IconAnalytics() {
   )
 }
 
+// Fixed icon-row + label-row heights so a two-line label like
+// "Rubber CRM" sits in the same vertical slot as single-line siblings
+// instead of pushing its icon up. justify-start anchors the icon to a
+// consistent top edge across all items.
 const navCls =
-  'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-[11px] font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-800/60 hover:text-zinc-200 active:bg-zinc-800/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
+  'flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-start gap-1 rounded-xl px-1 py-1 text-[10px] font-medium text-zinc-400 transition-colors duration-200 hover:bg-zinc-800/60 hover:text-zinc-200 active:bg-zinc-800/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60'
 const activeCls = 'bg-amber-500/12 text-amber-200 ring-1 ring-amber-600/35 hover:bg-amber-500/15 hover:text-amber-100'
 
 function IconOps() {
@@ -149,7 +153,9 @@ export function MobileBottomNav() {
               </span>
             ) : null}
           </span>
-          <span>{item.label}</span>
+          <span className="flex min-h-[26px] items-start text-center leading-[1.05]">
+            {item.label}
+          </span>
         </NavLink>
       ))}
     </nav>

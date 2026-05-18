@@ -223,28 +223,47 @@ async function lookupGeo(ip) {
   }
 }
 
+/**
+ * Resolve the active invite for a token along with a precise reason
+ * when it's not usable. Reasons map 1:1 to user-facing copy on the
+ * invalid-state page so the recipient can self-diagnose without
+ * pinging support.
+ *
+ * Reasons returned in the `reason` field:
+ *   not-found  - token does not exist in inviteTokens at all
+ *   revoked    - status set to revoked (an admin pulled the invite)
+ *   expired    - either the doc status is 'expired' or expiry has lapsed
+ *   used       - the token has been redeemed (usedAt is set)
+ *   accepted   - the user already finished registration
+ *   no-user    - the invite's uid is missing or its user doc is gone
+ */
 async function loadActiveInvite(token) {
   const t = String(token || '').trim()
-  if (!t) return null
+  if (!t) return { ctx: null, reason: 'not-found' }
   const db = firestore()
   const invRef = db.collection('inviteTokens').doc(t)
   const inv = await invRef.get()
-  if (!inv.exists) return null
+  if (!inv.exists) return { ctx: null, reason: 'not-found' }
   const d = inv.data()
-  if (d.status !== 'active') return null
+  if (d.status === 'revoked') return { ctx: null, reason: 'revoked' }
+  if (d.status === 'expired') return { ctx: null, reason: 'expired' }
   const exp = d.expiry?.toMillis?.()
   if (exp != null && Date.now() > exp) {
     await invRef.update({ status: 'expired' }).catch(() => {})
-    return null
+    return { ctx: null, reason: 'expired' }
   }
-  if (d.usedAt) return null
+  if (d.usedAt) return { ctx: null, reason: 'used' }
+  if (d.status !== 'active') return { ctx: null, reason: 'revoked' }
   const uid = d.uid
-  if (!uid) return null
+  if (!uid) return { ctx: null, reason: 'no-user' }
   const uSnap = await db.collection('users').doc(uid).get()
-  if (!uSnap.exists) return null
+  if (!uSnap.exists) return { ctx: null, reason: 'no-user' }
   const u = uSnap.data()
-  if (u.inviteAccepted) return null
-  return { invRef, inv: d, uid, userRef: uSnap.ref, user: u }
+  if (u.inviteAccepted) return { ctx: null, reason: 'accepted' }
+  return {
+    ctx: { invRef, inv: d, uid, userRef: uSnap.ref, user: u },
+    reason: null,
+  }
 }
 
 exports.resolveInvite = onCall(async (request) => {
@@ -252,9 +271,13 @@ exports.resolveInvite = onCall(async (request) => {
   if (!token) {
     throw new HttpsError('invalid-argument', 'token is required.')
   }
-  const ctx = await loadActiveInvite(token)
+  const { ctx, reason } = await loadActiveInvite(token)
   if (!ctx) {
-    return { valid: false, reason: 'inactive' }
+    // Log so we can correlate a recipient saying "the link is broken"
+    // with the actual reason — and so we notice patterns (e.g. a wave
+    // of `expired` means we need to bump the 48h TTL).
+    console.warn(`resolveInvite rejected token ${token.slice(0, 8)}... reason=${reason}`)
+    return { valid: false, reason: reason || 'inactive' }
   }
   const { user } = ctx
   return {
@@ -330,7 +353,7 @@ exports.getInviteGreeting = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (requ
   if (!token) {
     throw new HttpsError('invalid-argument', 'token is required.')
   }
-  const ctx = await loadActiveInvite(token)
+  const { ctx } = await loadActiveInvite(token)
   if (!ctx) {
     throw new HttpsError('failed-precondition', 'Invite is not active.')
   }
@@ -386,7 +409,7 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
   if (!token || !email) {
     throw new HttpsError('invalid-argument', 'token and email are required.')
   }
-  const ctx = await loadActiveInvite(token)
+  const { ctx } = await loadActiveInvite(token)
   if (!ctx) {
     throw new HttpsError('failed-precondition', 'Invite is not active.')
   }
@@ -463,7 +486,7 @@ exports.completeInviteRegistration = onCall(async (request) => {
     )
   }
 
-  const ctx = await loadActiveInvite(token)
+  const { ctx } = await loadActiveInvite(token)
   if (!ctx) {
     throw new HttpsError('failed-precondition', 'Invite is not active.')
   }

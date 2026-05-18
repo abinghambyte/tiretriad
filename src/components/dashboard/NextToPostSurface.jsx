@@ -259,7 +259,8 @@ function Modal({ ranked, mode, onPost, onClose, narrate }) {
             ✕
           </button>
         </div>
-        <ul className="max-h-[60vh] divide-y divide-zinc-800/80 overflow-y-auto px-4">
+        <ul className="min-h-0 flex-1 divide-y divide-zinc-800/80 overflow-y-auto px-4 sm:max-h-[60vh] sm:flex-none">
+
           {ranked.map((tire) => (
             <li key={tire.id} className="flex items-start gap-3 py-3">
               <input
@@ -275,7 +276,7 @@ function Modal({ ranked, mode, onPost, onClose, narrate }) {
             </li>
           ))}
         </ul>
-        <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-3">
+        <div className="mt-auto flex items-center justify-between border-t border-zinc-800 bg-zinc-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mt-0 sm:pb-3">
           <span className="text-xs text-zinc-400">{selected.size} selected</span>
           <div className="flex gap-2">
             <button
