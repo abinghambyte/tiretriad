@@ -363,8 +363,83 @@ exports.updatePortalUser = onCall(async (request) => {
     patch.inviteStatus = 'active'
   }
 
+  // Profile-detail edits (name / phone always allowed; email change only
+  // while the invite has not been accepted, since redirecting an
+  // accepted user's email here would stomp their auth identity).
+  if (typeof data.firstName === 'string' && data.firstName.trim()) {
+    patch.firstName = data.firstName.trim()
+  }
+  if (typeof data.lastName === 'string' && data.lastName.trim()) {
+    patch.lastName = data.lastName.trim()
+  }
+  if (typeof data.phone === 'string') {
+    const p = normalizePhoneToE164(data.phone)
+    // Allow clearing the phone (empty string in, empty out) or setting
+    // a new valid E.164 value; reject anything else with a clear
+    // message so the operator knows the format failed.
+    if (data.phone.trim() === '') {
+      patch.phone = ''
+    } else if (p) {
+      patch.phone = p
+    } else {
+      throw new HttpsError('invalid-argument', 'Phone could not be parsed as a US number.')
+    }
+  }
+
+  // Email change: capture the desired new value but apply it via the
+  // Auth admin SDK below so the Auth record stays in sync with
+  // Firestore. Reject the change if the user has already accepted.
+  let emailChange = null
+  if (typeof data.email === 'string') {
+    const newEmail = data.email.trim().toLowerCase()
+    const oldEmail = String(before.email || '').trim().toLowerCase()
+    if (newEmail && newEmail !== oldEmail) {
+      if (before.inviteAccepted) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Cannot change email after registration. Ask the user to update it from their profile, or delete and re-invite.',
+        )
+      }
+      emailChange = { from: oldEmail, to: newEmail }
+      patch.email = newEmail
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     throw new HttpsError('invalid-argument', 'Nothing to update.')
+  }
+
+  // Sync the Auth record before the Firestore write so we don't end up
+  // with a Firestore doc pointing at an email that Auth rejected. The
+  // Auth SDK throws on collisions (auth/email-already-exists) and bad
+  // formats; surface those with the same code so the UI can show a
+  // useful toast instead of a generic internal error.
+  if (emailChange) {
+    try {
+      await admin.auth().updateUser(targetUid, { email: emailChange.to })
+    } catch (e) {
+      const code = e && e.errorInfo && e.errorInfo.code
+      if (code === 'auth/email-already-exists') {
+        throw new HttpsError('already-exists', 'That email is already registered to another user.')
+      }
+      if (code === 'auth/invalid-email') {
+        throw new HttpsError('invalid-argument', 'That email address is not valid.')
+      }
+      const msg = e instanceof Error ? e.message : String(e)
+      throw new HttpsError('internal', `Auth email update failed: ${msg}`)
+    }
+  }
+  if ((patch.firstName || patch.lastName) && (before.firstName || before.lastName)) {
+    // Keep the Auth displayName in sync with whatever we just stored
+    // so signed-in admins see the new name in audit logs / token
+    // claims. Best-effort: a failure here shouldn't block the
+    // Firestore update.
+    const nextFirst = patch.firstName ?? before.firstName ?? ''
+    const nextLast = patch.lastName ?? before.lastName ?? ''
+    admin
+      .auth()
+      .updateUser(targetUid, { displayName: `${nextFirst} ${nextLast}`.trim() })
+      .catch((e) => console.warn('updatePortalUser: Auth displayName sync failed', e))
   }
 
   patch.updatedAt = FieldValue.serverTimestamp()

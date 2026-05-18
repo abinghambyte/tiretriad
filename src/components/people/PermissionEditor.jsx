@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
-import { auth } from '../../firebase/config'
+import { useEffect, useState } from 'react'
+import { httpsCallable } from 'firebase/functions'
+import { auth, functions } from '../../firebase/config'
 import {
   crewTagFromRole,
   MODULE_MATRIX,
@@ -19,6 +20,133 @@ export function PermissionEditor({ value, onChange, disabled }) {
   return (
     <div className="md:col-span-2 lg:col-span-1">
       <PermissionMatrix value={value} onChange={onChange} disabled={disabled} />
+    </div>
+  )
+}
+
+const updatePortalUserFn = httpsCallable(functions, 'updatePortalUser')
+
+/**
+ * Inline editable form for the recipient's profile details (first /
+ * last / email / phone). Lives above the existing role + permissions
+ * editor so an admin can fix typos or redirect an invite to a
+ * different address (e.g. switching kyle.kelly@purcelltire.com to
+ * kyle.rtc@gmail.com when corporate email security blocks the link)
+ * without deleting and recreating the user.
+ *
+ * Backend gates email changes on `inviteAccepted=false`; we mirror
+ * that constraint in the UI by disabling the email field once the
+ * user has finished registration.
+ */
+function ProfileDetailsEditor({ user }) {
+  const [first, setFirst] = useState(String(user.firstName || ''))
+  const [last, setLast] = useState(String(user.lastName || ''))
+  const [email, setEmail] = useState(String(user.email || ''))
+  const [phone, setPhone] = useState(String(user.phone || ''))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [savedAt, setSavedAt] = useState(0)
+
+  const emailLocked = !!user.inviteAccepted
+  const trimmedFirst = first.trim()
+  const trimmedLast = last.trim()
+  const trimmedEmail = email.trim().toLowerCase()
+  const trimmedPhone = phone.trim()
+  const originalEmail = String(user.email || '').trim().toLowerCase()
+  const dirty =
+    trimmedFirst !== String(user.firstName || '').trim() ||
+    trimmedLast !== String(user.lastName || '').trim() ||
+    trimmedPhone !== String(user.phone || '').trim() ||
+    (!emailLocked && trimmedEmail !== originalEmail)
+
+  async function save() {
+    if (!dirty || saving) return
+    setSaving(true)
+    setError('')
+    try {
+      const payload = { targetUid: user.id }
+      if (trimmedFirst !== String(user.firstName || '').trim()) payload.firstName = trimmedFirst
+      if (trimmedLast !== String(user.lastName || '').trim()) payload.lastName = trimmedLast
+      if (trimmedPhone !== String(user.phone || '').trim()) payload.phone = trimmedPhone
+      if (!emailLocked && trimmedEmail !== originalEmail) payload.email = trimmedEmail
+      await updatePortalUserFn(payload)
+      setSavedAt(Date.now())
+    } catch (e) {
+      setError(String(e?.message || e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-400">Profile</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="block">
+          <span className="block text-[11px] text-zinc-500">First name</span>
+          <input
+            type="text"
+            value={first}
+            onChange={(e) => setFirst(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-[11px] text-zinc-500">Last name</span>
+          <input
+            type="text"
+            value={last}
+            onChange={(e) => setLast(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="block text-[11px] text-zinc-500">
+            Email{' '}
+            {emailLocked ? (
+              <span className="ml-1 text-zinc-600">(locked — user has registered)</span>
+            ) : null}
+          </span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={emailLocked}
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-950 disabled:text-zinc-500"
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="block text-[11px] text-zinc-500">Phone (US, optional)</span>
+          <input
+            type="tel"
+            inputMode="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="(303) 555-0119"
+            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
+          />
+        </label>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={!dirty || saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-amber-500/20 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {saving && <Spinner className="h-3.5 w-3.5 text-amber-200" />}
+          {saving ? 'Saving…' : 'Save profile'}
+        </button>
+        {error ? (
+          <span className="text-xs text-red-400">{error}</span>
+        ) : savedAt ? (
+          <span className="text-xs text-emerald-300">Saved.</span>
+        ) : !emailLocked && originalEmail ? (
+          <span className="text-xs text-zinc-500">
+            Changing email reissues the invite to the new address on next send.
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -109,6 +237,10 @@ export function UserEditorModal({
                 ×
               </span>
             </button>
+          </div>
+
+          <div className="mt-4">
+            <ProfileDetailsEditor user={selected} />
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">

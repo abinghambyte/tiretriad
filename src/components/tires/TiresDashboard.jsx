@@ -1063,7 +1063,7 @@ export function TiresDashboard() {
               onSelect={setSelectedCategory}
             />
 
-            <div ref={toolbarRef} className="sticky top-[92px] z-[15] -mx-2 rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-2 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
+            <div ref={toolbarRef} className="sticky top-[92px] z-[15] rounded-t-xl border-x border-t border-zinc-800 bg-zinc-900 px-3 py-2 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.6)] backdrop-blur sm:top-[108px]">
               <div className="flex flex-col gap-2">
                 <label className="block">
                   <span className="sr-only">Search by MSPN or description</span>
@@ -1431,7 +1431,7 @@ export function TiresDashboard() {
 
             <div className="sm:hidden">
               {sortedRows.length > 0 ? (
-                <ul className="space-y-2 px-1 pt-2">
+                <ul className="space-y-2 px-0 pt-2">
                   {sortedRows.map((tire) => (
                     <li key={tire.id}>
                       <TireCardMobile
