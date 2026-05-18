@@ -16,13 +16,50 @@ const getInviteGreetingFn = httpsCallable(functions, 'getInviteGreeting')
 const sendInviteRegistrationCodeFn = httpsCallable(functions, 'sendInviteRegistrationCode')
 const completeInviteRegistrationFn = httpsCallable(functions, 'completeInviteRegistration')
 
-const INVALID_PHRASES = [
-  'Nothing here.',
-  'Not available.',
-  'No path that way.',
-  'Quiet on this line.',
-  'The door stays shut.',
-]
+/**
+ * Reason-specific copy for the invalid-invite page. The recipient
+ * needs to know what to do next — a randomly-rotated cryptic phrase
+ * was indistinguishable from a phishing landing on a managed corporate
+ * device. Keys mirror the `reason` values returned by `resolveInvite`
+ * in functions/inviteFlow.js.
+ */
+const INVALID_COPY = {
+  'not-found': {
+    headline: 'We could not find this invite',
+    body: 'The link does not match any registration we have on file. It may have been mistyped, or the invite may have been revoked.',
+    next: 'Ask the person who invited you to send a fresh link.',
+  },
+  expired: {
+    headline: 'This invite has expired',
+    body: 'Tire Triad registration links are good for 48 hours so they cannot be reused later. No account was created.',
+    next: 'Ask the person who invited you to issue a new link.',
+  },
+  used: {
+    headline: 'This invite was already used',
+    body: 'Registration links are single-use. If you finished registering, sign in with the email and password you set.',
+    next: 'Open app.tiretriad.com and sign in. If you did not register, ask for a fresh link.',
+  },
+  accepted: {
+    headline: 'You are already registered',
+    body: 'This invite belongs to an account that has already finished setup.',
+    next: 'Open app.tiretriad.com and sign in.',
+  },
+  revoked: {
+    headline: 'This invite has been revoked',
+    body: 'The link was cancelled before it could be used. No account was created.',
+    next: 'Ask the person who invited you to issue a new link.',
+  },
+  'no-user': {
+    headline: 'This invite is no longer linked to an account',
+    body: 'The user record this invite pointed to is gone. This is unusual; let us know it happened.',
+    next: 'Reply to the invite email or ask the person who invited you to start over.',
+  },
+  inactive: {
+    headline: 'This invite is not active',
+    body: 'We could not load this registration link. It may have expired, been revoked, or already been used.',
+    next: 'Ask the person who invited you to send a fresh link.',
+  },
+}
 
 function playInviteTone() {
   try {
@@ -52,7 +89,7 @@ export function InvitePage() {
   const navigate = useNavigate()
 
   const [phase, setPhase] = useState('loading')
-  const [invalidPhrase, setInvalidPhrase] = useState('')
+  const [invalidReason, setInvalidReason] = useState('')
   const [invite, setInvite] = useState(null)
   const [greeting, setGreeting] = useState('')
   const [fxStep, setFxStep] = useState(0)
@@ -72,7 +109,7 @@ export function InvitePage() {
 
   useEffect(() => {
     if (!token) {
-      setInvalidPhrase(INVALID_PHRASES[0])
+      setInvalidReason('not-found')
       setPhase('invalid')
       return undefined
     }
@@ -82,7 +119,7 @@ export function InvitePage() {
         const { data } = await resolveInviteFn({ token })
         if (cancelled) return
         if (!data?.valid) {
-          setInvalidPhrase(INVALID_PHRASES[Math.floor(Math.random() * INVALID_PHRASES.length)])
+          setInvalidReason(String(data?.reason || 'inactive'))
           setPhase('invalid')
           return
         }
@@ -91,9 +128,12 @@ export function InvitePage() {
         setRegFirst(String(data.firstName || ''))
         setRegLast(String(data.lastName || ''))
         setPhase('intro')
-      } catch {
+      } catch (e) {
         if (!cancelled) {
-          setInvalidPhrase(INVALID_PHRASES[Math.floor(Math.random() * INVALID_PHRASES.length)])
+          // Surface the real error in the console so we can correlate
+          // the recipient's "the link is broken" with the actual code.
+          console.error('resolveInvite failed', e)
+          setInvalidReason('inactive')
           setPhase('invalid')
         }
       }
@@ -224,9 +264,18 @@ export function InvitePage() {
   }
 
   if (phase === 'invalid') {
+    const copy = INVALID_COPY[invalidReason] || INVALID_COPY.inactive
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-8 text-center">
-        <p className="text-sm font-light tracking-wide text-zinc-400">{invalidPhrase}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-6 py-12 text-center">
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <BrandBolt size={48} tone="solid" aria-label="Tire Triad" />
+          <p className="text-[11px] tracking-[0.3em] text-zinc-500">TIRE TRIAD</p>
+        </div>
+        <div className="max-w-sm">
+          <h1 className="mb-3 text-lg font-semibold text-zinc-100">{copy.headline}</h1>
+          <p className="mb-5 text-sm leading-relaxed text-zinc-400">{copy.body}</p>
+          <p className="text-sm font-medium text-amber-300">{copy.next}</p>
+        </div>
       </div>
     )
   }
