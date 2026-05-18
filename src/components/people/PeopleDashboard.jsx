@@ -495,16 +495,27 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
   }
 
+  function selectedDeliveryMethod() {
+    return ['sms', 'nfc', 'email'].includes(selected?.inviteDelivery)
+      ? selected.inviteDelivery
+      : 'email'
+  }
+
   async function reissueInvite() {
     if (!selected) return
+    const method = selectedDeliveryMethod()
     setInvokeBusy('reissue')
     try {
-      const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: 'email' })
-      setPanelInviteUrl(data.inviteUrl || '')
-      const sent = !!data?.delivery?.sent
-      const reason = String(data?.delivery?.reason || '')
-      if (sent) toast('Invite issued and email sent', 'success')
-      else toast(`Invite issued, email failed${reason ? `: ${reason}` : ''}`, 'error')
+      const { data } = await reissueInviteFn({ targetUid: selected.id, inviteDelivery: method })
+      const newUrl = data.inviteUrl || ''
+      setPanelInviteUrl(newUrl)
+      handleDeliveryResult({
+        delivery: data.delivery,
+        inviteUrl: newUrl,
+        firstName: selected.firstName,
+        email: selected.email,
+        phone: selected.phone,
+      })
     } catch (e) {
       toast(e?.message || 'Action failed.', 'error')
     } finally {
@@ -514,16 +525,20 @@ export function PeopleDashboard({ omitPageChrome = false }) {
 
   async function resendInvite() {
     if (!selected) return
+    const method = selectedDeliveryMethod()
     setInvokeBusy('resend')
     try {
       const { data } = await resendInviteDeliveryFn({
         targetUid: selected.id,
-        inviteDelivery: 'email',
+        inviteDelivery: method,
       })
-      const sent = !!data?.delivery?.sent
-      const reason = String(data?.delivery?.reason || '')
-      if (sent) toast(`Email re-sent to ${selected.email || 'recipient'}`, 'success')
-      else toast(`Resend failed${reason ? `: ${reason}` : ''}`, 'error')
+      handleDeliveryResult({
+        delivery: data.delivery,
+        inviteUrl: data.inviteUrl || panelInviteUrl,
+        firstName: selected.firstName,
+        email: selected.email,
+        phone: selected.phone,
+      })
     } catch (e) {
       toast(e?.message || 'Resend failed.', 'error')
     } finally {

@@ -175,27 +175,35 @@ function formatDeliveryTimestamp(value) {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function LastDeliveryRow({ lastInviteDelivery }) {
+function channelLabel(attempted) {
+  if (attempted === 'sms') return 'SMS'
+  if (attempted === 'nfc') return 'NFC link'
+  return 'Email'
+}
+
+function LastDeliveryRow({ lastInviteDelivery, inviteDelivery }) {
+  const fallbackLabel = channelLabel(inviteDelivery)
   if (!lastInviteDelivery || typeof lastInviteDelivery !== 'object') {
     return (
       <p className="mt-2 text-[11px] text-amber-300/90">
-        Email status unknown - no delivery has been recorded for this invite. Click Resend.
+        {fallbackLabel} status unknown - no delivery has been recorded for this invite. Click Resend.
       </p>
     )
   }
   const sent = !!lastInviteDelivery.sent
   const reason = String(lastInviteDelivery.reason || '')
   const ts = formatDeliveryTimestamp(lastInviteDelivery.sentAt)
+  const label = channelLabel(lastInviteDelivery.attempted || inviteDelivery)
   if (sent) {
     return (
       <p className="mt-2 text-[11px] text-emerald-300/90">
-        Email sent{ts ? ` ${ts}` : ''}.
+        {label} sent{ts ? ` ${ts}` : ''}.
       </p>
     )
   }
   return (
     <p className="mt-2 text-[11px] text-red-300/90">
-      Email failed{ts ? ` at ${ts}` : ''}{reason ? ` (${reason})` : ''}. Click Resend.
+      {label} failed{ts ? ` at ${ts}` : ''}{reason ? ` (${reason})` : ''}. Click Resend.
     </p>
   )
 }
@@ -212,6 +220,8 @@ export function EditorInviteColumn({
   onReissueInvite,
   onResendInvite,
 }) {
+  const inviteChannel = selected?.inviteDelivery
+  const resendLabel = `Resend ${channelLabel(inviteChannel).toLowerCase()}`
   return (
     <div className="space-y-3">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Invite</p>
@@ -222,7 +232,7 @@ export function EditorInviteColumn({
               Active link
             </p>
             <div className="flex items-center gap-1">
-              {typeof onResendInvite === 'function' ? (
+              {typeof onResendInvite === 'function' && inviteChannel !== 'nfc' ? (
                 <button
                   type="button"
                   disabled={invokeBusy !== ''}
@@ -230,7 +240,7 @@ export function EditorInviteColumn({
                   className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-900/50 transition-colors hover:bg-emerald-950/50 hover:text-emerald-200 disabled:opacity-40"
                 >
                   {invokeBusy === 'resend' && <Spinner className="h-3 w-3 text-emerald-300" />}
-                  {invokeBusy === 'resend' ? 'Sending…' : 'Resend email'}
+                  {invokeBusy === 'resend' ? 'Sending…' : resendLabel}
                 </button>
               ) : null}
               <button
@@ -249,7 +259,10 @@ export function EditorInviteColumn({
             </div>
           </div>
           <InviteUrlToolkit url={panelInviteUrl} />
-          <LastDeliveryRow lastInviteDelivery={selected?.lastInviteDelivery} />
+          <LastDeliveryRow
+            lastInviteDelivery={selected?.lastInviteDelivery}
+            inviteDelivery={inviteChannel}
+          />
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2.5">
