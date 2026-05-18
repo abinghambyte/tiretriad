@@ -284,7 +284,7 @@ export function UserEditorModal({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-zinc-800 bg-zinc-950 px-5 py-4">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-zinc-800 bg-zinc-950 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={onClose}

@@ -1535,7 +1535,16 @@ export function TiresDashboard() {
       />
       {haggleTire ? (
         <HaggleSheet
-          tire={haggleTire}
+          // HaggleSheet expects flat buy/retail/cts/fet keys; pass the
+          // canonical selector values so it doesn't fall back to $0
+          // when the catalog tire only carries the raw `price` field.
+          tire={{
+            ...haggleTire,
+            buy: tireCatalogBuyNumber(haggleTire),
+            retail: tireCatalogRetailNumber(haggleTire),
+            cts: effectiveCts(haggleTire),
+            fet: Number(haggleTire.fet) || 0,
+          }}
           floorPct={floorPct}
           onClose={() => setHaggleTire(null)}
           onAccept={(offer) => {
