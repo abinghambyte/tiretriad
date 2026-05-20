@@ -550,8 +550,12 @@ exports.completeInviteRegistration = onCall({ invoker: 'public' }, async (reques
     regCodeExpires: FieldValue.delete(),
   })
 
-  const slackInviteUrl = String(process.env.SLACK_INVITE_URL || '').trim()
-  return { ok: true, uid, slackInviteUrl: slackInviteUrl || null }
+  // slackInviteUrl was returned here to feed the Slack step in the
+  // registration wizard. That step shipped out in May 2026 (PR #220);
+  // the field is no longer read by any client. Drop it from the
+  // response shape to stop wiring a Slack dependency into a flow that
+  // no longer needs one.
+  return { ok: true, uid }
 })
 
 exports.recordLogin = onCall({ secrets: SLACK_SECRETS }, async (request) => {
