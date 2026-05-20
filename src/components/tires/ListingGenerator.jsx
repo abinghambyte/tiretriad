@@ -359,12 +359,16 @@ export function ListingGenerator({ tires, onClose, onUseRecommendedPrice, onRemo
           try {
             const callableResult = await listingAdvisorFn(buildListingAdvisorRequestBody(t))
             rawUnwrapped = unwrapCallableData(callableResult?.data)
-            // Same object as below -- copy from DevTools or expand "Raw callable payload" on errors.
-            console.log('[listingAdvisor] raw callable response', {
-              mspn: String(t.mspn || '').trim(),
-              tireId: t.id,
-              data: rawUnwrapped,
-            })
+            // The same payload is rendered in the UI under 'Raw callable
+            // payload' when a row errors, so a console log on every
+            // success is just noise in production DevTools.
+            if (import.meta.env?.DEV) {
+              console.log('[listingAdvisor] raw callable response', {
+                mspn: String(t.mspn || '').trim(),
+                tireId: t.id,
+                data: rawUnwrapped,
+              })
+            }
             const advisorPayload = parseListingAdvisorResponse(rawUnwrapped)
             if (!advisorPayload?.listing) {
               const serverParse =

@@ -68,7 +68,7 @@ export function marginPercent(referencePrice, overheadTotal) {
  * the inline "Quote" modal in the tires catalog: pick one tire, pick qty +
  * sale price, and see the total cost / revenue / margin across the bundle.
  *
- * Margin definition matches the way Skedaddle thinks about a completed deal:
+ * Margin definition matches how a completed deal is reckoned:
  *   cost   = qty × (buy + overhead + fet)
  *   revenue = qty × salePrice
  *   margin % = (revenue - cost) / revenue × 100
