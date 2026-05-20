@@ -42,23 +42,46 @@ function inviterFirstNameFrom(request) {
 
 /**
  * Build the `lastInviteDelivery` payload from a `deliverInvite` result and
- * write it to the user doc. Same shape across create/reissue/resend so the
- * People modal renders consistently. `source` distinguishes which callable
- * wrote the row for downstream debugging. Failures are swallowed — invite
- * delivery already succeeded (or didn't) regardless of whether we can
- * persist the breadcrumb.
+ * write it to a channel-keyed subfield on the user doc
+ * (`lastInviteDelivery.email`, `lastInviteDelivery.sms`,
+ * `lastInviteDelivery.nfc`) so each channel keeps its own breadcrumb
+ * after a multi-channel send. The People modal reads all channel
+ * subfields and surfaces them simultaneously, so a successful Email
+ * send doesn't stomp a previous failed SMS attempt's status row.
+ *
+ * Legacy top-level fields (`attempted`, `sent`, `reason`, `sentAt`,
+ * `source`, `sinchBatchId`) may coexist on the same object for docs
+ * that haven't been updated yet — the UI prefers the channel subfields
+ * when present and falls back to the legacy shape otherwise. Failures
+ * are swallowed; invite delivery already succeeded (or didn't)
+ * regardless of whether we can persist the breadcrumb.
  */
 async function persistLastInviteDelivery(userRef, { delivery, attemptedFallback, source }) {
   try {
+    const channel = delivery?.attempted || attemptedFallback
+    if (!channel || !['sms', 'nfc', 'email'].includes(channel)) {
+      // Unknown channel — fall back to the legacy whole-field write
+      // path so we still record SOMETHING for debugging.
+      const payload = {
+        attempted: channel,
+        sent: !!delivery?.sent,
+        reason: String(delivery?.reason || ''),
+        sentAt: FieldValue.serverTimestamp(),
+        source,
+      }
+      if (delivery?.sinchBatchId) payload.sinchBatchId = delivery.sinchBatchId
+      await userRef.update({ lastInviteDelivery: payload })
+      return
+    }
     const payload = {
-      attempted: delivery?.attempted || attemptedFallback,
+      attempted: channel,
       sent: !!delivery?.sent,
       reason: String(delivery?.reason || ''),
       sentAt: FieldValue.serverTimestamp(),
       source,
     }
     if (delivery?.sinchBatchId) payload.sinchBatchId = delivery.sinchBatchId
-    await userRef.update({ lastInviteDelivery: payload })
+    await userRef.update({ [`lastInviteDelivery.${channel}`]: payload })
   } catch (e) {
     console.error(`${source}: persisting lastInviteDelivery failed`, e)
   }

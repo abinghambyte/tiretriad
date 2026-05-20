@@ -181,6 +181,30 @@ function channelLabel(attempted) {
   return 'Email'
 }
 
+/**
+ * Render a single channel's delivery breadcrumb (sent / failed / etc.).
+ * Used by LastDeliveryRow when iterating over per-channel subfields.
+ */
+function ChannelDeliveryLine({ channelKey, payload }) {
+  const label = channelLabel(channelKey)
+  const sent = !!payload.sent
+  const reason = String(payload.reason || '')
+  const ts = formatDeliveryTimestamp(payload.sentAt)
+  if (sent) {
+    return (
+      <p className="text-[11px] text-emerald-300/90">
+        {label} sent{ts ? ` ${ts}` : ''}.
+      </p>
+    )
+  }
+  return (
+    <p className="text-[11px] text-red-300/90">
+      {label} failed{ts ? ` at ${ts}` : ''}
+      {reason ? ` (${reason})` : ''}. Click Resend.
+    </p>
+  )
+}
+
 function LastDeliveryRow({ lastInviteDelivery, inviteDelivery }) {
   const fallbackLabel = channelLabel(inviteDelivery)
   if (!lastInviteDelivery || typeof lastInviteDelivery !== 'object') {
@@ -190,6 +214,24 @@ function LastDeliveryRow({ lastInviteDelivery, inviteDelivery }) {
       </p>
     )
   }
+  // New shape: channel-keyed subfields (lastInviteDelivery.email / .sms /
+  // .nfc) so multi-channel sends don't stomp each other's breadcrumbs.
+  // Falls back to the legacy single-row read for docs that haven't been
+  // updated yet.
+  const channels = ['email', 'sms', 'nfc']
+  const present = channels.filter(
+    (k) => lastInviteDelivery[k] && typeof lastInviteDelivery[k] === 'object',
+  )
+  if (present.length > 0) {
+    return (
+      <div className="mt-2 space-y-1">
+        {present.map((k) => (
+          <ChannelDeliveryLine key={k} channelKey={k} payload={lastInviteDelivery[k]} />
+        ))}
+      </div>
+    )
+  }
+  // Legacy single-row shape.
   const sent = !!lastInviteDelivery.sent
   const reason = String(lastInviteDelivery.reason || '')
   const ts = formatDeliveryTimestamp(lastInviteDelivery.sentAt)
@@ -203,7 +245,8 @@ function LastDeliveryRow({ lastInviteDelivery, inviteDelivery }) {
   }
   return (
     <p className="mt-2 text-[11px] text-red-300/90">
-      {label} failed{ts ? ` at ${ts}` : ''}{reason ? ` (${reason})` : ''}. Click Resend.
+      {label} failed{ts ? ` at ${ts}` : ''}
+      {reason ? ` (${reason})` : ''}. Click Resend.
     </p>
   )
 }
