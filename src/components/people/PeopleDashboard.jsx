@@ -560,6 +560,72 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
   }
 
+  /**
+   * Belt + suspenders dispatch: fires the invite link through email AND
+   * SMS in parallel for the same user. Only enabled when both channels
+   * are wired up (email on file + phone on file). Useful when one
+   * channel is unreliable (corporate gateway filtering, carrier black
+   * hole) and you want to maximise chance the recipient sees the link.
+   *
+   * Aggregates results from Promise.allSettled and toasts a combined
+   * status. lastInviteDelivery on the user doc ends up whichever write
+   * landed last — fine for v1; if we want per-channel persistence
+   * later we'd add a server-side resendInviteMultiChannel that writes
+   * both states atomically.
+   */
+  async function resendInviteBoth() {
+    if (!selected) return
+    if (!selected.email || !selected.phone) {
+      toast('Need both email and phone on file to send via both channels.', 'error')
+      return
+    }
+    setInvokeBusy('resend')
+    try {
+      const [emailResult, smsResult] = await Promise.allSettled([
+        resendInviteDeliveryFn({ targetUid: selected.id, inviteDelivery: 'email' }),
+        resendInviteDeliveryFn({ targetUid: selected.id, inviteDelivery: 'sms' }),
+      ])
+      const emailSent = emailResult.status === 'fulfilled' && !!emailResult.value?.data?.delivery?.sent
+      const smsSent = smsResult.status === 'fulfilled' && !!smsResult.value?.data?.delivery?.sent
+      const emailReason =
+        emailResult.status === 'rejected'
+          ? emailResult.reason?.message || 'error'
+          : emailResult.value?.data?.delivery?.reason || ''
+      const smsReason =
+        smsResult.status === 'rejected'
+          ? smsResult.reason?.message || 'error'
+          : smsResult.value?.data?.delivery?.reason || ''
+      const inviteUrl =
+        (emailResult.status === 'fulfilled' && emailResult.value?.data?.inviteUrl) ||
+        (smsResult.status === 'fulfilled' && smsResult.value?.data?.inviteUrl) ||
+        panelInviteUrl
+      if (inviteUrl) setPanelInviteUrl(inviteUrl)
+
+      if (emailSent && smsSent) {
+        toast(`Sent to ${selected.email} and ${selected.phone}.`, 'success')
+      } else if (emailSent) {
+        toast(
+          `Email sent. SMS failed${smsReason ? ` (${smsReason})` : ''}.`,
+          'error',
+        )
+      } else if (smsSent) {
+        toast(
+          `SMS sent. Email failed${emailReason ? ` (${emailReason})` : ''}.`,
+          'error',
+        )
+      } else {
+        toast(
+          `Both channels failed.${emailReason ? ` Email: ${emailReason}.` : ''}${smsReason ? ` SMS: ${smsReason}.` : ''}`,
+          'error',
+        )
+      }
+    } catch (e) {
+      toast(e?.message || 'Multi-channel resend failed.', 'error')
+    } finally {
+      setInvokeBusy('')
+    }
+  }
+
   async function deleteUser() {
     if (!selected) return
     if (!deleteConfirmPending) {
@@ -711,6 +777,7 @@ export function PeopleDashboard({ omitPageChrome = false }) {
           onRevokeInvite={revokeInvite}
           onReissueInvite={reissueInvite}
           onResendInvite={resendInvite}
+          onResendInviteBoth={resendInviteBoth}
           onToggleGhost={toggleGhost}
           onLockUser={lockUser}
           onDeleteUser={deleteUser}
