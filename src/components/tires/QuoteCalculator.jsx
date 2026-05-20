@@ -15,7 +15,7 @@ import { usePayoutConfig } from '../../hooks/usePayoutConfig'
  * actual sale). Read-only on the catalog row, no Firestore writes.
  *
  * Defaults:
- *  - quantity: 4 (Skedaddle's typical set-of-four sale)
+ *  - quantity: 4 (the typical set-of-four sale)
  *  - sale price per tire: researched retail, falling back to Kyle buy if no
  *    retail has been researched yet. User can override either freely.
  *

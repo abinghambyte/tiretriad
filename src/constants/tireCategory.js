@@ -21,7 +21,7 @@ export const CATEGORY_LABELS = {
 }
 
 /**
- * Brands the Skedaddle Loveland account stocks (per Michelin eFleet). Used
+ * Brands the Tire Triad Loveland account stocks (per Michelin eFleet). Used
  * by `useBrandAggregates` to surface a NOT STOCKED warning when one of these
  * drops to zero in the catalog.
  */

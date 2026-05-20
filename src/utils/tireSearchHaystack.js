@@ -104,7 +104,7 @@ export function normalizeQuery(s) {
 
 /**
  * Strip verbose spec phrases and cosmetic sidewall codes that retailers include
- * in product titles but the Skedaddle catalog omits. Without this, pastes from
+ * in product titles but the Tire Triad catalog omits. Without this, pastes from
  * Tire Rack / Discount Tire / eBay miss via the token-fallback path because
  * tokens like "bsw" or "ply" do not appear in the catalog haystack.
  *

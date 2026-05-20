@@ -77,7 +77,7 @@ export function TireCardMobile({
         <div>
           <span className="text-zinc-400">Margin</span>{' '}
           <span className="font-mono text-emerald-300">
-            {marginPct != null ? formatPercent(marginPct / 100) : <span className="text-zinc-500">—</span>}
+            {marginPct != null ? formatPercent(marginPct) : <span className="text-zinc-500">—</span>}
           </span>
         </div>
         <div>
