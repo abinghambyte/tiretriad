@@ -108,7 +108,7 @@ function ProfileDetailsEditor({ user }) {
           <span className="block text-[11px] text-zinc-500">
             Email{' '}
             {emailLocked ? (
-              <span className="ml-1 text-zinc-600">(locked — user has registered)</span>
+              <span className="ml-1 text-zinc-600">(locked, user has registered)</span>
             ) : null}
           </span>
           <input
