@@ -502,11 +502,25 @@ export function InvitePage() {
             transition={{ duration: 0.5 }}
           >
             <div className="pointer-events-none absolute inset-0" style={{ perspective: '1200px' }}>
+              {/* Doorway: the white stripe opens like a slit between two
+                  black panels, then once the door rotates away (step 1)
+                  it fades to transparent so the page settles to pure
+                  black with the brand mark glowing behind the content,
+                  instead of leaving a white band that blends with the
+                  Continue link text. */}
               <Motion.div
                 className="absolute inset-0 bg-white"
-                initial={{ clipPath: 'inset(48% 49% 48% 49%)' }}
-                animate={{ clipPath: 'inset(0% 44% 0% 44%)' }}
-                transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ clipPath: 'inset(48% 49% 48% 49%)', opacity: 1 }}
+                animate={
+                  fxStep >= 2
+                    ? { clipPath: 'inset(0% 44% 0% 44%)', opacity: 0 }
+                    : { clipPath: 'inset(0% 44% 0% 44%)', opacity: 1 }
+                }
+                transition={
+                  fxStep >= 2
+                    ? { duration: 0.6, ease: 'easeOut' }
+                    : { duration: 0.38, ease: [0.22, 1, 0.36, 1] }
+                }
                 onAnimationComplete={() => setFxStep((s) => Math.max(s, 1))}
               />
               {fxStep >= 1 ? (
@@ -519,6 +533,21 @@ export function InvitePage() {
                   onAnimationComplete={() => setFxStep((s) => Math.max(s, 2))}
                 />
               ) : null}
+              {/* Brand mark watermark — large, faint, fades in alongside
+                  the content so the screen reads as Tire Triad without
+                  competing with the foreground text. pointer-events-none
+                  is inherited from the wrapper. */}
+              {fxStep >= 2 ? (
+                <Motion.div
+                  className="absolute inset-0 flex items-center justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.18 }}
+                  transition={{ delay: 0.2, duration: 0.9, ease: 'easeOut' }}
+                  aria-hidden
+                >
+                  <BrandBolt size={420} tone="solid" className="max-w-[80vw]" />
+                </Motion.div>
+              ) : null}
             </div>
 
             {fxStep >= 2 ? (
@@ -529,23 +558,26 @@ export function InvitePage() {
                 transition={{ delay: 0.15, duration: 0.55 }}
               >
                 <div className="mb-10 flex flex-col items-center gap-4">
-                  <BrandBolt size={56} tone="glow" aria-label="Tire Triad" />
                   <Motion.h1
-                    className="text-3xl font-extralight tracking-[0.45em] sm:text-4xl"
+                    className="text-3xl font-extralight tracking-[0.45em] text-zinc-100 sm:text-4xl"
                     initial={{ opacity: 0, letterSpacing: '0.2em' }}
                     animate={{ opacity: 1, letterSpacing: '0.45em' }}
                     transition={{ duration: 0.7, ease: 'easeOut' }}
+                    style={{ textShadow: '0 2px 12px rgba(0,0,0,0.85)' }}
                   >
                     TIRE TRIAD
                   </Motion.h1>
                 </div>
-                <p className="mb-12 min-h-[3rem] text-sm font-light leading-relaxed text-zinc-400">
+                <p
+                  className="mb-12 min-h-[3rem] text-sm font-light leading-relaxed text-zinc-200"
+                  style={{ textShadow: '0 1px 6px rgba(0,0,0,0.85)' }}
+                >
                   {greeting || '…'}
                 </p>
                 <button
                   type="button"
                   onClick={() => setPhase('register')}
-                  className="text-xs tracking-[0.25em] text-zinc-400 underline-offset-4 transition hover:text-zinc-300 hover:underline"
+                  className="rounded-full border border-zinc-700 bg-zinc-950/70 px-6 py-3 text-xs tracking-[0.25em] text-zinc-100 backdrop-blur-sm transition hover:border-amber-500/60 hover:bg-zinc-900/80 hover:text-amber-200"
                 >
                   Continue
                 </button>
