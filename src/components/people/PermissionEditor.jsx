@@ -60,7 +60,10 @@ function ProfileDetailsEditor({ user }) {
     (!emailLocked && trimmedEmail !== originalEmail)
 
   async function save() {
-    if (!dirty || saving) return
+    // Allow calling even when !dirty so the button doubles as a Sync
+    // Auth profile pass — updatePortalUser tolerates an empty patch and
+    // still runs the Auth displayName sync.
+    if (saving) return
     setSaving(true)
     setError('')
     try {
