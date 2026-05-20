@@ -445,9 +445,11 @@ exports.updatePortalUser = onCall(async (request) => {
     }
   }
 
-  if (Object.keys(patch).length === 0) {
-    throw new HttpsError('invalid-argument', 'Nothing to update.')
-  }
+  // Empty patch is allowed; we still run the Auth displayName sync
+  // below so this callable doubles as a one-shot fixer for any user
+  // whose Auth.displayName drifted from their Firestore name. The
+  // sync skips its own no-op writes when Auth already matches.
+  const patchIsEmpty = Object.keys(patch).length === 0
 
   // Sync the Auth record before the Firestore write so we don't end up
   // with a Firestore doc pointing at an email that Auth rejected. The
@@ -469,22 +471,34 @@ exports.updatePortalUser = onCall(async (request) => {
       throw new HttpsError('internal', `Auth email update failed: ${msg}`)
     }
   }
-  if ((patch.firstName || patch.lastName) && (before.firstName || before.lastName)) {
-    // Keep the Auth displayName in sync with whatever we just stored
-    // so signed-in admins see the new name in audit logs / token
-    // claims. Best-effort: a failure here shouldn't block the
-    // Firestore update.
+  // Keep the Auth displayName in sync with whatever the user doc says.
+  // Runs unconditionally on every update (not just when names change in
+  // this patch) so that calling updatePortalUser is a one-shot fix for
+  // any user whose Auth.displayName drifted from their Firestore name.
+  // This is how an admin can repair their own missing displayName by
+  // opening their People row and clicking Save profile with no
+  // changes: the patch may be near-empty but this sync still fires.
+  // Best-effort: a failure here shouldn't block the Firestore update,
+  // and we skip the update entirely when Auth already has the right
+  // displayName so we don't burn quota on no-op writes.
+  try {
     const nextFirst = patch.firstName ?? before.firstName ?? ''
     const nextLast = patch.lastName ?? before.lastName ?? ''
-    admin
-      .auth()
-      .updateUser(targetUid, { displayName: `${nextFirst} ${nextLast}`.trim() })
-      .catch((e) => console.warn('updatePortalUser: Auth displayName sync failed', e))
+    const desired = `${nextFirst} ${nextLast}`.trim()
+    if (desired) {
+      const authUser = await admin.auth().getUser(targetUid).catch(() => null)
+      if (authUser && (authUser.displayName || '') !== desired) {
+        await admin.auth().updateUser(targetUid, { displayName: desired })
+      }
+    }
+  } catch (e) {
+    console.warn('updatePortalUser: Auth displayName sync failed', e)
   }
 
-  patch.updatedAt = FieldValue.serverTimestamp()
-
-  await ref.update(patch)
+  if (!patchIsEmpty) {
+    patch.updatedAt = FieldValue.serverTimestamp()
+    await ref.update(patch)
+  }
 
   await auditFromCallable(db, request, {
     action: 'user.update',
