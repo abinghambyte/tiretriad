@@ -117,13 +117,13 @@ export function PortalTopBar({ pathname, tab, navigate, profile, onOpenPalette, 
         {/* Mobile (< sm): avatar dropdown collapses role pill + sign-out */}
         <div className="sm:hidden">
           <Popover
-            label={`Account menu — ${first}, ${tagLabel}`}
+            label={`Account menu for ${first}, ${tagLabel}`}
             align="end"
             anchor={
               <button
                 type="button"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-amber-900/40 text-sm font-bold text-amber-200 ring-1 ring-amber-700/50"
-                aria-label={`Account menu — ${first}, ${tagLabel}`}
+                aria-label={`Account menu for ${first}, ${tagLabel}`}
               >
                 {first.charAt(0).toUpperCase()}
               </button>

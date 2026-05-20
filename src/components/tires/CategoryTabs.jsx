@@ -75,7 +75,7 @@ export function CategoryTabs({ selected, counts, onSelect }) {
                 : 'border-transparent text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
             }`}
           >
-            {tab.label} — {count}
+            {tab.label} · {count}
           </button>
         )
       })}
