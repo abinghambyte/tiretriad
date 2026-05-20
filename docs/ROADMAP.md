@@ -232,23 +232,22 @@ Captured during the May 2026 Skedaddle → Tire Triad rebrand and the parallel p
 - **Wizard polish.** Step 4 phone now formats progressively (`+1 (970) 814-5253`) as the recipient types and submits as E.164. Step 5 password shows a live hint (`At least 8 characters` → amber `N more to go` → emerald `Looks good`). Both match the People admin entry pattern.
 - **Mobile chrome fixes.** Bottom nav `Rubber CRM` label aligned with single-word siblings (fixed-height label row + justify-start). Next-to-Post modal footer pinned to bottom with safe-area inset padding. Modal panel switched from `min-h-screen` to `min-h-dvh` so iOS Safari's dynamic toolbar stops burying action footers.
 - **Invite intro readability.** Door-opening animation now fades the white slit to transparent once the door rotates away, and a large translucent triad mark (420px, 18% opacity) fades in centered as a backdrop. Continue is a real pill button instead of a barely-visible underline.
+- **Channel swap on existing invites.** Send via [Email / SMS / NFC] picker next to the Resend button in the user editor. Picking a new channel + Resend dispatches via that channel and persists the change to `user.inviteDelivery` so the next session opens with the new default. No more delete-and-recreate the user dance.
+- **Multi-channel send.** Email + SMS button in the user editor. Fires both `resendInviteDelivery` calls in parallel via `Promise.allSettled`, aggregates results into a single toast covering all four outcomes (both sent / email-only / sms-only / both failed). Only renders when the user has both email and phone on file.
+- **Wizard header clipping.** BrandBolt's glow shadow no longer bleeds into the top edge of the TIRE TRIAD wordmark in the registration wizard (gap-4 -> gap-6).
+- **Live counts banner gated to real outages.** Dashboard signal-bar count queries now each have their own try/catch instead of sharing one. Non-admin permission-denies (Source / Field / Viewer roles can't read the users collection) degrade silently to zero counts; the red `Live counts unavailable` banner only fires when all four queries fail (real network outage).
+- **Auto-grant `allUsers` invoker on pre-login callables post-deploy.** `scripts/grant-pre-login-invoker.mjs` reapplies the binding via gcloud after every `npm run deploy:firebase`. Idempotent. Stops the four-`gcloud`-commands-per-deploy fire drill we hit during Kyle's onboarding push.
 
 ### Pending — high priority
 
-These are real gaps surfaced during onboarding. None block Kyle but every one is something an admin will hit again.
-
-- **Channel swap on existing invites.** Today `Resend` is locked to whatever channel was picked at create time. Extend `updatePortalUser` to accept `inviteDelivery` changes, add a `Resend via [Email ▾]` dropdown next to the Resend button in the editor so an admin can flip Email ↔ SMS ↔ NFC mid-flow without deleting and recreating the user.
-- **Multi-channel send for a single invite.** Stretch on the above: a `Send both` button that fires Email + SMS in one click. Needs a small design call on split-delivery semantics (what if email sends but SMS rate-limits — surface partial-success or treat as overall failure?).
 - **Slack step in the invite wizard.** Strategic decision pending: keep / make optional / drop entirely. Kyle and DJ getting jobs and schedules via text + a dashboard widget might replace the Slack invite step's value. If we drop Slack, move "jobs / updates / schedules" surfaces fully onto the website + SMS alerts.
-- **Investigate "Live counts unavailable" banner on fresh login.** Transient Firestore listener race showing on first dashboard load for a brand-new auth session. Refresh clears it. Find the listener that's failing and either retry it once or suppress the banner if it recovers within a few seconds.
-- **Set Alex's Firebase Auth displayName.** Currently empty, so invite email subjects fall back to `${recipient}, your Tire Triad access` instead of `${recipient}, Alex set up your Tire Triad access`. One-time fix via Firebase console or `admin.auth().updateUser`.
+- **Set Alex's Firebase Auth displayName.** Currently empty, so invite email subjects fall back to `${recipient}, your Tire Triad access` instead of `${recipient}, Alex set up your Tire Triad access`. One-time fix via Firebase Console (Authentication → Users → Edit) or `admin.auth().updateUser`.
 
 ### Pending — medium priority
 
-- **`TIRE TRIAD` wordmark clipping in wizard header.** Letter-spacing tightens the `T` / `I` glyphs against the BrandBolt above them. Cosmetic but noticeable. Either reduce tracking on small sizes or add explicit spacer between the mark and the wordmark.
+- **Per-channel `lastInviteDelivery` persistence.** The multi-channel send currently writes to a single `lastInviteDelivery` slot — whichever resend call lands last wins. If we want the People modal to surface both channels' statuses simultaneously after a multi-channel send, add a server-side `resendInviteMultiChannel` callable that writes both states atomically (e.g. `lastInviteDelivery.email` + `lastInviteDelivery.sms`).
 - **HMAC secret rotation for Sinch inbound webhook.** The current `SINCH_INBOUND_SHARED_SECRET` value passed through plaintext email to Sinch support during ticket `00MLP4-J9JMK` and through this chat. Rotate within the next few weeks: generate a fresh 64-char hex, update Sinch dashboard + Firebase Secret Manager, redeploy `inboundSms`.
 - **Vercel project rename to `tiretriad`.** Started during the rebrand but not finished. Doesn't affect functionality (custom domain still resolves) — pure hygiene. Settings → General → Project Name.
-- **Firebase Auth org policy investigation.** The fact that `allUsers / roles/run.invoker` had to be granted manually on every pre-login callable (instead of being applied automatically by `firebase deploy` from the `invoker: 'public'` config) is unusual. Find out which org policy or default config is blocking the auto-grant so future deploys of new pre-login callables don't repeat this fire drill.
 
 ### Pending — Phase 3 DNS cutover
 
