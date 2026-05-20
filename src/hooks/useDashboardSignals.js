@@ -561,60 +561,79 @@ export function useDashboardSignals() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      // Each count query is isolated so a permission-deny on one piece
+      // (e.g. a Source/Field role that can't read the users collection)
+      // degrades gracefully to a zero instead of blanking the whole
+      // signal bar with the alarming red "Live counts unavailable"
+      // banner. The banner only fires when EVERY query fails, which is
+      // the real network-failure case worth surfacing.
+      let pendingOrders = 0
+      let lockedUsers = 0
+      let pendingInvites = 0
+      let todayRevenue = 0
+      let revenueDocData = null
+      const failures = []
+
       try {
-        const pendingQ = query(
-          collection(db, 'orders'),
-          where('status', 'not-in', ['completed', 'cancelled']),
+        const pendingSnap = await getCountFromServer(
+          query(
+            collection(db, 'orders'),
+            where('status', 'not-in', ['completed', 'cancelled']),
+          ),
         )
-        const [pendingSnap, lockedSnap] = await Promise.all([
-          getCountFromServer(pendingQ),
-          getCountFromServer(query(collection(db, 'users'), where('inviteStatus', '==', 'locked'))),
-        ])
-        let pendingInvites = 0
-        try {
-          const invSnap = await getCountFromServer(
-            query(
-              collection(db, 'users'),
-              where('inviteStatus', '==', 'active'),
-              where('inviteAccepted', '==', false),
-            ),
-          )
-          pendingInvites = invSnap.data().count
-        } catch (e) {
-          console.error('dashboard pending invite count', e)
-        }
-        let todayRevenue = 0
-        let revenueDocData = null
-        try {
-          const revenueSnap = await getDoc(doc(db, 'meta', 'revenueStats'))
-          if (revenueSnap.exists()) {
-            revenueDocData = revenueSnap.data() || null
-            todayRevenue = Number(revenueDocData?.dailyRevenue) || 0
-          }
-        } catch (e) {
-          console.error('dashboard revenueStats read', e)
-        }
-        if (!cancelled) setRevenueStatsDoc(revenueDocData)
-        if (cancelled) return
-        setSignalBar({
-          pendingOrders: pendingSnap.data().count,
-          todayRevenue,
-          crewAlerts: pendingInvites + lockedSnap.data().count,
-          loading: false,
-          error: false,
-        })
+        pendingOrders = pendingSnap.data().count
       } catch (e) {
-        console.error('dashboard signal bar counts', e)
-        if (!cancelled) {
-          setSignalBar({
-            pendingOrders: 0,
-            todayRevenue: 0,
-            crewAlerts: 0,
-            loading: false,
-            error: true,
-          })
-        }
+        console.warn('dashboard pending orders count denied/failed', e?.code || e)
+        failures.push('orders')
       }
+
+      try {
+        const lockedSnap = await getCountFromServer(
+          query(collection(db, 'users'), where('inviteStatus', '==', 'locked')),
+        )
+        lockedUsers = lockedSnap.data().count
+      } catch (e) {
+        console.warn('dashboard locked users count denied/failed', e?.code || e)
+        failures.push('locked')
+      }
+
+      try {
+        const invSnap = await getCountFromServer(
+          query(
+            collection(db, 'users'),
+            where('inviteStatus', '==', 'active'),
+            where('inviteAccepted', '==', false),
+          ),
+        )
+        pendingInvites = invSnap.data().count
+      } catch (e) {
+        console.warn('dashboard pending invite count denied/failed', e?.code || e)
+        failures.push('pendingInvites')
+      }
+
+      try {
+        const revenueSnap = await getDoc(doc(db, 'meta', 'revenueStats'))
+        if (revenueSnap.exists()) {
+          revenueDocData = revenueSnap.data() || null
+          todayRevenue = Number(revenueDocData?.dailyRevenue) || 0
+        }
+      } catch (e) {
+        console.warn('dashboard revenueStats read denied/failed', e?.code || e)
+        failures.push('revenue')
+      }
+
+      if (cancelled) return
+      setRevenueStatsDoc(revenueDocData)
+      setSignalBar({
+        pendingOrders,
+        todayRevenue,
+        crewAlerts: pendingInvites + lockedUsers,
+        loading: false,
+        // Only flag the banner when every query failed (real outage).
+        // Partial permission-denies are expected for non-admin roles and
+        // shouldn't make the dashboard look broken.
+        error: failures.length === 4,
+      })
     })()
     return () => {
       cancelled = true
