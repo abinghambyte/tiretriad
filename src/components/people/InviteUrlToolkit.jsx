@@ -219,6 +219,7 @@ export function EditorInviteColumn({
   onRevokeInvite,
   onReissueInvite,
   onResendInvite,
+  onResendInviteBoth,
 }) {
   const recordedChannel = selected?.inviteDelivery
   // Local "send via" picker that defaults to whatever was recorded but
@@ -277,6 +278,17 @@ export function EditorInviteColumn({
                 >
                   {invokeBusy === 'resend' && <Spinner className="h-3 w-3 text-emerald-300" />}
                   {invokeBusy === 'resend' ? 'Sending…' : resendLabel}
+                </button>
+              ) : null}
+              {typeof onResendInviteBoth === 'function' && selected?.email && selected?.phone ? (
+                <button
+                  type="button"
+                  disabled={invokeBusy !== ''}
+                  onClick={() => void onResendInviteBoth()}
+                  title="Send the invite via both email and SMS at once"
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-violet-300 ring-1 ring-violet-900/50 transition-colors hover:bg-violet-950/50 hover:text-violet-200 disabled:opacity-40"
+                >
+                  Email + SMS
                 </button>
               ) : null}
               <button
