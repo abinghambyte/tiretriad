@@ -401,18 +401,21 @@ export function CreateUserInviteSection({
   onSubmitCreateUser,
   onOpenInvitePreview,
 }) {
+  // The create form is gated behind the createDrawerOpen state on both
+  // mobile and desktop now. On the People page you only see it after
+  // clicking 'Add crew member +'; the default view is the existing user
+  // list without 700px of empty form taking up screen real estate.
+  if (!createDrawerOpen) return null
   return (
     <section
       className={[
         'rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6',
         isMobilePeople
-          ? createDrawerOpen
-            ? 'fixed inset-0 z-50 overflow-y-auto overscroll-y-contain scroll-smooth pb-24'
-            : 'hidden'
+          ? 'fixed inset-0 z-50 overflow-y-auto overscroll-y-contain scroll-smooth pb-24'
           : '',
       ].join(' ')}
     >
-      <div className="mb-4 flex items-start justify-between gap-2 sm:mb-0 sm:hidden">
+      <div className="mb-4 flex items-start justify-between gap-2">
         <h2 className="text-lg font-semibold text-zinc-100">Create user + invite</h2>
         <button
           type="button"
@@ -422,7 +425,6 @@ export function CreateUserInviteSection({
           Close
         </button>
       </div>
-      <h2 className="hidden text-lg font-semibold text-zinc-100 sm:block">Create user + invite</h2>
       <p className="mt-1 text-sm text-zinc-400">
         Adds a crew member and sends them a sign-in invite. They&apos;ll stay inactive until
         they accept. Use Preview to see the email before sending.
