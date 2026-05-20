@@ -4,7 +4,12 @@
  */
 const crypto = require('crypto')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
-const { SLACK_SECRETS, ANTHROPIC_API_KEY, anthropicKeyResolved } = require('./slackSecrets')
+const {
+  SLACK_SECRETS,
+  ANTHROPIC_API_KEY,
+  INVITE_DELIVERY_SECRETS,
+  anthropicKeyResolved,
+} = require('./slackSecrets')
 const admin = require('firebase-admin')
 const { FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { crewTagFromRole, assertCanManagePeople, normalizeRole } = require('./peopleSystem')
@@ -413,7 +418,9 @@ async function generateInviteGreetingLine({ firstName, role, secretValue }) {
   }
 }
 
-exports.sendInviteRegistrationCode = onCall({ invoker: 'public' }, async (request) => {
+exports.sendInviteRegistrationCode = onCall(
+  { invoker: 'public', secrets: INVITE_DELIVERY_SECRETS },
+  async (request) => {
   const token = String(request.data?.token || '').trim()
   const email = String(request.data?.email || '').trim().toLowerCase()
   if (!token || !email) {
