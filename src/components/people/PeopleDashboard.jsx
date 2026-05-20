@@ -667,11 +667,11 @@ export function PeopleDashboard({ omitPageChrome = false }) {
             />
           </div>
         ) : null}
-        {isMobilePeople && !createDrawerOpen ? (
+        {!createDrawerOpen ? (
           <button
             type="button"
             onClick={() => setCreateDrawerOpen(true)}
-            className="flex w-full min-h-[48px] items-center justify-center rounded-xl bg-amber-500 text-sm font-semibold text-zinc-950 hover:bg-amber-400 sm:hidden"
+            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-amber-500 text-sm font-semibold text-zinc-950 hover:bg-amber-400 sm:w-auto sm:self-start sm:px-5"
           >
             Add crew member +
           </button>
