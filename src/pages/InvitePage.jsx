@@ -10,6 +10,9 @@ import {
 } from '../components/ui/modalChrome.js'
 import { callRecordLogin } from '../utils/callRecordLogin'
 import { BrandBolt } from '../components/ui/BrandBolt.jsx'
+import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../utils/formatPhone'
+
+const PASSWORD_MIN_LENGTH = 8
 
 const resolveInviteFn = httpsCallable(functions, 'resolveInvite')
 const getInviteGreetingFn = httpsCallable(functions, 'getInviteGreeting')
@@ -240,7 +243,7 @@ export function InvitePage() {
         code: regCode.trim(),
         firstName: regFirst.trim(),
         lastName: regLast.trim(),
-        phone: regPhone.trim(),
+        phone: normalizePhoneToE164(regPhone) || regPhone.trim(),
         password: regPassword,
       })
       await signInWithEmailAndPassword(auth, regEmail.trim(), regPassword)
@@ -419,10 +422,11 @@ export function InvitePage() {
                 <input
                   id="invite-reg-phone"
                   type="tel"
+                  inputMode="tel"
                   required
                   autoComplete="tel"
-                  placeholder="Phone number"
-                  value={regPhone}
+                  placeholder="+1 (555) 123-4567"
+                  value={formatPhoneInputForDisplay(regPhone)}
                   onChange={(e) => setRegPhone(e.target.value)}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
                 />
@@ -437,12 +441,32 @@ export function InvitePage() {
                   id="invite-reg-password"
                   type="password"
                   required
+                  minLength={PASSWORD_MIN_LENGTH}
                   autoComplete="new-password"
-                  placeholder="Password"
+                  placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
+                  aria-describedby="invite-reg-password-hint"
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
                 />
+                <p
+                  id="invite-reg-password-hint"
+                  className={`mt-2 text-[11px] ${
+                    regPassword.length === 0
+                      ? 'text-zinc-500'
+                      : regPassword.length >= PASSWORD_MIN_LENGTH
+                        ? 'text-emerald-400'
+                        : 'text-amber-300'
+                  }`}
+                >
+                  {regPassword.length === 0
+                    ? `Minimum ${PASSWORD_MIN_LENGTH} characters. No other requirements.`
+                    : regPassword.length >= PASSWORD_MIN_LENGTH
+                      ? `Looks good (${regPassword.length} characters).`
+                      : `${PASSWORD_MIN_LENGTH - regPassword.length} more character${
+                          PASSWORD_MIN_LENGTH - regPassword.length === 1 ? '' : 's'
+                        } to go.`}
+                </p>
               </>
             ) : null}
             {regStep === 5 ? (
