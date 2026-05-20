@@ -220,23 +220,59 @@ export function EditorInviteColumn({
   onReissueInvite,
   onResendInvite,
 }) {
-  const inviteChannel = selected?.inviteDelivery
-  const resendLabel = `Resend ${channelLabel(inviteChannel).toLowerCase()}`
+  const recordedChannel = selected?.inviteDelivery
+  // Local "send via" picker that defaults to whatever was recorded but
+  // can be flipped per-resend. The handler in PeopleDashboard passes
+  // this value into resendInviteDelivery AND updatePortalUser so the
+  // next session sees the new channel as the default.
+  //
+  // Reset the picker when the underlying user changes (admin bounced
+  // the modal closed/open or switched users in the list) using the
+  // "store info from previous renders" pattern from the React docs —
+  // safer than a useEffect setState since this is derived state, not
+  // synchronizing with an external system.
+  const initialChannel =
+    recordedChannel && ['sms', 'nfc', 'email'].includes(recordedChannel)
+      ? recordedChannel
+      : 'email'
+  const [pendingChannel, setPendingChannel] = useState(initialChannel)
+  const [prevSelectedId, setPrevSelectedId] = useState(selected?.id)
+  if (selected?.id !== prevSelectedId) {
+    setPrevSelectedId(selected?.id)
+    setPendingChannel(initialChannel)
+  }
+  const resendLabel = `Resend ${channelLabel(pendingChannel).toLowerCase()}`
   return (
     <div className="space-y-3">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Invite</p>
       {panelInviteUrl ? (
         <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/15 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400/90">
               Active link
             </p>
-            <div className="flex items-center gap-1">
-              {typeof onResendInvite === 'function' && inviteChannel !== 'nfc' ? (
+            <div className="flex flex-wrap items-center gap-1">
+              {typeof onResendInvite === 'function' ? (
+                <label className="flex items-center gap-1 text-[10px] text-zinc-400">
+                  <span className="sr-only">Send via channel</span>
+                  <select
+                    value={pendingChannel}
+                    onChange={(e) => setPendingChannel(e.target.value)}
+                    disabled={invokeBusy !== ''}
+                    aria-label="Send invite via channel"
+                    className="rounded border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-[10px] text-zinc-200 disabled:opacity-40"
+                  >
+                    <option value="email">Email</option>
+                    <option value="sms">SMS</option>
+                    <option value="nfc">NFC</option>
+                  </select>
+                </label>
+              ) : null}
+              {typeof onResendInvite === 'function' && pendingChannel !== 'nfc' ? (
                 <button
                   type="button"
                   disabled={invokeBusy !== ''}
-                  onClick={() => void onResendInvite()}
+                  onClick={() => void onResendInvite(pendingChannel)}
                   className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-900/50 transition-colors hover:bg-emerald-950/50 hover:text-emerald-200 disabled:opacity-40"
                 >
                   {invokeBusy === 'resend' && <Spinner className="h-3 w-3 text-emerald-300" />}
@@ -261,7 +297,7 @@ export function EditorInviteColumn({
           <InviteUrlToolkit url={panelInviteUrl} />
           <LastDeliveryRow
             lastInviteDelivery={selected?.lastInviteDelivery}
-            inviteDelivery={inviteChannel}
+            inviteDelivery={recordedChannel}
           />
         </div>
       ) : (
