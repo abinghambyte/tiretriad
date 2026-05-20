@@ -104,8 +104,6 @@ export function InvitePage() {
   const [regLast, setRegLast] = useState('')
   const [regPhone, setRegPhone] = useState('')
   const [regPassword, setRegPassword] = useState('')
-  const [slackInviteUrl, setSlackInviteUrl] = useState('')
-  const [slackJoined, setSlackJoined] = useState(false)
   const [regError, setRegError] = useState('')
   const [regBusy, setRegBusy] = useState(false)
   const [codeSentNote, setCodeSentNote] = useState('')
@@ -207,7 +205,7 @@ export function InvitePage() {
   }, [phase])
 
   const regTitles = useMemo(
-    () => ['Email', 'Code', 'Name', 'Phone', 'Password', 'Slack'],
+    () => ['Email', 'Code', 'Name', 'Phone', 'Password'],
     [],
   )
 
@@ -237,7 +235,7 @@ export function InvitePage() {
     setRegError('')
     setRegBusy(true)
     try {
-      const { data } = await completeInviteRegistrationFn({
+      await completeInviteRegistrationFn({
         token,
         email: regEmail.trim().toLowerCase(),
         code: regCode.trim(),
@@ -248,9 +246,10 @@ export function InvitePage() {
       })
       await signInWithEmailAndPassword(auth, regEmail.trim(), regPassword)
       await callRecordLogin()
-      setSlackInviteUrl(String(data?.slackInviteUrl || '').trim())
-      setSlackJoined(false)
-      setRegStep(5)
+      // Slack step dropped: jobs / updates / schedules now live in the
+      // portal and SMS alerts. Drop the recipient straight into the
+      // handshake → dashboard flow instead.
+      navigate('/handshake', { replace: true })
     } catch (e) {
       setRegError(e?.message || 'Registration failed.')
     } finally {
@@ -335,8 +334,6 @@ export function InvitePage() {
                   return
                 }
                 void completeRegistration()
-              } else if (regStep === 5) {
-                navigate('/handshake', { replace: true })
               }
             }}
           >
@@ -469,44 +466,12 @@ export function InvitePage() {
                 </p>
               </>
             ) : null}
-            {regStep === 5 ? (
-              <div className="space-y-4 text-center">
-                <p className="text-sm leading-relaxed text-zinc-400">
-                  Last step. Join the crew on Slack. That&apos;s where jobs, updates, and schedules live.
-                </p>
-                {slackInviteUrl ? (
-                  <a
-                    href={slackInviteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setSlackJoined(true)}
-                    className="block w-full rounded-xl bg-[#4A154B] py-3 text-sm font-medium text-white transition hover:bg-[#611f64]"
-                  >
-                    Join Slack workspace
-                  </a>
-                ) : (
-                  <p className="text-xs text-zinc-600">
-                    Ask Alex for the Slack invite link. You can join after setup.
-                  </p>
-                )}
-                {slackJoined ? (
-                  <p className="text-xs text-zinc-400">✓ Nice. Hit &quot;I&apos;m in&quot; to open the portal.</p>
-                ) : null}
-              </div>
-            ) : null}
-
             <button
               type="submit"
               disabled={regBusy}
               className="w-full rounded-xl bg-zinc-100 py-3 text-sm font-medium text-black transition hover:bg-white disabled:opacity-50"
             >
-              {regBusy
-                ? 'Working…'
-                : regStep === 4
-                  ? 'Finish'
-                  : regStep === 5
-                    ? "I'm in"
-                    : 'Continue'}
+              {regBusy ? 'Working…' : regStep === 4 ? 'Finish' : 'Continue'}
             </button>
           </form>
         </div>
