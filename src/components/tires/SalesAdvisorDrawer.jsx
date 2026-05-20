@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { ListingCoachTab } from './ListingCoachTab.jsx'
 
 const SUGGESTIONS = [
-  "Help me handle 'I can get them cheaper online' — what's the strongest objection-handling line?",
+  "Help me handle 'I can get them cheaper online'. What's the strongest objection-handling line?",
   'Draft a pitch for our highest-margin Michelin sizes that a fleet customer would care about.',
-  'Customer wants 4 LR-E commercials for a moving fleet — what should I lead with and why?',
+  'Customer wants 4 LR-E commercials for a moving fleet. What should I lead with and why?',
   "What's a good 7-day follow-up message after a quote went cold?",
 ]
 
