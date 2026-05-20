@@ -204,8 +204,12 @@ export function InvitePage() {
     return () => document.removeEventListener('keydown', onKey)
   }, [phase])
 
+  // Wizard step labels. Email-confirmation step was dropped: the
+  // invite token already identifies the recipient, so asking them to
+  // re-type the email they were emailed at is a redundant tap. The
+  // code is dispatched automatically on register-phase entry instead.
   const regTitles = useMemo(
-    () => ['Email', 'Code', 'Name', 'Phone', 'Password'],
+    () => ['Code', 'Name', 'Phone', 'Password'],
     [],
   )
 
@@ -219,17 +223,30 @@ export function InvitePage() {
         email: regEmail.trim().toLowerCase(),
       })
       if (data?.sent === false) {
+        // Recipient-facing copy: no dev-leak ("server logs in
+        // development"), surfaces an actionable next step instead.
         setCodeSentNote(
-          'Email could not be sent (Resend not configured). Use the code from your administrator or server logs in development.',
+          'Email could not be sent. Ask the person who invited you to resend or call them for the code.',
         )
       }
-      setRegStep(1)
     } catch (e) {
       setRegError(e?.message || 'Could not send code.')
     } finally {
       setRegBusy(false)
     }
   }
+
+  // Auto-dispatch the verification code when the wizard opens. Skips the
+  // redundant Email confirmation step and gets the recipient to the
+  // code-entry input immediately.
+  useEffect(() => {
+    if (phase !== 'register') return undefined
+    if (!regEmail || regCode || regStep !== 0) return undefined
+    void sendCode()
+    return undefined
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot
+    // on first register entry; regCode/regStep guard prevents re-fires.
+  }, [phase])
 
   async function completeRegistration() {
     setRegError('')
@@ -309,26 +326,27 @@ export function InvitePage() {
             onSubmit={(e) => {
               e.preventDefault()
               setRegError('')
-              if (regStep === 0) void sendCode()
-              else if (regStep === 1) {
+              // 0=Code, 1=Name, 2=Phone, 3=Password (Email step dropped;
+              // code auto-dispatched on mount).
+              if (regStep === 0) {
                 if (regCode.trim().length !== 6) {
                   setRegError('Enter the 6-digit code.')
                   return
                 }
-                setRegStep(2)
-              } else if (regStep === 2) {
+                setRegStep(1)
+              } else if (regStep === 1) {
                 if (!regFirst.trim() || !regLast.trim()) {
                   setRegError('First and last name are required.')
                   return
                 }
-                setRegStep(3)
-              } else if (regStep === 3) {
+                setRegStep(2)
+              } else if (regStep === 2) {
                 if (regPhone.trim().length < 7) {
                   setRegError('Enter a valid phone number.')
                   return
                 }
-                setRegStep(4)
-              } else if (regStep === 4) {
+                setRegStep(3)
+              } else if (regStep === 3) {
                 if (regPassword.length < 8) {
                   setRegError('Password must be at least 8 characters.')
                   return
@@ -342,30 +360,13 @@ export function InvitePage() {
                 {regError}
               </p>
             ) : null}
-            {codeSentNote && regStep === 1 ? (
+            {codeSentNote && regStep === 0 ? (
               <p className="rounded-lg border border-amber-900/40 bg-amber-950/25 px-3 py-2 text-center text-xs text-amber-100/90">
                 {codeSentNote}
               </p>
             ) : null}
 
             {regStep === 0 ? (
-              <>
-                <label htmlFor="invite-reg-email" className="sr-only">
-                  Email address
-                </label>
-                <input
-                  id="invite-reg-email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-sm outline-none ring-zinc-700 focus:ring-2"
-                />
-              </>
-            ) : null}
-            {regStep === 1 ? (
               <>
                 <label htmlFor="invite-reg-code" className="sr-only">
                   6-digit verification code
@@ -383,7 +384,7 @@ export function InvitePage() {
                 />
               </>
             ) : null}
-            {regStep === 2 ? (
+            {regStep === 1 ? (
               <div className="space-y-3">
                 <label htmlFor="invite-reg-first" className="sr-only">
                   First name
@@ -411,7 +412,7 @@ export function InvitePage() {
                 />
               </div>
             ) : null}
-            {regStep === 3 ? (
+            {regStep === 2 ? (
               <>
                 <label htmlFor="invite-reg-phone" className="sr-only">
                   Phone number
@@ -429,7 +430,7 @@ export function InvitePage() {
                 />
               </>
             ) : null}
-            {regStep === 4 ? (
+            {regStep === 3 ? (
               <>
                 <label htmlFor="invite-reg-password" className="sr-only">
                   Password
@@ -471,7 +472,7 @@ export function InvitePage() {
               disabled={regBusy}
               className="w-full rounded-xl bg-zinc-100 py-3 text-sm font-medium text-black transition hover:bg-white disabled:opacity-50"
             >
-              {regBusy ? 'Working…' : regStep === 4 ? 'Finish' : 'Continue'}
+              {regBusy ? 'Working…' : regStep === 3 ? 'Finish' : 'Continue'}
             </button>
           </form>
         </div>
