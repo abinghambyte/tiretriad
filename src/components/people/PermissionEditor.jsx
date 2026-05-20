@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { auth, functions } from '../../firebase/config'
+import { formatPhoneInputForDisplay } from '../../utils/formatPhone.js'
 import {
   crewTagFromRole,
   MODULE_MATRIX,
@@ -123,9 +124,17 @@ function ProfileDetailsEditor({ user }) {
           <input
             type="tel"
             inputMode="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="(303) 555-0119"
+            autoComplete="tel"
+            // Progressive formatting matches the People create form
+            // and the InvitePage wizard so the same phone reads the
+            // same everywhere.
+            value={formatPhoneInputForDisplay(phone)}
+            onChange={(e) => {
+              const all = String(e.target.value || '').replace(/\D/g, '')
+              const national = all.startsWith('1') ? all.slice(1) : all
+              setPhone(formatPhoneInputForDisplay(national.slice(0, 10)))
+            }}
+            placeholder="+1 (555) 123-4567"
             className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none"
           />
         </label>

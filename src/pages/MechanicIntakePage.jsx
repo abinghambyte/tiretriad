@@ -1,6 +1,7 @@
 import { httpsCallable } from 'firebase/functions'
 import { useCallback, useMemo, useState } from 'react'
 import { functions } from '../firebase/config'
+import { formatPhoneInputForDisplay } from '../utils/formatPhone.js'
 
 const submitMechanicIntake = httpsCallable(functions, 'submitMechanicIntake')
 
@@ -346,10 +347,16 @@ export function MechanicIntakePage() {
                 <span className={labelClass}>Phone number</span>
                 <input
                   type="tel"
-                  value={form.step1.phone}
-                  onChange={(e) => setStep1({ phone: e.target.value })}
+                  inputMode="tel"
+                  value={formatPhoneInputForDisplay(form.step1.phone)}
+                  onChange={(e) => {
+                    const all = String(e.target.value || '').replace(/\D/g, '')
+                    const national = all.startsWith('1') ? all.slice(1) : all
+                    setStep1({ phone: formatPhoneInputForDisplay(national.slice(0, 10)) })
+                  }}
                   className={inputClass}
                   autoComplete="tel"
+                  placeholder="+1 (555) 123-4567"
                 />
               </label>
               <label className="block">
