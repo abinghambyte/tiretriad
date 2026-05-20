@@ -298,9 +298,9 @@ export function InvitePage() {
         <div
           className={`${MODAL_CENTER_PANEL_BASE} max-w-sm border-zinc-800 bg-black p-6 text-zinc-100 sm:p-8`}
         >
-          <div className="mb-2 flex flex-col items-center gap-4">
+          <div className="mb-2 flex flex-col items-center gap-6">
             <BrandBolt size={56} tone="glow" aria-label="Tire Triad" />
-            <p className="text-xs tracking-[0.3em] text-zinc-400">TIRE TRIAD</p>
+            <p className="text-xs tracking-[0.3em] text-zinc-400">TIRE&nbsp;TRIAD</p>
           </div>
           <p id="invite-reg-title" className="mb-8 text-sm text-zinc-400">
             Step {regStep + 1} of {regTitles.length}. {regTitles[regStep]}
