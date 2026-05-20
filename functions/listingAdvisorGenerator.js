@@ -275,25 +275,28 @@ async function callGeminiOnce(apiKey, userJson, model) {
 /**
  * @returns {Promise<{ ok: true, listing: object, model: string } | { ok: false, listing: null, model: null, error: string }>}
  */
+// gemini-1.5-pro and gemini-1.0-pro hit EOL in March 2026 (see
+// functions/advisorNarrate.js). 2.5-flash is the current primary model
+// in advisorNarrate; 2.5-flash-lite is the budget fallback. Mirror that
+// chain here so the listing-copy generator keeps working through the
+// same model rotation.
+const LISTING_GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+
 async function callGemini(apiKey, userJson) {
-  let err15 = ''
-  try {
-    const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.5-pro')
-    return { ok: true, listing, model: 'gemini-1.5-pro' }
-  } catch (e1) {
-    err15 = e1 instanceof Error ? e1.message : String(e1)
-  }
-  try {
-    const listing = await callGeminiOnce(apiKey, userJson, 'gemini-1.0-pro')
-    return { ok: true, listing, model: 'gemini-1.0-pro' }
-  } catch (e2) {
-    const err10 = e2 instanceof Error ? e2.message : String(e2)
-    return {
-      ok: false,
-      listing: null,
-      model: null,
-      error: `Gemini 1.5-pro: ${err15}; Gemini 1.0-pro: ${err10}`,
+  const errors = []
+  for (const model of LISTING_GEMINI_MODELS) {
+    try {
+      const listing = await callGeminiOnce(apiKey, userJson, model)
+      return { ok: true, listing, model }
+    } catch (e) {
+      errors.push(`${model}: ${e instanceof Error ? e.message : String(e)}`)
     }
+  }
+  return {
+    ok: false,
+    listing: null,
+    model: null,
+    error: errors.join('; '),
   }
 }
 

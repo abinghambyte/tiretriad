@@ -620,12 +620,10 @@ export function InvitePreviewModal({
             <div className="mt-4">
               <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Registration steps</p>
               <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
-                <li>Email (must match invite)</li>
-                <li>6-digit code (sent to email)</li>
+                <li>6-digit code (auto-sent to the email above on open)</li>
                 <li>First and last name</li>
                 <li>Phone</li>
                 <li>Password, then sign in and first-login handshake</li>
-                <li>Join Slack workspace</li>
               </ol>
             </div>
             <div className="mt-6 flex flex-col gap-2 max-sm:gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
