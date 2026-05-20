@@ -21,7 +21,8 @@
     "import:tires-csv": "node scripts/import-tires-csv.mjs",
     "handoff:next": "node scripts/gen-next-handoff.js",
     "deploy:functions": "firebase deploy --only functions",
-    "deploy:firebase": "firebase deploy --only functions,firestore,storage",
+    "deploy:firebase": "firebase deploy --only functions,firestore,storage && npm run grant:pre-login-invoker",
+    "grant:pre-login-invoker": "node scripts/grant-pre-login-invoker.mjs",
     "emulators:functions": "firebase emulators:start --only functions"
   },
   "dependencies": {
