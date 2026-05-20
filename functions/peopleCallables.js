@@ -380,6 +380,16 @@ exports.updatePortalUser = onCall(async (request) => {
   if (['active', 'expired', 'locked', 'renewed'].includes(data.inviteStatus)) {
     patch.inviteStatus = data.inviteStatus
   }
+  // Channel swap on an existing invite. The admin picks Email / SMS /
+  // NFC when creating the user, but corporate email gateways or carrier
+  // black holes mean the chosen channel sometimes doesn't reach the
+  // recipient. Allowing the recorded channel to change here means the
+  // next Resend goes through the new channel without having to delete
+  // and recreate the user (which would burn the existing token + audit
+  // trail).
+  if (['sms', 'nfc', 'email'].includes(data.inviteDelivery)) {
+    patch.inviteDelivery = data.inviteDelivery
+  }
   if (typeof data.ghostMode === 'boolean') {
     patch.ghostMode = data.ghostMode
   }

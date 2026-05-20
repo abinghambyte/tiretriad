@@ -523,11 +523,25 @@ export function PeopleDashboard({ omitPageChrome = false }) {
     }
   }
 
-  async function resendInvite() {
+  async function resendInvite(overrideMethod) {
     if (!selected) return
-    const method = selectedDeliveryMethod()
+    // Channel may be flipped per-resend from the Send via picker in the
+    // editor. When that happens we also persist the new channel on the
+    // user doc so the next session opens with the new default and so
+    // SMS/Email status copy in the People modal stays in sync. Best-
+    // effort: a failed update doesn't block the send itself.
+    const requested = ['sms', 'nfc', 'email'].includes(overrideMethod) ? overrideMethod : null
+    const method = requested || selectedDeliveryMethod()
+    const channelChanged = requested && requested !== selected.inviteDelivery
     setInvokeBusy('resend')
     try {
+      if (channelChanged) {
+        try {
+          await updatePortalUser({ targetUid: selected.id, inviteDelivery: requested })
+        } catch (e) {
+          console.warn('resendInvite: persisting channel change failed', e)
+        }
+      }
       const { data } = await resendInviteDeliveryFn({
         targetUid: selected.id,
         inviteDelivery: method,
