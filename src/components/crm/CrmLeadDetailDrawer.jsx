@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LeadSourceBadge } from './leadSourceBadge.jsx'
 import { timeAgo } from '../../utils/timeAgo.js'
+import { formatPhoneInputForDisplay } from '../../utils/formatPhone.js'
 
 /**
  * @param {object} props
@@ -85,7 +86,7 @@ export function CrmLeadDetailDrawer({ lead, onClose, canEdit, onConvertToVip }) 
             </div>
             <div>
               <dt className="text-xs text-zinc-400">Phone</dt>
-              <dd>{String(lead.phone ?? '').trim() || '--'}</dd>
+              <dd>{formatPhoneInputForDisplay(lead.phone) || '--'}</dd>
             </div>
             <div>
               <dt className="text-xs text-zinc-400">Email</dt>

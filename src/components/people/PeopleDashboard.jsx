@@ -16,7 +16,7 @@ import { useCrewPreview } from '../../hooks/useCrewPreview'
 import { ROLE_DEFAULTS } from '../../constants/peoplePermissions'
 import { CrewDirectoryWidget } from '../dashboard/CrewDirectoryWidget'
 import { NfcWriterModal } from './NfcWriterModal.jsx'
-import { normalizePhoneToE164 } from '../../utils/formatPhone.js'
+import { formatPhoneInputForDisplay, normalizePhoneToE164 } from '../../utils/formatPhone.js'
 import { PortalSessionLine } from '../layout/PortalSessionLine.jsx'
 import { useMediaQuery } from '../../hooks/useMediaQuery.js'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -602,7 +602,10 @@ export function PeopleDashboard({ omitPageChrome = false }) {
       if (inviteUrl) setPanelInviteUrl(inviteUrl)
 
       if (emailSent && smsSent) {
-        toast(`Sent to ${selected.email} and ${selected.phone}.`, 'success')
+        toast(
+          `Sent to ${selected.email} and ${formatPhoneInputForDisplay(selected.phone) || selected.phone}.`,
+          'success',
+        )
       } else if (emailSent) {
         toast(
           `Email sent. SMS failed${smsReason ? ` (${smsReason})` : ''}.`,
