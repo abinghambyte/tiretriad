@@ -131,11 +131,15 @@ function ProfileDetailsEditor({ user }) {
         <button
           type="button"
           onClick={() => void save()}
-          disabled={!dirty || saving}
+          disabled={saving}
+          // Always callable so it doubles as a 'Sync Auth profile'
+          // button for users whose Firebase Auth displayName drifted
+          // from their Firestore name. updatePortalUser tolerates an
+          // empty patch and still runs the Auth sync pass.
           className="inline-flex items-center gap-2 rounded-lg bg-amber-500/20 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {saving && <Spinner className="h-3.5 w-3.5 text-amber-200" />}
-          {saving ? 'Saving…' : 'Save profile'}
+          {saving ? 'Saving…' : dirty ? 'Save profile' : 'Sync profile'}
         </button>
         {error ? (
           <span className="text-xs text-red-400">{error}</span>
