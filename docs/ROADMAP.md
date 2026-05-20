@@ -1,6 +1,8 @@
-# Skedaddle Portal — Master Roadmap
-**Last updated: April 13, 2026**
-**Live at: skedaddleinc.com | Repo: abinghambyte/skedaddleinc**
+# Tire Triad Portal — Master Roadmap
+**Last updated: May 20, 2026**
+**Live at: app.tiretriad.com | Repo: abinghambyte/tiretriad | Legal entity: Front Range Rubber LLC**
+
+> Brand: rebranded from Skedaddle Inc to the Front Range Rubber LLC + Tire Triad dual-brand structure in May 2026. Legacy `skedaddleinc.com` redirects to `app.tiretriad.com` until Phase 3 DNS cutover completes.
 
 ---
 
@@ -209,3 +211,64 @@ Derived from comparing the live portal catalog against the Michelin eFleet HTML 
 **Highest value, slowest close:**
 - Fleet contracts via Rubber CRM
 - Target: I-25 HVAC fleets, Amazon DSPs, FedEx contractors, owner-operators
+
+---
+
+## Tire Triad rebrand & invite-onboarding hardening (May 2026)
+
+Captured during the May 2026 Skedaddle → Tire Triad rebrand and the parallel push to actually onboard the first non-Alex user (Kyle). Real recipients tripped over rough edges in the invite flow that internal testing missed; this section tracks both what shipped and what's still outstanding.
+
+### Shipped this cycle ✅
+
+- **Dual-brand structure.** `Front Range Rubber LLC` as the legal entity, `Tire Triad` as the consumer brand. `BRAND` config in `src/config/brand.js` mirrored to `functions/brand.js`. Domains: `app.tiretriad.com` (portal) + `info.tiretriad.com` (transactional email, verified in Resend).
+- **Three-ring triad logo.** Replaced the Skedaddle lightning bolt across `BrandBolt`, favicon, login glyph, and the invite email's hero band. Component name preserved so every existing consumer picks up the new glyph automatically.
+- **Branded HTML invite email.** Dark-theme card, watermarked triad mark behind a `TIRE TRIAD` wordmark, `Verified registration link` badge, named-inviter subject (`Kyle, Alex set up your Tire Triad access`), expiry line, SPF/DKIM/DMARC trust signal in the footer, `Sent by Alex ~ Tire Triad initiation` lead. Inline styles + table layout for cross-client coverage.
+- **SMS invite parity.** Inviter line in body, trust signal, graceful right-to-left degradation under the 280-char budget, Sinch batch id captured, error taxonomy (`invalid-number` / `carrier-rejected` / `rate-limited` / `auth-error` / `timeout` / `provider-error`), People modal shows `SMS sent...` / `SMS failed (...)` instead of generic Email copy.
+- **Sinch inbound HMAC signature verification.** Accepts `X-Sinch-Webhook-Signature` (the actual header Sinch uses on our service plan) in addition to existing fallbacks. Shared secret in Firebase Secret Manager.
+- **Real prices on mobile catalog.** `TireCardMobile` rebound to canonical selectors (`tireCatalogBuyNumber` / `tireCatalogRetailNumber` / enriched `listingMargin`) — was rendering `$0.00` on every row. `Test offer` CTA renamed to `Try a price`. HaggleSheet call site maps the same canonical values so the stress-test sheet shows real numbers.
+- **People editor profile section.** Admin can edit First / Last / Email / Phone on a pending invitee without recreating the user. Email change is gated on `inviteAccepted=false` and synced to Firebase Auth so the two records can't diverge. Surfaces `auth/email-already-exists` and `auth/invalid-email` as actionable errors.
+- **Invalid-invite recovery page.** `resolveInvite` returns a specific reason (`not-found` / `expired` / `used` / `revoked` / `accepted` / `no-user`); the InvitePage renders reason-specific copy with the triad mark and a clear next action, replacing the cryptic random-phrase fallback that read as a phishing landing on a corporate-managed device.
+- **Pre-login Cloud Run IAM.** `resolveInvite`, `getInviteGreeting`, `sendInviteRegistrationCode`, `completeInviteRegistration` granted `allUsers / roles/run.invoker` so the recipient (who has no Auth account yet) can actually invoke them. `invoker: 'public'` added to the `onCall` configs to document intent and reapply on every deploy. `INVITE_DELIVERY_SECRETS` bound to `sendInviteRegistrationCode` so the verification-code email actually sends.
+- **Wizard polish.** Step 4 phone now formats progressively (`+1 (970) 814-5253`) as the recipient types and submits as E.164. Step 5 password shows a live hint (`At least 8 characters` → amber `N more to go` → emerald `Looks good`). Both match the People admin entry pattern.
+- **Mobile chrome fixes.** Bottom nav `Rubber CRM` label aligned with single-word siblings (fixed-height label row + justify-start). Next-to-Post modal footer pinned to bottom with safe-area inset padding. Modal panel switched from `min-h-screen` to `min-h-dvh` so iOS Safari's dynamic toolbar stops burying action footers.
+- **Invite intro readability.** Door-opening animation now fades the white slit to transparent once the door rotates away, and a large translucent triad mark (420px, 18% opacity) fades in centered as a backdrop. Continue is a real pill button instead of a barely-visible underline.
+
+### Pending — high priority
+
+These are real gaps surfaced during onboarding. None block Kyle but every one is something an admin will hit again.
+
+- **Channel swap on existing invites.** Today `Resend` is locked to whatever channel was picked at create time. Extend `updatePortalUser` to accept `inviteDelivery` changes, add a `Resend via [Email ▾]` dropdown next to the Resend button in the editor so an admin can flip Email ↔ SMS ↔ NFC mid-flow without deleting and recreating the user.
+- **Multi-channel send for a single invite.** Stretch on the above: a `Send both` button that fires Email + SMS in one click. Needs a small design call on split-delivery semantics (what if email sends but SMS rate-limits — surface partial-success or treat as overall failure?).
+- **Slack step in the invite wizard.** Strategic decision pending: keep / make optional / drop entirely. Kyle and DJ getting jobs and schedules via text + a dashboard widget might replace the Slack invite step's value. If we drop Slack, move "jobs / updates / schedules" surfaces fully onto the website + SMS alerts.
+- **Investigate "Live counts unavailable" banner on fresh login.** Transient Firestore listener race showing on first dashboard load for a brand-new auth session. Refresh clears it. Find the listener that's failing and either retry it once or suppress the banner if it recovers within a few seconds.
+- **Set Alex's Firebase Auth displayName.** Currently empty, so invite email subjects fall back to `${recipient}, your Tire Triad access` instead of `${recipient}, Alex set up your Tire Triad access`. One-time fix via Firebase console or `admin.auth().updateUser`.
+
+### Pending — medium priority
+
+- **`TIRE TRIAD` wordmark clipping in wizard header.** Letter-spacing tightens the `T` / `I` glyphs against the BrandBolt above them. Cosmetic but noticeable. Either reduce tracking on small sizes or add explicit spacer between the mark and the wordmark.
+- **HMAC secret rotation for Sinch inbound webhook.** The current `SINCH_INBOUND_SHARED_SECRET` value passed through plaintext email to Sinch support during ticket `00MLP4-J9JMK` and through this chat. Rotate within the next few weeks: generate a fresh 64-char hex, update Sinch dashboard + Firebase Secret Manager, redeploy `inboundSms`.
+- **Vercel project rename to `tiretriad`.** Started during the rebrand but not finished. Doesn't affect functionality (custom domain still resolves) — pure hygiene. Settings → General → Project Name.
+- **Firebase Auth org policy investigation.** The fact that `allUsers / roles/run.invoker` had to be granted manually on every pre-login callable (instead of being applied automatically by `firebase deploy` from the `invoker: 'public'` config) is unusual. Find out which org policy or default config is blocking the auto-grant so future deploys of new pre-login callables don't repeat this fire drill.
+
+### Pending — Phase 3 DNS cutover
+
+Flip these the same week DNS for `skedaddleinc.com` redirects to `app.tiretriad.com`:
+
+- `index.html` — `<link rel="canonical">` and `og:url` still point at `https://www.skedaddleinc.com/`
+- `README.md` — `Live (invite-only): [skedaddleinc.com](https://skedaddleinc.com)`
+- `scripts/run-quarterly-audit.mjs` — ROUTES array hardcodes `https://skedaddleinc.com/...`
+- `scripts/audit-authenticated-capture.mjs` — `BASE = 'https://www.skedaddleinc.com'`
+- `scripts/capture-auth-state.mjs` — `page.goto('https://www.skedaddleinc.com/...')`
+- Eventually drop `BRAND.legacyApex` once analytics show no inbound traffic to the legacy apex.
+
+### Intentional leftovers (do not "fix")
+
+Confirmed during the May 2026 audit; touching these would break things:
+
+- localStorage keys (`skedaddle-theme`, `skedaddle-tires-filters-open`, `skedaddle-tire-margin-presets-v1`, `skedaddle-advisor-mode-v1`, `skedaddle-sound-enabled`, `skedaddle-margin-record-pct`, `skedaddle-listing-reasons-used`)
+- Internal event names (`skedaddle:tires-selection`, `skedaddle-close-overlays`)
+- `window.__skedaddleSinchMounted` window-global guard
+- Firebase project id `skedaddle-inventory` (immutable)
+- Test fixture emails `@skedaddle.local`
+- eFleet account strings `1580951 SKEDADDLE INC LOVELAND` in real Michelin data the parser must keep handling
+- `salesAdvisor.test.mjs` regression guard `expect(prompt).not.toMatch(/Skedaddle/i)`
