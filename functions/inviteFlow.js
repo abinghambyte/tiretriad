@@ -266,7 +266,17 @@ async function loadActiveInvite(token) {
   }
 }
 
-exports.resolveInvite = onCall(async (request) => {
+// Callables on the invite-acceptance path must allow unauthenticated
+// invocation: the recipient hits these BEFORE they have a Firebase Auth
+// account. Default Cloud Run deploys can land with allUsers stripped
+// from the invoker IAM (organization policy, manual revoke, residue
+// from a private-service template), and the function then rejects
+// every browser call with "Empty Authorization header value" before
+// our code ever runs. `invoker: 'public'` makes the intent explicit
+// and reapplies the binding on every deploy. The Firebase callable
+// runtime still verifies App Check / Auth tokens inside the handler,
+// so this only opens the front door, not the data behind it.
+exports.resolveInvite = onCall({ invoker: 'public' }, async (request) => {
   const token = String(request.data?.token || '').trim()
   if (!token) {
     throw new HttpsError('invalid-argument', 'token is required.')
@@ -346,7 +356,7 @@ Examples: "DJ. We've been expecting this." / "There you are, Kyle." / "The door 
   }
 }
 
-exports.getInviteGreeting = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request) => {
+exports.getInviteGreeting = onCall({ invoker: 'public', secrets: [ANTHROPIC_API_KEY] }, async (request) => {
   const token = String(request.data?.token || '').trim()
   const firstName = String(request.data?.firstName || '').trim() || 'there'
   const crewTag = String(request.data?.crewTag || '').trim() || 'Spotter'
@@ -403,7 +413,7 @@ async function generateInviteGreetingLine({ firstName, role, secretValue }) {
   }
 }
 
-exports.sendInviteRegistrationCode = onCall(async (request) => {
+exports.sendInviteRegistrationCode = onCall({ invoker: 'public' }, async (request) => {
   const token = String(request.data?.token || '').trim()
   const email = String(request.data?.email || '').trim().toLowerCase()
   if (!token || !email) {
@@ -469,7 +479,7 @@ exports.sendInviteRegistrationCode = onCall(async (request) => {
   return { ok: true, sent: true }
 })
 
-exports.completeInviteRegistration = onCall(async (request) => {
+exports.completeInviteRegistration = onCall({ invoker: 'public' }, async (request) => {
   const data = request.data || {}
   const token = String(data.token || '').trim()
   const email = String(data.email || '').trim().toLowerCase()
